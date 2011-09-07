@@ -145,6 +145,10 @@
               intervalId = setInterval("doBlink()",1000);
 
               document.forms['DropZoneForm'].action= url0;
+              if (!isFF)
+              {
+                document.forms['DropZoneForm'].submit();
+              }
               return true;
             }   
 
