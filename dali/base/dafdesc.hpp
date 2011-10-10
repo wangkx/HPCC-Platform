@@ -253,6 +253,7 @@ interface IClusterInfo: extends IInterface  // used by IFileDescriptor and IDist
     virtual void serialize(MemoryBuffer &mb)=0;
     virtual void setGroup(IGroup *grp)=0;
     virtual void setGroupName(const char *name)=0;
+    virtual void getBaseDir(const char *cluster, StringBuffer &basedir)=0;
     virtual void getBaseDir(StringBuffer &basedir, DFD_OS os)=0;
     virtual void getReplicateDir(StringBuffer &basedir, DFD_OS os)=0;
     virtual void setRoxieLabel(const char *label)=0;
@@ -301,6 +302,7 @@ extern da_decl StringBuffer &makeSinglePhysicalPartName(const char *lname, // si
                                                         );    
 
 // set/get defaults
+extern da_decl const char *queryBaseDirectoryForCluster(const char *cluster,bool replicatedir=false);
 extern da_decl const char *queryBaseDirectory(bool replicatedir=false,DFD_OS os=DFD_OSdefault);
 extern da_decl void setBaseDirectory(const char * dir,bool replicatedir=false,DFD_OS os=DFD_OSdefault);
 extern da_decl const char *queryPartMask();
@@ -352,5 +354,35 @@ inline DFD_OS SepCharBaseOs(char c)
     return DFD_OSdefault;
 }
 
+class ClusterInfoCache : public CInterface
+{
+    StringAttr name;
+    DFD_OS os;
+
+public:
+    ClusterInfoCache(const char* _name, DFD_OS _os) : name(_name), os(_os) {}
+    virtual ~ClusterInfoCache() {}
+
+    void setOS(DFD_OS _os) { os = _os; }
+    void setName(const char* _name) { name.set(_name); }
+
+    DFD_OS getOS() {return os;};
+    const char* getName() {return name.get();};
+};
+
+class CachedClusterInfo : public CInterface
+{
+public:
+    IMPLEMENT_IINTERFACE
+
+    DFD_OS getOS(const char* name);
+    void clear() {cache.kill();};
+
+protected:
+    CDateTime timeCached;
+    CIArrayOf<ClusterInfoCache>   cache;
+};
+
+static CachedClusterInfo cachedClusterInfo;
 
 #endif

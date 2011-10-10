@@ -2733,7 +2733,7 @@ public:
         getClusterInfo(*t,&queryNamedGroupStore(),0,clusters);
     }
     
-    void saveClusters()
+    void saveClusters(bool updateFileDirectory)
     {
         // called from CClustersLockedSection
         IPropertyTree *t;
@@ -2774,6 +2774,12 @@ public:
             else
                 t->removeProp("@group");
             t->setPropInt("@numclusters",clusters.ordinality());
+            if (updateFileDirectory && clusters.ordinality())
+            {
+                StringBuffer name, baseDir;
+                clusters.item(0).getBaseDir(clusters.item(0).getClusterLabel(name),baseDir);
+                t->setProp("@directory",baseDir.str());
+            }
             if (t==tc)
                 break;
             t = tc; // now fix cache
@@ -2802,10 +2808,10 @@ public:
             IDFS_Exception *e = new CDFS_Exception(DFSERR_ClusterNotFound,clustername);
             throw e;
         }
-        saveClusters();
+        saveClusters(false);
     }
 
-    void removeCluster(const char *clustername)
+    void removeCluster(const char *clustername, bool updateFileDirectory)
     {
         CClustersLockedSection cls(INTERFACE::logicalName);
         reloadClusters();
@@ -2814,7 +2820,7 @@ public:
             if (clusters.ordinality()==1) 
                 throw MakeStringException(-1,"CFileClusterOwner::removeCluster cannot remove sole cluster %s",clustername);
             clusters.remove(i);
-            saveClusters();
+            saveClusters(updateFileDirectory);
         }
     }
 
@@ -2883,7 +2889,7 @@ public:
         unsigned i = findCluster(clustername);
         if (i!=NotFound) {
             clusters.updatePartDiskMapping(i,spec);
-            saveClusters();
+            saveClusters(false);
         }
     }
 
@@ -3078,7 +3084,7 @@ public:
         setFileAttrs(fdesc,true);
         setClusters(fdesc);
         setPreferredClusters(_parent->defprefclusters);     
-        saveClusters();
+        saveClusters(false);
         setParts(fdesc,true);
 #ifdef EXTRA_LOGGING
         LOGPTREE("CDistributedFile.b root.1",root);
@@ -3370,6 +3376,7 @@ public:
     bool removePhysicalPartFiles(unsigned short port,const char *cluster,IMultiException *mexcept)
     {
         Owned<IGroup> grpfilter;
+        StringArray dirfilter;
         if (cluster&&*cluster) {
             unsigned cn = findCluster(cluster);
             if (cn==NotFound)
@@ -3378,6 +3385,14 @@ public:
                 cluster = NULL; // cannot delete last cluster
             else
                 grpfilter.setown(clusters.getGroup(cn));
+
+            StringBuffer baseDir, replicateDir;
+            clusters.item(cn).getBaseDir(baseDir,SepCharBaseOs(getPathSepChar(directory.get())));
+            clusters.item(cn).getReplicateDir(replicateDir,SepCharBaseOs(getPathSepChar(directory.get())));
+            if (baseDir.length() > 0)
+                dirfilter.append(baseDir.str());
+            if (replicateDir.length() > 0)
+                dirfilter.append(replicateDir.str());
         }
         if (logicalName.isExternal()) {
             if (logicalName.isQuery())
@@ -3397,11 +3412,12 @@ public:
             IMultiException *mexcept;
             unsigned width;
             IGroup *grpfilter;
+            StringArray &dirfilter;
         public:
             bool ok;
             bool islazy;
-            casyncfor(IDistributedFile *_file,unsigned _width,unsigned short _port,IGroup *_grpfilter,IMultiException *_mexcept,CriticalSection &_errcrit)
-                : errcrit(_errcrit)
+            casyncfor(IDistributedFile *_file,unsigned _width,unsigned short _port,IGroup *_grpfilter,StringArray& _dirFilter, IMultiException *_mexcept,CriticalSection &_errcrit)
+                : errcrit(_errcrit), dirfilter(_dirFilter)
             {
                 file = _file;
                 port = _port;
@@ -3420,6 +3436,25 @@ public:
                     part->getFilename(rfn,copy);
                     if (grpfilter&&(grpfilter->rank(rfn.queryEndpoint())==RANK_NULL))
                         continue;
+
+                    if (dirfilter.ordinality()>0)
+                    {
+                        StringBuffer fileName;
+                        rfn.getLocalPath(fileName);
+                        bool inDirfilter = false;
+                        unsigned dirs = dirfilter.length();
+                        while (dirs--)
+                        {
+                            const char * filePath = dirfilter.item(dirs);
+                            if (strnicmp(fileName.str(), filePath, strlen(filePath)) == 0)
+                            {
+                                inDirfilter = true;
+                                break;
+                            }
+                        }
+                        if (!inDirfilter)
+                            continue;
+                    }
                     if (port)
                         rfn.setPort(port); // if daliservix
                     Owned<IFile> partfile = createIFile(rfn);
@@ -3452,11 +3487,11 @@ public:
                     }
                 }
             }
-        } afor(this,width,port,grpfilter,mexcept,errcrit);
+        } afor(this,width,port,grpfilter,dirfilter,mexcept,errcrit);
         afor.islazy = queryProperties().getPropInt("@lazy")!=0;
         afor.For(width,10,false,true);
         if (cluster&&*cluster) 
-            removeCluster(cluster);
+            removeCluster(cluster, true);
         return afor.ok;
     }
 
@@ -5540,13 +5575,13 @@ public:
         subfiles.item(0).addCluster(clustername,mspec);
     }
 
-    virtual void removeCluster(const char *clustername)
+    virtual void removeCluster(const char *clustername, bool updateFileDirectory)
     {
         CriticalBlock block (sect);
         clusterscache.clear();
         ForEachItemIn(i,subfiles) {
             IDistributedFile &f=subfiles.item(i);
-            f.removeCluster(clustername);
+            f.removeCluster(clustername, updateFileDirectory);
         }       
     }
 
@@ -7067,7 +7102,7 @@ bool CDistributedFileDirectory::renamePhysical(const char *oldname,const char *n
         }
     }
     if (splitfrom) {
-        oldfile->removeCluster(oldcluster.str());
+        oldfile->removeCluster(oldcluster.str(), false);
         file->attach(newlogicalname.get());
     }
     else if (mergeinto) {

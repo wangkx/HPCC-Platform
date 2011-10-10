@@ -507,6 +507,14 @@ public:
         return group;
     }
 
+    void getBaseDir(const char *cluster,StringBuffer &basedir)
+    {
+        if (mspec.defaultBaseDir.isEmpty())  // assume thor default
+            basedir.append(queryBaseDirectoryForCluster(cluster,false));
+        else
+            basedir.append(mspec.defaultBaseDir);
+    }
+
     void getBaseDir(StringBuffer &basedir,DFD_OS os)
     {
         if (mspec.defaultBaseDir.isEmpty())  // assume thor default
@@ -2190,6 +2198,114 @@ void loadDefaultBases()
 
 }
 
+DFD_OS CachedClusterInfo::getOS(const char* name)
+{
+#ifdef _WIN32
+    DFD_OS os = DFD_OSwindows;
+#else
+    DFD_OS os = DFD_OSunix;
+#endif
+    CDateTime timeNow, timeTemp;
+    timeNow.setNow();
+
+    if (cache.length() > 0)
+    {
+        timeTemp = timeNow;
+        timeNow.adjustTime(-300); //5 minutes??
+        if (timeCached > timeNow)
+        {
+            unsigned len = cache.length();
+            while (len--)
+            {
+                ClusterInfoCache& clusterInfo = cache.item(len);
+                if (!stricmp(name, clusterInfo.getName()))
+                {
+                    return clusterInfo.getOS();
+                }
+            }
+        }
+
+        clear();
+    }
+
+    SessionId mysessid = myProcessSession();
+    if (mysessid)
+    {
+        Owned<IRemoteConnection> conn = querySDS().connect("/Environment", mysessid, RTM_LOCK_READ, SDS_CONNECT_TIMEOUT);
+        if (conn)
+        {
+            IPropertyTree* root = conn->queryRoot();
+            if (root)
+            {
+                StringArray clusters, computers;
+                Owned<IPropertyTreeIterator> it = root->getElements("Software/ThorCluster");
+                ForEach(*it)
+                {
+                    const char* cluster = it->query().queryProp("@name");
+                    const char* computer = it->query().queryProp("@computer");
+                    if (!cluster || !*cluster || !computer || !*computer)
+                        continue;
+
+                    computers.append(computer);
+                    clusters.append(cluster);
+                }
+                Owned<IPropertyTreeIterator> it1 = root->getElements("Software/RoxieCluster");
+                ForEach(*it1)
+                {
+                    const char* cluster = it1->query().queryProp("@name");
+                    const char* computer = it1->query().queryProp("RoxieServerProcess/@computer");
+                    if (!cluster || !*cluster || !computer || !*computer)
+                        continue;
+
+                    computers.append(computer);
+                    clusters.append(cluster);
+                }
+
+                unsigned len = computers.length();
+                while (len--)
+                {
+                    const char* cluster = clusters.item(len);
+                    const char* computer = computers.item(len);
+                    const char* computerType = root->queryProp(StringBuffer("Hardware/Computer[@name='").append(computer).append("']/@computerType").str());
+                    if (computerType && *computerType)
+                    {
+                        DFD_OS osNew = DFD_OSwindows;
+                        const char* opSys = root->queryProp( StringBuffer("Hardware/ComputerType[@name='").append(computerType).append("']/@opSys").str() );
+                        if (!stricmp(opSys, "linux") || !stricmp( opSys, "solaris"))
+                            osNew = DFD_OSunix;
+
+                        cache.append(*new ClusterInfoCache(cluster, osNew));
+                        if (!stricmp(name, cluster))
+                        {
+                            os = osNew;
+                        }
+                    }
+                }
+            }
+        }
+    }
+    timeCached = timeNow;
+
+    return os;
+}
+
+const char *queryBaseDirectoryForCluster(const char *cluster,bool replicate)
+{
+    if (!cluster || !*cluster)
+        return NULL;
+
+    loadDefaultBases();
+
+    DFD_OS os = cachedClusterInfo.getOS(cluster);
+
+    switch (os) {
+    case DFD_OSwindows:
+        return replicate?winreplicatedir.get():winbasedir.get();
+    case DFD_OSunix:
+        return replicate?unixreplicatedir.get():unixbasedir.get();
+    }
+    return NULL;
+}
 
 const char *queryBaseDirectory(bool replicate,DFD_OS os)
 {
