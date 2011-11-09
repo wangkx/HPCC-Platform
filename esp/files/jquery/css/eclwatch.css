@@ -1,0 +1,82 @@
+html, body {	background:	#000;	width:		100%;	height:		100%;						padding:	0;	margin:		0;	overflow:	hidden; /* when page gets too small */}
+#container {	font: 10pt verdana, arial, helvetica, sans-serif; 	background:	#FFF;	height:		100%;						min-height:	300px;	_height:	300px; /* min-height for IE6 */	width:		100%;	min-width:	700px;	_width:		700px; /* min-width for IE6 */	margin:		0 auto;}
+#container a {}#paddingWrapper {	background:	#FFF;	padding:	2px 2px;	border:		2px solid #999;}
+.pane {	display:	none; }/*
+.ui-layout-pane { 
+	background: #FFF; 
+	border: 1px solid #BBB; 
+	padding: 10px; 
+	overflow: auto;
+} 
+
+.ui-layout-resizer { 
+	background: #DDD; 
+} 
+
+.ui-layout-toggler { 
+	background: #AAA; 
+} 
+
+.ui-layout-north { 
+overflow: hidden !important;
+} 
+
+.ui-layout-north ul ul {
+	bottom:		auto;
+	margin:		0;
+	margin-top:	1.45em;
+}
+
+*/.ui-layout-pane-west {	padding:	0;	overflow:	hidden !important;}	.ui-layout-pane-west .ui-tabs-nav {	border-top:		0;	border-left:	0;	border-right:	0;	padding-bottom:	0 !important;	-moz-border-radius:		0;	-webkit-border-radius:	0;}.ui-tabs-nav li {	white-space:	nowrap;}.ui-tabs-nav li a {	font-size:		1em !important;	padding:		4px 1.5ex 3px !important;}.ui-tabs-panel {	font-size:		1em !important;	padding:		0 1em !important;}
+#header{    margin-bottom: 5px;    height: 25px;    position: relative;    z-index: 2;}#header div, span, ul, li{    margin: 0;    padding: 0;    border: 0;    outline: 0;    font-size: 100%;    background: transparent;}#header ul{    list-style: none;}#header #eclWatchLogo{    position: absolute;    left: -150px;    top: 0;    height: 25px;    width: 353px;    padding-left: 150px;    z-index: 2;    zoom: 1;}#header #eclWatchLogo a:link, #header #eclWatchLogo a:visited{    background-image: url(../images/hpcc_eclwatch.png);    background-position: left top;    background-repeat: no-repeat;    display: block;    height: 50px;    width: 350px;    text-indent: -999em;}/* links */#header ul#links{    position: absolute;    right: 0;    top: 0;    z-index: 30;}#header ul#links li{    position: relative;    float: right;    font-size: 12px;    line-height: 14px;    z-index: 20;    background-image: none;    padding: 0;}#header ul#links li#adv_search a{    padding: 5px 0 6px 12px;    height: 16px;    width: 200px;}#header ul#links li#hpcc_systems a{    padding: 5px 0 6px 12px;    height: 16px;    width: 100px;}#header ul#links li#my_account a{    padding: 5px 0 6px 12px;    height: 16px;    width: 80px;}#header ul#links li#logout a{    padding: 5px 0 6px 12px;    height: 16px;    width: 50px;}#header ul#links li#config a{    padding: 5px 0 6px 0;    height: 16px;    width: 24px;}#header ul#links{    width: 580px;}/* end links *//* search box *//*#header #site_search{    background-image: url(bg_search.gif);    background-position: left top;    background-repeat: no-repeat;    height: 26px;    padding: 3px 3px 2px 8px;    position: absolute;    right: 0;    top: 27px;    width: 201px;    z-index: 10;    overflow: hidden;}#header #site_search input{    border: 0 solid #FFFFFF !important;    float: left;    height: 17px;    margin-right: 0;    width: 160px;}#header #site_search .search_btn{    cursor: pointer;    display: block;    float: right;    margin-right: 0;    margin-top: -1px;    height: 22px;    width: 22px;}*/.tabs {	width:auto;}
+/*#tabMenuBox {    height: 1500;}*/#tabMenu {
+    margin:0;
+    padding:0 0 0 15px;
+    list-style:none;
+}
+ 
+#tabMenu li {
+    float:left;
+    display: block;  
+    padding: 5px 10px 5px 10px;  
+    background: transparent;
+    margin-top: 1px;
+    margin-right: 2px;  
+    margin-bottom: -1px;  
+    border: 1px solid #d0ccc9;  
+    border-width: 1px 1px 1px 1px;  
+    position: relative;
+    color: #898989;  
+    cursor:pointer;
+    cursor:hand
+}
+
+#tabMenu li.selected{  
+    top: 1px;  
+    border-bottom: 0; 
+    font-weight:bold;
+    color: #5f95ef;  
+}  
+ .primaryMenuTop {    height:1px;    clear:both}.primaryMenuBox {    border: 1px solid #00ccc9;      border-width: 1px 1px 1px 1px;      /*margin-bottom: -1px;  */	overflow: auto;}.primaryMenuBox div.parent {    display:none;} .primaryMenuBox div.show {    display:block;} /* IE Hacks */*html .primaryMenuTop {margin-bottom:-2px;}*html .primaryMenuBox div ul {margin-left:10px;padding-left:15px;}/* #tabMenuBoxBody {
+    border: 1px solid #00ccc9;  
+    border-width: 1px 1px 1px 1px;  
+    height: 1500;
+	overflow: auto;}
+ 
+.boxBody 
+{
+	height:1500px;
+    background-color:#FFF;
+}
+
+.boxBody div.parent {
+    display:none;
+}
+ 
+.boxBody div.show {
+    display:block;
+}
+ 
+*html .boxTop {margin-bottom:-2px;}
+*html .boxBody div ul {margin-left:10px;padding-left:15px;}
+#tooltip.pretty {	font-family: Arial;	border: none;	width: 210px;	padding:20px;	height: 135px;	opacity: 0.8;	background: url('../images/shadow.png');}*/.filetree {	font: 10pt verdana, arial, helvetica, sans-serif; } .filetree span.workunit, .filetree span.dropzone, .filetree span.tool { padding: 1px 0 1px 16px; display: block; }.filetree span.users, .filetree span.groups { padding: 1px 0 1px 16px; display: block; }.filetree span.server, .filetree span.cluster, .filetree span.servers { padding: 1px 0 1px 16px; display: block; }.filetree span.workunit { background: url(../images/cog.png) 0 0 no-repeat; }.filetree span.dropzone { background: url(../images/base.gif) 0 0 no-repeat; }.filetree span.tool { background: url(../images/tool.png) 0 0 no-repeat; }.filetree span.users { background: url(../images/users.png) 0 0 no-repeat; }.filetree span.groups { background: url(../images/usergroup.png) 0 0 no-repeat; }.filetree span.server { background: url(../images/server.png) 0 0 no-repeat; }.filetree span.servers { background: url(../images/cluster.png) 0 0 no-repeat; }.filetree span.cluster { background: url(../images/cluster.png) 0 0 no-repeat; }

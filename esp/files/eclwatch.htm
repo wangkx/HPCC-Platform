@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html style="height: 100%; overflow-x: hidden; overflow-y: hidden; ">
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+	<title>Layouts Inside Tabs</title>
+	<link rel="stylesheet" type="text/css" href="/esp/files/jquery/css/layout-default-latest.css"/>
+	<link rel="stylesheet" type="text/css" href="/esp/files/jquery/css/ui-lightness/jquery-ui-1.7.2.custom.css"/>
+	<!--We may add treeview inside some of tabs-->
+	<link rel="stylesheet" type="text/css" href="/esp/files/jquery/css/jquery.treeview.css"/>
+	<link rel="stylesheet" type="text/css" href="/esp/files/jquery/css/jquery.tooltip.css" />
+	<link rel="stylesheet" type="text/css" href="/esp/files/jquery/css/eclwatch.css"/>
+		
+	<script type="text/javascript" src="http://ajax.googleapis.com/ajax/libs/jquery/1.7.1/jquery.min.js"></script>
+	<script type="text/javascript" src="http://ajax.googleapis.com/ajax/libs/jqueryui/1.8.1/jquery-ui.min.js"></script>
+	<script type="text/javascript" src="/esp/files/jquery/js/jquery.layout.js"></script>
+	<script type="text/javascript" src="/esp/files/jquery/js/jquery.scrollabletab.js"></script>
+	<script type="text/javascript" src="/esp/files/jquery/js/jquery.treeview.js"></script>
+	<script type="text/javascript" src="/esp/files/jquery/js/jquery.bgiframe.js"></script>
+	<script type="text/javascript" src="/esp/files/jquery/js/jquery.dimensions.js"></script>
+	<script type="text/javascript" src="/esp/files/jquery/js/jquery.tooltip.js"></script>
+	
+	<script type="text/javascript">
+	    $(document).ready(function () {
+		    $('#container').layout();
+/*			
+			$('#pretty').tooltip({
+				track: true,
+				delay: 0,
+				showURL: false,
+				showBody: " - ",
+				extraClass: "pretty",
+				fixPNG: true,
+				left: -120
+			});
+*/			
+		    pageLayout = $('#paddingWrapper').layout({
+			    north__size: 65
+		    ,	north__closable:        false
+		    ,	north__resizable:        false
+		    //,	west__resizable:        false
+			//,   west__onresize: 	"$('#primaryMenuBox').resize()"
+			//,   west__onresize: 	"primaryMenu.resizeAll"
+			//,   west__onresize: 	 function() { $('#tabMenuBox').css('width', $('#primaryNavPane').outerWidth() - 10 + 'px');} 
+			,   west__onresize: 	 function() { $('#tabMenuBox').css('width', $('#primaryNavPane').outerWidth() - 10 + 'px'); 
+										$('#tabMenuBox').tabs().trigger('resized');} 
+			//,   west__onresize: 	 function() { $('#tabMenuBox').css('width', $('#primaryNavPane').outerWidth() - 10 + 'px');} 
+		    ,   north__spacing_open: 2
+		    });
+		    pageLayout.panes.north.css('border','none');
+		    
+		    //$('#tabMenuBox').tabs();
+			
+            //$('#tabMenuBox').tabs().scrollabletab();
+            
+			$('#tabMenuBox').tabs().scrollabletab({
+		        //'closable':true, //Default false
+		        'animationSpeed':50, //Default 100
+		        //'loadLastTab':true, //Default false
+		        'resizable':true, //Default false
+		        'resizeHandles':'e', //Default 'e,s,se'
+		        'easing':'easeInOutExpo' //Default 'swing'
+	        });
+
+			$('.primaryMenuBox').css('height', $('#primaryNavPane').outerHeight() - 40 + 'px');
+		
+			$("#WsEclMenu").treeview();
+            $("#WsEclMenu").bind("contextmenu", function(event) {
+				if ($(event.target).is("li") || $(event.target).parents("li").length) {
+					$("#WsEclMenu").treeview({
+						remove: $(event.target).parents("li").filter(":first")
+					});
+					return false;
+				}
+			});
+			
+			$("#SystemMenu").treeview();
+            $("#SystemMenu").bind("contextmenu", function(event) {
+				if ($(event.target).is("li") || $(event.target).parents("li").length) {
+					$("#SystemMenu").treeview({
+						remove: $(event.target).parents("li").filter(":first")
+					});
+					return false;
+				}
+			});
+			
+			$.ajax({
+                url: "/WsSmc/Activity",
+
+                //on success, set the html to the responsetext
+                success: function(data){
+                    $("#contentDiv").html(data);
+                }
+            });
+
+            /*
+            $.ajax({
+                url: "/esp/nav",
+
+                //on success, set the html to the responsetext
+                success: function(data){
+                    alert(data); $("#contentDiv").html(data);
+                }
+            });
+            */
+	    });
+	</script>
+
+</head>
+
+<body>
+<div id="container">
+	<div id="paddingWrapper" class="pane ui-layout-center">
+		<div class="pane ui-layout-north">
+			<div id="header">
+                <div id="eclWatchLogo">
+                    <a href="" name="" />
+                </div>
+                <div>
+                    <ul id="links">
+                        <li id="adv_search">
+						<a>
+                            <input id="Text1" name="SearchInput" type="text" size="20" value="Search WU or file"/>
+                            <input src="/esp/files/jquery/images/btn_search.gif" type="image" name="" align="absmiddle" border="0" alt="Submit" class="search_btn" onclick="return submit_site_search()"/>
+                        </a>
+                        </li>
+                        <li id="hpcc_systems" title="Link to HPCC Website">
+                            <a href="http://hpccsystems.com/" target="_blank">HPCC Systems</a>
+                        </li>
+                        <li id="my_account" title="This link displays the information about the user account.">
+                            <a href="">My Account</a>
+                            <!--a href="javascript:gotoURL('/Ws_LNAccount/UpdateUserInput')">My Account</a-->
+                        </li>
+                        <li id="logout" title="This link allows the user to log out from this account.">
+                            <!--a href="javascript:gotoURL('/Ws_LNAccount/Logout')">Logout</a-->
+                            <a href="">Logout</a>
+                        </li>
+                        <li id="config" title="This link displays the esp.xml.">
+                            <a href="">
+                                <img border="0" src="/esp/files/jquery/images/config.png"/>
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+
+        </div>
+
+        <div id="primaryNavPane" class="pane ui-layout-west">
+			<div id="tabMenuBox" class="tabs">
+				<ul>
+					<li><a href="#WsEclTab">Ecl?</a></li>
+					<li><a href="#SystemTab">Systems</a></li>
+					<li><a href="#tabs-3-2">More Tabs</a></li>
+				</ul>
+				<div class="primaryMenuTop"></div>
+				<div class="primaryMenuBox">
+					<div id="WsEclTab" class="show parent">
+						<ul id="WsEclMenu" class="filetree">
+							<li class="closed"><span class="folder">QuerySets</span>
+								<ul id="Ul2">
+									<li>
+										<span class="file" title="? List queries inside EclWatch Content pane ?">
+											<a href="">QuerySet1</a>
+										</span>
+									</li>
+									<li>
+										<span class="file" title="? List queries inside EclWatch Content pane ?">
+											<a href="">QuerySet2</a>
+										</span>
+									</li>
+								</ul>
+							</li>
+							<li class="closed"><span class="folder">EclWorkunits</span>
+								<ul>
+									<li class="closed"><span class="folder">Today's</span>
+										<ul id="Ul3">
+											<li><span class="workunit" title="Display Ecl WU Details page for W1 inside EclWatch Content pane"><a href="">W1</a></span></li>
+											<li><span class="workunit" title="Display Ecl WU Details page for W2 inside EclWatch Content pane"><a href="">W2</a></span></li>
+										</ul>
+									</li>
+									<li class="closed"><span class="folder">This week's</span>
+										<ul id="Ul6">
+											<li><span class="workunit">W1</span></li>
+											<li><span class="workunit">W2</span></li>
+										</ul>
+									</li>
+									<li class="closed"><span class="folder">Previous Weeks'</span>
+										<ul id="Ul7">
+											<li><span class="workunit">W11</span></li>
+											<li><span class="workunit">W12</span></li>
+										</ul>
+									</li>
+									<li><span class="tool">Advanced Search</span></li>
+								</ul>
+							</li>
+							<li><span class="tool">Schduler</span></li>
+							<li class="closed"><span class="folder">DfuWorkunits</span>
+								<ul>
+									<li class="closed"><span class="folder">Today's</span>
+										<ul id="Ul4">
+											<li><span class="workunit">D1</span></li>
+											<li><span class="workunit">D2</span></li>
+										</ul>
+									</li>
+									<li class="closed"><span class="folder">This week's</span>
+										<ul id="Ul8">
+											<li><span class="workunit">D1</span></li>
+											<li><span class="workunit">D2</span></li>
+										</ul>
+									</li>
+									<li class="closed"><span class="folder">Previous Weeks'</span>
+										<ul id="Ul9">
+											<li><span class="workunit">D11</span></li>
+											<li><span class="workunit">D12</span></li>
+										</ul>
+									</li>
+									<li><span class="tool">Advanced Search</span></li>
+								</ul>
+							</li>
+							<li class="closed"><span class="folder">DropZones</span>
+								<ul id="Ul1">
+									<li>
+										<span class="file" title="List drop zone files inside EclWatch Content pane">
+											<a href="">DropZone1</a>
+										</span>
+									</li>
+									<li>
+										<span class="file" title="List drop zone files inside EclWatch Content pane">
+											<a href="">DropZone2</a>
+										</span>
+									</li>
+								</ul>
+							</li>
+							<li class="closed"><span class="folder">Files</span>
+								<ul id="Ul5">
+									<li><span class="tool">Browse Logical Files</span></li>
+									<li><span class="tool">Search Logical Files</span></li>
+									<li><span class="tool">Spray</span></li>
+									<li><span class="tool">Copy</span></li>
+									<li><span class="tool">Xref</span></li>
+									<li><span class="tool">View Data</span></li>
+								</ul>
+							</li>
+						</ul>
+					</div>
+					<div id="SystemTab" class="show parent">
+					    <ul id="SystemMenu" class="filetree">
+							<li><span class="file" title="Display System Activity page inside EclWatch Content pane"><a href="">Activity</a></span></li>
+							<li class="closed"><span class="cluster">Clusters</span>
+								<ul>
+									<li class="closed"><span class="cluster">Target Clusters</span>
+										<ul id="TargetClusters">
+											<li><span class="cluster" title="Display Target Cluster page for all target clusters inside EclWatch Content pane"><a href="">All</a></span></li>
+											<li><span class="cluster" title="Display Target Cluster page for TargetCluster1 inside EclWatch Content pane"><a href="">Target1</a></span></li>
+											<li><span class="cluster" title="Display Target Cluster page for TargetCluster2 inside EclWatch Content pane"><a href="">Target2</a></span></li>
+										</ul>
+									</li>
+									<li class="closed"><span class="cluster">Thor Clusters</span>
+										<ul id="ThorClusters">
+											<li><span class="cluster">Thor1</span></li>
+											<li><span class="cluster">Thor2</span></li>
+										</ul>
+									</li>
+									<li class="closed"><span class="cluster">Roxie Clusters</span>
+										<ul id="RoxieClusters">
+											<li><span class="cluster">Roxie1</span></li>
+											<li><span class="cluster">Roxie2</span></li>
+										</ul>
+									</li>
+								</ul>
+							</li>
+							<li class="closed"><span class="servers">Servers</span>
+								<ul>
+									<li class="closed"><span class="servers">DaliServers</span>
+										<ul id="DaliServers">
+											<li><span class="cluster">All</span></li>
+											<li><span class="server">DaliServer1</span></li>
+											<li><span class="server">DaliServer2</span></li>
+										</ul>
+									</li>
+									<li class="closed"><span class="servers">DfuServers</span>
+										<ul id="DfuServers">
+											<li><span class="cluster">All</span></li>
+											<li><span class="server">DfuServer1</span></li>
+											<li><span class="server">DfuServers2</span></li>
+										</ul>
+									</li>
+									<li class="closed"><span class="servers">ESPServers</span>
+										<ul id="ESPServers">
+											<li><span class="cluster">All</span></li>
+											<li><span class="server">ESPServer1</span></li>
+											<li><span class="server">ESPServer2</span></li>
+										</ul>
+									</li>
+								</ul>
+							</li>
+							<li>
+								<span class="users" title="List all users inside EclWatch Content pane">
+									<a href="">Users</a>
+								</span>
+							</li>
+							<li>
+								<span class="groups" title="List all user groups inside EclWatch Content pane">
+									<a href="">Groups</a>
+								</span>
+							</li>
+							<li class="closed"><span class="folder">Permissions</span>
+								<ul id="Permissions">
+									<li><span class="file">FeaturePermissions</span></li>
+									<li><span class="file">FilePermissions</span></li>
+								</ul>  
+							</li>
+						</ul>
+					</div>
+					<div id="tabs-3-2">
+						We may add more tabs if needed.
+					</div>
+				</div>
+			</div>
+		</div>
+
+		<div id="contentPane" class="pane ui-layout-center">
+		    <div id="contentDiv">
+			    <b>EclWatch Content pane</b><br/>This is the pane to display EclWatch content. <br>
+			    This center pane auto-sizes to fit the space <i>between</i> the 'border-panes'
+			    <p>...</p><p>...</p><p>...</p>
+			    <p><!--span id="pretty" title="I am pretty!">And now, a tooltip with an extra class for nice shadows, and some extra content</span--></p>
+			    <p>...</p><p>...</p><p>...</p><p>...</p><p>...</p><p>...</p>
+			    <p>...</p><p>...</p><p>...</p><p>...</p><p>...</p><p>...</p><p>...</p><p>...</p><p>...</p>
+			    <p>...</p><p>...</p><p>...</p><p>...</p><p>...</p><p>...</p><p>...</p><p>...</p><p>...</p>
+			    <p>...</p><p>...</p><p>...</p><p>...</p><p>...</p><p>...</p><p>...</p><p>...</p><p>...</p>
+    		</div>
+		</div>
+	</div>
+</div>
+</body>
+</html>

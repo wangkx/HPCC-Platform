@@ -88,7 +88,6 @@ void CEspApplicationPort::appendBinding(CEspBindingEntry* entry, bool isdefault)
     }
 }
 
-
 const StringBuffer &CEspApplicationPort::getAppFrameHtml(time_t &modified, const char *inner, StringBuffer &html, IEspContext* ctx)
 {
     CEspBindingEntry* bindingentry = getDefaultBinding();
@@ -130,14 +129,25 @@ const StringBuffer &CEspApplicationPort::getAppFrameHtml(time_t &modified, const
         StringBuffer encoded_inner;
         if(inner && *inner)
             encodeXML(inner, encoded_inner);
-        
+
         // replace & with &amps;
         params.replaceString("&","&amp;");
 
         xml.appendf("<EspApplicationFrame title=\"%s\" navWidth=\"%d\" navResize=\"%d\" navScroll=\"%d\" inner=\"%s\" params=\"%s\"/>", 
             getESPContainer()->getFrameTitle(), navWidth, navResize, navScroll, (inner&&*inner) ? encoded_inner.str() : "?main", params.str());
         Owned<IXslTransform> xform = xslp->createXslTransform();
-        xform->loadXslFromFile(StringBuffer(getCFD()).append("./xslt/appframe.xsl").str());
+
+        //if newappframe.xsl
+        Owned<IFile> rFile = createIFile(StringBuffer(getCFD()).append("./xslt/newappframe.xsl").str());
+        if(rFile && rFile->exists())
+        {
+            DBGLOG("Found newappframe.xsl");
+            xform->loadXslFromFile(StringBuffer(getCFD()).append("./xslt/newappframe.xsl").str());
+            DBGLOG("Load newappframe.xsl");
+        }
+        else
+            xform->loadXslFromFile(StringBuffer(getCFD()).append("./xslt/appframe.xsl").str());
+
         xform->setXmlSource(xml.str(), xml.length()+1);
         xform->transform( (needRefresh || embedded_url) ? html.clear() : appFrameHtml.clear());
     }
@@ -145,11 +155,47 @@ const StringBuffer &CEspApplicationPort::getAppFrameHtml(time_t &modified, const
     if (!needRefresh && !embedded_url)
         html.clear().append(appFrameHtml.str());
 
+    //if eclwatch.htm
+    Owned<IFile> rFile = createIFile(StringBuffer(getCFD()).append("./files/eclwatch.htm").str());
+    if(rFile && rFile->exists())
+    {
+        OwnedIFileIO rIO = rFile->openShared(IFOread,IFSHfull);
+        if(rIO)
+        {
+            OwnedIFileIOStream ios = createBufferedIOStream(rIO);
+            if (ios)
+            {
+                html.clear();
+                MemoryBuffer mb;
+                StringBuffer line;
+                bool eof = false;
+                while (!eof)
+                {
+                    line.clear();
+                    loop
+                    {
+                        char c;
+                        size32_t numRead = ios->read(1, &c);
+                        if (!numRead)
+                        {
+                            eof = true;
+                            break;
+                        }
+                        line.append(c);
+                        if (c=='\n')
+                            break;
+                    }
+
+                    html.append(line.str());
+                }
+            }
+        }
+    }
+
     static time_t startup_time = time(NULL);    
     modified = startup_time;
     return html;
 }
-    
 
 const StringBuffer &CEspApplicationPort::getTitleBarHtml(IEspContext& ctx, bool rawXml)
 {
@@ -208,11 +254,19 @@ const StringBuffer &CEspApplicationPort::getNavBarContent(IEspContext &context, 
             }
             else
             {
-                xslsource.append(getCFD()).append("./xslt/nav.xsl");
-                    
+                Owned<IFile> rFile = createIFile(StringBuffer(getCFD()).append("./xslt/newnav.xsl").str());
+                if(rFile && rFile->exists())
+                {
+                    DBGLOG("Found newnav.xsl");
+                    xslsource.append(getCFD()).append("./xslt/newnav.xsl");
+                    DBGLOG("Load newnav.xsl");
+                }
+                else
+                {
+                    xslsource.append(getCFD()).append("./xslt/nav.xsl");
+                }
             }
             xform->loadXslFromFile(xslsource.str());
-
 
             xform->setXmlSource(xml.str(), xml.length()+1);
             xform->transform(content);

@@ -775,7 +775,7 @@
                         <xsl:attribute name="title">Queue running - Thor running</xsl:attribute>
                       </xsl:otherwise>
                     </xsl:choose>
-                    <xsl:attribute name="href">javascript:go('/WsTopology/TpClusterInfo?Name=<xsl:value-of select="$cluster"/>')</xsl:attribute>
+                    <xsl:attribute name="href">javascript:gotoURL('/WsTopology/TpClusterInfo?Name=<xsl:value-of select="$cluster"/>')</xsl:attribute>
                     <xsl:choose>
                       <xsl:when test="$roxie!='0'">RoxieCluster - </xsl:when>
                       <xsl:when test="$thor!='0'">ThorCluster - </xsl:when>
@@ -827,7 +827,7 @@
                       </xsl:otherwise>
                     </xsl:choose>
                     <xsl:if test="string-length($status)">
-                                            <xsl:attribute name="href">javascript:go('/WsTopology/TpClusterInfo?Name=<xsl:value-of select="$cluster"/>')</xsl:attribute>
+                                            <xsl:attribute name="href">javascript:gotoURL('/WsTopology/TpClusterInfo?Name=<xsl:value-of select="$cluster"/>', '')</xsl:attribute>
                                         </xsl:if>
                                         <xsl:choose>
                                           <xsl:when test="$roxie!='0'">RoxieCluster - </xsl:when>

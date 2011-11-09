@@ -90,3 +90,19 @@ function go(url) {
     document.location.href = url;
 }                     
 
+function gotoURL(url)
+{
+    var pageLocation = url;
+    $.history.load(url);
+
+    //fire off an ajax request
+    $.ajax({
+        url: pageLocation,
+
+        //on success, set the html to the responsetext
+        success: function(data){
+            //$("#linker").html(url);
+            $("#eclWatchContent").html(data);
+        }
+    });
+ };
