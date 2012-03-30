@@ -28,7 +28,8 @@
 project( dfuwu ) 
 
 set (    SRCS 
-         dfuwu.cpp 
+         dfuwu.cpp
+         dfuwuhelpers.cpp
     )
 
 include_directories ( 
@@ -38,6 +39,7 @@ include_directories (
          ./../../system/include 
          ./../../system/jlib 
          ./../../common/workunit 
+         ./../../common/environment
     )
 
 HPCC_ADD_LIBRARY( dfuwu SHARED ${SRCS} )

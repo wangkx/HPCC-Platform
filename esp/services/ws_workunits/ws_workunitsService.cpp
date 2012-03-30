@@ -3305,6 +3305,27 @@ int CWsWorkunitsSoapBindingEx::onGetForm(IEspContext &context, CHttpRequest* req
         StringBuffer xslt;
         if(strieq(method,"WUQuery") || strieq(method,"WUJobList"))
         {
+Owned<IClientFileSpray> fs;
+fs.setown(createFileSprayClient());
+VStringBuffer url("http://.:%d/FileSpray", 8010);
+fs->addServiceUrl(url.str());
+
+StringBuffer user, passwd;
+fs->setUsernameToken(context.getUserID(user).str(), context.getPassword(passwd).str(), NULL);
+
+Owned<IClientCopy> req = fs->createCopyRequest();
+        req->setSourceLogicalName("thor::persist::res1");
+        req->setDestLogicalName("Test123");
+        req->setDestGroup("myroxie");
+        req->setSuperCopy(true);
+        req->setDestGroupRoxie("Yes");
+DBGLOG("onGetForm 4");
+
+        Owned<IClientCopyResponse> resp = fs->Copy(req);
+DBGLOG("onGetForm 5");
+DBGLOG(resp->getResult());
+DBGLOG("onGetForm 7");
+
             Owned<IEnvironmentFactory> factory = getEnvironmentFactory();
             Owned<IConstEnvironment> environment = factory->openEnvironmentByFile();
             Owned<IPropertyTree> root = &environment->getPTree();

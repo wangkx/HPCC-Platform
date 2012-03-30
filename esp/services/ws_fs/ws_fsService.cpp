@@ -36,6 +36,7 @@
 #include "dfuutil.hpp"
 #include "portlist.h"
 #include "sacmd.hpp"
+#include "dfuwuhelpers.hpp"
 #include "exception_util.hpp"
 
 #define DFU_WU_URL          "DfuWorkunitsAccess" 
@@ -1760,6 +1761,48 @@ bool CFileSprayEx::onSprayFixed(IEspContext &context, IEspSprayFixed &req, IEspS
         if (!context.validateFeatureAccess(FILE_SPRAY_URL, SecAccess_Write, false))
             throw MakeStringException(ECLWATCH_FILE_SPRAY_ACCESS_DENIED, "Failed to do Spray. Permission denied.");
 
+#define KEVINTEST
+#ifdef KEVINTEST
+        WsFSSprayInput input;
+
+        input.userName = context.queryUserId();
+        input.password = context.queryPassword();
+
+        input.sourceXML = req.getSrcxml();
+        input.sourceIP = req.getSourceIP();
+        input.sourcePath = req.getSourcePath();
+        input.sourceRecordSize = req.getSourceRecordSize();
+
+        input.destLogicalName = req.getDestLogicalName();
+        input.destGroup=req.getDestGroup();
+        input.encryptKey=req.getEncrypt();
+        input.decryptKey=req.getDecrypt();
+
+        input.wrap = req.getWrap();
+        input.queueLabel = m_QueueLabel;
+        input.options.prefix = req.getPrefix();
+        input.options.overwrite = req.getOverwrite();
+        input.options.replicate = req.getReplicate();
+        input.replicateOffset = req.getReplicateOffset();
+        input.options.noSplit = req.getNosplit();
+        input.options.noRecover = req.getNorecover();
+        input.options.pull = req.getPull();
+        input.options.push = req.getPush();
+        if (req.getThrottle() > 0)
+            input.options.throttle = req.getThrottle();
+        if (req.getMaxConnections() > 0)
+            input.options.maxConnections = req.getMaxConnections();
+        if (req.getTransferBufferSize() > 0)
+            input.options.transferBufferSize = req.getTransferBufferSize();
+
+        StringBuffer wuid;
+        CreateSprayFileWorkunit(DFUsprayfixed, input, wuid);
+
+        resp.setWuid(wuid.str());
+        resp.setRedirectUrl(StringBuffer("/FileSpray/GetDFUWorkunit?wuid=").append(wuid.str()).str());
+
+#else
+
         StringBuffer destFolder, destTitle, defaultFolder, defaultReplicateFolder;
 
         const char* destCluster = req.getDestGroup();
@@ -1905,6 +1948,7 @@ bool CFileSprayEx::onSprayFixed(IEspContext &context, IEspSprayFixed &req, IEspS
         resp.setWuid(wu->queryId());
         resp.setRedirectUrl(StringBuffer("/FileSpray/GetDFUWorkunit?wuid=").append(wu->queryId()).str());
         submitDFUWorkUnit(wu.getClear());
+#endif
     }
     catch(IException* e)
     {   
@@ -1921,6 +1965,52 @@ bool CFileSprayEx::onSprayVariable(IEspContext &context, IEspSprayVariable &req,
         if (!context.validateFeatureAccess(FILE_SPRAY_URL, SecAccess_Write, false))
             throw MakeStringException(ECLWATCH_FILE_SPRAY_ACCESS_DENIED, "Failed to do Spray. Permission denied.");
 
+#define KEVINTEST
+#ifdef KEVINTEST
+        WsFSSprayInput input;
+
+        input.userName = context.queryUserId();
+        input.password = context.queryPassword();
+
+        input.sourceXML = req.getSrcxml();
+        input.sourceIP = req.getSourceIP();
+        input.sourcePath = req.getSourcePath();
+        input.sourceRecordSize = req.getSourceMaxRecordSize();
+
+        input.sourceFormat = req.getSourceFormat();
+        input.sourceRowTag = req.getSourceRowTag();
+        input.sourceCsvSeparate = req.getSourceCsvSeparate();
+        input.sourceCsvTerminate = req.getSourceCsvTerminate();
+        input.sourceCsvQuote = req.getSourceCsvQuote();
+
+        input.destLogicalName = req.getDestLogicalName();
+        input.destGroup=req.getDestGroup();
+        input.encryptKey=req.getEncrypt();
+        input.decryptKey=req.getDecrypt();
+
+        input.queueLabel = m_QueueLabel;
+        input.options.prefix = req.getPrefix();
+        input.options.overwrite = req.getOverwrite();
+        input.options.replicate = req.getReplicate();
+        input.replicateOffset = req.getReplicateOffset();
+        input.options.noSplit = req.getNosplit();
+        input.options.noRecover = req.getNorecover();
+        input.options.pull = req.getPull();
+        input.options.push = req.getPush();
+        if (req.getThrottle() > 0)
+            input.options.throttle = req.getThrottle();
+        if (req.getMaxConnections() > 0)
+            input.options.maxConnections = req.getMaxConnections();
+        if (req.getTransferBufferSize() > 0)
+            input.options.transferBufferSize = req.getTransferBufferSize();
+
+        StringBuffer wuid;
+        CreateSprayFileWorkunit(DFUsprayVariable, input, wuid);
+
+        resp.setWuid(wuid.str());
+        resp.setRedirectUrl(StringBuffer("/FileSpray/GetDFUWorkunit?wuid=").append(wuid.str()).str());
+
+#else
         StringBuffer destFolder, destTitle, defaultFolder, defaultReplicateFolder;
 
         const char* destCluster = req.getDestGroup();
@@ -2065,6 +2155,7 @@ bool CFileSprayEx::onSprayVariable(IEspContext &context, IEspSprayVariable &req,
         resp.setWuid(wu->queryId());
         resp.setRedirectUrl(StringBuffer("/FileSpray/GetDFUWorkunit?wuid=").append(wu->queryId()).str());
         submitDFUWorkUnit(wu.getClear());
+#endif
     }
     catch(IException* e)
     {   
@@ -2326,13 +2417,55 @@ bool CFileSprayEx::onCopy(IEspContext &context, IEspCopy &req, IEspCopyResponse 
         if (!context.validateFeatureAccess(FILE_SPRAY_URL, SecAccess_Write, false))
             throw MakeStringException(ECLWATCH_FILE_SPRAY_ACCESS_DENIED, "Failed to do Copy. Permission denied.");
 
-        const char* srcname = req.getSourceLogicalName();
-        const char* dstname = req.getDestLogicalName();
-        if(!srcname || !*srcname)
-            throw MakeStringException(ECLWATCH_INVALID_INPUT, "Source logical file not specified.");
-        if(!dstname || !*dstname)
-            throw MakeStringException(ECLWATCH_INVALID_INPUT, "Destination logical file not specified.");
+#define KEVINTEST
+#ifdef KEVINTEST
+        WsFSCopyInput input;
 
+        input.userName = context.queryUserId();
+        input.password = context.queryPassword();
+
+        input.sourceLogicalName = req.getSourceLogicalName();
+        input.sourceDali=req.getSourceDali();
+        input.sourceDiffKeyName=req.getSourceDiffKeyName();
+        input.sourceUserName=req.getSrcusername();
+        input.sourcePassword=req.getSrcpassword();
+
+        input.destGroup=req.getDestGroup();
+        input.destLogicalName = req.getDestLogicalName();
+        input.destDiffKeyName=req.getDestDiffKeyName();
+
+        input.encryptKey=req.getEncrypt();
+        input.decryptKey=req.getDecrypt();
+
+        input.directories = directories;
+        input.queueLabel = m_QueueLabel;
+        input.compress = req.getCompress();
+        input.superCopy = req.getSuperCopy();
+        input.wrap = req.getWrap();
+        if (req.getDestGroupRoxie() && strieq(req.getDestGroupRoxie(), "Yes"))
+            input.isRoxie = true;
+        else
+            input.isRoxie = false;
+
+        input.options.overwrite = req.getOverwrite();
+        input.options.replicate = req.getReplicate();
+        input.options.noRecover = req.getNorecover();
+        input.options.pull = req.getPull();
+        input.options.push = req.getPush();
+        input.options.ifnewer = req.getIfnewer();
+        if (req.getThrottle() > 0)
+            input.options.throttle = req.getThrottle();
+        if (req.getMaxConnections() > 0)
+            input.options.maxConnections = req.getMaxConnections();
+        if (req.getTransferBufferSize() > 0)
+            input.options.transferBufferSize = req.getTransferBufferSize();
+
+        StringBuffer wuid;
+        CreateCopyFileWorkunit(input, wuid);
+
+        resp.setResult(wuid.str());
+        resp.setRedirectUrl(StringBuffer("/FileSpray/GetDFUWorkunit?wuid=").append(wuid.str()).str());
+#else
         StringBuffer destFolder, destTitle, defaultFolder, defaultReplicateFolder;
         StringBuffer srcCluster, destCluster, destClusterName;
         bool bRoxie = false;
@@ -2522,6 +2655,7 @@ bool CFileSprayEx::onCopy(IEspContext &context, IEspCopy &req, IEspCopyResponse 
         resp.setResult(wu->queryId());
         resp.setRedirectUrl(StringBuffer("/FileSpray/GetDFUWorkunit?wuid=").append(wu->queryId()).str());
         submitDFUWorkUnit(wu.getClear());
+#endif
     }
     catch(IException* e)
     {
