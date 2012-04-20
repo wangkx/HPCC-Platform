@@ -1,0 +1,458 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1" />
+<title>Full Page Layout - Example</title>
+<style type="text/css">
+/*margin and padding on body element
+  can introduce errors in determining
+  element position and are not recommended;
+  we turn them off as a foundation for YUI
+  CSS treatments. */
+body {
+	margin:0;
+	padding:0;
+}
+#helpOpen {
+    text-align: center;
+    padding: 1em;
+}
+#helpOpen a {
+    padding: 0 5px;
+    border-left: 1px solid black;
+}
+#help-open {
+    border-left: none !important;
+}
+
+.nav-accordion {
+  float: center;
+}
+
+.nav-accordion .yui-cms-accordion .yui-cms-item {
+width: 100%;
+}
+
+.nav-accordion .yui-cms-accordion .yui-cms-item .bd {
+	height: 0px;
+	overflow: auto;
+	background-color: #fff;
+}
+</style>
+<link rel="stylesheet" type="text/css" href="/esp/files/yui/build/reset-fonts-grids/reset-fonts-grids.css" />
+<link rel="stylesheet" type="text/css" href="/esp/files/yui/build/resize/assets/skins/sam/resize.css" />
+<link rel="stylesheet" type="text/css" href="/esp/files/yui/build/layout/assets/skins/sam/layout.css" />
+<link rel="stylesheet" type="text/css" href="/esp/files/yui/build/button/assets/skins/sam/button.css" />
+<link rel="stylesheet" type="text/css" href="/esp/files/yui/build/treeview/assets/skins/sam/treeview.css" />
+
+<link rel="stylesheet" type="text/css" href="../assets/example.css" />
+<link rel="stylesheet" type="text/css" href="/esp/files/yui_test/css/tree.css"/> 
+<link rel="stylesheet" type="text/css" href="/esp/files/yui/build/container/assets/skins/sam/container.css" />
+<link rel="stylesheet" type="text/css" href="/esp/files/yui_test/caridy-bubbling-library-edd810c/build/accordion/assets/accordion.css" />
+
+<style>
+.yui-skin-sam .yui-layout .yui-layout-unit-top div.yui-layout-bd {
+    border: none;
+    background-color: #ddd;
+}
+
+    #top-header{    margin-bottom: 2px;    height: 25px;    position: relative;    z-index: 2;}
+/*    #top-header div, span, ul, li{    margin: 0;    padding: 0;    border: 0;    outline: 0;    font-size: 100%;    background: transparent;}*/
+    #top-header ul{    list-style: none;}
+    #top-header #eclWatchLogo{    position: absolute;    left: -150px;    top: 2px;    height: 25px;    width: 353px;    padding-left: 150px;    z-index: 2;    zoom: 1;}
+    #top-header #eclWatchLogo a:link, #top-header #logo a:visited{    background-image: url(/esp/files/img/hpcc_eclwatch.png);    background-position: left top;    background-repeat: no-repeat;    display: block;    height: 46px;    width: 350px;    text-indent: -999em;}
+    
+    /* links */
+    #top-header ul#links{    position: absolute;    right: 0;    top: 0;    z-index: 30;}
+    #top-header ul#links li{    position: relative;    float: right;    font-size: 12px;    line-height: 14px;    z-index: 20;    background-image: none;    padding: 0;}
+    #top-header ul#links li#adv_search a{    padding: 5px 0 6px 12px;    height: 16px;    width: 200px;}
+    //#top-header ul#links li#logout a{    padding: 5px 0 6px 10px;    height: 16px;    width: 50px;}
+    #top-header ul#links li#config a{    padding: 20px 0 6px 10px;    height: 16px;    width: 24px;}
+    #top-header ul#links{    width: 580px;}.tabs {   width:auto;}
+    
+        .navtree ui { padding: 3px 0 2px 20px; }
+        .nav-accordion-div li.folder, .navtree ui li.file, .nav-accordion-div li.cluster,
+        .nav-accordion-div span.server, .nav-accordion-div span.users, .nav-accordion-div span.usergroup,
+        .nav-accordion-div span.tool { padding: 1px 0 1px 20px; display: block; }
+
+        .nav-accordion-div span.folder { background: url(/esp/files/jquery/images/folder.gif) 0 0 no-repeat; }
+        .nav-accordion-div li.expandable span.folder { background: url(/esp/files/jquery/images/folder-closed.gif) 0 0 no-repeat; }
+        .navtree ul li.file { background: url(/esp/files/jquery/images/file.gif) 0 0 no-repeat; }
+        .nav-accordion-div span.tool { background: url(/esp/files/jquery/images/tool.png) 0 0 no-repeat; }
+        .nav-accordion-div span.cluster { background: url(/esp/files/jquery/images/cluster.png) 0 0 no-repeat; }
+        .nav-accordion-div span.server { background: url(/esp/files/jquery/images/server.png) 0 0 no-repeat; }
+        .nav-accordion-div span.users { background: url(/esp/files/jquery/images/Users.png) 0 0 no-repeat; }
+        .nav-accordion-div span.usergroup { background: url(/esp/files/jquery/images/Usergroup.png) 0 0 no-repeat; }
+
+</style>
+        
+<script type="text/javascript" src="/esp/files/yui/build/yahoo/yahoo-min.js"></script>
+<script type="text/javascript" src="/esp/files/yui/build/event/event-min.js"></script>
+<script type="text/javascript" src="/esp/files/yui/build/dom/dom-min.js"></script>
+<script type="text/javascript" src="/esp/files/yui/build/element/element-min.js"></script>
+<script type="text/javascript" src="/esp/files/yui/build/dragdrop/dragdrop-min.js"></script>
+<script type="text/javascript" src="/esp/files/yui/build/resize/resize-min.js"></script>
+<script type="text/javascript" src="/esp/files/yui/build/animation/animation-min.js"></script>
+<script type="text/javascript" src="/esp/files/yui/build/layout/layout-min.js"></script>
+<script type="text/javascript" src="/esp/files/yui/build/yahoo-dom-event/yahoo-dom-event.js"></script>
+<script type="text/javascript" src="/esp/files/yui/build/treeview/treeview-min.js"></script>
+
+<script type="text/javascript" src="/esp/files/yui/build/utilities/utilities.js"></script>
+<script type="text/javascript" src="/esp/files/yui_test/caridy-bubbling-library-edd810c/build/bubbling/bubbling.js"></script>
+<script type="text/javascript" src="/esp/files/yui_test/caridy-bubbling-library-edd810c/build/accordion/accordion.js"></script>
+<script type="text/javascript">
+    var layout;
+	function updateContent(frameId, url) {
+		var iframe = document.getElementById(frameId);
+		if (iframe != null) {
+			var parent;
+			if (frameId == 'center-frame') {
+			    parent = layout.getUnitByPosition('center');
+		        iframe.style.width = (parent.getSizes().body.w - 5) + "px";
+                iframe.style.height = (parent.getSizes().body.h - 5) + "px";
+			} else {
+			    parent = layout.getUnitByPosition('bottom');
+    		    iframe.style.width = (parent.getSizes().body.w - 10) + "px";
+                iframe.style.height = (parent.getSizes().body.h - 10) + "px";
+			}
+			iframe.setAttribute('src', url);		
+		}
+	}
+	
+	function submitSiteSearch() {
+	    var value = document.getElementById('SearchInput').value;
+        if (value.match("w") || value.match("W")) {
+            url = '/WsWorkunits/WUInfo?Wuid=' + value;
+        }
+        else if (value.match("d") || value.match("D")) {
+            url = '/FileSpray/GetDFUWorkunit?wuid=' + value;
+        }
+        else {
+            url = '/WsDfu/DFUInfo?Name=' + value;
+        }
+
+        updateContent('center-frame', url);
+    }
+</script>		
+
+</head>
+
+<body class="yui-skin-sam">
+<div id="top-header" style="border:none">
+	<div id="eclWatchLogo" style=""  onclick="return updateContent('center-frame','/WsSMC/Activity');">
+		<a href="" name="" />
+	</div>
+	<div>
+		<ul id="links">
+			<li id="adv_search">
+			    <a>
+				    <input id="SearchInput" name="SearchInput" type="text" size="20" value="Search WU or file" onclick="this.focus();this.select();"/>
+				    <input src="/esp/files/jquery/images/btn_search.gif" type="image" name="" align="absmiddle" alt="Submit" class="search_btn" onclick="return submitSiteSearch()"/>
+			    </a>
+			</li>
+			<li id="config" title="This link displays the esp.xml.">
+				<a href="javascript:updateContent('center-frame', '/main?config_');">
+					<img border="0" src="/esp/files/jquery/images/config.png"/>
+				</a>
+			</li>
+			<li title="This link opens a help panel.">
+				<a href="#" id="help-open">
+					<input src="/esp/files/jquery/images/meanwhile.png" type="image" name="" align="absmiddle" alt="Submit" class="search_btn"/>
+				</a>
+			</li>
+		</ul>
+	</div>
+</div>
+<div id="page-bottom">
+	<iframe id="bottom-frame" src="" frameborder="0" scrolling="auto" style="height:100%;width:100%;">
+				Test
+	</iframe>
+</div>
+<div id="page-navigation">
+    <div class="nav-accordion">
+	<div id="nav-accordion-div" class="yui-cms-accordion Persistent slow">
+	    <div class="yui-cms-item yui-panel selected">
+            <div id="hd1" class="hd">Systems</div>
+            <div id="bd1" class="bd">
+              <div class="fixed">
+		        <div id="systemNav" class="navtree">
+                    <ul>
+                        <li class="file" title="Display Activity on all target clusters in an environment"><a href="javascript:updateContent('center-frame','/WsSMC/Activity');">Activity</a></li>
+                        <li class="cluster" title="This is List 0">Clusters
+                            <ul>
+                                <li class="expanded"><span class="cluster">Target Clusters</span>
+                                    <ul>
+                                        <li title="View details about target clusters and optionally run preflight activities"><a href="javascript:updateContent('center-frame','/WsTopology/TpTargetClusterQuery?Type=ROOT');">All</a></li>
+                                        <li><span class="cluster">hthor</span></li>
+                                        <li><span class="cluster">thor</span></li>
+                                        <li><span class="cluster">roxie</span></li>
+                                    </ul>
+                                </li>
+                                <li><span class="cluster">Cluster Processes</span>
+                                    <ul id="folder22">
+                                        <li title="View details about clusters and optionally run preflight activities"><a href="javascript:updateContent('center-frame','/WsTopology/TpClusterQuery?Type=ROOT')">All</a></span></li>
+                                        <li><span class="cluster">mythor</span></li>
+                                        <li><span class="cluster">myroxie</span></li>
+                                    </ul>
+                                </li>
+                            </ul>
+                        </li>
+                        <li><span class="cluster">Servers</span>
+                            <ul>
+                                <li title="View details about System Support Servers clusters and optionally run preflight activities"><a href="javascript:updateContent('center-frame','/WsTopology/TpServiceQuery?Type=ALLSERVICES')">All</a></li>
+                                <li><span class="server">Dali server</span></li>
+                                <li><span class="cluster">ESPs</span>
+                                    <ul id="folder23">
+                                        <li><span class="server">myesp</span></li>
+                                        <li><span class="server">esp2</span></li>
+                                    </ul>
+                                </li>
+                            </ul>
+                        </li>
+                        <li><a href="javascript:updateContent('center-frame','/WsSMC/BrowseResources')">Browse reources</a></li>
+                    </ul>
+                </div>
+		      </div>
+            </div>
+            <div class="actions">
+		      <a href="#" class="accordionToggleItem">&nbsp;</a>
+		    </div>
+		</div>
+	    <div class="yui-cms-item yui-panel">
+            <div class="hd">ECL</div>
+            <div class="bd">
+              <div class="fixed">
+		        <div id="eclNav">
+                    <ul>
+                        <li><span class="folder">Query Sets</span>
+                            <ul id="folder11">
+                                <li><span class="file">All</span></li>
+                                <li><span class="file">Query Set 1</span></li>
+                                <li><span class="file">Query Set 2</span></li>
+                            </ul>
+                        </li>
+                        <li><span class="folder">Ecl Workunits</span>
+                            <ul id="folder12">
+                                <li><span class="file">All</span></li>
+                                <li><span class="tool">Search</span></li>
+                                <li class="closed"><span class="folder">Today's</span>
+                                    <ul id="folder13">
+                                        <li><span class="file">WU1</span></li>
+                                        <li><span class="file">WU2</span></li>
+                                    </ul>
+                                </li>
+                            </ul>
+                        </li>
+                        <li><span class="tool">Run ECL</span></li>
+                        <li><span class="tool">Schduler</span></li>
+                    </ul>
+                </div>
+		      </div>
+			</div>
+            <div class="actions">
+		      <a href="#" class="accordionToggleItem">&nbsp;</a>
+		    </div>
+		</div>
+	    <div class="yui-cms-item yui-panel">
+            <div class="hd">Files</div>
+            <div class="bd">
+              <div class="fixed">
+		        <div id="fileNav">
+		            <ul>
+                        <li><span class="tool">Upload/download File</span></li>
+                        <li class="closed"><span class="folder">Drop Zones</span>
+                            <ul id="folder31">
+                                <li><span class="file">All</span></li>
+                                <li><span class="file">Drop Zone 1</span></li>
+                                <li><span class="file">Drop Zone 2</span></li>
+                            </ul>
+                        </li>
+                        <li class="closed"><span class="folder">Logical Files</span>
+                            <ul id="folder32">
+                                <li><span class="tool">Search</span></li>
+                                <li><span class="file">Browse</span></li>
+                                <li><span class="file">File View by Scope</span></li>
+                                <li><span class="file">File Relationships</span></li>
+                                <li><span class="file">Space Usage</span></li>
+                            </ul>
+                        </li>
+                        <li><span class="tool">View Data File</span></li>
+                        <li class="closed"><span class="folder">DFU Workunits</span>
+                            <ul id="folder33">
+                                <li><span class="file">All</span></li>
+                                <li><span class="tool">Search</span></li>
+                                <li class="closed"><span class="folder">Today's</span>
+                                    <ul id="folder34">
+                                        <li><span class="file">WU1</span></li>
+                                        <li><span class="file">WU2</span></li>
+                                    </ul>
+                                </li>
+                            </ul>
+                        </li>
+                        <li class="closed"><span class="folder">Actions</span>
+                            <ul id="folder35">
+                                <li><span class="tool">Spray Fixed</span></li>
+                                <li><span class="tool">Spray CSV</span></li>
+                                <li><span class="tool">Spray XML</span></li>
+                                <li><span class="tool">Remote Copy</span></li>
+                                <li><span class="tool">XRef</span></li>
+                            </ul>
+                        </li>
+                    </ul>
+                </div>
+		      </div>
+			</div>
+            <div class="actions">
+		      <a href="#" class="accordionToggleItem">&nbsp;</a>
+		    </div>
+		</div>
+	    <div class="yui-cms-item yui-panel">
+            <div class="hd">Security</div>
+            <div class="bd">
+              <div class="fixed">
+		        <div id="securityNav">
+		            <ul>
+                        <li><span class="users">Users</span></li>
+                        <li><span class="usergroup">Groups</span></li>
+                        <li><span class="file">Permissions</span></li>
+                    </ul>
+                </div>
+		      </div>
+			</div>
+            <div class="actions">
+		      <a href="#" class="accordionToggleItem">&nbsp;</a>
+		    </div>
+		</div>
+	</div>
+  </div>
+</div>
+<div id="page-center">
+    <iframe id="center-frame" src="" frameborder="0" scrolling="auto"  style="height:100%;width:100%;">
+                Test
+    </iframe>
+</div>
+
+
+<script>
+//an anonymous function wraps our code to keep our variables
+//in function scope rather than in the global namespace:
+(function() {
+    var tt, contextElements = [];
+	var tree; //will hold our TreeView instance
+	
+	function treeInit() {	
+		//Hand off ot a method that randomly generates tree nodes:
+		//buildRandomTextNodeTree();
+		
+		var tree1 = new YAHOO.widget.TreeView("systemNav");
+		var tree2 = new YAHOO.widget.TreeView("eclNav");
+		var tree3 = new YAHOO.widget.TreeView("fileNav");
+		var tree4 = new YAHOO.widget.TreeView("securityNav");
+		tree1.render();
+		tree2.render();
+		tree3.render();
+		tree4.render();
+		
+		//tt = new YAHOO.widget.Tooltip("tt", { 
+        //            context: contextElements 
+        //        });
+	}
+	
+	//This method will build a TreeView instance and populate it with
+	//between 3 and 7 top-level nodes
+	function buildRandomTextNodeTree() {
+	
+		//instantiate the tree:
+		tree = new YAHOO.widget.TreeView("systemNav");
+		
+		//create top-level nodes
+		for (var i = 0; i < Math.floor((Math.random()*4) + 30); i++) {
+			var tmpNode = new YAHOO.widget.TextNode("label-" + i, tree.getRoot(), false);
+			
+			//we'll delegate to another function to build child nodes:
+			buildRandomTextBranch(tmpNode);
+		}
+		
+		//once it's all built out, we need to render
+		//our TreeView instance:
+		tree.draw();
+	}
+
+	//This function adds a random number <4 of child nodes to a given
+	//node, stopping at a specific node depth:
+	function buildRandomTextBranch(node) {
+		if (node.depth < 6) {
+			for ( var i = 0; i < Math.floor(Math.random() * 4) ; i++ ) {
+			    var o = {
+                    label: node.label + "-" + i,
+                    // Tooltip will use the title attribute
+                    title: "This is " + "label-" + i
+                };
+				var tmpNode = new YAHOO.widget.TextNode(o, node, false);
+				contextElements.push(tmpNode.labelElId); 
+				
+				buildRandomTextBranch(tmpNode);
+			}
+		}
+	}
+	
+    var Dom = YAHOO.util.Dom,
+        Event = YAHOO.util.Event;
+
+    Event.onDOMReady(function() {
+        layout = new YAHOO.widget.Layout({
+            units: [
+                { position: 'top', height: '56px', body: 'top-header', gutter: '5 5 0 5' },
+                { position: 'left', width: '210px', resize: true, body: 'page-navigation', gutter: '5 5 0 5', collapse: true, collapseSize: 50},
+                { position: 'bottom', height: '500px', body: 'page-bottom', gutter: '5 5 0 5', resize: true, collapse: true, collapseSize: 0 },
+                { position: 'center', height: '800px', body: 'page-center', gutter: '5 5 0 0', scroll: true, animate: true  }
+            ]
+        });
+		
+        layout.on('render', function() {
+            layout.getUnitByPosition('left').on('close', function() {
+                closeLeft();
+            });
+
+            layout.getUnitByPosition('bottom').on('expand', function() {
+                updateContent("bottom-frame", "/esp/files/yui_test/docs/eclwatch_help.htm");
+            });
+        
+            
+		    layout.getUnitByPosition('left').on('resize', function(args) {
+alert(args.height);
+                var panelHeight = args.height;
+                var panelWidth = args.width;
+            });
+            
+            layout.getUnitByPosition('top').setStyle('border', 'none'); 
+    		layout.getUnitByPosition('bottom').collapse(); 		
+        });
+        
+        layout.render();
+        
+		var leftHeight = layout.getUnitByPosition('left').getSizes().body.h;
+		var hd1Height = YAHOO.util.Dom.get('hd1').offsetHeight;
+		accordionBdHeight = (leftHeight-4*hd1Height-5)+'px'; //gutter size: 5
+		
+		//alert(layout.getUnitByPosition('center').getSizes().body.h);
+
+		var bd4 = document.getElementById("bd1");
+		bd4.style.height=accordionBdHeight;
+		bd4.style.overflow='auto';
+
+        Event.on('help-open', 'click', function(ev) {
+            Event.stopEvent(ev);
+            layout.getUnitByPosition('bottom').expand();
+        });
+		
+		treeInit();
+
+		//updateContent("center-frame", "/WsSMC/Activity");
+    });
+
+
+})();
+</script>
+</body>
+</html>

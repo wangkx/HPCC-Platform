@@ -1,0 +1,521 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.1//EN" 
+"http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+	<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+	<meta name="language" content="en" />
+	<title>EclWatch Layout</title>
+	<link rel="stylesheet" type="text/css" href="/esp/files/jquery/css/layout-default-latest.css" />
+	<link rel="stylesheet" type="text/css" href="/esp/files/jquery/css/jquery-ui-1-1-18.css"/>
+	<link rel="stylesheet" type="text/css" href="/esp/files/jquery/css/collections.css"/>
+	<link rel="stylesheet" type="text/css" href="/esp/files/jquery/css/jquery.treeview.css" />
+	
+	<script type="text/javascript" src="/esp/files/jquery/js2/jquery-latest.js"></script>
+	<script type="text/javascript" src="/esp/files/jquery/js2/jquery-ui-latest.js"></script>
+	<script type="text/javascript" src="/esp/files/jquery/js2/jquery.layout-latest.js"></script>
+	<script type="text/javascript" src="/esp/files/jquery/js2/jquery.layout.resizePaneAccordions-1.0.js"></script>
+    <script type="text/javascript" src="/esp/files/jquery/js2/themeswitchertool.js"></script> 
+	<script type="text/javascript" src="/esp/files/jquery/js2/debug.js"></script>
+	<script type="text/javascript" src="/esp/files/jquery/js2/jquery.treeview.js"></script>
+	<script type="text/javascript" src="/esp/files/jquery/js2/jquery.treeview.edit.js"></script>
+	<script type="text/javascript" src="/esp/files/jquery/js2/jquery.dropdownPlain.js"></script>
+
+	<script type="text/javascript">
+		var helpUrl = "/esp/files/jquery/docs/eclwatch_help.htm";
+                function updateContent(frameId, url) {
+			var iframe = document.getElementById(frameId);
+			if (iframe != null)
+				iframe.setAttribute('src', url);
+		}
+		function openHelpDialog() {
+			$( "#dialog" ).dialog( "open" );
+			return false;
+		}
+		$(function() {
+			$("#systemNav").treeview();
+			$("#systemNav").bind("contextmenu", function(event) {
+				if ($(event.target).is("li") || $(event.target).parents("li").length) {
+					$("#systemNav").treeview({
+						remove: $(event.target).parents("li").filter(":first")
+					});
+					return false;
+				}
+			});
+			$("#eclNav").treeview();
+			$("#eclNav").bind("contextmenu", function(event) {
+				if ($(event.target).is("li") || $(event.target).parents("li").length) {
+					$("#eclNav").treeview({
+						remove: $(event.target).parents("li").filter(":first")
+					});
+					return false;
+				}
+			});
+			$("#fileNav").treeview();
+			$("#fileNav").bind("contextmenu", function(event) {
+				if ($(event.target).is("li") || $(event.target).parents("li").length) {
+					$("#fileNav").treeview({
+						remove: $(event.target).parents("li").filter(":first")
+					});
+					return false;
+				}
+			});
+			$("#securityNav").treeview();
+			$("#securityNav").bind("contextmenu", function(event) {
+				if ($(event.target).is("li") || $(event.target).parents("li").length) {
+					$("#securityNav").treeview({
+						remove: $(event.target).parents("li").filter(":first")
+					});
+					return false;
+				}
+			});
+			
+			$("#tabs").tabs();
+			$( ".tabs-bottom .ui-tabs-nav, .tabs-bottom .ui-tabs-nav > *" )
+				.removeClass( "ui-corner-all ui-corner-top" )
+				.addClass( "ui-corner-bottom" );
+				
+			})
+	/*	
+			$.fx.speeds._default = 1000;
+			$( "#dialog" ).dialog({
+				autoOpen: false,
+				show: "blind",
+				hide: "explode"
+			});
+			
+			$( "#dialog" ).dialog({ autoOpen: false });
+	*/
+	var outerLayout;
+	$(document).ready( function() {
+		outerLayout = $("body").layout( layoutSettings_Outer );
+		// save selector strings to vars so we don't have to repeat it
+		// must prefix paneClass with "body > " to target ONLY the outerLayout panes
+		var westSelector = "body > .ui-layout-west"; // outer-west pane
+		var eastSelector = "body > .ui-layout-east"; // outer-east pane
+		var southSelector = "body > .ui-layout-south"; // outer-south pane
+
+		outerLayout.addOpenBtn( "#helpOpen", "south" );
+
+		 // CREATE SPANs for pin-buttons - using a generic class as identifiers
+		//$("<span></span>").addClass("pin-button").prependTo( westSelector );
+		//$("<span></span>").addClass("pin-button").prependTo( eastSelector );
+		// BIND events to pin-buttons to make them functional
+		//outerLayout.addPinBtn( westSelector +" .pin-button", "west");
+		//outerLayout.addPinBtn( eastSelector +" .pin-button", "east" );
+
+		 // CREATE SPANs for close-buttons - using unique IDs as identifiers
+		$("<span></span>").attr("id", "west-closer" ).prependTo( westSelector );
+		$("<span></span>").attr("id", "east-closer").prependTo( eastSelector );
+		$("<span></span>").attr("id", "south-closer").prependTo( southSelector );
+		// BIND layout events to close-buttons to make them functional
+		outerLayout.addCloseBtn("#west-closer", "west");
+		//outerLayout.addCloseBtn("#east-closer", "east");
+		outerLayout.addCloseBtn("#south-closer", "south");
+
+		$("#accordionWest").accordion({ fillSpace:	true});
+		//$("#accordionEast").accordion({ fillSpace:	true});
+		
+		$('#top-header').bind('contextmenu',function(e){
+			var $cmenu = $(this).next();
+			
+			$('<div class="overlay"></div>').css({left : '0px', top : '0px',position: 'absolute', width: '100%', height: '100%', zIndex: '100' }).click(function() {
+				$(this).remove();
+				$cmenu.hide();
+			}).bind('contextmenu' , function(){return false;}).appendTo(document.body);
+			
+			$(this).next().css({ left: e.pageX, top: e.pageY, zIndex: '101' }).show();
+ 
+			return false;
+			});
+ 
+			$('.vmenu .first_li').live('click',function() {
+				if( $(this).children().size() == 1 ) {
+					alert($(this).children().text());
+					$('.vmenu').hide();
+					$('.overlay').hide();
+				}
+			});
+ 
+			$('.vmenu .inner_li span').live('click',function() {
+				alert($(this).text());
+				$('.vmenu').hide();
+				$('.overlay').hide();
+			});
+ 
+ 
+			$(".first_li , .sec_li, .inner_li span").hover(function () {
+				$(this).css({backgroundColor : '#E0EDFE' , cursor : 'pointer'});
+				if ( $(this).children().size() >0 )
+					$(this).find('.inner_li').show();	
+					$(this).css({cursor : 'default'});
+			}, 
+			function () {
+				$(this).css('background-color' , '#fff' );
+				$(this).find('.inner_li').hide();
+			});
+			
+		// THEME SWITCHER
+		///addThemeSwitcher('.ui-layout-north',{ top: '12px', right: '5px' });
+		setTimeout( outerLayout.resizeAll, 1000 ); /* allow time for browser to re-render with new theme */
+
+		/*var iframe = document.getElementById("viewFrame");
+		if(navigator.appName == "Microsoft Internet Explorer"){
+			var oBody = iframe.document.body;
+			iframe.style.width = oBody.scrollWidth + (oBody.offsetWidth - oBody.clientWidth - 350) + "px";
+			iframe.style.height = oBody.scrollHeight + (oBody.offsetHeight - oBody.clientHeight - 80) + "px";
+		} else {
+			iframe.setAttribute('width', '100%');
+			iframe.setAttribute('height', '100%');
+		}
+				
+		iframe = document.getElementById("helpFrame");
+		if(navigator.appName == "Microsoft Internet Explorer"){
+			var oBody = iframe.document.body;
+			iframe.style.width = oBody.scrollWidth + (oBody.offsetWidth - oBody.clientWidth - 350) + "px";
+			iframe.style.height = oBody.scrollHeight + (oBody.offsetHeight - oBody.clientHeight - 80) + "px";
+		} else {
+			iframe.setAttribute('width', '100%');
+			iframe.setAttribute('height', '100%');
+		}*/
+				
+		updateContent("viewFrame", "/WsSMC/Activity");
+	});
+	
+	var layoutSettings_Outer = {
+		name: "outerLayout" // NO FUNCTIONAL USE, but could be used by custom code to 'identify' a layout
+		// options.defaults apply to ALL PANES - but overridden by pane-specific settings
+	,	defaults: {
+			size:					"auto"
+		,	minSize:				50
+		,	paneClass:				"pane" 		// default = 'ui-layout-pane'
+		,	resizerClass:			"resizer"	// default = 'ui-layout-resizer'
+		,	togglerClass:			"toggler"	// default = 'ui-layout-toggler'
+		,	buttonClass:			"button"	// default = 'ui-layout-button'
+		,	contentSelector:		".content"	// inner div to auto-size so only it scrolls, not the entire pane!
+		,	contentIgnoreSelector:	"span"		// 'paneSelector' for content to 'ignore' when measuring room for content
+		,	togglerLength_open:		35			// WIDTH of toggler on north/south edges - HEIGHT on east/west edges
+		,	togglerLength_closed:	35			// "100%" OR -1 = full height
+		,	hideTogglerOnSlide:		true		// hide the toggler when pane is 'slid open'
+		,	togglerTip_open:		"Close This Pane"
+		,	togglerTip_closed:		"Open This Pane"
+		,	resizerTip:				"Resize This Pane"
+		//	effect defaults - overridden on some panes
+		,	fxName:					"slide"		// none, slide, drop, scale
+		,	fxSpeed_open:			750
+		,	fxSpeed_close:			1500
+		,	fxSettings_open:		{ easing: "easeInQuint" }
+		,	fxSettings_close:		{ easing: "easeOutQuint" }
+	}
+	,	north: {
+			spacing_open:			1			// cosmetic spacing
+		,	togglerLength_open:		0			// HIDE the toggler button
+		,	togglerLength_closed:	-1			// "100%" OR -1 = full width of pane
+		,	resizable: 				false
+		,	slidable:				false
+		,	closable:    false
+		//	override default effect
+		,	fxName:					"none"
+		}
+	,	south: {
+			size:					400
+		,	spacing_closed:			0			// HIDE resizer & toggler when 'closed'
+		,	slidable:				false		// REFERENCE - cannot slide if spacing_closed = 0
+		,	togglerLength_closed:	21			// make toggler 'square' - 21x21
+		,	togglerAlign_closed:	"top"		// align to top of resizer
+		,	initClosed:				true
+		//	CALLBACK TESTING...
+		//,	onhide_start:			function () { return confirm("START South pane hide \n\n onhide_start callback \n\n Allow pane to hide?"); }
+		//,	onhide_end:				function () { alert("END South pane hide \n\n onhide_end callback"); }
+		//,	onshow_start:			function () { return confirm("START South pane show \n\n onshow_start callback \n\n Allow pane to show?"); }
+		//,	onshow_end:				function () { alert("END South pane show \n\n onshow_end callback"); }
+		//,	onopen_start:			function () { return confirm("START South pane open \n\n onopen_start callback \n\n Allow pane to open?"); }
+		///,	onopen_start:			function () { return updateContent("helpFrame1", "http://www.microsoft.com"); }
+		,	onopen_start:			function () { return updateContent("helpFrame1", helpUrl); }
+		
+		//,	onopen_end:				function () { alert("END South pane open \n\n onopen_end callback"); }
+		//,	onclose_start:			function () { return confirm("START South pane close \n\n onclose_start callback \n\n Allow pane to close?"); }
+		//,	onclose_end:			function () { alert("END South pane close \n\n onclose_end callback"); }
+		//,	onresize_start:			function () { return confirm("START South pane resize \n\n onresize_start callback \n\n Allow pane to be resized?)"); }
+		//,	onresize_end:			function () { alert("END South pane resize \n\n onresize_end callback \n\n NOTE: onresize_start event was skipped."); }
+		}
+	,	west: {
+			size:					250
+		,	spacing_closed:			21			// wider space when closed
+		,	togglerLength_closed:	21			// make toggler 'square' - 21x21
+		,	togglerAlign_closed:	"top"		// align to top of resizer
+		,	togglerLength_open:		0			// NONE - using custom togglers INSIDE west-pane
+		,	togglerTip_open:		"Close West Pane"
+		,	togglerTip_closed:		"Open West Pane"
+		,	resizerTip_open:		"Resize West Pane"
+		,	slideTrigger_open:		"click" 	// default
+		,	initClosed:				false
+		//	add 'bounce' option to default 'slide' effect
+		,	onresize:		$.layout.callbacks.resizePaneAccordions
+		//,	fxSettings_open:		{ easing: "easeOutBounce" }
+		,	fxSettings:				{ easing: "" } // nullify default easing
+		}
+	/*,	east: {
+			size:					400
+		,	spacing_closed:			21			// wider space when closed
+		,	togglerLength_closed:	21			// make toggler 'square' - 21x21
+		,	togglerAlign_closed:	"top"		// align to top of resizer
+		,	togglerLength_open:		0 			// NONE - using custom togglers INSIDE east-pane
+		,	togglerTip_open:		"Close East Pane"
+		,	togglerTip_closed:		"Open East Pane"
+		,	resizerTip_open:		"Resize East Pane"
+		,	slideTrigger_open:		"mouseover"
+		,	initClosed:				true
+		,	onresize:		$.layout.callbacks.resizePaneAccordions
+		//	override default effect, speed, and settings
+		,	fxName:					"drop"
+		,	fxSpeed:				"normal"
+		,	fxSettings_open:		{ easing: "easeOutBounce" }
+		}*/
+	};
+	</script>
+</head>
+<body>
+<div class="ui-layout-north ui-widget-content" style="display: none;">
+	<div id="top-header">
+		<div id="eclWatchLogo" style=""  onclick="return alert(0)">
+			<a href="" name="" />
+		</div>
+		<div>
+			<ul id="links">
+				<li id="adv_search">
+				<a>
+					<input id="SearchInput" name="SearchInput" type="text" size="20" value="Search WU or file" onclick="this.focus();this.select();"/>
+					<input src="/esp/files/jquery/images/btn_search.gif" type="image" name="" align="absmiddle" border="0" alt="Submit" class="search_btn" onclick="return submit_site_search()"/>
+				</a>
+				</li>
+				<li id="config" title="This link displays the esp.xml.">
+					<a href="javascript:updateContent('viewFrame','/main?config_');">
+						<img border="0" src="/esp/files/jquery/images/config.png"/>
+					</a>
+				</li>
+				<li id="helpOpen" title="This link opens a help panel.">
+					<input src="/esp/files/jquery/images/help.png" type="image" name="" align="absmiddle" border="0" alt="Submit" class="search_btn"/>
+				</li>
+			</ul>
+		</div>
+	</div>
+	<div class="vmenu">
+ 	       <div class="first_li"><span>Open</span></div>
+	       <div class="first_li"><span>Open in new tab</span></div>
+                <div class="sep_li"></div>
+ 
+		<div class="first_li"><span>Quick Preview</span>
+			<div class="inner_li">
+				<span>Dossier</span> 
+				<span>Channel 1</span>
+				<span>Channel 2</span>
+			</div>
+		</div>
+ 
+		<div class="first_li"><span>Preview</span>
+         		<div class="inner_li">
+				<span>Channel 1</span>
+				<span>Channel 2 </span>
+			</div>
+		</div>
+ 
+		<div class="first_li"><span>Edit</span></div>
+		<div class="first_li"><span>Event Log</span></div>
+		<div class="sep_li"></div>
+		<div class="first_li"><span>New</span></div>
+		<div class="first_li"><span>Assignments</span>
+          		<div class="inner_li">
+	         		<span>Assignement 1</span>
+		        	<span>Assignement 2</span>
+			</div>
+		</div>
+ 
+		<div class="first_li"><span>Assets</span>
+			<div class="inner_li">
+				<span>Asset 1</span>
+				<span>Asset 2</span>
+				<span>All Assets</span>
+			</div>
+		</div>
+		<div class="first_li"><span>Preview</span></div>
+		<div class="sep_li"></div>
+		<div class="first_li"><span>Move to</span>
+			<div class="inner_li">
+        			<span>Folder name</span>
+			</div>
+		</div>
+ 
+        	<div class="first_li"><span>Others</span>
+			<div class="inner_li">
+				<span>Mark as Read</span>
+				<span>Mark as Unread</span>
+                       		<span>Trash</span>
+				<span>Archieve</span>
+			        <span>Commite</span>
+				<span>Release</span>
+			</div>
+		</div>
+	</div>
+</div>
+
+<div class="ui-layout-center" style="display: none;overflow: hidden !important;"> 
+	<!--div id="tabs" class="tabs-bottom" style="overflow: hidden !important;">
+		<ul>
+			<li><a href="#view-1"><span>One</span></a></li>
+			<li><a href="#view-2"><span>Two</span></a></li>
+		</ul>
+		<div id="view-1"  style="overflow: hidden !important;">
+			<iframe id="view-frame-1" src="http://www.w3schools.com" width="100%" height="100%" frameborder="0" scrolling="auto"></iframe>
+		</div>
+		<div id="view-2" style="overflow: hidden !important;">
+			<iframe src="http://www.microsoft.com" width="100%" height="100%" frameborder="0" scrolling="auto"></iframe>
+		</div>
+	</div-->
+	<div id="mainContainer" style="border:1px solid #BBB;border-width:1px;overflow: hidden !important;">
+		<iframe id="viewFrame" src="" frameborder="0" scrolling="auto" style="height:100%;Width:100%;">
+		Test
+		</iframe>
+	</div>
+</div>
+
+<!--div class="ui-layout-east" style="display: none;overflow: hidden !important;">
+	<div class="header" style="height:18px;">Help</div>
+	<iframe id="helpFrame" src="" frameborder="0" scrolling="auto" style="height:100%;Width:100%;">
+		Test
+	</iframe>
+</div-->
+
+<div class="ui-layout-west" style="display: none;">
+	<div id="accordionWest" class="basic">
+		<h3><a href="#" class="heading">Systems</a></h3>
+		<div style="font-size:12px;">
+			<ul id="systemNav" class="navtree">
+				<li><span class="file"><a href="javascript:updateContent('viewFrame','http://www.microsoft.com')">Activity</a></span></li>
+				<li class="closed"><span class="cluster">Clusters</span>
+					<ul>
+						<li class="closed"><span class="cluster">Target Clusters</span>
+							<ul id="folder21">
+								<li><span class="cluster">All</span></li>
+								<li><span class="cluster">hthor</span></li>
+								<li><span class="cluster">thor</span></li>
+								<li><span class="cluster">roxie</span></li>
+							</ul>
+						</li>
+						<li class="closed"><span class="cluster">Cluster Processes</span>
+							<ul id="folder22">
+								<li><span class="cluster">All</span></li>
+								<li><span class="cluster">mythor</span></li>
+								<li><span class="cluster">myroxie</span></li>
+							</ul>
+						</li>
+					</ul>
+				</li>
+				<li class="closed"><span class="cluster">Servers</span>
+					<ul>
+						<li><span class="cluster">All</span></li>
+						<li><span class="server">Dali server</span></li>
+						<li class="closed"><span class="cluster">ESPs</span>
+							<ul id="folder23">
+								<li><span class="server">myesp</span></li>
+								<li><span class="server">esp2</span></li>
+							</ul>
+						</li>
+					</ul>
+				</li>
+				<li><span class="file"><a href="javascript:updateContent('viewFrame','/WsSMC/BrowseReources')">Browse reources</a></span></li>
+			</ul>
+		</div>
+
+		<h3><a href="#" class="heading">ECL</a></h3>
+		<div style="font-size:12px;">
+			<ul id="eclNav" class="navtree">
+				<li class="closed"><span class="folder">Query Sets</span>
+					<ul id="folder11">
+						<li><span class="file">All</span></li>
+						<li><span class="file">Query Set 1</span></li>
+						<li><span class="file">Query Set 2</span></li>
+					</ul>
+				</li>
+				<li class="closed"><span class="folder">Ecl Workunits</span>
+					<ul id="folder12">
+						<li><span class="file">All</span></li>
+						<li><span class="tool">Search</span></li>
+						<li class="closed"><span class="folder">Today's</span>
+							<ul id="folder13">
+								<li><span class="file">WU1</span></li>
+								<li><span class="file">WU2</span></li>
+							</ul>
+						</li>
+					</ul>
+				</li>
+				<li><span class="tool">Run ECL</span></li>
+				<li><span class="tool">Schduler</span></li>
+			</ul>
+		</div>
+
+		<h3><a href="#" class="heading">Files</a></h3>
+		<div style="font-size:12px;">
+			<ul id="fileNav" class="navtree">
+				<li><span class="tool">Upload/download File</span></li>
+				<li class="closed"><span class="folder">Drop Zones</span>
+					<ul id="folder31">
+						<li><span class="file">All</span></li>
+						<li><span class="file">Drop Zone 1</span></li>
+						<li><span class="file">Drop Zone 2</span></li>
+					</ul>
+				</li>
+				<li class="closed"><span class="folder">Logical Files</span>
+					<ul id="folder32">
+						<li><span class="tool">Search</span></li>
+						<li><span class="file">Browse</span></li>
+						<li><span class="file">File View by Scope</span></li>
+						<li><span class="file">File Relationships</span></li>
+						<li><span class="file">Space Usage</span></li>
+					</ul>
+				</li>
+				<li><span class="tool">View Data File</span></li>
+				<li class="closed"><span class="folder">DFU Workunits</span>
+					<ul id="folder33">
+						<li><span class="file">All</span></li>
+						<li><span class="tool">Search</span></li>
+						<li class="closed"><span class="folder">Today's</span>
+							<ul id="folder34">
+								<li><span class="file">WU1</span></li>
+								<li><span class="file">WU2</span></li>
+							</ul>
+						</li>
+					</ul>
+				</li>
+				<li class="closed"><span class="folder">Actions</span>
+					<ul id="folder35">
+						<li><span class="tool">Spray Fixed</span></li>
+						<li><span class="tool">Spray CSV</span></li>
+						<li><span class="tool">Spray XML</span></li>
+						<li><span class="tool">Remote Copy</span></li>
+						<li><span class="tool">XRef</span></li>
+					</ul>
+				</li>
+			</ul>
+		</div>
+
+		<h3><a href="#" class="heading">Security</a></h3>
+		<div style="font-size:12px;">
+			<ul id="securityNav" class="navtree">
+				<li><span class="users">Users</span></li>
+				<li><span class="usergroup">Groups</span></li>
+				<li><span class="file">Permissions</span></li>
+			</ul>
+		</div>
+	</div>
+</div>
+
+<div class="ui-layout-south" style="display: none;">
+	<div id="helpContainer" style="overflow: hidden !important;border:1px solid #BBB;border-width:1px;">
+		<iframe id="helpFrame1" src="" frameborder="0" scrolling="auto" style="height:100%;Width:100%;">
+				Test
+		</iframe>
+	</div>
+</div>
+</body>
+
+</html> 

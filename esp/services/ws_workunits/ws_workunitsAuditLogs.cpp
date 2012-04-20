@@ -1438,6 +1438,51 @@ int CWsWorkunitsSoapBindingEx::onGet(CHttpRequest* request, CHttpResponse* respo
             streamJobQueueListResponse(*ctx, cluster, startDate, endDate, response, xls.str());
             return 0;
         }
+        else if(strieq(path.str(),"/WsWorkunits/WURecentWUs"))
+        {
+            SecAccessFlags accessOwn;
+            SecAccessFlags accessOthers;
+            getUserWuAccessFlags(*ctx, accessOwn, accessOthers, false);
+
+            MemoryBuffer filterbuf;
+            WUSortField filters[1];
+            filters[0] = WUSFterm;
+            WUSortField sortorder[2] = {(WUSortField) (WUSFwuid | WUSFreverse), WUSFterm};
+            Owned<IWorkUnitFactory> factory = getWorkUnitFactory(ctx->querySecManager(), ctx->queryUser());
+            Owned<IConstWorkUnitIterator> it = factory->getWorkUnitsSorted(sortorder, filters, filterbuf.bufferBase(), 0, showLastWorkunits+1, "", NULL);
+
+            StringBuffer eclWUs;
+            ForEach(*it)
+            {
+                IConstWorkUnit& cw = it->query();
+                if (chooseWuAccessFlagsByOwnership(ctx->queryUserId(), cw, accessOwn, accessOthers) < SecAccess_Read)
+                    continue;
+
+                SCMStringBuffer parent;
+                if (!cw.getParentWuid(parent).length())
+                {
+//                    Owned<IEspECLWorkunit> info = createECLWorkunit("","");
+ //                   WsWuInfo winfo(context, cw.getWuid(parent).str());
+   //                 winfo.getCommon(*info, 0);
+     //               results.append(*info.getClear());
+                    const char* wuid = cw.getWuid(parent).str();
+                    if (isEmpty(wuid))
+                        continue;
+
+                    if (eclWUs.length() < 1)
+                        eclWUs.append(wuid);
+                    else
+                        eclWUs.appendf(",%s", wuid);
+                }
+            }
+            if (eclWUs.length() < 1)
+                eclWUs.append("N/A");
+
+            response->setContent(eclWUs.str());
+            response->setContentType(HTTP_TYPE_TEXT_PLAIN);
+            response->send();
+            return 0;
+        }
     }
     catch(IException* e)
     {

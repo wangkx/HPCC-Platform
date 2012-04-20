@@ -1,0 +1,314 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN"
+        "http://www.w3.org/TR/html4/strict.dtd">
+<html>
+    <head>
+        <meta http-equiv="content-type" content="text/html; charset=utf-8">
+        <title>EclWatch Help Page</title>
+
+        <link rel="stylesheet" type="text/css" href="/esp/files/yui/build/reset/reset.css">
+        <link rel="stylesheet" type="text/css" href="/esp/files/yui/build/fonts/fonts.css">
+        <link rel="stylesheet" type="text/css" href="/esp/files/yui/build/container/assets/skins/sam/container.css">
+        <link rel="stylesheet" type="text/css" href="/esp/files/yui/build/menu/assets/skins/sam/menu.css"> 
+
+        <style type="text/css">
+            html {
+                background-color: #eeeeee;
+            }
+            
+            #filemenu.visible .yuimenuitemlabel,
+            #editmenu.visible .yuimenuitemlabel {
+                *zoom: 1;
+            }
+
+            #filemenu.visible .yuimenu .yuimenuitemlabel {
+                *zoom: normal;
+            }
+
+#help-path {position: relative; height:6%; text-align:center}
+#help-container {position: relative; width:100%; height:90%; border:1px solid #aaa;}
+#help-content {margin: 5px;}
+            
+.searchform {
+	display: inline-block;
+	zoom: 1; /* ie7 hack for display:inline-block */
+	*display: inline;
+	background: transparent;
+	filter:  progid:DXImageTransform.Microsoft.gradient(startColorstr='#ffffff', endColorstr='#ededed'); /* ie7 */
+	-ms-filter:  progid:DXImageTransform.Microsoft.gradient(startColorstr='#ffffff', endColorstr='#ededed'); /* ie8 */
+}
+.searchform input {
+	font: normal 12px/100% Arial, Helvetica, sans-serif;
+}
+.searchform .searchfield {
+	background: #fff;
+	padding: 1px 1px 1px 2px;
+	width: 202px;
+	border: solid 1px #bcbbbb;
+	outline: none;
+
+	-webkit-border-radius: 2em;
+	-moz-border-radius: 2em;
+	border-radius: 2em;
+
+	-moz-box-shadow: inset 0 1px 2px rgba(0,0,0,.2);
+	-webkit-box-shadow: inset 0 1px 2px rgba(0,0,0,.2);
+	box-shadow: inset 0 1px 2px rgba(0,0,0,.2);
+}
+.searchform .searchbutton {
+	color: #fff;
+	border: solid 1px #494949;
+	font-size: 11px;
+	height: 20px;
+	width: 27px;
+	text-shadow: 0 1px 1px rgba(0,0,0,.6);
+
+	-webkit-border-radius: 2em;
+	-moz-border-radius: 2em;
+	border-radius: 2em;
+
+	background: #5f5f5f;
+	background: -webkit-gradient(linear, left top, left bottom, from(#9e9e9e), to(#454545));
+	background: -moz-linear-gradient(top,  #9e9e9e,  #454545);
+	filter:  progid:DXImageTransform.Microsoft.gradient(startColorstr='#9e9e9e', endColorstr='#454545'); /* ie7 */
+	-ms-filter:  progid:DXImageTransform.Microsoft.gradient(startColorstr='#9e9e9e', endColorstr='#454545'); /* ie8 */
+}
+        </style>
+
+        <script type="text/javascript" src="/esp/files/yui/build/utilities/utilities.js"></script>
+        <script type="text/javascript" src="/esp/files/yui/build/container/container.js"></script>
+        <script type="text/javascript" src="/esp/files/yui/build/menu/menu.js"></script>
+
+        <script type="text/javascript">
+				function onMenuItemClick(frameId, url) {
+                   var iframe = document.getElementById(frameId);
+                        if (iframe != null)
+                                iframe.setAttribute('src', url);
+             
+                };
+                
+            YAHOO.util.Event.onDOMReady(function () {
+				/*var onMenuItemClick = function () {
+					alert("Callback for MenuItem: " + this.cfg.getProperty("path"));
+				};*/
+				/*function onMenuItemClick('help-frame', p_sType, p_aArgs, p_oValue) {
+ 
+                    alert(("index: " + this.index + 
+                               ", text: " + this.cfg.getProperty("text") + 
+                               ", value: " + p_oValue), "info", "example9");
+             
+                };*/
+/*				
+				var oMenu = new YAHOO.widget.Menu("basicmenu");
+ 
+ 
+	            //	Call the "render" method with no arguments since the markup for 
+	            //	this Menu instance already exists in the DOM.
+             
+                oMenu.render();
+             
+             
+                // Show the Menu instance
+             
+                oMenu.show();
+*/
+/*
+                var aItemData = [
+                    { 
+                        text: "EclWatch Help:"
+                    },
+
+                    {
+                        text: "How to ...", 
+                        submenu: { 
+                            id: "howtomenu", 
+                            itemdata: [
+                                [ 
+                                    { text: "Run ECL Query", onclick: { fn: onMenuItemClick, obj: "/WsSMC/Acitivity" } },
+                                    { text: "File upload/download", onclick: { fn: onMenuItemClick, obj: "File upload/download" } }
+                                ],
+                                
+                                [
+                                    { text: "File Spray", onclick: { fn: onMenuItemClick, obj: 'File Spray' } },
+                                    { text: "File Copy", onclick: { fn: onMenuItemClick, obj: 'File Copy' } }
+                                ],
+                                
+                                [ { text: "View Scheduler", onclick: { fn: onMenuItemClick, obj: "/WsWorkunits/WUShowScheduled" } } ],
+    
+                                [
+                                    { text: "Find", onclick: { fn: onMenuItemClick, obj: 'File Copy' } },
+                                    { text: "Find Again", onclick: { fn: onMenuItemClick, obj: 'File Copy' } }                                ]
+                        ] }
+                    },
+                    "Contents", 
+                    "Index",
+                    "Tutorials",
+                    "Community Forum",
+                    {
+                        text: "Contact", 
+                        submenu: { 
+                            id: "contactmenu", 
+                            itemdata: [
+                                [ 
+                                    { text: "Follow us on Twitter", onclick: { fn: onMenuItemClick, obj: 'http://www.twitter.com/ajaxshake' } },
+                                    { text: "Facebook", onclick: { fn: onMenuItemClick, obj: 'http://www.facebook.com/ajaxshake' } }
+                                ],
+                                
+                                [ { text: "RSS", onclick: { fn: onMenuItemClick, obj: 'http://feeds.feedburner.com/ajaxshake' } } ],
+    
+                                [
+                                    { text: "e-mail", click: { fn: onMenuItemClick, obj: 'mailto:info@ajaxshake.comon' } }
+                                ]
+                        ] }
+                    },
+                    "Help"
+                ];
+
+                var oMenuBar = new YAHOO.widget.MenuBar("mymenubar", { lazyload: true, itemdata: aItemData});
+                oMenuBar.render(document.body);
+                
+                function onSubmenuShow() {
+					var oIFrame,
+						oElement,
+                        nOffsetWidth;
+
+                    if ((this.id == "howtomenu" || this.id == "contactmenu") && YAHOO.env.ua.ie) {
+                        oElement = this.element;
+                        nOffsetWidth = oElement.offsetWidth;
+                        
+                        oElement.style.width = nOffsetWidth + "px";
+                        oElement.style.width = (nOffsetWidth - (oElement.offsetWidth - nOffsetWidth)) + "px";
+                    }
+                }
+                
+                oMenuBar.subscribe("show", onSubmenuShow);
+*/                
+                var oMenuBar = new YAHOO.widget.MenuBar("mymenubar");
+                oMenuBar.render();
+                
+                onMenuItemClick('help-frame', "http://www.microsoft.com");
+            });
+
+        </script>
+
+    </head>
+    <body class="yui-skin-sam" style="overflow:hidden !important;">
+        <!--div id="basicmenu" class="yuimenu">
+            <div class="bd">
+                <ul class="first-of-type">
+                    <li class="yuimenuitem">
+                        <a class="yuimenuitemlabel" href="http://mail.yahoo.com">
+                            Yahoo! Mail
+                        </a>
+                    </li>
+                    <li class="yuimenuitem">
+                        <a class="yuimenuitemlabel" href="http://addressbook.yahoo.com">
+                            Yahoo! Address Book
+                        </a>
+                    </li>
+                    <li class="yuimenuitem">
+                        <a class="yuimenuitemlabel" href="http://calendar.yahoo.com">
+                            Yahoo! Calendar
+                        </a>
+                    </li>
+                    <li class="yuimenuitem">
+                        <a class="yuimenuitemlabel" href="http://notepad.yahoo.com">
+                            Yahoo! Notepad
+                        </a>
+                    </li>
+                </ul>            
+            </div>
+        </div-->
+        <div id="mymenubar" class="yuimenubar">
+            <div class="bd">
+                <ul class="first-of-type">
+                    <li>Help Menu: </li>
+                    <li class="yuimenubaritem first-of-type">
+         
+                        <a class="yuimenubaritemlabel" href="#file">How to ...</a>
+         
+                        <div id="file" class="yuimenu">
+                            <div class="bd">
+                                <ul>
+                                    <li class="yuimenuitem">
+                                        <a class="yuimenuitemlabel" onclick="onMenuItemClick('help-frame', 'http://w3schools.com');">Run Ecl</a>
+                                    </li>
+                                    <li class="yuimenuitem">
+                                        <a class="yuimenuitemlabel" onclick="onMenuItemClick('help-frame', '/WsWorkunits/WUShowScheduled');">View Scheduled WUs</a>
+                                    </li>
+                                </ul>            
+         
+                                <ul>
+                                    <li class="yuimenuitem">
+                                        <a class="yuimenuitemlabel" onclick="onMenuItemClick('help-frame', '/WsWorkunits/WUShowScheduled');">File Upload/download</a>
+                                    </li>
+                                </ul>
+
+                                <ul>
+                                    <li class="yuimenuitem">
+                                        <a class="yuimenuitemlabel" onclick="onMenuItemClick('help-frame', '/WsWorkunits/WUShowScheduled');">File Spray</a>
+                                    </li>
+                                    <li class="yuimenuitem">
+                                        <a class="yuimenuitemlabel" onclick="onMenuItemClick('help-frame', '/WsWorkunits/WUShowScheduled');">File Despray</a>
+                                    </li>
+                                    <li class="yuimenuitem">
+                                        <a class="yuimenuitemlabel" onclick="onMenuItemClick('help-frame', '/WsWorkunits/WUShowScheduled');">File Copy</a>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>      
+         
+                    </li>
+                    <li class="yuimenubaritem first-of-type"><a class="yuimenubaritemlabel" href="#">Contents</a>
+                    </li>
+                    <li class="yuimenubaritem first-of-type"><a class="yuimenubaritemlabel" href="#">Index</a>
+                    </li>
+                    <li class="yuimenubaritem first-of-type"><a class="yuimenubaritemlabel" href="#">Tutorials</a>
+                    </li>
+                    <li class="yuimenubaritem first-of-type"><a class="yuimenubaritemlabel" href="#">Community</a>
+                    </li>
+                    <li class="yuimenubaritem first-of-type"><a class="yuimenubaritemlabel" href="#">Contact</a>
+                       <div id="pim" class="yuimenu">
+                            <div class="bd">
+                                <ul class="first-of-type">
+                                    <li class="yuimenuitem">
+                                        <a class="yuimenuitemlabel" onclick="onMenuItemClick('help-frame', 'http://www.twitter.com/ajaxshake');">Follow us on Twitter</a>
+                                    </li>
+                                    <li class="yuimenuitem">
+                                        <a class="yuimenuitemlabel" onclick="onMenuItemClick('help-frame', 'http://www.facebook.com/ajaxshake');">Facebook</a>
+                                    </li>
+                                </ul>            
+         
+                                <ul>
+                                    <li class="yuimenuitem">
+                                        <a class="yuimenuitemlabel" onclick="onMenuItemClick('help-frame', 'http://feeds.feedburner.com/ajaxshake');">RSS</a>
+                                    </li>
+                                    <li class="yuimenuitem">
+                                        <a class="yuimenuitemlabel" onclick="onMenuItemClick('help-frame', 'mailto:kevin.wang@lexisnexis.com');">email</a>
+                                    </li>
+                                </ul>            
+                            </div>
+                        </div>                      
+         
+                    </li>
+                    <li class="yuimenubaritem first-of-type"><a class="yuimenubaritemlabel" href="#">About EclWatch</a>
+                    </li>
+                    <li style="position: absolute; right: 0px;">
+						<form class="searchform">
+							<input class="searchfield" type="text" value="Search..." onfocus="if (this.value == 'Search...') {this.value = '';}" onblur="if (this.value == '') {this.value = 'Search...';}" />
+							<input class="searchbutton" type="button" value="Go" />
+						</form>
+					</li>
+                </ul>
+            </div>
+        </div> 
+        <div id="help-path" >
+		<a href="/">How to ...</a> &raquo; <a href="/scripts/">System</a> &raquo; <a href="/scripts/multi_level_drop_down_menu/">Use Activity page</a> &raquo; </div>
+		<div id="help-container">
+			<div id="help-content">
+			    <iframe id='help-frame' src="" frameborder="0" scrolling="auto" style="height:100%;Width:100%;">
+				This is a test.
+				</iframe>
+			</div>
+		</div>
+    </body>
+</html>

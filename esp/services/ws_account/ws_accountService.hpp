@@ -44,26 +44,26 @@ public:
         if ((browserUserAgent.length() > 0) && strstr(browserUserAgent.str(), "Firefox"))
             isFF = true;
 
-        IPropertyTree *folder = ensureNavFolder(data, "My Account", "My Account");
+        IPropertyTree *securityFolder = ensureNavFolder(data, "Security", NULL, NULL, false, 4);
 
         const char* build_level = getBuildLevel();
         if (!stricmp(m_authType.str(), "none") || !stricmp(m_authType.str(), "local"))
         {
-            ensureNavLink(*folder, "My Account", "/Ws_Access/SecurityNotEnabled?form_", "My Account", NULL, NULL, 0, true);//Force the menu to use this setting
-            ensureNavLink(*folder, "Change Password", "/Ws_Access/SecurityNotEnabled?form_", "Change Password", NULL, NULL, 0, true);//Force the menu to use this setting
+            ensureNavLink(*securityFolder, "My Account", "/Ws_Access/SecurityNotEnabled?form_", "My Account", NULL, NULL, 1, true);//Force the menu to use this setting
+            ensureNavLink(*securityFolder, "Change Password", "/Ws_Access/SecurityNotEnabled?form_", "Change Password", NULL, NULL, 2, true);//Force the menu to use this setting
             if (!isFF)
-                ensureNavLink(*folder, "Relogin", "/Ws_Access/SecurityNotEnabled?form_", "Relogin", NULL, NULL, 0, true);//Force the menu to use this setting
+                ensureNavLink(*securityFolder, "Relogin", "/Ws_Access/SecurityNotEnabled?form_", "Relogin", NULL, NULL, 3, true);//Force the menu to use this setting
             else
-                ensureNavLink(*folder, "Relogin", "/Ws_Access/FirefoxNotSupport?form_", "Relogin", NULL, NULL, 0, true);//Force the menu to use this setting
+                ensureNavLink(*securityFolder, "Relogin", "/Ws_Access/FirefoxNotSupport?form_", "Relogin", NULL, NULL, 3, true);//Force the menu to use this setting
         }
         else
         {
-            ensureNavLink(*folder, "My Account", "/Ws_Account/MyAccount", "MyAccount", NULL, NULL, 0, true);//Force the menu to use this setting
-            ensureNavLink(*folder, "Change Password", "/Ws_Account/UpdateUserInput", "Change Password", NULL, NULL, 0, true);//Force the menu to use this setting
+            ensureNavLink(*securityFolder, "My Account", "/Ws_Account/MyAccount", "MyAccount", NULL, NULL, 1, true);//Force the menu to use this setting
+            ensureNavLink(*securityFolder, "Change Password", "/Ws_Account/UpdateUserInput", "Change Password", NULL, NULL, 2, true);//Force the menu to use this setting
             if (!isFF)
-                ensureNavLink(*folder, "Relogin", "/Ws_Account/LogoutUser", "Relogin", NULL, NULL, 0, true);//Force the menu to use this setting
+                ensureNavLink(*securityFolder, "Relogin", "/Ws_Account/LogoutUser", "Relogin", NULL, NULL, 3, true);//Force the menu to use this setting
             else
-                ensureNavLink(*folder, "Relogin", "/Ws_Access/FirefoxNotSupport?form_", "Relogin", NULL, NULL, 0, true);//Force the menu to use this setting
+                ensureNavLink(*securityFolder, "Relogin", "/Ws_Access/FirefoxNotSupport?form_", "Relogin", NULL, NULL, 3, true);//Force the menu to use this setting
         }
 #endif
     }

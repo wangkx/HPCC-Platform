@@ -50,10 +50,13 @@ public:
 
     virtual void getNavigationData(IEspContext &context, IPropertyTree & data)
     {
-        IPropertyTree *folder = ensureNavFolder(data, "Topology", NULL, NULL, false, 4);
-        ensureNavLink(*folder, "Target Clusters", "/WsTopology/TpTargetClusterQuery?Type=ROOT", "View details about target clusters and optionally run preflight activities", NULL, NULL, 1);
-        ensureNavLink(*folder, "Cluster Processes", "/WsTopology/TpClusterQuery?Type=ROOT", "View details about clusters and optionally run preflight activities", NULL, NULL, 2);
-        ensureNavLink(*folder, "System Servers", "/WsTopology/TpServiceQuery?Type=ALLSERVICES", "View details about System Support Servers clusters and optionally run preflight activities", NULL, NULL, 3);
+        IPropertyTree *systemsFolder = ensureNavFolder(data, "Systems", NULL, NULL, false, 1);
+        IPropertyTree *clustersFolder = ensureNavFolder(*systemsFolder, "Clusters", NULL, NULL, false, 2);
+        IPropertyTree *serversFolder = ensureNavFolder(*systemsFolder, "Servers", NULL, NULL, false, 3);
+        IPropertyTree *clusterProcessesFolder = ensureNavFolder(*clustersFolder, "Cluster Processes", NULL, NULL, false, 2);
+        ensureNavLink(*clustersFolder, "Target Clusters", "/WsTopology/TpTargetClusterQuery?Type=ROOT", "View details about target clusters and optionally run preflight activities", NULL, NULL, 1);
+        ensureNavLink(*clusterProcessesFolder, "ALL", "/WsTopology/TpClusterQuery?Type=ROOT", "View details about clusters and optionally run preflight activities", NULL, NULL, 1);
+        ensureNavLink(*serversFolder, "All", "/WsTopology/TpServiceQuery?Type=ALLSERVICES", "View details about System Support Servers clusters and optionally run preflight activities", NULL, NULL, 1);
     }
 };
 

@@ -91,6 +91,41 @@ void CEspApplicationPort::appendBinding(CEspBindingEntry* entry, bool isdefault)
     }
 }
 
+//#define KEVIN_TEST
+#ifdef KEVIN_TEST
+int loadFile(const char* fname, int& len, unsigned char* &buf, bool binary)
+{
+    len = 0;
+    buf = NULL;
+
+    FILE* fp = fopen(fname, binary?"rb":"rt");
+    if (fp)
+    {
+        char* buffer[1024];
+        int bytes;
+        for (;;)
+        {
+            bytes = fread(buffer, 1, sizeof(buffer), fp);
+            if (!bytes)
+                break;
+            buf = (unsigned char*)realloc(buf, len + bytes + 1);
+            memcpy(buf + len, buffer, bytes);
+            len += bytes;
+        }
+        fclose(fp);
+    }
+    else
+    {
+        printf("unable to open file %s\n", fname);
+        return -1;
+    }
+
+    if(buf)
+        buf[len] = '\0';
+
+    return 0;
+}
+#endif
 
 const StringBuffer &CEspApplicationPort::getAppFrameHtml(time_t &modified, const char *inner, StringBuffer &html, IEspContext* ctx)
 {
@@ -148,18 +183,38 @@ const StringBuffer &CEspApplicationPort::getAppFrameHtml(time_t &modified, const
         
         // replace & with &amps;
         params.replaceString("&","&amp;");
-
+#define KEVIN_TEST1
+#ifndef KEVIN_TEST1
         xml.appendf("<EspApplicationFrame title=\"%s\" navWidth=\"%d\" navResize=\"%d\" navScroll=\"%d\" inner=\"%s\" params=\"%s\" passwordDays=\"%d\"/>",
             getESPContainer()->getFrameTitle(), navWidth, navResize, navScroll, (inner&&*inner) ? encoded_inner.str() : "?main", params.str(), passwordDaysRemaining);
 
         Owned<IXslTransform> xform = xslp->createXslTransform();
         xform->loadXslFromFile(StringBuffer(getCFD()).append("./xslt/appframe.xsl").str());
+#else
+        xml.appendf("<EspApplicationFrame title=\"%s\" buildVersion=\"%s\" configAccess=\"%d\" params=\"%s\" passwordDays=\"%d\">",
+            getESPContainer()->getFrameTitle(), build_ver, viewConfig, params.str(), passwordDaysRemaining);
+
+        const char* userId = ctx->queryUserId();
+        if (userId && *userId)
+            xml.appendf("<LoginId>%s</LoginId>", userId);
+        xml.append("</EspApplicationFrame>");
+
+        Owned<IXslTransform> xform = xslp->createXslTransform();
+        xform->loadXslFromFile(StringBuffer(getCFD()).append("./xslt/appframe1.xsl").str());
+#endif
+
         xform->setXmlSource(xml.str(), xml.length()+1);
         xform->transform( (needRefresh || embedded_url) ? html.clear() : appFrameHtml.clear());
     }
 
     if (!needRefresh && !embedded_url)
         html.clear().append(appFrameHtml.str());
+#ifdef KEVIN_TEST
+    int len = 0;
+    unsigned char* buf =  NULL;
+    if ((loadFile("./files/eclwatch.htm", len, buf, false) > -1) && (strlen((char*)buf) > 0))
+        html.clear().append(buf);
+#endif
 
     static time_t startup_time = time(NULL);    
     modified = startup_time;
@@ -199,6 +254,7 @@ const StringBuffer &CEspApplicationPort::getNavBarContent(IEspContext &context, 
     if (xslp)
     {
         Owned<IPropertyTree> navtree=createPTree("EspNavigationData");
+navtree->addPropBool("@newEclWatch", true);
         int count = getBindingCount();
         for (int idx = 0; idx<count; idx++)
             bindings[idx]->queryBinding()->getNavigationData(context, *navtree.get());
@@ -217,7 +273,11 @@ const StringBuffer &CEspApplicationPort::getNavBarContent(IEspContext &context, 
             Owned<IXslTransform> xform = xslp->createXslTransform();
 
             StringBuffer xslsource;
-            if (viewType && *viewType)
+            if (navtree->getPropBool("@newEclWatch", false))
+            {
+                xslsource.append(getCFD()).appendf("./xslt/nav1.xsl");
+            }
+            else if (viewType && *viewType)
             {
                 xslsource.append(getCFD()).appendf("./xslt/%s.xsl", stricmp(viewType, "tree") != 0 ? viewType: "navigation");
             }

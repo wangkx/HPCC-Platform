@@ -42,19 +42,18 @@ public:
 
     virtual void getNavigationData(IEspContext &context, IPropertyTree & data)
     {
-        IPropertyTree *folder = ensureNavFolder(data, "Users/Permissions", "Permissions");
-
+        IPropertyTree *securityFolder = ensureNavFolder(data, "Security", NULL, NULL, false, 4);
         if (!stricmp(m_authType.str(), "none") || !stricmp(m_authType.str(), "local"))
         {
-            ensureNavLink(*folder, "Users", "/ws_access/SecurityNotEnabled?form_", "Users");
-            ensureNavLink(*folder, "Groups", "/ws_access/SecurityNotEnabled?form_", "Groups");
-            ensureNavLink(*folder, "Permissions", "/ws_access/SecurityNotEnabled?form_", "Permissions");
+            ensureNavLink(*securityFolder, "Users", "/ws_access/SecurityNotEnabled?form_", "Users", NULL, NULL, 4);
+            ensureNavLink(*securityFolder, "Groups", "/ws_access/SecurityNotEnabled?form_", "Groups", NULL, NULL, 5);
+            ensureNavLink(*securityFolder, "Permissions", "/ws_access/SecurityNotEnabled?form_", "Permissions", NULL, NULL, 6);
         }
         else
         {
-            ensureNavLink(*folder, "Users", "/ws_access/Users", "Users");
-            ensureNavLink(*folder, "Groups", "/ws_access/Groups", "Groups");
-            ensureNavLink(*folder, "Permissions", "/ws_access/Permissions", "Permissions");
+            ensureNavLink(*securityFolder, "Users", "/ws_access/Users", "Users", NULL, NULL, 4);
+            ensureNavLink(*securityFolder, "Groups", "/ws_access/Groups", "Groups", NULL, NULL, 5);
+            ensureNavLink(*securityFolder, "Permissions", "/ws_access/Permissions", "Permissions", NULL, NULL, 6);
         }
     }
 

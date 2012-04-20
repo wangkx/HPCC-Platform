@@ -1,0 +1,459 @@
+<!DOCTYPE HTML>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>Demo: EclWatch layout with Dijit</title>
+    <link rel="stylesheet" href="http://ajax.googleapis.com/ajax/libs/dojo/1.7.1/dijit/themes/claro/claro.css"
+        media="screen">
+    <link rel="stylesheet" href="http://ajax.googleapis.com/ajax/libs/dojo/1.7.1/dijit/themes/tundra/tundra.css"
+        media="screen">
+    <link rel="stylesheet" href="http://ajax.googleapis.com/ajax/libs/dojo/1.7.1/dijit/themes/soria/soria.css"
+        media="screen">
+    <link rel="stylesheet" href="http://ajax.googleapis.com/ajax/libs/dojo/1.7.1/dijit/themes/nihilo/nihilo.css"
+        media="screen">
+    <!--link rel="stylesheet" type="text/css" href="/esp/files/css/eclwatch_new.css"/-->
+    <link rel="stylesheet" type="text/css" href="/esp/files/css/eclwatch_new.css" />
+
+    <script src="http://ajax.googleapis.com/ajax/libs/dojo/1.7.1/dojo/dojo.js" data-dojo-config="async:true, parseOnLoad:true">
+    </script>
+
+    <!--script src="/esp/files/scripts/eclwatch.js" -->
+
+    <script src="/esp/files/scripts/tabview.js">
+        <script src="/esp/files/scripts/eclwatch.js" >
+		<xsl:text disable-output-escaping="yes">&amp;nbsp;</xsl:text>
+    </script>
+
+    <script src="/esp/files/testdata.js">
+		<xsl:text disable-output-escaping="yes">&amp;nbsp;</xsl:text>
+    </script>
+
+    <script>
+			var centralPanel;
+			function addCentralPanelView(title, id) {
+				var cp = new dijit.layout.ContentPane({
+					 title: title,
+					 id: id,
+					 //content: "",
+					 closable: true,
+					 onClose: function(){
+						if (tabViews.length < 2)
+							return false;
+
+						// confirm() returns true or false, so return that.
+						var ret = confirm("Do you really want to Close this view?");
+						if (ret) {
+							removeTabView(this.id);
+						}
+						return ret;
+					 }
+				});
+
+				centralPanel.addChild(cp);
+				return cp;
+			}
+
+			function initPopupMenu() {
+				var pMenu = new dijit.Menu({
+					  targetNodeIds:["appLayout"]
+				  });
+				  pMenu.addChild(new dijit.MenuItem({
+					  label:"Add a new view",
+					  onClick: function(){
+						viewSeq++;
+						var newId = 'View' + viewSeq;
+						var cp = addCentralPanelView(newId, newId);
+						addTabView(newId, '', '', -1);
+						centralPanel.selectChild(cp);
+					}
+				  }));
+				  pMenu.addChild(new dijit.MenuSeparator());
+
+				  var pSubMenu = new dijit.Menu();
+				  pSubMenu.addChild(new dijit.MenuItem({
+					  label:"claro",
+					  onClick: function(){document.body.className='claro';}
+				  }));
+				  pSubMenu.addChild(new dijit.MenuItem({
+					  label:"tundra",
+					  onClick: function(){document.body.className='tundra';}
+				  }));
+				  pSubMenu.addChild(new dijit.MenuItem({
+					  label:"soria",
+					  onClick: function(){document.body.className='soria';}
+				  }));
+				  pSubMenu.addChild(new dijit.MenuItem({
+					  label:"nihilo",
+					  onClick: function(){document.body.className='nihilo';}
+				  }));
+				  pMenu.addChild(new dijit.PopupMenuItem({
+					  label:"Select Theme",
+					  popup:pSubMenu
+				  }));
+			}
+
+			function initCentralPanel() {
+				centralPanel = new dijit.layout.TabContainer({
+					region: "center",
+					"class": "centerPanel",
+					tabPosition: 'bottom',
+				}, "mainTabContainer");
+
+				currentTabView = addTabView('view1', '', '', -1);
+				var cp = addCentralPanelView(currentTabView.id, currentTabView.id);
+			}
+
+			function getViewContent() {
+				var viewId = currentTabView.id; //default view is the first view
+				var urlString = String(currentTabView.url);
+				var idString = String(viewId);
+				if (urlString.match('Not Implemented Yet')) {
+						dojo.byId(viewId).innerHTML = '<html><body><h4>This link will be implemented soon.</h4></body></html>';
+						return;
+				}
+
+				var handleAs = currentTabView.contentType;
+				if (handleAs == '')
+					handleAs = 'text';
+
+				// Using dojo.xhrGet, as very little information is being sent
+				dojo.xhrGet({
+						// The URL of the request
+						url: urlString,
+						handleAs: handleAs,
+						// The success callback with result from server
+						load: function(newContent) {
+							if (currentTabView.contentType != 'xml') {
+								dojo.byId(idString).innerHTML = newContent;
+							} else {
+								var xml = newContent;
+
+							    //extract the stylesheet so we can load it manually
+							    var stylesheet;
+							    for (var i=0;i<xml.childNodes.length;i++){
+								   if ( xml.childNodes[i].nodeName =='xml-stylesheet' ) {
+									   stylesheet = xml.childNodes[i].data;
+									   break;
+								   }
+							    }
+								var items = stylesheet.split('=');
+								var xsltFile = items[items.length-1].replace(/"/g,'');
+
+								dojo.xhrGet({
+									// The URL of the request
+									url: xsltFile,
+									handleAs: 'xml',
+									// The success callback with result from server
+									load: function(xsltData) {
+										var xslt = xsltData;
+										var transformed;
+										if (! window['XSLTProcessor'])
+										{
+											// Trasformation for IE
+											transformed = xml.transformNode(xslt);
+										}
+										else
+										{
+											// Transformation for non-IE
+											var processor = new XSLTProcessor();
+											processor.importStylesheet(xslt);
+											var xmldom = processor.transformToDocument(xml);
+											var serializer = new XMLSerializer();
+											transformed = serializer.serializeToString(xmldom.documentElement);
+										}
+										dojo.byId(idString).innerHTML = transformed;
+									},
+									// The error handler
+									error: function() {
+											// Do nothing -- keep old content there
+									},
+									// if true, generate an extra GET variable to prevent browsers from caching
+									preventCache: false
+								});
+							}
+						},
+						// The error handler
+						error: function() {
+								// Do nothing -- keep old content there
+						},
+						// if true, generate an extra GET variable to prevent browsers from caching
+						preventCache: false
+				});
+			}
+
+			var intervalId;
+/*
+			function reloadViewContent() {
+//wipeTarget = dojo.dom.byId("view1");
+//dojo.fx.wipeOut({ node: wipeTarget }).play();
+				viewProcess();
+//dojo.fx.wipeIn({ node: wipeTarget }).play();
+			}
+*/
+			function updateViewContent(url, contentType, refreshInterval) {
+				updateTabView(currentTabView.id, url, contentType, refreshInterval) ;
+
+				clearInterval(intervalId);
+				if (refreshInterval > 0)
+					intervalId = setInterval('getViewContent()', refreshInterval);
+
+				getViewContent();
+			}
+
+            function generalSearch() {
+				var value = dojo.byId('SearchInput').value;
+                if (value.match("w") || value.match("W"))
+				{
+					url = '/WsWorkunits/WUInfo?Wuid=' + value;
+					updateViewContent(url, '', -1);
+				}
+                else if (value.match("d") || value.match("D"))
+				{
+					url = '/FileSpray/GetDFUWorkunit?wuid=' + value;
+					updateViewContent(url, '', -1);
+				}
+				else
+				{
+					url = '/WsDfu/DFUInfo?Name=' + value;
+					updateViewContent(url, '', -1);
+				}
+			}
+
+			function addItemsToTreeNode(store, item, node) {
+				function saveDone(){
+				}
+				function saveFailed(){
+				  alert("Cannot open this node.");
+				}
+
+				var children = node.getChildren();
+				if (item.label == 'Todays WUs' && children.length < 1) {
+                                        //TODO: read WUs using AJAX here
+					store.newItem(treeData531, {parent:item, attribute:"children"});
+					store.newItem(treeData532, {parent:item, attribute:"children"});
+					store.save({onComplete: saveDone, onError: saveFailed});
+				}
+				else if (item.label == 'This week WUs' && children.length < 1) {
+                                        //TODO: read WUs using AJAX here
+					store.newItem(treeData541, {parent:item, attribute:"children"});
+					store.newItem(treeData542, {parent:item, attribute:"children"});
+					store.newItem(treeData543, {parent:item, attribute:"children"});
+					store.save({onComplete: saveDone, onError: saveFailed});
+				}
+				else if (item.label == 'Todays DFU WUs' && children.length < 1) {
+                                        //TODO: read WUs using AJAX here
+					store.newItem(treeData531, {parent:item, attribute:"children"});
+					store.newItem(treeData532, {parent:item, attribute:"children"});
+					store.save({onComplete: saveDone, onError: saveFailed});
+				}
+				else if (item.label == 'This week DFU WUs' && children.length < 1) {
+                                        //TODO: read WUs using AJAX here
+					store.newItem(treeData541, {parent:item, attribute:"children"});
+					store.newItem(treeData542, {parent:item, attribute:"children"});
+					store.newItem(treeData543, {parent:item, attribute:"children"});
+					store.save({onComplete: saveDone, onError: saveFailed});
+				}
+			}
+
+			function initTree(treeContainer, treeId, treeData, treeDataStore) {
+				var dataStore = new dojo.data.ItemFileWriteStore({
+					data: { identifier: 'id', label : 'label', items: treeData }
+				});
+
+				var memoryStore = new dojo.store.Memory({});
+				var store = new dojo.store.Cache(dataStore, memoryStore);
+				store = new dojo.store.Observable(store);
+				var treeModel = new dijit.tree.ForestStoreModel({
+					store: store,
+					query: { 'root': true }
+					});
+				var navTree = new dijit.Tree({
+					model: treeModel,
+					showRoot: false,
+					id: treeId,
+//style:"overflow: hidden;",
+					_createTreeNode: function(args){
+						var tnode = new dijit._TreeNode(args);
+						tnode.labelNode.innerHTML = args.label;
+						return tnode;
+					},
+					getIconClass: function(item, opened){
+						if(item.type == 'folder'){
+							return (opened ? "folderIcon" : "folderClosedIcon");
+						} else {
+							return (item.type + "Icon");
+						}
+					},
+					onClick: function(item, node){
+						updateViewContent(item.url, '', -1);
+					},
+					onOpen: function(item, node){
+						addItemsToTreeNode(store, item, node);
+					},
+					_onNodeMouseEnter: function (node,evt) {
+							if (typeof node.item.title != 'undefined')
+									dijit.showTooltip(node.item.title,node.domNode)
+					},
+					_onNodeMouseLeave: function (node,evt) {
+					   dijit.hideTooltip(node.domNode);
+					}
+				});
+
+				treeContainer.appendChild(navTree.domNode);
+			}
+
+			function initLeftPanel() {
+				var ac = new dijit.layout.AccordionContainer({
+					region: "leading",
+					style:"height: 300px; width: 210px; overflow: hidden;",
+					//width: 210px,
+					splitter:true,
+					minSize:20,
+					}, "leftAccordion");
+
+				var systemNavPanel = new dijit.layout.ContentPane({
+					title: "System",
+style:"overflow: hidden; width: 100%;",
+				});
+
+				initTree(systemNavPanel.containerNode, 'systemNav', systemTreeData);
+
+				ac.addChild(systemNavPanel);
+
+				var eclNavPanel = new dijit.layout.ContentPane({
+					title: "Ecl",
+style:"overflow: hidden; width: 100%;",
+				});
+
+				initTree(eclNavPanel.containerNode, 'eclNav', eclTreeData);
+
+				ac.addChild(eclNavPanel);
+
+				var fileNavPanel = new dijit.layout.ContentPane({
+					title: "Files",
+style:"overflow: hidden; width: 100%;",
+				});
+
+				initTree(fileNavPanel.containerNode, 'fileNav', fileTreeData);
+
+				ac.addChild(fileNavPanel);
+
+				var securityNavPanel = new dijit.layout.ContentPane({
+					title: "Security",
+style:"overflow: hidden; width: 100%;",
+				});
+
+				initTree(securityNavPanel.containerNode, 'securityNav', securityTreeData);
+
+				ac.addChild(securityNavPanel);
+
+				//ac.addChild(new dijit.layout.ContentPane({
+				//	title: "File",
+				//	content:"Tree menu to be added"
+				//}));
+
+			}
+
+			require(["dijit/registry", "dijit/layout/BorderContainer", "dijit/layout/AccordionContainer", "dijit/layout/TabContainer",
+				"dijit/layout/ContentPane", "dijit/Menu", "dijit/MenuItem", "dijit/CheckedMenuItem", "dijit/MenuSeparator",
+				"dijit/PopupMenuItem", "dijit/form/DropDownButton", "dijit/Tooltip", "dijit/form/SimpleTextarea",
+				"dijit/TooltipDialog", "dijit/form/TextBox", "dijit/form/NumberTextBox", "dijit/form/CurrencyTextBox",
+				"dijit/form/TimeTextBox", "dijit/form/DateTextBox", "dijit/form/Button","dijit/form/ToggleButton",
+				"dijit/form/ComboButton", "dijit/form/CheckBox", "dojox/form/BusyButton", "dojox/widget/Standby",
+				"dojo/store/Memory", "dojo/store/Cache", "dojo/fx", "dojo/on",
+				"dojo/data/ItemFileWriteStore", "dojo/store/Observable", "dojo/query", "dojo/_base/xhr", "dojo/dom",
+				"dijit/Tree", "dijit/Calendar", "dijit/ColorPalette", "dojo/parser",
+				"dojo/domReady!"], function(xhr, dom) {
+
+				initLeftPanel();
+
+				initCentralPanel();
+
+				centralPanel.watch("selectedChildWidget", function(name, oval, nval){
+					clearInterval(intervalId);
+
+					if (typeof oval != 'undefined') {
+						previousTabView = currentTabView;
+						currentTabView = getTabView(nval.id);
+					} else { //a tab view deleted
+						currentTabView = previousTabView;
+					}
+
+					if (currentTabView.refreshInterval > 0) {
+						intervalId = setInterval('getViewContent()', currentTabView.refreshInterval);
+						getViewContent();
+					}
+				});
+
+				initPopupMenu();
+
+				dijit.Tooltip.style = 'background-color:yellow;';//TODO: not work here
+				dijit.Tooltip.defaultPosition=['after', 'before', 'below','above'];
+
+				updateViewContent("/WsSMC/Activity", '', 60000);
+
+				dojo.byId('loaderInner').innerHTML += " done.";
+					setTimeout(function hideLoader(){
+						dojo.fadeOut({
+							node: 'loader',
+							duration:500,
+							onEnd: function(n){
+								n.style.display = "none";
+							}
+						}).play();
+					}, 250);
+			});
+    </script>
+
+</head>
+<body class="soria">
+    <div id="loader">
+        <div id="loaderInner" style="direction: ltr;">
+            Loading ...
+        </div>
+    </div>
+    <div id="appLayout" class="demoLayout" data-dojo-type="dijit.layout.BorderContainer"
+        data-dojo-props="design: 'headline'">
+        <div id="mainTabContainer">
+        </div>
+        <div id="headerPanel" class="edgePanel" data-dojo-type="dijit.layout.ContentPane"
+            data-dojo-props="region: 'top'">
+            <div id="header">
+                <div id="logo">
+                    <a href="" name="" />
+                </div>
+                <div>
+                    <ul id="links">
+                        <li id="adv_search" onmouseover="dijit.Tooltip.defaultPosition=['below','above']"><a>
+                            <input id="SearchInput" name="SearchInput" type="text" size="20" value="Search WU or file"
+                                onclick="this.focus();this.select();" />
+                            <input src="/esp/files/img/btn_search.gif" type="image" name="" align="absmiddle"
+                                border="0" alt="Submit" class="search_btn" onclick="return generalSearch()" />
+                        </a><span data-dojo-type="dijit.Tooltip" data-dojo-props='connectId:"adv_search"'
+                            style="display: none; color: #309; background-color: #7FFF00">Search <b><i>workunit
+                                or files</i></b></span> </li>
+                        <li id="hpcc_systems"><a href="http://hpccsystems.com/" target="_blank">HPCC Systems</a>
+                            <span data-dojo-type="dijit.Tooltip" data-dojo-props='connectId:"hpcc_systems"' style="display: none;">
+                                Link to HPCC Website</span> </li>
+                        <!--li id="my_account">
+                            <a href="">My Account</a>
+							<span data-dojo-type="dijit.Tooltip" data-dojo-props='connectId:"my_account"' style="display:none;color:#7FFF00">This link displays the information about the user account.</span>
+                        </li>
+                        <li id="logout">
+                            <a href="">Logout</a>
+							<span data-dojo-type="dijit.Tooltip" data-dojo-props='connectId:"logout"' style="display:none;">This link allows the user to log out from this account.</span>
+                        </li-->
+                        <li id="config"><a href="javascript:updateViewContent('/main/?config_', 'xml', -1)">
+                            <img border="0" src="/esp/files/img/config.png" />
+                        </a><span data-dojo-type="dijit.Tooltip" data-dojo-props='connectId:"config"' style="display: none;">
+                            This link displays the esp.xml.</span> </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+        <!-- end headerPanel -->
+        <div id="leftAccordion">
+        </div>
+    </div>
+</body>
+</html>

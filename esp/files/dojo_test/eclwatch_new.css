@@ -1,0 +1,134 @@
+html, body {
+    height: 100%;
+    margin: 0;
+    overflow: hidden;
+    padding: 0;
+}
+
+#appLayout {
+    height: 100%;
+}
+
+#headerPanel {
+    height: 40px;
+    border: none;
+    overflow: hidden;
+}
+
+
+#header{    margin-bottom: 5px;    height: 25px;    position: relative;    z-index: 2;}#header div, span, ul, li{    margin: 0;    padding: 0;    border: 0;    outline: 0;    font-size: 100%;    background: transparent;}#header ul{    list-style: none;}#header #logo{    position: absolute;    left: -150px;    top: 0;    height: 25px;    width: 353px;    padding-left: 150px;    z-index: 2;    zoom: 1;}#header #logo a:link, #header #logo a:visited{    background-image: url(../img/hpcc_eclwatch.png);    background-position: left top;    background-repeat: no-repeat;    display: block;    height: 50px;    width: 350px;    text-indent: -999em;}/* links */#header ul#links{    position: absolute;    right: 0;    top: 0;    z-index: 30;}#header ul#links li{    position: relative;    float: right;    font-size: 12px;    line-height: 14px;    z-index: 20;    background-image: none;    padding: 0;}#header ul#links li#adv_search a{    padding: 5px 0 6px 12px;    height: 16px;    width: 200px;}#header ul#links li#hpcc_systems a{    padding: 5px 0 6px 12px;    height: 16px;    width: 100px;}#header ul#links li#my_account a{    padding: 5px 0 6px 12px;    height: 16px;    width: 80px;}#header ul#links li#logout a{    padding: 5px 0 6px 12px;    height: 16px;    width: 50px;}#header ul#links li#config a{    padding: 5px 0 6px 0;    height: 16px;    width: 24px;}#header ul#links{    width: 580px;}.tabs {	width:auto;}
+#tabMenuBox {    height: 1500;}#tabMenu {
+    margin:0;
+    padding:0 0 0 15px;
+    list-style:none;
+}
+ 
+#tabMenu li {
+    float:left;
+    display: block;  
+    padding: 5px 10px 5px 10px;  
+    background: #FFF;
+    margin-top: 1px;
+    margin-right: 2px;  
+    margin-bottom: -1px;  
+    border: 1px solid #d0ccc9;  
+    border-width: 1px 1px 1px 1px;  
+    position: relative;
+    color: #898989;  
+    cursor:pointer;
+    cursor:hand
+}
+
+#tabMenu li.selected{  
+    background: #FFF;  
+    top: 1px;  
+    border-bottom: 0; 
+    font-weight:bold;
+    color: #5f95ef;  
+}  
+
+#loader {
+	padding:0;
+	margin:0;
+	position:absolute;
+	top:0; left:0;
+	width:100%; height:100%;
+	background:#ededed;
+	z-index:999;
+	vertical-align:middle;
+}
+#loaderInner {
+	padding:5px;
+	position:relative;
+	left:0;
+	top:0;
+	width:175px;
+	background:#3c3;
+	color:#fff;
+}
+.folderIcon 
+{
+	background-image: url(../img/folder-open.gif); 
+	background-repeat: no-repeat; 
+	background-position: center center; 
+	width: 16px; 
+	height: 16px;
+} 
+.folderClosedIcon 
+{
+	background-image: url(../img/folder-closed.gif); 
+	background-repeat: no-repeat; 
+	background-position: center center; 
+	width: 16px; 
+	height: 16px;
+} 
+.fileIcon 
+{
+	background-image: url(../img/file.gif); 
+	background-repeat: no-repeat; 
+	background-position: center center; 
+	width: 16px; 
+	height: 16px;
+} 
+.clusterIcon 
+{
+	background-image: url(../img/cluster.png); 
+	background-repeat: no-repeat; 
+	background-position: center center; 
+	width: 16px; 
+	height: 16px;
+} 
+.serverIcon 
+{
+	background-image: url(../img/server.png); 
+	background-repeat: no-repeat; 
+	background-position: center center; 
+	width: 16px; 
+	height: 16px;
+} 
+.toolIcon 
+{
+	background-image: url(../img/tool.png); 
+	background-repeat: no-repeat; 
+	background-position: center center; 
+	width: 16px; 
+	height: 16px;
+} 
+.usersIcon 
+{
+	background-image: url(../img/Users.png); 
+	background-repeat: no-repeat; 
+	background-position: center center; 
+	width: 16px; 
+	height: 16px;
+} 
+.usergroupIcon 
+{
+	background-image: url(../img/Usergroup.png); 
+	background-repeat: no-repeat; 
+	background-position: center center; 
+	width: 16px; 
+	height: 16px;
+} 
+/*
+ .primaryMenuTop {    height:1px;    clear:both}.primaryMenuBox {    border: 1px solid #00ccc9;      border-width: 1px 1px 1px 1px;      margin-bottom: -1px;  	overflow: auto;}.primaryMenuBox div.parent {    display:none;} .primaryMenuBox div.show {    display:block;} /* IE Hacks */*html .primaryMenuTop {margin-bottom:-2px;}*html .primaryMenuBox div ul {margin-left:10px;padding-left:15px;}.filetree {	font: 10pt verdana, arial, helvetica, sans-serif; } .filetree span.workunit, .filetree span.dropzone, .filetree span.tool { padding: 1px 0 1px 16px; display: block; }.filetree span.users, .filetree span.groups { padding: 1px 0 1px 16px; display: block; }.filetree span.server, .filetree span.cluster, .filetree span.servers { padding: 1px 0 1px 16px; display: block; }.filetree span.workunit { background: url(../images/cog.png) 0 0 no-repeat; }.filetree span.dropzone { background: url(../images/base.gif) 0 0 no-repeat; }.filetree span.tool { background: url(../images/tool.png) 0 0 no-repeat; }.filetree span.users { background: url(../images/users.png) 0 0 no-repeat; }.filetree span.groups { background: url(../images/usergroup.png) 0 0 no-repeat; }.filetree span.server { background: url(../images/server.png) 0 0 no-repeat; }.filetree span.servers { background: url(../images/cluster.png) 0 0 no-repeat; }.filetree span.cluster { background: url(../images/cluster.png) 0 0 no-repeat; }/* tooltip styling. by default the element to be styled is .tooltip  */.tooltip {	display:none;	background:transparent url(../images/white_arrow.png);	font-size:12px;	height:70px;	width:160px;	padding:25px;	color:#000;	};*/

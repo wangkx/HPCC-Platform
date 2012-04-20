@@ -116,18 +116,26 @@ public:
     {
         VStringBuffer xpath("Software/EspProcess[@name=\"%s\"]/EspBinding[@name=\"%s\"]/BatchWatch", process, name);
         batchWatchFeaturesOnly = cfg->getPropBool(xpath.str(), false);
+
+        xpath.clear().appendf("Software/EspProcess[@name=\"%s\"]/EspService[@name=\"%s\"]/@showLastWorkunits", process, name);
+        showLastWorkunits = cfg->getPropInt(xpath.str(), 20);
     }
 
     virtual void getNavigationData(IEspContext &context, IPropertyTree & data)
     {
         if (!batchWatchFeaturesOnly)
         {
-            IPropertyTree *folder = ensureNavFolder(data, "ECL", "Run Ecl code and review Ecl workunits", NULL, false, 2);
-            ensureNavLink(*folder, "Search Workunits", "/WsWorkunits/WUQuery?form_", "Search Workunits", NULL, NULL, 1);
-            ensureNavLink(*folder, "Browse Workunits", "/WsWorkunits/WUQuery", "Browse Workunits", NULL, NULL, 2);
-
-            IPropertyTree *folderQueryset = ensureNavFolder(data, "Query Sets", NULL, NULL, false, 3);
+            IPropertyTree *eclFolder = ensureNavFolder(data, "ECL", "View Ecl queries and workunits", NULL, false, 2);
+            IPropertyTree *folderQueryset = ensureNavFolder(*eclFolder, "Query Sets", NULL, NULL, false, 1);
+            IPropertyTree *folderWorkunits = ensureNavFolder(*eclFolder, "Ecl Workunits", NULL, NULL, false, 2);
+            ensureNavLink(*eclFolder, "Scheduler", "/WsWorkunits/WUShowScheduled", "Access the ECL Scheduler to view and manage scheduled workunits or events", NULL, NULL, 3);
             ensureNavLink(*folderQueryset, "Browse", "/WsWorkunits/WUQuerySets", "Browse Published Queries");
+            ensureNavLink(*folderWorkunits, "Search", "/WsWorkunits/WUQuery?form_", "Search Workunits", NULL, NULL, 1);
+            ensureNavLink(*folderWorkunits, "Browse", "/WsWorkunits/WUQuery", "Browse Workunits", NULL, NULL, 2);
+
+            VStringBuffer path("/WsWorkunits/WUQuery?PageSize=%d", showLastWorkunits);
+            IPropertyTree *folderRecentWorkunits = ensureNavFolder(*folderWorkunits, "Recent Workunits", "Access Recent Ecl Workunits", NULL, false, 3);
+            ensureNavLink(*folderRecentWorkunits, "dummy", "dummy", "", NULL, NULL, 1);
         }
     }
 
@@ -145,6 +153,7 @@ public:
 
 private:
     bool batchWatchFeaturesOnly;
+    unsigned showLastWorkunits;
 };
 
 void deploySharedObject(IEspContext &context, StringBuffer &newWuid, const char *filename, const char *cluster, const char *name, const MemoryBuffer &obj, const char *dir, const char *xml=NULL);
