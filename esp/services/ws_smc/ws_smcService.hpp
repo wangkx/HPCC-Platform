@@ -91,12 +91,10 @@ public:
     virtual void getNavigationData(IEspContext &context, IPropertyTree & data)
     {
         data.setProp("@appName", "EclWatch");
-        data.setProp("@start_page", "/WsSMC/Activity");
+        data.setProp("@startPage", "/WsSMC/Activity");
         IPropertyTree *systemsFolder = ensureNavFolder(data, "Systems", NULL, NULL, false, 1);
         ensureNavLink(*systemsFolder, "Activity", "/WsSMC/Activity", "Display Activity on all target clusters in an environment", NULL, NULL, 1);
-//        ensureNavLink(*folder, "Scheduler", "/WsWorkunits/WUShowScheduled", "Access the ECL Scheduler to view and manage scheduled workunits or events", NULL, NULL, 2);
-
-        ensureNavLink(*systemsFolder, "Browse Resources", "/WsSMC/BrowseResources", "Browse a list of resources available for download, such as the ECL IDE, documentation, examples, etc. These are only available if optional packages are installed on the ESP Server.", NULL, NULL, 4);
+        ensureNavLink(*systemsFolder, "Browse Resources", "/WsSMC/BrowseResources", "Browse a list of resources available for download, such as the ECL IDE, documentation, examples, etc. These are only available if optional packages are installed on the ESP Server.", NULL, NULL, 2);
     }
     virtual void getNavSettings(int &width, bool &resizable, bool &scroll)
     {

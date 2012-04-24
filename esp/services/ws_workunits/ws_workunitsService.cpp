@@ -3543,3 +3543,67 @@ bool CWsWorkunitsEx::onWUDeployWorkunit(IEspContext &context, IEspWUDeployWorkun
     }
     return true;
 }
+
+void CWsWorkunitsSoapBindingEx::getDynNavData(IEspContext &context, IProperties *params, IPropertyTree & data)
+{
+    if (!params)
+        return;
+
+    data.setPropBool("@volatile", true);
+    if (params->hasProp("recentEclWUs"))
+    {
+        SecAccessFlags accessOwn;
+        SecAccessFlags accessOthers;
+        getUserWuAccessFlags(context, accessOwn, accessOthers, false);
+
+        MemoryBuffer filterbuf;
+        WUSortField filters[1] = { WUSFterm };
+        WUSortField sortorder[2] = {(WUSortField) (WUSFwuid | WUSFreverse), WUSFterm};
+        Owned<IWorkUnitFactory> factory = getWorkUnitFactory(context.querySecManager(), context.queryUser());
+        if (factory)
+        {
+            Owned<IConstWorkUnitIterator> it = factory->getWorkUnitsSorted(sortorder, filters, filterbuf.bufferBase(), 0, showLastWorkunits, "", NULL);
+            ForEach(*it)
+            {
+                IConstWorkUnit& cw = it->query();
+                if (chooseWuAccessFlagsByOwnership(context.queryUserId(), cw, accessOwn, accessOthers) < SecAccess_Read)
+                    continue;
+
+                SCMStringBuffer parent;
+                if (cw.getParentWuid(parent).length())
+                    continue;
+
+                const char* wuid = cw.getWuid(parent).str();
+                if (!isEmpty(wuid))
+                {
+                    StringBuffer navPath, tooltip;
+                    navPath.appendf("/WsWorkunits/WUInfo?Wuid=%s", wuid);
+                    tooltip.appendf("View workunit details for %s", wuid);
+                    ensureNavLink(data, wuid, navPath.str(), tooltip.str());
+                }
+            }
+        }
+        return;
+    }
+    if (params->hasProp("getQuerySets"))
+    {
+        Owned<IPropertyTree> queryRegistry = getQueryRegistryRoot();
+        if (queryRegistry)
+        {
+            IArrayOf<IEspQuerySet> querySets;
+            Owned<IPropertyTreeIterator> it = queryRegistry->getElements("QuerySet");
+            ForEach(*it)
+            {
+                const char* id = it->query().queryProp("@id");
+                if (!isEmpty(id))
+                {
+                    StringBuffer navPath, tooltip;
+                    navPath.appendf("/WsWorkunits/WUQuerySetDetails?QuerySetName=%s", id);
+                    tooltip.appendf("View QuerySet details for %s", id);
+                    ensureNavLink(data, id, navPath.str(), tooltip.str());
+                }
+            }
+        }
+        return;
+    }
+}

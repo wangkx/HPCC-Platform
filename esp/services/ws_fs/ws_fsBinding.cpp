@@ -479,3 +479,34 @@ int CFileSpraySoapBindingEx::onFinishUpload(IEspContext &ctx, CHttpRequest* requ
 
     return 0;
 }
+
+void CFileSpraySoapBindingEx::getDynNavData(IEspContext &context, IProperties *params, IPropertyTree & data)
+{
+    if (!params)
+        return;
+
+    data.setPropBool("@volatile", true);
+    if (params->hasProp("recentDfuWUs"))
+    {
+        MemoryBuffer filterbuf;
+        DFUsortfield filters[1] = { DFUsf_term };
+        DFUsortfield sortorder[2] = { (DFUsortfield) (DFUsf_wuid | DFUsf_reverse), DFUsf_term};
+
+        Owned<IDFUWorkUnitFactory> factory = getDFUWorkUnitFactory();
+        unsigned numWUs = factory->numWorkUnitsFiltered(filters, filterbuf.bufferBase());
+        Owned<IConstDFUWorkUnitIterator> itr = factory->getWorkUnitsSorted(sortorder, filters, filterbuf.bufferBase(), 0, showLastWorkunits+1, "", NULL);
+        ForEach(*itr)
+        {
+            Owned<IConstDFUWorkUnit> wu = itr->get();
+            const char* wuid = wu->queryId();
+            if (wuid && *wuid)
+            {
+                StringBuffer navPath, tooltip;
+                navPath.appendf("/FileSpray/GetDFUWorkunit?wuid=%s", wuid);
+                tooltip.appendf("View workunit details for %s", wuid);
+                ensureNavLink(data, wuid, navPath.str(), tooltip.str());
+            }
+        }
+        return;
+    }
+}

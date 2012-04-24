@@ -91,7 +91,7 @@ void CEspApplicationPort::appendBinding(CEspBindingEntry* entry, bool isdefault)
     }
 }
 
-//#define KEVIN_TEST
+#define KEVIN_TEST
 #ifdef KEVIN_TEST
 int loadFile(const char* fname, int& len, unsigned char* &buf, bool binary)
 {
@@ -183,8 +183,7 @@ const StringBuffer &CEspApplicationPort::getAppFrameHtml(time_t &modified, const
         
         // replace & with &amps;
         params.replaceString("&","&amp;");
-#define KEVIN_TEST1
-#ifndef KEVIN_TEST1
+#ifndef KEVIN_TEST
         xml.appendf("<EspApplicationFrame title=\"%s\" navWidth=\"%d\" navResize=\"%d\" navScroll=\"%d\" inner=\"%s\" params=\"%s\" passwordDays=\"%d\"/>",
             getESPContainer()->getFrameTitle(), navWidth, navResize, navScroll, (inner&&*inner) ? encoded_inner.str() : "?main", params.str(), passwordDaysRemaining);
 
@@ -200,7 +199,10 @@ const StringBuffer &CEspApplicationPort::getAppFrameHtml(time_t &modified, const
         xml.append("</EspApplicationFrame>");
 
         Owned<IXslTransform> xform = xslp->createXslTransform();
-        xform->loadXslFromFile(StringBuffer(getCFD()).append("./xslt/appframe1.xsl").str());
+        if (checkFileExists(StringBuffer(getCFD()).append("./xslt/appframe1.xsl").str()))
+            xform->loadXslFromFile(StringBuffer(getCFD()).append("./xslt/appframe1.xsl").str());
+        else
+            xform->loadXslFromFile(StringBuffer(getCFD()).append("./xslt/appframe.xsl").str());
 #endif
 
         xform->setXmlSource(xml.str(), xml.length()+1);
@@ -210,10 +212,14 @@ const StringBuffer &CEspApplicationPort::getAppFrameHtml(time_t &modified, const
     if (!needRefresh && !embedded_url)
         html.clear().append(appFrameHtml.str());
 #ifdef KEVIN_TEST
-    int len = 0;
-    unsigned char* buf =  NULL;
-    if ((loadFile("./files/eclwatch.htm", len, buf, false) > -1) && (strlen((char*)buf) > 0))
-        html.clear().append(buf);
+    if (!checkFileExists(StringBuffer(getCFD()).append("./xslt/appframe1.xsl").str()) &&
+        checkFileExists(StringBuffer(getCFD()).append("./files/eclwatch.htm").str()))
+    {
+        int len = 0;
+        unsigned char* buf =  NULL;
+        if ((loadFile("./files/eclwatch.htm", len, buf, false) > -1) && (strlen((char*)buf) > 0))
+            html.clear().append(buf);
+    }
 #endif
 
     static time_t startup_time = time(NULL);    
@@ -254,7 +260,6 @@ const StringBuffer &CEspApplicationPort::getNavBarContent(IEspContext &context, 
     if (xslp)
     {
         Owned<IPropertyTree> navtree=createPTree("EspNavigationData");
-navtree->addPropBool("@newEclWatch", true);
         int count = getBindingCount();
         for (int idx = 0; idx<count; idx++)
             bindings[idx]->queryBinding()->getNavigationData(context, *navtree.get());
@@ -273,11 +278,16 @@ navtree->addPropBool("@newEclWatch", true);
             Owned<IXslTransform> xform = xslp->createXslTransform();
 
             StringBuffer xslsource;
-            if (navtree->getPropBool("@newEclWatch", false))
+#ifdef KEVIN_TEST
+            if (checkFileExists(StringBuffer(getCFD()).appendf("./xslt/appframe1.xsl").str()))
             {
-                xslsource.append(getCFD()).appendf("./xslt/nav1.xsl");
+                content = xml;
+                contentType.clear().append("text/xml; charset=UTF-8");
             }
-            else if (viewType && *viewType)
+            else
+            {
+#endif
+            if (viewType && *viewType)
             {
                 xslsource.append(getCFD()).appendf("./xslt/%s.xsl", stricmp(viewType, "tree") != 0 ? viewType: "navigation");
             }
@@ -292,6 +302,9 @@ navtree->addPropBool("@newEclWatch", true);
             xform->setXmlSource(xml.str(), xml.length()+1);
             xform->transform(content);
             contentType.clear().append("text/html; charset=UTF-8");
+#ifdef KEVIN_TEST
+            }
+#endif
         }
     }
     return content;
@@ -427,7 +440,7 @@ void CEspApplicationPort::buildNavTreeXML(IPropertyTree* navtree, StringBuffer& 
     xmlBuf.appendf("</%s>\n", navtree->queryName());
 }
 
-IPropertyTree *CEspBinding::ensureNavFolder(IPropertyTree &root, const char *name, const char *tooltip, const char *menuname, bool sort, unsigned relPosition)
+IPropertyTree *CEspBinding::ensureNavFolder(IPropertyTree &root, const char *name, const char *tooltip, const char *menuname, bool sort, unsigned relPosition, const char *path)
 {
     StringBuffer xpath;
     xpath.appendf("Folder[@name=\"%s\"]", name);
@@ -441,6 +454,8 @@ IPropertyTree *CEspBinding::ensureNavFolder(IPropertyTree &root, const char *nam
         ret->setProp("@menu", menuname);
         if (sort)
             ret->addPropBool("@sort", true);
+        if (path && *path)
+            ret->setProp("@path", path);
         ret->addPropInt("@relPosition", relPosition);
 
         root.addPropTree("Folder", ret);

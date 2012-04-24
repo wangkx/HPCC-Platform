@@ -38,9 +38,6 @@
 
 #define SDS_LOCK_TIMEOUT 30000
 
-static const char* FEATURE_URL = "ClusterTopologyAccess";
-static const char* MACHINE_URL = "MachineInfoAccess";
-
 static const unsigned THORSTATUSDETAILS_REFRESH_MINS = 1;
 static const long LOGFILESIZELIMIT = 100000; //Limit page size to 100k
 static const long AVERAGELOGROWSIZE = 2000;
@@ -1813,4 +1810,82 @@ bool CWsTopologyEx::onTpThorStatus(IEspContext &context, IEspTpThorStatusRequest
         FORWARDEXCEPTION(context, e,  ECLWATCH_INTERNAL_ERROR);
     }
     return false;
+}
+
+void CWsTopologySoapBindingEx::getDynNavData(IEspContext &context, IProperties *params, IPropertyTree & data)
+{
+    if (!params)
+        return;
+
+    data.setPropBool("@volatile", true);
+    if (params->hasProp("getServers"))
+    {
+        Owned<IEnvironmentFactory> envFactory = getEnvironmentFactory();
+        Owned<IConstEnvironment> constEnv = envFactory->openEnvironmentByFile();
+        Owned<IPropertyTree> root = &constEnv->getPTree();
+        if (root)
+        {
+            IPropertyTree* pSubTree = root->queryPropTree( "Software" );
+            if (pSubTree)
+            {
+                int index = 0;
+                char *serverTypes[]= {eqDali, eqDfu, eqEclServer, eqEclCCServer, eqEclAgent, eqSashaServer, eqEsp, NULL};
+                while (serverTypes[index] != NULL)
+                {
+                    Owned<IPropertyTreeIterator> services= pSubTree->getElements(serverTypes[index]);
+                    ForEach(*services)
+                    {
+                        IArrayOf<IEspTpMachine> tpMachines;
+                        IPropertyTree& serviceTree = services->query();
+                        const char* name = serviceTree.queryProp("@name");
+                        if (!name || !*name)
+                            continue;
+
+                        Owned<IPropertyTreeIterator> instances = serviceTree.getElements("Instance");
+                        ForEach(*instances)
+                        {
+                            IPropertyTree& instanceNode = instances->query();
+                            const char* computerName = instanceNode.queryProp("@computer");
+                            if (!computerName || !*computerName)
+                                continue;
+
+                            Owned<IConstMachineInfo> pMachineInfo =  constEnv->getMachine(computerName);
+                            if (!pMachineInfo.get())
+                                continue;
+
+                            StringBuffer netAddress, configNetAddress;
+                            SCMStringBuffer ep;
+                            pMachineInfo->getNetAddress(ep);
+                            const char* ip = ep.str();
+                            if (ip || stricmp(ip, "."))
+                            {
+                                netAddress.append(ip);
+                                configNetAddress.append(ip);
+                            }
+                            else
+                            {
+                                StringBuffer netAddress;
+                                IpAddress ipaddr = queryHostIP();
+                                ipaddr.getIpText(netAddress);
+                                configNetAddress.append(".");
+                            }
+
+                            if (netAddress.length() < 7)
+                                continue;
+
+                            //Addresses_i1={Netaddress}|{ConfigNetaddress}:{Type}:{$compName}:{OS}:{translate(Directory, ':', '$')}" onclick="return clicked(this, event)">
+
+                            StringBuffer navPath, tooltip;
+                            navPath.appendf("/ws_machine/GetMachineInfo?Addresses_i1=%s|%s:%s:%s:%d:%s",
+                                netAddress.str(), configNetAddress.str(), serverTypes[index], name, pMachineInfo->getOS(), instanceNode.queryProp("@directory"));
+                            tooltip.appendf("View workunit details for %s", name);
+                            ensureNavLink(data, name, navPath.str(), tooltip.str());
+                        }
+                    }
+                    index++;
+                }
+            }
+        }
+        return;
+    }
 }

@@ -55,7 +55,7 @@ public:
 
     IPropertyTree *ensureNavMenu(IPropertyTree &root, const char *name);
     IPropertyTree *ensureNavMenuItem(IPropertyTree &root, const char *name, const char *tooltip, const char *action);
-    IPropertyTree *ensureNavFolder(IPropertyTree &root, const char *name, const char *tooltip, const char *menu=NULL, bool sort=false, unsigned relPosition = 0);
+    IPropertyTree *ensureNavFolder(IPropertyTree &root, const char *name, const char *tooltip, const char *menu=NULL, bool sort=false, unsigned relPosition = 0, const char *path=NULL);
     IPropertyTree *ensureNavDynFolder(IPropertyTree &root, const char *name, const char *tooltip, const char *parms, const char *menu=NULL);
     IPropertyTree *addNavException(IPropertyTree &root, const char *message=NULL, int code=0, const char *source=NULL);
 

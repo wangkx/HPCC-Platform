@@ -25,6 +25,9 @@
 
 #include "TpWrapper.hpp"
 
+static const char* FEATURE_URL = "ClusterTopologyAccess";
+static const char* MACHINE_URL = "MachineInfoAccess";
+
 struct ReadLog
 {
     StringBuffer startDate;
@@ -45,18 +48,18 @@ struct ReadLog
 
 class CWsTopologySoapBindingEx : public CWsTopologySoapBinding
 {
+    void getDynNavData(IEspContext &context, IProperties *params, IPropertyTree & data);
+
 public:
     CWsTopologySoapBindingEx(IPropertyTree *cfg, const char *name, const char *process, http_soap_log_level llevel=hsl_none) : CWsTopologySoapBinding(cfg, name, process, llevel){}
 
     virtual void getNavigationData(IEspContext &context, IPropertyTree & data)
     {
         IPropertyTree *systemsFolder = ensureNavFolder(data, "Systems", NULL, NULL, false, 1);
-        IPropertyTree *clustersFolder = ensureNavFolder(*systemsFolder, "Clusters", NULL, NULL, false, 2);
-        IPropertyTree *serversFolder = ensureNavFolder(*systemsFolder, "Servers", NULL, NULL, false, 3);
-        IPropertyTree *clusterProcessesFolder = ensureNavFolder(*clustersFolder, "Cluster Processes", NULL, NULL, false, 2);
-        ensureNavLink(*clustersFolder, "Target Clusters", "/WsTopology/TpTargetClusterQuery?Type=ROOT", "View details about target clusters and optionally run preflight activities", NULL, NULL, 1);
-        ensureNavLink(*clusterProcessesFolder, "ALL", "/WsTopology/TpClusterQuery?Type=ROOT", "View details about clusters and optionally run preflight activities", NULL, NULL, 1);
-        ensureNavLink(*serversFolder, "All", "/WsTopology/TpServiceQuery?Type=ALLSERVICES", "View details about System Support Servers clusters and optionally run preflight activities", NULL, NULL, 1);
+        ensureNavLink(*systemsFolder, "Target Clusters", "/WsTopology/TpTargetClusterQuery?Type=ROOT", "View details about target clusters and optionally run preflight activities", NULL, NULL, 3);
+        ensureNavLink(*systemsFolder, "Cluster Processes", "/WsTopology/TpClusterQuery?Type=ROOT", "View details about clusters and optionally run preflight activities", NULL, NULL, 4);
+        if (context.validateFeatureAccess(FEATURE_URL, SecAccess_Read, false) && context.validateFeatureAccess(MACHINE_URL, SecAccess_Read, false))                    
+            ensureNavDynFolder(*systemsFolder, "Servers", "View details about System Support Servers and optionally run preflight activities", "getServers=1;path=/WsTopology/TpServiceQuery?Type=ALLSERVICES", NULL);
     }
 };
 

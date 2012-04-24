@@ -30,9 +30,14 @@
 #pragma warning(disable:4786)
 #include "ws_fs_esp.ipp"
 
+#define DFU_WU_URL "DfuWorkunitsAccess"
+
 class CFileSpraySoapBindingEx : public CFileSpraySoapBinding
 {
+    void getDynNavData(IEspContext &context, IProperties *params, IPropertyTree & data);
+
     StringBuffer m_portalURL;
+    unsigned showLastWorkunits;
 
 public:
     CFileSpraySoapBindingEx(IPropertyTree* cfg, const char *bindname/*=NULL*/, const char *procname/*=NULL*/, http_soap_log_level level=hsl_none)
@@ -42,6 +47,9 @@ public:
         const char* portalURL = cfg->queryProp(xpath.str());
         if (portalURL && *portalURL)
             m_portalURL.append(portalURL);
+
+        xpath.clear().appendf("Software/EspProcess[@name=\"%s\"]/EspService[@name=\"%s\"]/@showLastWorkunits", procname, bindname);
+        showLastWorkunits = cfg->getPropInt(xpath.str(), 20);
     }
     virtual ~CFileSpraySoapBindingEx(){}
 
@@ -53,22 +61,23 @@ public:
 
         IPropertyTree *fileFolder = ensureNavFolder(data, "Files", NULL, NULL, false, 3);
         ensureNavLink(*fileFolder, "Upload/download File", "/FileSpray/DropZoneFiles", "Upload or download File from a Drop Zone in the environment", NULL, NULL, 1, false);
-        IPropertyTree *logicalFilesFolder = ensureNavFolder(*fileFolder, "Logical Files", NULL, NULL, false, 3);
-        IPropertyTree *workunitFolder = ensureNavFolder(*fileFolder, "DFU Workunits", NULL, NULL, false, 4);
-        IPropertyTree *actionFolder = ensureNavFolder(*fileFolder, "Actions", NULL, NULL, false, 5);
-        ensureNavLink(*logicalFilesFolder, "Search", "/WsDfu/DFUSearch", "Search for Logical Files using a variety of search criteria", NULL, NULL, 1);
+        IPropertyTree *logicalFilesFolder = ensureNavFolder(*fileFolder, "Logical Files", NULL, NULL, false, 2);
+        IPropertyTree *actionFolder = ensureNavFolder(*fileFolder, "Actions", NULL, NULL, false, 3);
+        ensureNavLink(*fileFolder, "Search DFU Workunits", "/FileSpray/DFUWUSearch", "Search for DFU workunits ", NULL, NULL, 4);
+        ensureNavLink(*fileFolder, "Browse DFU Workunits", "/FileSpray/GetDFUWorkunits", "Browse a list of DFU workunits", NULL, NULL, 5);
         ensureNavLink(*logicalFilesFolder, "Browse", "/WsDfu/DFUQuery", "Browse a list of Logical Files", NULL, NULL, 2);
         ensureNavLink(*logicalFilesFolder, "Browse Files by Scope", "/WsDfu/DFUFileView", "Browse a list of Logical Files by Scope", NULL, NULL, 3);
         ensureNavLink(*logicalFilesFolder, "Search File Relationships", path.str(), "Search File Relationships", NULL, NULL, 4);
         ensureNavLink(*logicalFilesFolder, "Browse Space Usage", "/WsDfu/DFUSpace", "View details about Space Usage", NULL, NULL, 5);
         ensureNavLink(*logicalFilesFolder, "View Data File", "/WsDfu/DFUGetDataColumns?ChooseFile=1", "Allows you to view the contents of a logical file", NULL, NULL, 6);
-        ensureNavLink(*workunitFolder, "Search", "/FileSpray/DFUWUSearch", "Search for DFU workunits ", NULL, NULL, 1);
-        ensureNavLink(*workunitFolder, "Browse", "/FileSpray/GetDFUWorkunits", "Browse a list of DFU workunits", NULL, NULL, 2);
         ensureNavLink(*actionFolder, "Spray Fixed", "/FileSpray/SprayFixedInput", "Spray a fixed width file", NULL, NULL, 1);
         ensureNavLink(*actionFolder, "Spray CSV", "/FileSpray/SprayVariableInput?submethod=csv", "Spray a comma separated value file", NULL, NULL, 2);
         ensureNavLink(*actionFolder, "Spray XML", "/FileSpray/SprayVariableInput?submethod=xml", "Spray an XML File", NULL, NULL, 3);
         ensureNavLink(*actionFolder, "Remote Copy", "/FileSpray/CopyInput", "Copy a Logical File from one environment to another", NULL, NULL, 4);
         ensureNavLink(*actionFolder, "XRef", "/WsDFUXRef/DFUXRefList", "View Xref result details or run the Xref utility", NULL, NULL, 5);
+
+        if ((showLastWorkunits > 0) && context.validateFeatureAccess(DFU_WU_URL, SecAccess_Read, false))
+            ensureNavDynFolder(*fileFolder, "Recent DFU Workunits", "Access Recent DFU Workunits", "recentDfuWUs=1", NULL);
     }
 
     int onGetInstantQuery(IEspContext &context, CHttpRequest* request, CHttpResponse* response, const char *service, const char *method);

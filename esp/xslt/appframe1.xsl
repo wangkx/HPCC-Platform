@@ -32,7 +32,7 @@
                 <link rel="stylesheet" type="text/css" href="/esp/files/yui/build/button/assets/skins/sam/button.css" />
                 <link rel="stylesheet" type="text/css" href="/esp/files/yui/build/container/assets/skins/sam/container.css" />
                 <link rel="stylesheet" type="text/css" href="/esp/files/yui/build/treeview/assets/skins/sam/treeview.css" />
-                <link rel="stylesheet" type="text/css" href="/esp/files/yui_test/caridy-bubbling-library-edd810c/build/accordion/assets/accordion.css" />
+                <link rel="stylesheet" type="text/css" href="/esp/files/yui_test/accordion.css" />
                 <link rel="stylesheet" type="text/css" href="/esp/files/yui_test/css/tree.css"/>
                 <link rel="stylesheet" type="text/css" href="/esp/files/css/espdefault.css" />
                 <link rel="stylesheet" type="text/css" href="/esp/files/css/eclwatch.css" />
@@ -51,11 +51,16 @@
                 <script type="text/javascript" src="/esp/files/yui/build/treeview/treeview-min.js"></script>
 
                 <script type="text/javascript" src="/esp/files/yui/build/utilities/utilities.js"></script>
-                <script type="text/javascript" src="/esp/files/yui_test/caridy-bubbling-library-edd810c/build/bubbling/bubbling.js"></script>
-                <script type="text/javascript" src="/esp/files/yui_test/caridy-bubbling-library-edd810c/build/accordion/accordion.js"></script>
+                <script type="text/javascript" src="/esp/files/yui_test/bubbling.js"></script>
+                <script type="text/javascript" src="/esp/files/yui_test/accordion.js"></script>
                 <script type="text/javascript">
                     var layout;
-                    var eclTree;
+                    var eclTree, tree;
+                    var applicationName;
+                    var startPage;
+                    var currentIconMode;
+                    var idleTimer;
+                    var idleTimeout = 300000; //Default idle time is 5 minute
                     var passwordDays='<xsl:value-of select="@passwordDays"/>';
                     <xsl:text disable-output-escaping="yes"><![CDATA[
                         var passwordCookie = "ESP Password Cookie";
@@ -81,6 +86,55 @@
                                 mywindow.focus();
                             }
                             return true;
+                        }
+
+                        function logout() {
+                            document.location.href = "/WsSMC/Activity";//TODO: need a logout link to a "Thank You Page"
+                        }
+
+                        // mozilla only
+                        function checkForParseError (xmlDocument) {
+                            var errorNamespace = 'http://www.mozilla.org/newlayout/xml/parsererror.xml';
+                            var documentElement = xmlDocument.documentElement;
+                            var parseError = { errorCode : 0 };
+                            if (documentElement.nodeName == 'parsererror' && documentElement.namespaceURI == errorNamespace) {
+                                parseError.errorCode = 1;
+                                var sourceText = documentElement.getElementsByTagNameNS(errorNamespace, 'sourcetext')[0];
+                                if (sourceText != null) {
+                                    parseError.srcText = sourceText.firstChild.data
+                                }
+                                parseError.reason = documentElement.firstChild.data;
+                            }
+                            return parseError;
+                        }
+
+                        function parseXmlString(xml) {
+                            if (window.DOMParser)
+                            {
+                                parser=new DOMParser();
+                                xmlDoc=parser.parseFromString(xml,"text/xml");
+                                var error = checkForParseError(xmlDoc);
+                                if (error.errorCode!=0)
+                                {
+                                    alert("XML Parse Error: " + error.reason + "\n" + error.srcText);
+                                    return null;
+                                }
+                            }
+                            else // Internet Explorer
+                            {
+                                xmlDoc=new ActiveXObject("Microsoft.XMLDOM");
+                                xmlDoc.async=false;
+                                xmlDoc.loadXML(xml);
+                                if (xmlDoc.parseError != 0)
+                                {
+                                    alert("XML Parse Error: " + xmlDoc.parseError.reason);
+                                    return null;
+                                }
+                            }
+                            if (!xmlDoc)
+                                 alert("Create xmlDoc failed! You browser is not supported yet.");
+
+                            return xmlDoc;
                         }
 
                         function updateContent(frameId, url) {
@@ -115,23 +169,68 @@
                         }
 
                         function showStartPage() {
-                            var startPage = document.getElementById("startPage").value;
                             if (startPage != '')
                                 updateContent("center-frame", startPage);
                             else
                                 updateContent("center-frame", "/WsSMC/Activity");
                         }
 
+                        function loadNodeData(node, fnLoadComplete)  
+                        {
+                            var nodeLabel = encodeURI(node.label);
+                            ///tree.locked = false;
+
+                            var sUrl = "/esp/navdata?" + node.data.params;
+                            var callback = {
+                                success: function(oResponse) {
+                                    var xmlDoc = oResponse.responseXML;
+
+                                    node.setNodesProperty("propagateHighlightUp",false);
+                                    node.setNodesProperty("propagateHighlightDown",false);
+
+                                    var folderNodes = xmlDoc.getElementsByTagName("DynamicFolder");
+                                    for(var i = 0; i < folderNodes.length; i++) {
+                                        var folderNode = new YAHOO.widget.TextNode({label: folderNodes[i].getAttribute("name"), title:linkNodes[i].getAttribute("tooltip"), dynamicLoadComplete:false}, node);
+                                        folderNode.data = { elementType:'DynamicFolder', params: folderNodes[i].getAttribute("params") };
+                                    }
+                                    var linkNodes = xmlDoc.getElementsByTagName("Link");
+                                    for(var i = 0; i < linkNodes.length; i++) {
+                                        var leafNode = new YAHOO.widget.TextNode({label: linkNodes[i].getAttribute("name"), title:linkNodes[i].getAttribute("tooltip"), dynamicLoadComplete:true}, node);
+                                        leafNode.data = { elementType: 'Link', elementPath: linkNodes[i].getAttribute("path"), params: ''};
+                                        leafNode.isLeaf = true;
+                                    }
+
+                                    oResponse.argument.fnLoadComplete();
+                                },
+
+                                failure: function(oResponse) {
+                                    oResponse.argument.fnLoadComplete();
+                                },
+
+                                argument: {
+                                    "node": node,
+                                    "fnLoadComplete": fnLoadComplete
+                                }
+                                //timeout: 21000
+                            };
+
+                            YAHOO.util.Connect.asyncRequest('GET', sUrl, callback);
+                        }
+
+                        var onNodeClick = function(tNode)
+                        {
+                            if ((tNode.data.elementPath != null) && (tNode.data.elementPath != ''))
+                                updateContent("center-frame", tNode.data.elementPath);
+                        };
+
                         (function() {
                             var Dom = YAHOO.util.Dom,
                             Event = YAHOO.util.Event;
 
-                            //var tt, contextElements = [];
-                            //var tree; //will hold our TreeView instance
                             function layoutInit() {
                                 layout = new YAHOO.widget.Layout({
                                     units: [
-                                        { position: 'top', height: '56px', body: 'top-header', useShim:true, gutter: '5 5 0 5' },
+                                        { position: 'top', height: '62px', body: 'top-header', useShim:true, gutter: '5 5 0 5' },
                                         { position: 'left', width: '210px', resize: true, body: 'page-navigation', useShim:true, gutter: '5 5 0 5', collapse: true, collapseSize: 50},
                                         { position: 'bottom', height: '500px', body: 'page-bottom', useShim:true, gutter: '5 5 0 5', resize: true, collapse: true, collapseSize: 0 },
                                         { position: 'center', height: '800px', body: 'page-center', useShim:true, gutter: '5 5 0 0', scroll: true, animate: true  }
@@ -154,92 +253,158 @@
                                 layout.render();
                             }
 
-                            var treeNodeToBeExpanded;
-                            var startExpend =false;
-                            var updateTreeNodeCallback = {
-                                success: function(o) {
-                                    var treeNodes = o.responseText;
-                                    //alert(o.responseText);
-                                    var treeNodeList = treeNodes.split(',');
-                                    if (treeNodeList.length < 1)
-                                        return;
+                            function buildNavTreeNode(parentNode, navTreeNode) {
+                                var label = navTreeNode.getAttribute("name");
+                                var tooltip = navTreeNode.getAttribute("tooltip");
+                                var path = navTreeNode.getAttribute("path");
+                                var params = navTreeNode.getAttribute("params");
 
-                                    eclTree.removeChildren(treeNodeToBeExpanded);
-                                    for (var i = 0, len = treeNodeList.length; i < len; i++) {
-                                        var tempNode = new YAHOO.widget.TextNode(treeNodeList[i], treeNodeToBeExpanded, false); 
-                                        if (treeNodeList[i]!='N/A') {
-                                            tempNode.href = "javascript:updateContent('center-frame', '/WsWorkunits/WUInfo?Wuid=" + treeNodeList[i] + "')";
-                                            tempNode.title = "View " + treeNodeList[i] + " details";
-                                        }
-                                        tempNode.isLeaf = true; 
+                                if (navTreeNode.nodeName=='DynamicFolder') {
+                                    var paramsList = params.split(';');
+                                    for(var i=0;i<paramsList.length;i++) {
+                                        var paramDetails = paramsList[i].split('=');
+                                        if ((paramsList.length == 2) && (paramDetails[0] == 'path'))
+                                            path = paramDetails[1];
                                     }
-                                    startExpend = true;
-                                    treeNodeToBeExpanded.expand();
-                                    startExpend = false;
-                                },
-                                failure: function(o) {
-                                    alert("AJAX doesn't work"); //FAILURE
-                                }
 
+                                    var folderNode = new YAHOO.widget.TextNode({label:label, title:tooltip, expanded:true, dynamicLoadComplete:false}, parentNode);
+                                    folderNode.data = { elementType: 'DynamicFolder', elementPath: path, params: params };
+                                } else if (navTreeNode.nodeName=='Folder') {
+                                    var x=navTreeNode.childNodes;
+
+                                    if (x.length < 1) {
+                                        var leafNode = new YAHOO.widget.TextNode({label:label, title:tooltip, expanded:true, dynamicLoadComplete:true}, parentNode);
+                                        leafNode.data = { elementType: 'Link', elementPath: path, params: ''};
+                                        leafNode.isLeaf = true;
+                                    } else {
+                                        var folderNode = new YAHOO.widget.TextNode({label:label, title:tooltip, expanded:true, dynamicLoadComplete:true}, parentNode);
+                                        folderNode.data = { elementType: 'Folder', params: ''};
+//alert(label);
+                                        for (var i=0;i<x.length;i++) {
+                                            if ((x[i].nodeType==1) && ((x[i].nodeName=='Folder') || (x[i].nodeName=='DynamicFolder') || (x[i].nodeName=='Link')))
+                                                buildNavTreeNode(folderNode, x[i]);
+                                        }
+                                    }
+                                } else if (navTreeNode.nodeName=='Link') {
+                                    var leafNode = new YAHOO.widget.TextNode({label:label, title:tooltip, expanded:true, dynamicLoadComplete:true}, parentNode);
+                                    leafNode.data = { elementType: 'Link', elementPath: path, params: ''};
+                                    leafNode.isLeaf = true;
+                                }
                             }
 
-                            function expandTreeNode(node) {
-                                if (startExpend)
-                                    return true;
+                            function buildNavTree(navTree) {
+                                var x=navTree.childNodes;
+                                if (x.length < 1) return;
+                                for (var i=0;i<x.length;i++) {
+                                    if ((x[i].nodeType!=1) || (x[i].nodeName!='Folder')) 
+                                        continue;
 
-                                if (node.label=='Systems') {
-                                    treeNodeToBeExpanded = node;
-                                    YAHOO.util.Connect.asyncRequest('GET', '/WsWorkunits/WURecentWUs', updateTreeNodeCallback, null);
-                                    return false;
+                                    var y=x[i].childNodes;
+                                    if (y.length < 1) continue;
+
+                                    var label = x[i].getAttribute("name");
+
+                                    var tree = new YAHOO.widget.TreeView(label + "NavTree");
+                                    //tree.subscribe('dblClickEvent',function(oArgs) { ImportFromTree(oArgs.Node);});
+
+                                    // By default, trees with TextNodes will fire an event for when the label is clicked:
+                                    tree.subscribe("labelClick", onNodeClick);
+
+                                    tree.locked = false;
+                                    tree.setDynamicLoad(loadNodeData, currentIconMode);
+                                    tree.singleNodeHighlight=true;
+                                    //tree.subscribe("clickEvent", onTreeClick);
+
+                                    var root = tree.getRoot();
+                                    for (j=0;j<y.length;j++) {
+                                        if ((y[j].nodeType==1) && ((y[j].nodeName=='Folder') || (y[j].nodeName=='DynamicFolder') || (y[j].nodeName=='Link')))
+                                            buildNavTreeNode(root, y[j]);
+                                    }
+                                    tree.render();
                                 }
-                                else if (node.label=='Recent Workunits' && node.parent.label=='Ecl Workunits') {
-                                    treeNodeToBeExpanded = node;
-                                    YAHOO.util.Connect.asyncRequest('GET', '/WsWorkunits/WURecentWUs', updateTreeNodeCallback, null);
-                                    return false;
-                                }
-                                return true;
                             }
 
-                            function treeInit() {
-                                var accordionCount = document.getElementById("accordionCount").value;
-                                for (i = 1; i <= accordionCount; i++) {
-                                    var name ="AccordionContent" + i;
-                                    var tree1 = new YAHOO.widget.TreeView(name);
-                                    if (i == 2)
-                                        eclTree = tree1;
+                            var accordionCount = 0;
+                            var firstAccordionHeaderName;
+                            var firstAccordionBodyName;
+                            function buildNavAccordion(navTree) {
+                                x=navTree.childNodes;
+                                if (x.length < 1) return;
 
-                                    tree1.subscribe("expand", function(node) {
-                                            return expandTreeNode(node);
-                                            // return false; // return false to cancel the expand
-                                        });
+                                var html;
+                                for (i=0;i<x.length;i++) {
+                                    if ((x[i].nodeType!=1) || (x[i].nodeName!='Folder')) 
+                                        continue;
 
-                                    tree1.render();
+                                    var attrs = x[i].attributes;
+                                    label = attrs.getNamedItem("name").nodeValue;
+
+                                    accordionCount++;
+                                    if (accordionCount==1) {
+                                        html = "<div class='nav-accordion'><div id='nav-accordion-div' class='yui-cms-accordion Persistent slow'>";
+                                        html += "<div class='yui-cms-item yui-panel selected'>";
+                                        firstAccordionHeaderName = 'AccordionHeader'+ label;
+                                        firstAccordionBodyName = 'AccordionBody'+ label;
+                                    }
+                                    else {
+                                        html += "<div class='yui-cms-item yui-panel'>";
+                                    }
+                                    
+                                    html += "<div id='AccordionHeader"+ label + "' class='hd'>"+ label +"</div>";
+                                    html += "<div id='AccordionBody"+ label + "' class='bd'>";
+                                    html += "<div class='fixed'>";
+                                    //html += x[i].nodeName;
+                                    html += "<div id='"+ label + "NavTree' class='navtree'></div>";
+                                    html += "</div>"; //fixed
+                                    html += "</div>"; //bd
+
+                                    html += "<div class='actions'><a href='#' class='accordionToggleItem'></a></div>";
+
+                                    html += "</div>";
                                 }
+                                html += "</div></div>";
+
+                                document.getElementById('page-navigation').innerHTML = html;
                             }
 
                             function resizeAccordionPanel() {
                                 //alert(layout.getUnitByPosition('center').getSizes().body.h);
                                 var leftHeight = layout.getUnitByPosition('left').getSizes().body.h;
-                                var hd1Height = Dom.get('AccordionHeader1').offsetHeight;
-                                var bd4 = document.getElementById("AccordionBody1");
-                                var accordionCount = document.getElementById("accordionCount").value;
+                                var hd1Height = Dom.get(firstAccordionHeaderName).offsetHeight;
+                                var bd4 = document.getElementById(firstAccordionBodyName);
+                                //var accordionCount = document.getElementById("accordionCount").value;
                                 accordionBdHeight =(leftHeight-accordionCount*hd1Height-5)+'px'; //gutter size: 5
                                 bd4.style.height=accordionBdHeight; //also used in accordion.js
                                 bd4.style.overflow='auto';
                             }
 
+                            function readNavResponse(navResponse) {
+                                var navTree = parseXmlString(navResponse);
+                                if (!navTree) return;
+                                var root = navTree.documentElement;
+                                if (!root) return;
+
+                                var attrs = root.attributes;
+                                applicationName = attrs.getNamedItem("appName").nodeValue;
+                                startPage = attrs.getNamedItem("startPage").nodeValue;
+
+                                if (applicationName != '')
+                                   document.getElementById('application').innerHTML = applicationName;
+
+                                buildNavAccordion(root);
+                                if (accordionCount > 0) {
+                                    resizeAccordionPanel();
+                                    buildNavTree(root);
+                                }
+                            }
+
                             var navCallback = {
                                 success: function(o) {
-                                    document.getElementById('page-navigation').innerHTML =  o.responseText;
+                                    if (o.responseText)
+                                        readNavResponse(o.responseText);
+                                    else
+                                        alert("No navigation data found");
 
-                                    resizeAccordionPanel();
-
-                                    treeInit();
-
-                                    var applicationName = document.getElementById("applicationName").value;
-                                    if (applicationName != '')
-                                       document.getElementById('application').innerHTML = '<p align="center"><b><font size="5">' + applicationName + '</font></b><br/>version-1234</p>';
-                                    
                                     showStartPage();
                                 },
                                 failure: function(o) {
@@ -260,13 +425,16 @@
                                 });
 
                                 YAHOO.util.Connect.asyncRequest('GET', "esp/nav", navCallback, null);
+
+idleTimer = setTimeout("logout()", idleTimeout);
+
                             });
                         })();
                     ]]></xsl:text>
                 </script>
             </head>
             <body class="yui-skin-sam">
-                <div id="top-header" style="border:none">
+                <div id="top-header" style="border-style:solid; border-width:3px; border-color:red;">
                     <div id="logo" onclick="return showStartPage();">
                         <a href="" name="" />
                     </div>
@@ -288,280 +456,26 @@
                                     <input src="/esp/files/yui_test/img/help.png" type="image" name="" align="absmiddle" alt="Submit" class="search_btn"/>
                                 </a>
                             </li>
+                            <li class="field">
+                                <input type="submit" id="Logout" name="Logout" value="Logout" onclick="return logout();"/>
+                            </li>
                         </ul>
                     </div>
                     <div id="application">
                         EclWatch
                     </div>
+                    <div id="version">
+                        <xsl:value-of select="@buildVersion"/>
+                    </div>
                 </div>
                 <div id="page-bottom">
-                    <iframe id="bottom-frame" src="" frameborder="0" scrolling="auto" style="height:100%;width:100%;">
-                        Test
-                    </iframe>
+                    <iframe id="bottom-frame" src="" frameborder="0" scrolling="auto" style="height:100%;width:100%;"/>
                 </div>
                 <div id="page-navigation">
-                    <!--div class="nav-accordion">
-                        <div id="nav-accordion-div" class="yui-cms-accordion Persistent slow">
-                            <div class="yui-cms-item yui-panel selected">
-                                <div id="AccordionHeader1" class="hd">Systems</div>
-                                <div id="AccordionBody1" class="bd">
-                                    <div class="fixed">
-                                        <div id="systemNav" class="navtree">
-                                            <ul>
-                                                <li class="file" title="Display Activity on all target clusters in an environment">
-                                                    <a href="javascript:updateContent('center-frame','/WsSMC/Activity');">Activity</a>
-                                                </li>
-                                                <li class="cluster" title="This is List 0">
-                                                    Clusters
-                                                    <ul>
-                                                        <li class="expanded">
-                                                            <span class="cluster">Target Clusters</span>
-                                                            <ul>
-                                                                <li title="View details about target clusters and optionally run preflight activities">
-                                                                    <a href="javascript:updateContent('center-frame','/WsTopology/TpTargetClusterQuery?Type=ROOT');">All</a>
-                                                                </li>
-                                                                <li>
-                                                                    <span class="cluster">hthor</span>
-                                                                </li>
-                                                                <li>
-                                                                    <span class="cluster">thor</span>
-                                                                </li>
-                                                                <li>
-                                                                    <span class="cluster">roxie</span>
-                                                                </li>
-                                                            </ul>
-                                                        </li>
-                                                        <li>
-                                                            <span class="cluster">Cluster Processes</span>
-                                                            <ul id="folder22">
-                                                                <li title="View details about clusters and optionally run preflight activities">
-                                                                    <a href="javascript:updateContent('center-frame','/WsTopology/TpClusterQuery?Type=ROOT')">All</a>
-                                                                </li>
-                                                                <li>
-                                                                    <span class="cluster">mythor</span>
-                                                                </li>
-                                                                <li>
-                                                                    <span class="cluster">myroxie</span>
-                                                                </li>
-                                                            </ul>
-                                                        </li>
-                                                    </ul>
-                                                </li>
-                                                <li>
-                                                    <span class="cluster">Servers</span>
-                                                    <ul>
-                                                        <li title="View details about System Support Servers clusters and optionally run preflight activities">
-                                                            <a href="javascript:updateContent('center-frame','/WsTopology/TpServiceQuery?Type=ALLSERVICES')">All</a>
-                                                        </li>
-                                                        <li>
-                                                            <span class="server">Dali server</span>
-                                                        </li>
-                                                        <li>
-                                                            <span class="cluster">ESPs</span>
-                                                            <ul id="folder23">
-                                                                <li>
-                                                                    <span class="server">myesp</span>
-                                                                </li>
-                                                                <li>
-                                                                    <span class="server">esp2</span>
-                                                                </li>
-                                                            </ul>
-                                                        </li>
-                                                    </ul>
-                                                </li>
-                                                <li>
-                                                    <a href="javascript:updateContent('center-frame','/WsSMC/BrowseResources')">Browse reources</a>
-                                                </li>
-                                            </ul>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="actions">
-                                    <a href="#" class="accordionToggleItem"></a>
-                                </div>
-                            </div>
-                            <div class="yui-cms-item yui-panel">
-                                <div class="hd">ECL</div>
-                                <div class="bd">
-                                    <div class="fixed">
-                                        <div id="eclNav">
-                                            <ul>
-                                                <li>
-                                                    <span class="folder">Query Sets</span>
-                                                    <ul id="folder11">
-                                                        <li>
-                                                            <span class="file">All</span>
-                                                        </li>
-                                                        <li>
-                                                            <span class="file">Query Set 1</span>
-                                                        </li>
-                                                        <li>
-                                                            <span class="file">Query Set 2</span>
-                                                        </li>
-                                                    </ul>
-                                                </li>
-                                                <li>
-                                                    <span class="folder">Ecl Workunits</span>
-                                                    <ul id="folder12">
-                                                        <li>
-                                                            <span class="file">All</span>
-                                                        </li>
-                                                        <li>
-                                                            <span class="tool">Search</span>
-                                                        </li>
-                                                        <li class="closed">
-                                                            <span class="folder">Today's</span>
-                                                            <ul id="folder13">
-                                                                <li>
-                                                                    <span class="file">WU1</span>
-                                                                </li>
-                                                                <li>
-                                                                    <span class="file">WU2</span>
-                                                                </li>
-                                                            </ul>
-                                                        </li>
-                                                    </ul>
-                                                </li>
-                                                <li>
-                                                    <span class="tool">Run ECL</span>
-                                                </li>
-                                                <li>
-                                                    <span class="tool">Schduler</span>
-                                                </li>
-                                            </ul>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="actions">
-                                    <a href="#" class="accordionToggleItem"></a>
-                                </div>
-                            </div>
-                            <div class="yui-cms-item yui-panel">
-                                <div class="hd">Files</div>
-                                <div class="bd">
-                                    <div class="fixed">
-                                        <div id="fileNav">
-                                            <ul>
-                                                <li>
-                                                    <span class="tool">Upload/download File</span>
-                                                </li>
-                                                <li class="closed">
-                                                    <span class="folder">Drop Zones</span>
-                                                    <ul id="folder31">
-                                                        <li>
-                                                            <span class="file">All</span>
-                                                        </li>
-                                                        <li>
-                                                            <span class="file">Drop Zone 1</span>
-                                                        </li>
-                                                        <li>
-                                                            <span class="file">Drop Zone 2</span>
-                                                        </li>
-                                                    </ul>
-                                                </li>
-                                                <li class="closed">
-                                                    <span class="folder">Logical Files</span>
-                                                    <ul id="folder32">
-                                                        <li>
-                                                            <span class="tool">Search</span>
-                                                        </li>
-                                                        <li>
-                                                            <span class="file">Browse</span>
-                                                        </li>
-                                                        <li>
-                                                            <span class="file">File View by Scope</span>
-                                                        </li>
-                                                        <li>
-                                                            <span class="file">File Relationships</span>
-                                                        </li>
-                                                        <li>
-                                                            <span class="file">Space Usage</span>
-                                                        </li>
-                                                    </ul>
-                                                </li>
-                                                <li>
-                                                    <span class="tool">View Data File</span>
-                                                </li>
-                                                <li class="closed">
-                                                    <span class="folder">DFU Workunits</span>
-                                                    <ul id="folder33">
-                                                        <li>
-                                                            <span class="file">All</span>
-                                                        </li>
-                                                        <li>
-                                                            <span class="tool">Search</span>
-                                                        </li>
-                                                        <li class="closed">
-                                                            <span class="folder">Today's</span>
-                                                            <ul id="folder34">
-                                                                <li>
-                                                                    <span class="file">WU1</span>
-                                                                </li>
-                                                                <li>
-                                                                    <span class="file">WU2</span>
-                                                                </li>
-                                                            </ul>
-                                                        </li>
-                                                    </ul>
-                                                </li>
-                                                <li class="closed">
-                                                    <span class="folder">Actions</span>
-                                                    <ul id="folder35">
-                                                        <li>
-                                                            <span class="tool">Spray Fixed</span>
-                                                        </li>
-                                                        <li>
-                                                            <span class="tool">Spray CSV</span>
-                                                        </li>
-                                                        <li>
-                                                            <span class="tool">Spray XML</span>
-                                                        </li>
-                                                        <li>
-                                                            <span class="tool">Remote Copy</span>
-                                                        </li>
-                                                        <li>
-                                                            <span class="tool">XRef</span>
-                                                        </li>
-                                                    </ul>
-                                                </li>
-                                            </ul>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="actions">
-                                    <a href="#" class="accordionToggleItem"></a>
-                                </div>
-                            </div>
-                            <div class="yui-cms-item yui-panel">
-                                <div class="hd">Security</div>
-                                <div class="bd">
-                                    <div class="fixed">
-                                        <div id="securityNav">
-                                            <ul>
-                                                <li>
-                                                    <span class="users">Users</span>
-                                                </li>
-                                                <li>
-                                                    <span class="usergroup">Groups</span>
-                                                </li>
-                                                <li>
-                                                    <span class="file">Permissions</span>
-                                                </li>
-                                            </ul>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="actions">
-                                    <a href="#" class="accordionToggleItem"></a>
-                                </div>
-                            </div>
-                        </div>
-                    </div-->
+                    <div id="page-navigation-content"/>
                 </div>
                 <div id="page-center">
-                    <iframe id="center-frame" src="" frameborder="0" scrolling="auto"  style="height:100%;width:100%;">
-                        Test
-                    </iframe>
+                    <iframe id="center-frame" src="" frameborder="0" scrolling="auto"  style="height:100%;width:100%;"/>
                 </div>
             </body>
         </html>

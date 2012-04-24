@@ -126,16 +126,12 @@ public:
         if (!batchWatchFeaturesOnly)
         {
             IPropertyTree *eclFolder = ensureNavFolder(data, "ECL", "View Ecl queries and workunits", NULL, false, 2);
-            IPropertyTree *folderQueryset = ensureNavFolder(*eclFolder, "Query Sets", NULL, NULL, false, 1);
-            IPropertyTree *folderWorkunits = ensureNavFolder(*eclFolder, "Ecl Workunits", NULL, NULL, false, 2);
-            ensureNavLink(*eclFolder, "Scheduler", "/WsWorkunits/WUShowScheduled", "Access the ECL Scheduler to view and manage scheduled workunits or events", NULL, NULL, 3);
-            ensureNavLink(*folderQueryset, "Browse", "/WsWorkunits/WUQuerySets", "Browse Published Queries");
-            ensureNavLink(*folderWorkunits, "Search", "/WsWorkunits/WUQuery?form_", "Search Workunits", NULL, NULL, 1);
-            ensureNavLink(*folderWorkunits, "Browse", "/WsWorkunits/WUQuery", "Browse Workunits", NULL, NULL, 2);
-
-            VStringBuffer path("/WsWorkunits/WUQuery?PageSize=%d", showLastWorkunits);
-            IPropertyTree *folderRecentWorkunits = ensureNavFolder(*folderWorkunits, "Recent Workunits", "Access Recent Ecl Workunits", NULL, false, 3);
-            ensureNavLink(*folderRecentWorkunits, "dummy", "dummy", "", NULL, NULL, 1);
+            ensureNavLink(*eclFolder, "Scheduler", "/WsWorkunits/WUShowScheduled", "Access the ECL Scheduler to view and manage scheduled workunits or events", NULL, NULL, 1);
+            ensureNavLink(*eclFolder, "Search ECL Workunits", "/WsWorkunits/WUQuery?form_", "Search ECL Workunits", NULL, NULL, 2);
+            ensureNavLink(*eclFolder, "Browse ECL Workunits", "/WsWorkunits/WUQuery", "Browse ECL Workunits", NULL, NULL, 3);
+            ensureNavDynFolder(*eclFolder, "Query Sets", "Browse Published Queries", "getQuerySets=1", NULL);
+            if (showLastWorkunits > 0)
+                ensureNavDynFolder(*eclFolder, "Recent ECL Workunits", "Access Recent Ecl Workunits", "recentEclWUs=1", NULL);
         }
     }
 
@@ -150,8 +146,9 @@ public:
         CWsWorkunitsSoapBinding::addService(name, host, port, service);
     }
 
-
 private:
+    void getDynNavData(IEspContext &context, IProperties *params, IPropertyTree & data);
+
     bool batchWatchFeaturesOnly;
     unsigned showLastWorkunits;
 };
