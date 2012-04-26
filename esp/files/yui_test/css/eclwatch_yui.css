@@ -18,16 +18,16 @@
 
 .yui-skin-sam .yui-layout .yui-layout-unit-top div.yui-layout-bd {  border: none;    background-color: #eee; }
 
-#top-header{    margin-bottom: 2px;    height: 25px;    position: relative;    z-index: 2;}
-#top-header #logo{    position: absolute;    left: -150px;    top: 5px;    height: 35px;    width: 210px;    padding-left: 150px;    z-index: 2;    zoom: 1;}
-#top-header #logo a:link, #top-header #logo a:visited{    background-image: url(/esp/files/img/hpccsystemsECLWatch.png);    background-position: left top;    background-repeat: no-repeat;    display: block;    height: 46px;    width: 210px;    text-indent: -999em;}
-#top-header #application{    position: absolute;    left: 400px;   top: 2px;    z-index: 30; text-align: center; height: 25px;    width: 353px; }
-#top-header #version{    position: absolute;    left: 400px;   top: 2px;    z-index: 30; text-align: center; height: 25px;    width: 353px; }
-#top-header #links{    list-style: none;   position: absolute;    right: 0px;    top: 25px;    z-index: 30;}
+#top-header{    margin-bottom: 2px;    height: 50px;    position: relative;    z-index: 2;}
+#top-header #logo{    position: absolute;    left: -140px;    top: 5px;    height: 40px;    width: 250px;    padding-left: 150px;    z-index: 2;    zoom: 1;}
+#top-header #logo a:link, #top-header #logo a:visited{    background-image: url(/esp/files/img/hpccsystemsECLWatch.png);    background-position: left top;    background-repeat: no-repeat;    display: block;    height: 40px;    width: 250px;    text-indent: -999em;}
+#top-header #application{    position: absolute;    left: 300px;   top: 0px;    z-index: 20; font-size:2em; font-weight:bold; text-align: center; height: 25px;    width: 600px; }
+#top-header #version{    position: absolute;    left: 300px;   top: 28px;    z-index: 20; font-size:1.25em; font-weight:bold; text-align: center; height: 20px;    width: 600px; }
+#top-header #links{    list-style: none;   position: absolute;    right: 3px;    top: 12px;    z-index: 30;}
 #top-header ul li{    position: relative;    float: right;    font-size: 12px;    line-height: 14px;    z-index: 20;    background-image: none;    padding: 0;}
-#top-header ul li#adv_search a{    padding: 5px 0 6px 12px;    height: 16px;    width: 200px; background-color: #eee;}
-#top-header ul li#config a{    padding: 20px 0 6px 10px;    height: 16px;    width: 24px;}
-#top-header ul li#help-open a{    padding: 20px 0 6px 10px;    height: 16px;    width: 24px;}
+#top-header ul li#adv_search a{    padding: 5px 0 2px 12px;    height: 14px;    width: 200px; background-color: #eee;}
+#top-header ul li#config a{    padding: 5px 0 6px 10px;    height: 14px;    width: 24px;}
+#top-header ul li#help-open a{    padding: 5px 0 6px 10px;    height: 14px;    width: 24px;}
 
 .nav-accordion {  float: center; }
 .nav-accordion .yui-cms-accordion .yui-cms-item {    width: 100%;   }
