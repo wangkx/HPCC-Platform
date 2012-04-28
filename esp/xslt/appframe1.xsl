@@ -89,7 +89,7 @@
                         }
 
                         function logout() {
-                            document.location.href = "/WsSMC/Activity";//TODO: need a logout link to a "Thank You Page"
+                            document.location.href = "/Ws_Account/LogoutUser";//TODO: need a logout link to a "Thank You Page"
                         }
 
                         // mozilla only
@@ -197,6 +197,7 @@
                                     for(var i = 0; i < linkNodes.length; i++) {
                                         var leafNode = new YAHOO.widget.TextNode({label: linkNodes[i].getAttribute("name"), title:linkNodes[i].getAttribute("tooltip"), dynamicLoadComplete:true}, node);
                                         leafNode.data = { elementType: 'Link', elementPath: linkNodes[i].getAttribute("path"), params: ''};
+                                        leafNode.labelStyle = "blue_leaf";
                                         leafNode.isLeaf = true;
                                     }
 
@@ -275,6 +276,7 @@
                                     if (x.length < 1) {
                                         var leafNode = new YAHOO.widget.TextNode({label:label, title:tooltip, expanded:true, dynamicLoadComplete:true}, parentNode);
                                         leafNode.data = { elementType: 'Link', elementPath: path, params: ''};
+                                        leafNode.labelStyle = "blue_leaf";
                                         leafNode.isLeaf = true;
                                     } else {
                                         var folderNode = new YAHOO.widget.TextNode({label:label, title:tooltip, expanded:true, dynamicLoadComplete:true}, parentNode);
@@ -288,6 +290,7 @@
                                 } else if (navTreeNode.nodeName=='Link') {
                                     var leafNode = new YAHOO.widget.TextNode({label:label, title:tooltip, expanded:true, dynamicLoadComplete:true}, parentNode);
                                     leafNode.data = { elementType: 'Link', elementPath: path, params: ''};
+                                    leafNode.labelStyle = "blue_leaf";
                                     leafNode.isLeaf = true;
                                 }
                             }
@@ -320,13 +323,15 @@
                                         if ((y[j].nodeType==1) && ((y[j].nodeName=='Folder') || (y[j].nodeName=='DynamicFolder') || (y[j].nodeName=='Link')))
                                             buildNavTreeNode(root, y[j]);
                                     }
+
                                     tree.render();
                                 }
                             }
 
                             var accordionCount = 0;
-                            var firstAccordionHeaderName;
-                            var firstAccordionBodyName;
+                            var firstAccordionHeaderId;
+                            var firstAccordionBodyId;
+                            var accordionBodyIds=new Array();
                             function buildNavAccordion(navTree) {
                                 x=navTree.childNodes;
                                 if (x.length < 1) return;
@@ -343,11 +348,12 @@
                                     if (accordionCount==1) {
                                         html = "<div class='nav-accordion'><div id='nav-accordion-div' class='yui-cms-accordion Persistent slow'>";
                                         html += "<div class='yui-cms-item yui-panel selected'>";
-                                        firstAccordionHeaderName = 'AccordionHeader'+ label;
-                                        firstAccordionBodyName = 'AccordionBody'+ label;
+                                        firstAccordionHeaderId = 'AccordionHeader'+ label;
+                                        firstAccordionBodyId = 'AccordionBody'+ label;
                                     }
                                     else {
                                         html += "<div class='yui-cms-item yui-panel'>";
+                                        accordionBodyIds.push('AccordionBody'+ label);
                                     }
                                     
                                     html += "<div id='AccordionHeader"+ label + "' class='hd'>"+ label +"</div>";
@@ -370,12 +376,25 @@
                             function resizeAccordionPanel() {
                                 //alert(layout.getUnitByPosition('center').getSizes().body.h);
                                 var leftHeight = layout.getUnitByPosition('left').getSizes().body.h;
-                                var hd1Height = Dom.get(firstAccordionHeaderName).offsetHeight;
-                                var bd4 = document.getElementById(firstAccordionBodyName);
+                                var hd1Height = Dom.get(firstAccordionHeaderId).offsetHeight;
+                                var bd1 = document.getElementById(firstAccordionBodyId);
                                 //var accordionCount = document.getElementById("accordionCount").value;
-                                accordionBdHeight =(leftHeight-accordionCount*hd1Height-5)+'px'; //gutter size: 5
-                                bd4.style.height=accordionBdHeight; //also used in accordion.js
-                                bd4.style.overflow='auto';
+                                if (navigator.appName != 'Microsoft Internet Explorer')
+                                    accordionBdHeight =(leftHeight-accordionCount*hd1Height-5)+'px'; //gutter size: 5
+                                else
+                                    accordionBdHeight =(leftHeight-accordionCount*(hd1Height+1)-5)+'px'; //gutter size: 5
+                                bd1.style.height=accordionBdHeight; //also used in accordion.js
+                                bd1.style.overflow='auto';
+                                if ((navigator.appName == 'Microsoft Internet Explorer') && (accordionBodyIds.length > 0)) {
+                                    for (var i = 0; i<accordionBodyIds.length; i++) {
+                                        var bd2 = document.getElementById(accordionBodyIds[i]);
+                                        //For IE, the default height for collaped body is the expanded size.
+                                        //But, for some reason (see accordion.js), it cannot be set to zero.
+                                        //So, I hacked to 1px here.
+                                        bd2.style.height='1px';
+                                        bd2.style.overflow='hidden';
+                                    }
+                                }
                             }
 
                             function readNavResponse(navResponse) {
@@ -393,8 +412,8 @@
 
                                 buildNavAccordion(root);
                                 if (accordionCount > 0) {
-                                    resizeAccordionPanel();
                                     buildNavTree(root);
+                                    resizeAccordionPanel();
                                 }
                             }
 
@@ -426,7 +445,7 @@
 
                                 YAHOO.util.Connect.asyncRequest('GET', "esp/nav", navCallback, null);
 
-idleTimer = setTimeout("logout()", idleTimeout);
+//idleTimer = setTimeout("logout()", idleTimeout);
 
                             });
                         })();

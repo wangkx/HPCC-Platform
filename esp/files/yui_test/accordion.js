@@ -29,7 +29,6 @@ var accordionBdHeight;
 		    _anims = {};
 
 		// on click action behaviors...
-		
 		$B.on('navigate', function (layer, args) {
 			var el = $B.getOwnerByClassName (args[1].target, 'trigger');
             if (!args[1].flagged && el) {
@@ -275,7 +274,6 @@ var accordionBdHeight;
 					  $D.setStyle(item.slide, 'height', accordionBdHeight); //'100%' not work here
 					  $D.setStyle(item.slide, 'overflow', 'auto');
 					  //$D.removeClass(item.el, _selector);
-					  
             		  // broadcasting the corresponding event (open)...
             		  $B.fire ('accordionOpenItem', item);
             	  };
@@ -310,6 +308,8 @@ var accordionBdHeight;
             if (item && (list || (list = _getList (item)))) {
 	            // closing the item, based on the list's orientation, timer and effect attribute...
 	            conf[list.orientation] = {to: ((list.orientation=='width'||list.fixIE)?1:0)}; // hack for vertical accordion issue on Safari and Opera
+if (navigator.appName == 'Microsoft Internet Explorer') //Donot know why list.fixIE is not set 
+    conf[list.orientation] = {to: 1};
 	            if (list.fade) { // appliying fadeIn
 	              conf.opacity = {to: 0};
 	            }

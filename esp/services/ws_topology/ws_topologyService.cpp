@@ -1857,14 +1857,13 @@ void CWsTopologySoapBindingEx::getDynNavData(IEspContext &context, IProperties *
                             SCMStringBuffer ep;
                             pMachineInfo->getNetAddress(ep);
                             const char* ip = ep.str();
-                            if (ip || stricmp(ip, "."))
+                            if (ip && stricmp(ip, "."))
                             {
                                 netAddress.append(ip);
                                 configNetAddress.append(ip);
                             }
                             else
                             {
-                                StringBuffer netAddress;
                                 IpAddress ipaddr = queryHostIP();
                                 ipaddr.getIpText(netAddress);
                                 configNetAddress.append(".");
