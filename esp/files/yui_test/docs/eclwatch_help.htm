@@ -2,17 +2,33 @@
 <html>
 <head>
 <meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1" />
-<title>Full Page Layout - Example</title>
+<title>EclWatch Help</title>
+<link rel="stylesheet" type="text/css" href="/esp/files/yui/build/reset-fonts-grids/reset-fonts-grids.css" />
+<link rel="stylesheet" type="text/css" href="/esp/files/yui/build/resize/assets/skins/sam/resize.css" />
+<link rel="stylesheet" type="text/css" href="/esp/files/yui/build/layout/assets/skins/sam/layout.css" />
+<link rel="stylesheet" type="text/css" href="/esp/files/yui/build/button/assets/skins/sam/button.css" />
+<link rel="stylesheet" type="text/css" href="/esp/files/yui/build/container/assets/skins/sam/container.css">
+<link rel="stylesheet" type="text/css" href="/esp/files/yui/build/menu/assets/skins/sam/menu.css">
 <style type="text/css">
-/*margin and padding on body element
-  can introduce errors in determining
-  element position and are not recommended;
-  we turn them off as a foundation for YUI
-  CSS treatments. */
 body {
     margin:0;
     padding:0;
 }
+
+.nav-accordion {
+  float: center;
+}
+
+.nav-accordion .yui-cms-accordion .yui-cms-item {
+width: 100%;
+}
+
+.nav-accordion .yui-cms-accordion .yui-cms-item .bd {
+    height: 0px;
+    overflow: auto;
+    background-color: #fff;
+}
+
 #help-path {position: relative; height:6%; text-align:center}
             
 .searchform {
@@ -60,26 +76,54 @@ body {
 	-ms-filter:  progid:DXImageTransform.Microsoft.gradient(startColorstr='#9e9e9e', endColorstr='#454545'); /* ie8 */
 }
 </style>
-<link rel="stylesheet" type="text/css" href="../../yui/build/reset-fonts-grids/reset-fonts-grids.css" />
-<link rel="stylesheet" type="text/css" href="../../yui/build/resize/assets/skins/sam/resize.css" />
-<link rel="stylesheet" type="text/css" href="../../yui/build/layout/assets/skins/sam/layout.css" />
-<link rel="stylesheet" type="text/css" href="../../yui/build/button/assets/skins/sam/button.css" />
-<link rel="stylesheet" type="text/css" href="../../yui/build/container/assets/skins/sam/container.css">
-<link rel="stylesheet" type="text/css" href="../../yui/build/menu/assets/skins/sam/menu.css">
 
-<script type="text/javascript" src="../../yui/build/yahoo/yahoo-min.js"></script>
-<script type="text/javascript" src="../../yui/build/event/event-min.js"></script>
-<script type="text/javascript" src="../../yui/build/dom/dom-min.js"></script>
-<script type="text/javascript" src="../../yui/build/element/element-min.js"></script>
-<script type="text/javascript" src="../../yui/build/dragdrop/dragdrop-min.js"></script>
-<script type="text/javascript" src="../../yui/build/resize/resize-min.js"></script>
-<script type="text/javascript" src="../../yui/build/animation/animation-min.js"></script>
-<script type="text/javascript" src="../../yui/build/layout/layout-min.js"></script>
-<script type="text/javascript" src="../../yui/build/yahoo-dom-event/yahoo-dom-event.js"></script>
-<script type="text/javascript" src="../../yui/build/utilities/utilities.js"></script>
-<script type="text/javascript" src="../../yui/build/container/container.js"></script>
-<script type="text/javascript" src="../../yui/build/menu/menu.js"></script>
+<script type="text/javascript" src="/esp/files/yui/build/yahoo/yahoo-min.js"></script>
+<script type="text/javascript" src="/esp/files/yui/build/event/event-min.js"></script>
+<script type="text/javascript" src="/esp/files/yui/build/dom/dom-min.js"></script>
+<script type="text/javascript" src="/esp/files/yui/build/element/element-min.js"></script>
+<script type="text/javascript" src="/esp/files/yui/build/dragdrop/dragdrop-min.js"></script>
+<script type="text/javascript" src="/esp/files/yui/build/resize/resize-min.js"></script>
+<script type="text/javascript" src="/esp/files/yui/build/animation/animation-min.js"></script>
+<script type="text/javascript" src="/esp/files/yui/build/layout/layout-min.js"></script>
+<script type="text/javascript" src="/esp/files/yui/build/yahoo-dom-event/yahoo-dom-event.js"></script>
+<script type="text/javascript" src="/esp/files/yui/build/utilities/utilities.js"></script>
+<script type="text/javascript" src="/esp/files/yui/build/container/container.js"></script>
+<script type="text/javascript" src="/esp/files/yui/build/menu/menu.js"></script>
+<script>
+    function onMenuItemClick(frameId, url) {
+       var iframe = document.getElementById(frameId);
+            if (iframe != null)
+                    iframe.setAttribute('src', url);
+    };
 
+    (function() {
+        var Dom = YAHOO.util.Dom,
+            Event = YAHOO.util.Event;
+
+        Event.onDOMReady(function() {
+            var layout = new YAHOO.widget.Layout({
+                units: [
+                    { position: 'center', body: 'page-center', height: '400px', gutter: '5 5 0 5', scroll: false, animate: true  }
+                ]
+            });
+
+            layout.render();
+
+            var oMenuBar = new YAHOO.widget.MenuBar("mymenubar");
+            oMenuBar.render();
+
+            var centerBody = layout.getUnitByPosition('center').getSizes().body;
+            var iframe = document.getElementById('help-frame');
+            iframe.style.width = (centerBody.w - 5) + "px";
+            iframe.style.height = (centerBody.h - 45) + "px";
+
+            if (location.search != '') {
+                var gotoPage = '/esp/files/yui_test/docs/' + location.search.substr(1);
+                onMenuItemClick('help-frame', gotoPage);
+            }
+        });
+    })();
+</script>
 </head>
 
 <body class="yui-skin-sam">
@@ -105,13 +149,16 @@ body {
          
                                 <ul>
                                     <li class="yuimenuitem">
-                                        <a class="yuimenuitemlabel" onclick="onMenuItemClick('help-frame', '/WsWorkunits/WUShowScheduled');">File Upload/download</a>
+                                        <a class="yuimenuitemlabel" onclick="onMenuItemClick('help-frame', './how_to_upload_file.htm');">Upload File</a>
+                                    </li>
+                                    <li class="yuimenuitem">
+                                        <a class="yuimenuitemlabel" onclick="onMenuItemClick('help-frame', '/WsWorkunits/WUShowScheduled');">Download File</a>
                                     </li>
                                 </ul>
 
                                 <ul>
                                     <li class="yuimenuitem">
-                                        <a class="yuimenuitemlabel" onclick="onMenuItemClick('help-frame', '/WsWorkunits/WUShowScheduled');">File Spray</a>
+                                        <a class="yuimenuitemlabel" onclick="onMenuItemClick('help-frame', './how_to_spray_file.htm');">File Spray</a>
                                     </li>
                                     <li class="yuimenuitem">
                                         <a class="yuimenuitemlabel" onclick="onMenuItemClick('help-frame', '/WsWorkunits/WUShowScheduled');">File Despray</a>
@@ -168,48 +215,10 @@ body {
             </div>
         </div> 
         <div id="help-path" >
-		<a href="/">How to ...</a> &raquo; <a href="/scripts/">System</a> &raquo; <a href="/scripts/multi_level_drop_down_menu/">Use Activity page</a> &raquo; </div>
+        <a href="javascript:onMenuItemClick('help-frame', './how_to.htm')">How to ...</a> &raquo; Upload File </div>
         <iframe id="help-frame" src="" frameborder="0" scrolling="auto" style="height:100%;Width:100%;">
-        Test
+            Test
         </iframe>
-</div>
-
-
-<script>
-    function onMenuItemClick(frameId, url) {
-        var iframe = document.getElementById(frameId);
-        if (iframe != null)
-            iframe.setAttribute('src', url);
- };
-
-//an anonymous function wraps our code to keep our variables
-//in function scope rather than in the global namespace:
-(function() {
-    var Dom = YAHOO.util.Dom,
-        Event = YAHOO.util.Event;
-
-    Event.onDOMReady(function() {
-        var layout = new YAHOO.widget.Layout({
-            units: [
-                { position: 'center', body: 'page-center', height: '400px', gutter: '5 5 0 5', scroll: false, animate: true  }
-            ]
-        });
-
-        layout.render();
-
-        var oMenuBar = new YAHOO.widget.MenuBar("mymenubar");
-        oMenuBar.render();
-
-        var centerBody = layout.getUnitByPosition('center').getSizes().body;
-        var iframe = document.getElementById('help-frame');
-        iframe.style.width = (centerBody.w - 5) + "px";
-        iframe.style.height = (centerBody.h - 45) + "px";
-
-        onMenuItemClick('help-frame', "http://www.microsoft.com");
-    });
-
-
-})();
-</script>
+    </div>
 </body>
 </html>
