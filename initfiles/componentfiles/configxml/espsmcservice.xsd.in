@@ -49,7 +49,7 @@
                     </xs:appinfo>
                 </xs:annotation>
             </xs:attribute>
-            <xs:attribute name="description" type="xs:string" use="optional" default="ESP services for SMC">
+            <xs:attribute name="description" type="xs:string" use="optional" default="ESP services for Management Console">
                 <xs:annotation>
                     <xs:appinfo>
                         <tooltip>Description for this process</tooltip>
