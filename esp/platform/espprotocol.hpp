@@ -130,6 +130,8 @@ public:
     unsigned updatePassword(IEspContext &context, IHttpMessage* request, StringBuffer& message);
     void onUpdatePasswordInput(IEspContext &context, StringBuffer &html);
     void onUpdatePassword(IEspContext &context, IHttpMessage* request, StringBuffer& html);
+    void getUserLogOnHtml(IEspContext* context, const char* message, StringBuffer& content);
+    void getUserLogOutHtml(const char* location, StringBuffer& content);
 #endif
 };
 

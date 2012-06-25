@@ -35,7 +35,6 @@
 
 #include "espsession.ipp"
 
-
 class CEspHttpServer : public CInterface, implements IHttpServerService
 {
 protected:
@@ -82,6 +81,9 @@ public:
 #ifdef _USE_OPENLDAP
     virtual int onUpdatePasswordInput(CHttpRequest* request, CHttpResponse* response);
     virtual int onUpdatePassword(CHttpRequest* request, CHttpResponse* response);
+    virtual bool onUserLoggedOn(CHttpRequest* request, CHttpResponse* response, IEspContext* ctx, StringBuffer& service, StringBuffer& serviceMethod, StringBuffer& httpMethod, sub_service& subService);
+    virtual int sendUserLogOnHtml(const char* prompt, CHttpResponse* response, IEspContext* ctx);
+    virtual int sendUserLogOutHtml(CHttpRequest* request, CHttpResponse* response);
 #endif
 
 

@@ -109,6 +109,9 @@ jlib_decl void md5_finish(md5_state_t *pms, md5_byte_t digest[16]);
 jlib_decl void md5_string (StringBuffer& inpstring, StringBuffer& outstring);
 jlib_decl void md5_string2(const char* inpstring, StringBuffer& outstring);
 
+/* Take in a string and a key. Return its hash value using HMAC(K,m) = H((K ^ opad) concat H((K ^ ipad) concat m)). */
+jlib_decl void hmac_md5(const char* key, const char* inString, StringBuffer& outString);
+
 #ifdef __cplusplus
 }  /* end extern "C" */
 #endif

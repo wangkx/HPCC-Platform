@@ -510,6 +510,9 @@ void EspHttpBinding::populateRequest(CHttpRequest *request)
 
 bool EspHttpBinding::doAuth(IEspContext* ctx)
 {
+    if (ctx->isAuthorized())
+        return true;
+
     if(m_authtype.length() == 0 || stricmp(m_authtype.str(), "Basic") == 0)
     {
         return basicAuth(ctx);
@@ -2301,3 +2304,75 @@ void EspHttpBinding::sortResponse(IEspContext& context, CHttpRequest* request, M
         DBGLOG("Unexpected error: parsing XML: %s", e->errorMessage(msg).str());
     }
 }
+
+#ifdef _USE_OPENLDAP
+espAuthState_ EspHttpBinding::checkUserLogOn(CHttpRequest* request, CHttpResponse* response, StringBuffer& message, IEspContext* ctx)
+{
+    if(m_authmap.get() == NULL)
+        return authSucceeded;
+
+    const char* authMethod = queryAuthMethod();
+    if (!authMethod || !*authMethod || strieq(authMethod, "none") || strieq(authMethod, "local") || strieq(authMethod, "UserDefined"))
+        return authSucceeded;
+
+    ctx->setAuthenticationMethod(authMethod);
+
+    IProperties *params = request->queryParameters();
+    const char *username=(params)?params->queryProp("username") : NULL;
+    const char *password=(params)?params->queryProp("password") : NULL;
+
+    StringBuffer peerStr, pathStr;
+    DBGLOG("GET %s, from %s@%s", request->getPath(pathStr).str(), (username) ? username : "unknown", request->getPeer(peerStr).str());
+
+    if (username && *username && password && *password)
+    {
+        ctx->setUserID(username);
+        ctx->setPassword(password);
+        populateRequest(request);
+
+        StringBuffer path;
+        request->getPath(path);
+        if(path.length() == 0)
+        {
+            throw MakeStringException(-1, "Path is empty for http request");
+        }
+
+        ISecResourceList* rlist = m_authmap->getResourceList(path.str());
+        if(rlist == NULL)
+            return authSucceeded;
+
+        request->queryContext()->setResources(rlist);
+
+        if (!doAuth(ctx))
+        {
+            message.clear().appendf("Log on failed. Please try again.");
+            return authFailed;
+        }
+
+        response->addCookie(new CEspCookie("AUTH2", username)); //TODO: a good cookie
+        //TODO: do we need to clean the space for CEspCookie?
+
+        return authSucceededNow;
+    }
+
+    CEspCookie* authCookie = request->queryCookie("AUTH2");
+    if(authCookie)
+    {
+        ctx->setUserID(authCookie->getValue());
+        return authSucceeded; //TODO: check the cookie now
+    }
+
+    return authFailed;
+}
+
+void EspHttpBinding::userLogOut(CHttpRequest* request, CHttpResponse* response, IEspContext* ctx)
+{
+    CEspCookie* cookie = new CEspCookie("AUTH2", "0"); //TODO: a good cookie
+    cookie->setExpires("Thu, 01 Jan 1970 00:00:01 GMT");
+    response->addCookie(cookie);
+
+    //TODO: do we need to clean the space for CEspCookie?
+
+    return;
+}
+#endif

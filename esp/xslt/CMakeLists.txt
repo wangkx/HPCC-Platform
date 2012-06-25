@@ -44,6 +44,8 @@ FOREACH( iFILES
     ${CMAKE_CURRENT_SOURCE_DIR}/wsecl3_jsontest.xsl
     ${CMAKE_CURRENT_SOURCE_DIR}/wsecl3_result.xslt
     ${CMAKE_CURRENT_SOURCE_DIR}/passwordupdate.xsl
+    ${CMAKE_CURRENT_SOURCE_DIR}/userlogon.xsl
+    ${CMAKE_CURRENT_SOURCE_DIR}/userlogout.xsl
 )
     Install ( FILES ${iFILES} DESTINATION ${OSSDIR}/componentfiles/xslt COMPONENT Runtime )
 ENDFOREACH ( iFILES )

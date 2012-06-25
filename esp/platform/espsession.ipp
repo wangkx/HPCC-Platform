@@ -30,6 +30,7 @@ private:
 
     StringAttr m_name;
     StringAttr m_value;
+    StringAttr m_expires;
     StringAttr m_comment;
     StringAttr m_commentURL;
     StringAttr m_domain;
@@ -83,6 +84,16 @@ public:
     void setValue(const char* newValue)
     {
         m_value.set(newValue);
+    }
+
+    const char* getExpires()
+    {
+        return m_expires.get();
+    }
+
+    void setExpires(const char* expires)
+    {
+        m_expires.set(expires);
     }
 
     const char* getComment()
@@ -196,6 +207,8 @@ public:
             buf.append("; Path=").append(m_path.get());
         if(m_domain.length() > 0)
             buf.append("; Domain=").append(m_domain.get());
+        if (m_expires.length() > 0)
+            buf.append("; Expires=").append(m_expires.get());
         if(m_secure)
             buf.append("; Secure");
         if(m_version >= 1)

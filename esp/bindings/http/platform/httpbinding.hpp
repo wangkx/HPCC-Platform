@@ -28,6 +28,18 @@
 #include "bindutil.hpp"
 #include "seclib.hpp"
 
+typedef enum espAuthState_
+{
+    authUnknown,
+    authRequired,
+    authProvided,
+    authSucceeded,
+    authSucceededNow,
+    authPending,
+    authFailed
+} EspAuthState;
+
+
 class CMethodInfo : public CInterface
 {
 public:
@@ -170,6 +182,10 @@ public:
     virtual bool rootAuthRequired();
     virtual bool authRequired(CHttpRequest *request);
     virtual bool doAuth(IEspContext* ctx);
+#ifdef _USE_OPENLDAP
+    espAuthState_ checkUserLogOn(CHttpRequest* request, CHttpResponse* response, StringBuffer& message, IEspContext* ctx);
+    virtual void userLogOut(CHttpRequest* request, CHttpResponse* response, IEspContext* ctx);
+#endif
     virtual void populateRequest(CHttpRequest *request);
     virtual void getNavSettings(int &width, bool &resizable, bool &scroll){width=165;resizable=false;scroll=true;}
     virtual const char* getRootPage() {return NULL;}

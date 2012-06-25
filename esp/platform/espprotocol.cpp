@@ -116,6 +116,7 @@ const StringBuffer &CEspApplicationPort::getAppFrameHtml(time_t &modified, const
     
     StringBuffer params;
     bool needRefresh = true;
+
     if (!getUrlParams(ctx->queryRequestParameters(), params))
     {
         if (params.length()==0)
@@ -171,13 +172,18 @@ const StringBuffer &CEspApplicationPort::getTitleBarHtml(IEspContext& ctx, bool 
     if (xslp)
     {
         StringBuffer titleBarXml;
-        const char* user = ctx.queryUserId();
-                if (!user || !*user)
-            titleBarXml.appendf("<EspHeader><BuildVersion>%s</BuildVersion><ConfigAccess>%d</ConfigAccess>"
-                "<LoginId>&lt;nobody&gt;</LoginId><NoUser>1</NoUser></EspHeader>", build_ver, viewConfig);
-                else
-            titleBarXml.appendf("<EspHeader><BuildVersion>%s</BuildVersion><ConfigAccess>%d</ConfigAccess>"
-                "<LoginId>%s</LoginId></EspHeader>", build_ver, viewConfig, user);
+        titleBarXml.appendf("<EspHeader><BuildVersion>%s</BuildVersion><ConfigAccess>%d</ConfigAccess>", build_ver, viewConfig);
+
+        const char* authMethod = ctx.getAuthenticationMethod();
+        if (authMethod && !strieq(authMethod, "none") && !strieq(authMethod, "local"))
+        {
+            titleBarXml.append("<LogOut>1</LogOut>");
+            const char* user = ctx.queryUserId();
+            if (user && *user)
+                titleBarXml.appendf("<LoginId>%s</LoginId>", user);
+        }
+
+        titleBarXml.append("</EspHeader>");
 
         if (rawXml)
         {
@@ -527,6 +533,53 @@ void CEspBinding::getDynNavData(IEspContext &context, IProperties *params, IProp
 }
 
 #ifdef _USE_OPENLDAP
+void CEspApplicationPort::getUserLogOnHtml(IEspContext* context, const char* message, StringBuffer& content)
+{
+    if (!xslp)
+    {
+        ERRLOG("XSL conversion not found");
+        return;
+    }
+
+    if (message && *message)
+        content.appendf("<UserLogOn><Message>%s</Message>", message);
+    else
+        content.append("<UserLogOn><Message>Please log on.</Message>");
+
+    const char* httpPath = context->getContextPath();
+    if (httpPath)
+        content.appendf("<OriginalHTTPPath>%s</OriginalHTTPPath>", httpPath);
+
+    IProperties* props = context->queryRequestParameters();
+    if (props)
+    {
+        const char* querystr = props->queryProp("__querystring");
+        if (querystr && *querystr)
+            content.appendf("<OriginalQueryString>%s</OriginalQueryString>", querystr);
+    }
+
+    content.append("</UserLogOn>");
+
+    Owned<IXslTransform> xform = xslp->createXslTransform();
+    xform->loadXslFromFile(StringBuffer(getCFD()).append("./xslt/userlogon.xsl").str());
+    xform->setXmlSource(content.str(), content.length()+1);
+    xform->transform(content.clear());
+    return;
+}
+
+void CEspApplicationPort::getUserLogOutHtml(const char* location, StringBuffer& content)
+{
+    if (location && *location)
+        content.appendf("<UserLogOut><Location>%s</Location></UserLogOut>", location);
+
+    Owned<IXslTransform> xform = xslp->createXslTransform();
+    xform->loadXslFromFile(StringBuffer(getCFD()).append("./xslt/userlogout.xsl").str());
+    xform->setXmlSource(content.str(), content.length()+1);
+    xform->transform(content.clear());
+
+    return;
+}
+
 void CEspApplicationPort::onUpdatePasswordInput(IEspContext &context, StringBuffer& html)
 {
     StringBuffer xml;

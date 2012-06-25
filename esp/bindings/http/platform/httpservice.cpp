@@ -137,20 +137,9 @@ CEspHttpServer::~CEspHttpServer()
     }
 }
 
-typedef enum espAuthState_
-{
-    authUnknown,
-    authRequired,
-    authProvided,
-    authSucceeded,
-    authPending,
-    authFailed
-} EspAuthState;
-
-
 bool CEspHttpServer::rootAuth(IEspContext* ctx)
 {
-    if (!m_apport->rootAuthRequired())
+    if (ctx->isAuthorized() || !m_apport->rootAuthRequired())
         return true;
 
     bool ret=false;
@@ -293,8 +282,21 @@ int CEspHttpServer::processRequest()
         IEspContext* ctx = m_request->queryContext();
         ctx->setServiceName(serviceName.str());
 
+        if (strieq(method.str(), GET_METHOD) && !m_request->isSoapMessage())
+        {
+            EspHttpBinding* authbinding = dynamic_cast<EspHttpBinding*>(m_defaultBinding.get());
+            StringBuffer message;
+            authState = authbinding->checkUserLogOn(m_request.get(), m_response.get(), message, ctx);
+            if (authState == authFailed)
+                return sendUserLogOnHtml(message.str(), m_response.get(), ctx);
+            else if (authState == authSucceeded)
+                ctx->setAuthorized();
+            else if ((authState == authSucceededNow) && onUserLoggedOn(m_request.get(), m_response.get(), ctx, serviceName, methodName, method, stype))
+                return 0;
+        }
+
         bool isSoapPost=(stricmp(method.str(), POST_METHOD) == 0 && m_request->isSoapMessage());
-        if (!isSoapPost)
+        if (!isSoapPost && (authState == authUnknown))
         {
             StringBuffer peerStr, pathStr;
             const char *userid=ctx->queryUserId();
@@ -359,6 +361,12 @@ int CEspHttpServer::processRequest()
 #ifdef _USE_OPENLDAP
                 else if (strieq(methodName.str(), "updatepasswordinput"))
                     return onUpdatePasswordInput(m_request.get(), m_response.get());
+                else if (strieq(methodName.str(), "logout"))
+                {
+                    EspHttpBinding* authbinding = dynamic_cast<EspHttpBinding*>(m_defaultBinding.get());
+                    authbinding->userLogOut(m_request.get(), m_response.get(), ctx);
+                    return sendUserLogOutHtml(m_request.get(), m_response.get());
+                }
 #endif
             }
         }
@@ -416,7 +424,7 @@ int CEspHttpServer::processRequest()
                     }
                     
                     thebinding->populateRequest(m_request.get());
-                    if(thebinding->authRequired(m_request.get()) && !thebinding->doAuth(ctx))
+                    if((authState != authSucceeded) && thebinding->authRequired(m_request.get()) && !thebinding->doAuth(ctx))
                     {
                         authState=authRequired;
                         if(isSoapPost)
@@ -553,6 +561,49 @@ int CEspHttpServer::onGetApplicationFrame(CHttpRequest* request, CHttpResponse* 
 
     return 0;
 }
+
+#ifdef _USE_OPENLDAP
+bool CEspHttpServer::onUserLoggedOn(CHttpRequest* request, CHttpResponse* response, IEspContext* ctx, StringBuffer& service, StringBuffer& serviceMethod, StringBuffer& httpMethod, sub_service& subService)
+{
+    StringBuffer url;
+    IProperties *params = request->queryParameters();
+    const char *originalHTTPPath=(params)?params->queryProp("OriginalHTTPPath") : NULL;
+    const char *originalQueryString=(params)?params->queryProp("OriginalQueryString") : NULL;
+    if (originalHTTPPath && *originalHTTPPath)
+        url.append(originalHTTPPath);
+    if (originalQueryString && *originalQueryString)
+        url.appendf("?%s", originalQueryString);
+    response->redirect(*request,url);
+
+    return true;
+}
+
+int CEspHttpServer::sendUserLogOnHtml(const char* prompt, CHttpResponse* response, IEspContext* ctx)
+{
+    StringBuffer html;
+    m_apport->getUserLogOnHtml(ctx, prompt, html);
+    response->setContent(html.length(), html.str());
+    response->setContentType("text/html; charset=UTF-8");
+    response->setStatus(HTTP_STATUS_OK);
+    response->send();
+
+    return 0;
+}
+
+int CEspHttpServer::sendUserLogOutHtml(CHttpRequest* request, CHttpResponse* response)
+{
+    StringBuffer html;
+    IProperties *params = request->queryParameters();
+    const char *location=(params)?params->queryProp("location") : NULL;
+    m_apport->getUserLogOutHtml(location, html);
+    response->setContent(html.length(), html.str());
+    response->setContentType("text/html; charset=UTF-8");
+    response->setStatus(HTTP_STATUS_OK);
+    response->send();
+
+    return 0;
+}
+#endif
 
 int CEspHttpServer::onGetTitleBar(CHttpRequest* request, CHttpResponse* response)
 {

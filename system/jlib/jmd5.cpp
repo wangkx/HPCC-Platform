@@ -438,3 +438,70 @@ void md5_string(StringBuffer& inpstring, StringBuffer& outstring)
     md5_string(inpstring, inpstring.length(), outstring);
 }
 
+void md5_bytes(const md5_byte_t *data, int inplen, StringBuffer& outstring)
+{
+    md5_state_t context;
+    unsigned char digest[16];
+    unsigned char digeststr[33];
+    unsigned char digitstr[3];
+
+    md5_init (&context);
+    md5_append (&context, data, inplen);
+    md5_finish (&context,digest);
+
+    for (int i = 0; i < 16; i++)
+    {
+        sprintf((char *)digitstr,"%02x", digest[i]);
+        digeststr[i*2]=digitstr[0];
+        digeststr[i*2+1]=digitstr[1];
+    }
+    digeststr[32]='\0';
+
+    outstring.append(digeststr);
+}
+
+void hmac_md5(const char* key, const char* inString, StringBuffer& outString)
+{
+    StringBuffer keyStr = key;
+    if (strlen(key) > 64) {//md5 blocksize is 64
+        // keys longer than blocksize are shortened
+        md5_string(key, strlen(key), keyStr);
+    }
+
+    if (keyStr.length() < 64) {
+        // keys shorter than blocksize are zero-padded ('||' is concatenation)
+        //key = key || [0x00 * (blocksize - length(key))]
+        keyStr.appendN(64-keyStr.length(), 0);
+    }
+
+    //o_key_pad = [0x5c * blocksize] ^ key // Where blocksize is that of the underlying hash function
+    //i_key_pad = [0x36 * blocksize] ^ key // Where ^ is exclusive or (XOR)
+
+    unsigned i = 0;
+    md5_byte_t* ikeyPad = (md5_byte_t *)malloc(64 + strlen(inString));
+    for (i = 0; i < 64; i++) {
+        ikeyPad[i] = (md5_byte_t) (keyStr.charAt(i)^0x36);
+    }
+
+    //return hash(o_key_pad || hash (i_key_pad || message) // Where '||' is concatenation
+    for (i = 0; i < strlen(inString); i++) {
+        ikeyPad[i+64] = (md5_byte_t) inString[i];
+    }
+
+    StringBuffer hkeyStr;
+    md5_bytes(ikeyPad, 64 + strlen(inString), hkeyStr);
+
+    md5_byte_t* okeyPad = (md5_byte_t *)malloc(64 + hkeyStr.length());
+    for (i = 0; i < 64; i++) {
+        okeyPad[i] = (md5_byte_t) (keyStr.charAt(i)^0x5c);
+    }
+
+    for (i = 0; i < hkeyStr.length(); i++) {
+        okeyPad[i+64] = (md5_byte_t) hkeyStr.charAt(i);
+    }
+    md5_bytes(okeyPad, 64 + hkeyStr.length(), outString);
+
+    free(ikeyPad);
+    free(okeyPad);
+    return;
+}

@@ -1113,7 +1113,7 @@ bool PermissionProcessor::getPermissions(ISecUser& user, IArrayOf<CSecurityDescr
             BYTE AType = pAce->Header.AceType;
             if(AType == ACCESS_ALLOWED_ACE_TYPE)
             {
-                if(EqualSid(usersid, cursid))
+                if(usersid && EqualSid(usersid, cursid))
                 {
                     allows |= pAce->Mask;
                 }
@@ -1132,7 +1132,7 @@ bool PermissionProcessor::getPermissions(ISecUser& user, IArrayOf<CSecurityDescr
             }
             else if(AType == ACCESS_DENIED_ACE_TYPE)
             {
-                if(EqualSid(usersid, cursid))
+                if(usersid && EqualSid(usersid, cursid))
                 {
                     denies |= pAce->Mask;
                 }

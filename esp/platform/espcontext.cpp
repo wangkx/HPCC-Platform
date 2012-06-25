@@ -75,6 +75,8 @@ private:
     bool        m_hasException;
     int         m_exceptionCode;
 
+    StringAttr  m_authenticationMethod;
+    bool        m_authorized;
 public:
     IMPLEMENT_IINTERFACE;
 
@@ -83,6 +85,7 @@ public:
         m_hasException =  false;
         m_creationTime = msTick();
         m_active=ActiveRequests::getCount();
+        m_authorized =  false;
     }
 
     ~CEspContext()
@@ -166,6 +169,8 @@ public:
 
     virtual void setUser(ISecUser* user)
     {
+        if (m_authorized)
+            user->setAuthenticateStatus(AS_AUTHENTICATED);
         m_user.setown(user);
         m_SecurityHandler.setUser(user);
     }
@@ -453,6 +458,26 @@ public:
         }
 
         DBGLOG("TxSummary[%s]", logstr.str());
+    }
+
+    virtual void setAuthenticationMethod(const char* method)
+    {
+        m_authenticationMethod.set(method);
+    }
+
+    virtual const char * getAuthenticationMethod()
+    {
+        return m_authenticationMethod.get();
+    }
+
+    virtual void setAuthorized()
+    {
+        m_authorized = true;
+    }
+
+    virtual bool isAuthorized()
+    {
+        return m_authorized;
     }
 };
 
