@@ -1,0 +1,389 @@
+<head>
+    <link rel="stylesheet" href="esp/files/genesis/style/demo.css" media="screen">
+	<link rel="stylesheet" href="esp/files/genesis/style/style.css" media="screen">
+	<link rel="stylesheet" href="esp/files/dijit/themes/claro/claro.css" media="screen">
+	<script src="esp/files/dojo/dojo.js"
+        data-dojo-config="async:1">
+    </script>
+	<script>
+    require(["dijit/registry",  "dojo/parser", "dojo/dom", "dojox/timing",
+			"dijit/layout/BorderContainer", "dijit/layout/TabContainer", 
+			"dijit/layout/AccordionContainer", "dijit/layout/ContentPane", 
+			"dojo/_base/declare", "dojo/_base/xhr",
+			"dojo/aspect", "dojo/json", "dojo/query", 
+			"dojo/store/Memory", "dojo/store/Observable",
+			"dijit/Tree", "dijit/tree/ObjectStoreModel", "dijit/tree/dndSource",
+			"dojo/_base/connect", 
+			"dijit/Menu", "dijit/MenuItem", "dijit/CheckedMenuItem", 
+			"dijit/MenuSeparator", "dijit/PopupMenuItem",
+			"dojo/text!./esp/files/genesis/data/all1.json", 
+			"dojo/ready"],
+			function(registry, parser, dom, timing,
+			BorderContainer, TabContainer,AccordionContainer, ContentPane, 
+			declare, xhr, 
+			aspect, json, query, Memory, Observable, Tree, ObjectStoreModel, dndSource,
+			connect, Menu, MenuItem, CheckedMenuItem, MenuSeparator, PopupMenuItem,
+			data, ready){
+				var leftPanelTitle = "Genesis Left Panel";
+				var configNavPanelID = "genesis_config_nav_panel";
+				var loginsNavPanelID = "genesis_logins_nav_panel";
+				var rolesNavPanelID = "genesis_roles_nav_panel";
+				var centralPanelTitle = "Genesis Center Panel";
+				var centralPanelID = "genesis_center_panel";
+				var treeNodeClicked = null;
+
+                function getNavURL(paneID) {
+                    var url = 'WsGenesis/ListGSTopNodes.json';
+                    if (paneID == 'Pane1') {
+                        url += '?Names_i1=Subnets&Names_i2=Hosts';
+                        url += '&Names_i3=Clusters&Names_i4=Environments';
+                    }
+                    if (paneID == 'Pane2') {
+                        url += '?Names_i1=Users&Names_i2=Groups';
+                    }
+                    if (paneID == 'Pane3') {
+                        url += '?Names_i1=Roles';
+                    }
+                    return url;
+                }
+				
+                function readNavData(paneID, topNodes, navData) {
+                    navData.push({id:"root", name: paneID});
+                    if (paneID == 'Pane1') {
+                        navData.push({id:'Global', name: 'Global', svnpath: 'gloabl', type: 'top_node', parent: 'root'});
+                    }
+                    for (var i = 0; i < topNodes.length; ++i) {
+                        var topNode = topNodes[i];
+                        navData.push({id:topNode.ID, name: topNode.ID, type: 'top_node', parent: 'root'});
+                        if (topNode.SubFolderNodes && topNode.SubFolderNodes.SubFolderNode){
+                            var subfolders = topNode.SubFolderNodes.SubFolderNode;
+                            for (var j = 0; j < subfolders.length; ++j) {
+                                var subfolder = subfolders[j];
+                                navData.push({id:subfolder.ID, name: subfolder.ID, svnpath: subfolder.SVNPath, type: 'leaf', parent: topNode.ID});
+                            }
+                        }
+                    }
+                }
+
+				function updatePanelIFrame(panelID, url) { 
+					var urlString = String(url);
+					var idString = String(panelID);
+					var thisPanel = dojo.byId(panelID);
+					if (thisPanel.iframe == null) { 
+						var iframeId = panelID + '_iframe';
+						thisPanel.iframe = document.createElement("iframe");
+						thisPanel.iframe.setAttribute('id', iframeId);
+						
+						var parent = dojo.byId(idString);
+						parent.setAttribute('style', 'overflow:hidden');
+						parent.appendChild(thisPanel.iframe);
+
+						thisPanel.iframe.setAttribute('src', urlString);
+						if(navigator.appName == "Microsoft Internet Explorer"){
+							var oBody = thisPanel.iframe.document.body;
+							thisPanel.iframe.style.width = oBody.scrollWidth + (oBody.offsetWidth - oBody.clientWidth - 250) + "px";
+							thisPanel.iframe.style.height = oBody.scrollHeight + (oBody.offsetHeight - oBody.clientHeight - 140) + "px";
+						} else {
+							thisPanel.iframe.setAttribute('width', '100%');
+							thisPanel.iframe.setAttribute('height', '100%');
+						}
+					} else {
+						if (urlString.match('Not Implemented Yet')) {
+							return;
+						}
+
+						thisPanel.iframe.setAttribute('src', urlString);
+						if(navigator.appName == "Microsoft Internet Explorer"){
+							thisPanel.iframe.scrolling="auto";
+							var oBody = thisPanel.iframe.document.body;
+							thisPanel.iframe.style.width = oBody.scrollWidth + (oBody.offsetWidth - oBody.clientWidth - 250) + "px";
+							thisPanel.iframe.style.height = oBody.scrollHeight + (oBody.offsetHeight - oBody.clientHeight - 140) + "px";
+							//thisPanel.iframe.contentWindow.location.reload(true);
+							//thisPanel.iframe.contentDocument.location.reload(true);
+							thisPanel.iframe.window.location.reload(true);
+						}
+					}
+					return;
+				}
+				
+				function _initNavTree(parent, paneID, data) {
+				    var	navStore = new Memory({
+						//data: json.parse(data),
+						data: data,
+						getChildren: function(object){
+							return this.query({parent: object.id});
+						}
+					});
+
+					aspect.around(navStore, "put", function(originalPut){
+						return function(obj, options){
+							if(options && options.parent){
+								obj.parent = options.parent.id;
+							}
+							return originalPut.call(navStore, obj, options);
+						}
+					});
+
+					// give store Observable interface so Tree can track updates
+					navStore = new Observable(navStore);
+
+					// create model to interface Tree to store
+					var navModel = new ObjectStoreModel({
+						store: navStore,
+
+						// query to get root node
+						query: {id: "root"},
+
+						mayHaveChildren: function(object){
+							// Normally the object would have some attribute (like a type) that would tell us if
+							// it might have children.   But since our data is local we'll just check if there
+							// actually are children or not.
+							return this.store.getChildren(object).length > 0;
+							//return true;
+						}
+					});
+
+					var navTree = new Tree({
+						model: navModel,
+						showRoot: false,
+						dndController: dndSource,
+						getIconClass: function(/*dojo.store.Item*/ item, /*Boolean*/ opened){
+                            return "";
+                        },
+                        onClick: function(item){
+							console.log(item.id+' clicked.');
+							treeNodeClicked =  item;
+							if  (item.svnpath) {
+								var toURL = "/esp/files/genesis/ViewSettings.html?SVNPath=" + item.svnpath;
+								console.log(toURL);
+								updatePanelIFrame(centralPanelID, toURL);
+							}
+						}
+					}, paneID); // make sure you have a target HTML element with this id
+					
+					parent.addChild(navTree);
+					
+					var navConnects = [];
+					var treeNodeMenu = new Menu({ 
+						destroy: function() {  // for a neat garbage collections, remove listeners
+						  var ch;
+						  while(ch = navConnects.pop()) ch.disconnect();
+						  this.inherited();
+					   }
+					});      
+
+					navConnects.push(dojo.connect(treeNodeMenu, "_openMyself", this, function(e) {
+						// clean existing menu items if any
+						treeNodeMenu.getChildren().forEach(function(i) {
+							i.destroy();
+						});
+						//var tn = dijit.getEnclosingWidget(e.target);
+						if (treeNodeClicked == null)
+                            return;
+                            
+						if (treeNodeClicked.type != 'leaf' && treeNodeClicked.id != 'Global') {
+						    var menuItem1 = new MenuItem({
+							    label: "Add a node",
+							    iconClass:"",
+							    onClick: function(evt){
+								    if (treeNodeClicked)
+									    console.log("Add a node for " + treeNodeClicked.id);
+							    }
+						    });
+    						treeNodeMenu.addChild(menuItem1);
+    					}
+						if (treeNodeClicked.type != 'top_node' && treeNodeClicked.id != 'global') {
+						    var menuItem2 = new MenuItem({
+						        label: "Delete me",
+						        iconClass: "dijitEditorIcon dijitEditorIconCut",
+						        style:"background-color:#FF4444",
+						        onClick: function(evt){
+								    if (treeNodeClicked) {
+									    //console.log("Delete " + treeNodeClicked.id);
+									    navStore.remove(treeNodeClicked.id);
+									    //navStore.add({'name': 'subnet1', 'id': 's1',	'parent': 'Subnets'});
+									}
+							    }
+						    });
+						    treeNodeMenu.addChild(menuItem2);
+						}
+					}));
+					
+					navConnects.push(dojo.connect(treeNodeMenu, "onBlur", this, function(e) { //This does not work.
+						// clean existing menu items if any
+						console.log("onBlur");
+						treeNodeMenu.getChildren().forEach(function(i) {
+							i.destroy();
+						});
+					}));
+					
+					treeNodeMenu.bindDomNode(navTree.domNode);
+				};
+				
+				function initNavTree(parent, paneID) {
+                    //_initNavTree(parent, paneID, json.parse(data));
+                    //return;
+					
+                    var xhrArgs = {
+                        url: getNavURL(paneID),
+                        handleAs: "json",
+                        preventCache: true
+                    }
+
+                    var deferred = dojo.xhrGet(xhrArgs);
+
+                    deferred.then(
+                        function(response){
+                            //var tmpStr = json.stringify(response.ListGSTopNodesResponse.TopNodes.TopNode);
+                            var listResponse = response.ListGSTopNodesResponse;
+							if (listResponse.TopNodes && listResponse.TopNodes.TopNode) {	
+								var navData = new Array();
+								readNavData(paneID, listResponse.TopNodes.TopNode, navData);
+								_initNavTree(parent, paneID, navData);
+							}
+                        },
+
+                        function(error){
+                            console.log("Failed to read Nav data");
+                        }
+                    );
+                }
+
+				function initLeftPanel(parent) {
+					var ac = new AccordionContainer({
+						region: "leading",
+						style:"height: 300px; width: 210px; overflow: hidden;",
+						splitter:true, 
+						minSize:20,
+						}, "leftAccordion");
+					
+					var configNavPanel = new ContentPane({
+						title: "Config_layers",
+						id: configNavPanelID,
+						style:"width: 100%; overflow: hidden !important;"
+					});
+
+					ac.addChild(configNavPanel);
+
+					var loginsNavPanel = new ContentPane({
+						title: "Logins",
+						id: loginsNavPanelID,
+						style:"width: 100%; overflow: hidden !important;"
+					});
+
+					ac.addChild(loginsNavPanel);
+					
+					var rolesNavPanel = new ContentPane({
+						title: "Roles",
+						id: rolesNavPanelID,
+						style:"width: 100%; overflow: hidden !important;"
+					});
+
+					ac.addChild(rolesNavPanel);
+					
+					parent.addChild(ac);
+
+					initNavTree(configNavPanel, "Pane1");
+					initNavTree(loginsNavPanel, "Pane2");
+					initNavTree(rolesNavPanel, "Pane3");
+				}
+
+				function initTopPanel(parent) {
+					var topPane = new ContentPane({
+							region: "top",
+							"class": "edgePanel",
+							style: {height: "35px"},
+						});
+						
+					var panesInTopPane = new BorderContainer({
+						design: "headline",
+						gutters:false
+					});
+						
+					var logoPane = new ContentPane({
+						region: "leading",
+						"class": "edgePanel",
+						style: {width: "250px", height: "30px"},
+						content: "Genesis Server"
+					});
+						
+					timerPane = new ContentPane({
+						region: "trailing",
+						"class": "edgePanel",
+						id: "timerPaneID",
+						style: {width: "250px"},
+						content: "Timer"
+					});
+						
+					panesInTopPane.addChild(logoPane);
+					panesInTopPane.addChild(timerPane);
+					topPane.addChild(panesInTopPane);
+						
+					// create and add the BorderContainer edge regions
+					parent.addChild(topPane);
+				};
+
+				function initUI() {
+					// create the BorderContainer and attach it to our appLayout div
+					var appLayout = new BorderContainer({
+						design: "headline"
+					}, "appLayout");
+
+					appLayout.addChild(
+					    new ContentPane({
+						    title: centralPanelTitle,
+						    id: centralPanelID,
+						    region: "center",
+						    "class": "centerPanel",
+						    closable: false
+					    })
+					);
+					
+					initTopPanel(appLayout);
+					initLeftPanel(appLayout);
+
+				    updatePanelIFrame(centralPanelID, "/esp/files/genesis/ViewSettings.html?SVNPath=global");
+				    //updatePanelIFrame(centralPanelID, "/esp/files/genesis/NewPage.html");
+
+					// start up and do layout
+					appLayout.startup();
+				}
+				
+				function startTimer() {
+					t = new dojox.timing.Timer(1000);
+					t.onTick = function() {
+					  //One second elapsed
+					  var now = new Date();
+					  //format now using dojo.date.locale.format
+					  //update your text box with the result
+					  dojo.byId("timerPaneID").innerHTML = now.toUTCString();
+					}
+					t.onStart = function() {
+					  //Do whatever setup is needed
+					}
+					t.start();
+				}
+
+				ready(function(){
+					initUI();
+					
+					dojo.byId('loaderInner').innerHTML += " done.";
+					setTimeout(function hideLoader(){
+						dojo.fadeOut({ 
+							node: 'loader', 
+							duration:500,
+							onEnd: function(n){
+								n.style.display = "none";
+							}
+						}).play();
+					}, 250);
+					
+					startTimer();
+				});
+			});
+    </script>
+</head>
+<body class="claro">
+    <div id="loader"><div id="loaderInner" style="direction:ltr;">Loading ... </div></div>
+    <div id="appLayout" class="demoLayout"></div>
+</body>
