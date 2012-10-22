@@ -22,27 +22,7 @@
 #    Cmake Input File for svnlib
 #####################################################
 
-project( svnlib ) 
-
-set (SVN_INCLUDE_DIR "C:\\seisint_src\\svncpp2012\\include")
-
-IF (UNIX)
-  IF (${ARCH64BIT} EQUAL 1)
-    SET (SVN_LIBRARIES "linux64_gcc4.1.1")
-  ELSE()
-    SET (SVN_LIBRARIES "linux32_gcc4.1.1")
-  ENDIF()
-ELSEIF(WIN32)
-  SET (SVN_LIBRARIES "C:\\seisint_src\\svncpp2012\\lib\\Debug\\libsvn_client-1.lib"
-  "C:\\seisint_src\\svncpp2012\\lib\\Debug\\libapr-1.lib"
-  "C:\\seisint_src\\svncpp2012\\lib\\Debug\\libaprutil-1.lib"
-  "C:\\seisint_src\\svncpp2012\\lib\\Debug\\libsvn_delta-1.lib"
-  "C:\\seisint_src\\svncpp2012\\lib\\Debug\\libsvn_diff-1.lib"
-  "C:\\seisint_src\\svncpp2012\\lib\\Debug\\libsvn_subr-1.lib"
-  "C:\\seisint_src\\svncpp2012\\lib\\Debug\\libsvn_wc-1.lib")
-ELSE()
-  SET (SVN_LIBRARIES "unknown")
-ENDIF()
+project( svnlib )
 
 set(LIB_LIBRARIES ${SVN_LIBRARIES})
 

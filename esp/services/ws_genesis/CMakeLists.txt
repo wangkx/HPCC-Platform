@@ -23,8 +23,6 @@
 
 project( ws_genesis )
 
-set (SVN_INCLUDE_DIR "C:\\seisint_src\\svncpp2012\\include")
-
 include(${HPCC_SOURCE_DIR}/esp/scm/smcscm.cmake)
 include(${HPCC_SOURCE_DIR}/esp/scm/additional.cmake)
 
@@ -44,11 +42,11 @@ include_directories (
          ./../../../system/xmllib
          ./../../../system/security/shared
          ./../../../system/security/securesocket
+         ./../../../system/svnlib
          ./../../platform
          ./../../clients
          ./../../bindings
          ./../../bindings/SOAP/xpp
-         ./../../svnlib
          ${SVN_INCLUDE_DIR}
     )
 
