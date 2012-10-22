@@ -1,0 +1,636 @@
+/*##############################################################################
+
+    HPCC SYSTEMS software Copyright (C) 2012 HPCC Systems.
+
+    Licensed under the Apache License, Version 2.0 (the "License");
+    you may not use this file except in compliance with the License.
+    You may obtain a copy of the License at
+
+       http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+############################################################################## */
+
+EspInclude(common);
+
+ESPstruct [nil_remove] BaseStatus
+{
+    int Code;
+    string Description;
+};
+
+ESPstruct [nil_remove] GSSVNInfo
+{
+    int LastChangedRev;
+    string LastChangedDate;
+    string LastChangedAuthor;
+    string LastComment;
+};
+
+ESPstruct [nil_remove] GSProperty
+{
+    string Name;
+    string Value;
+    string Description;
+};
+
+ESPstruct [nil_remove] GSFile
+{
+    string Name;
+    string Description;
+    string SVNPath;
+    [http_content("application/octet-stream")] binary thefile;
+};
+
+ESPstruct [nil_remove] GSFolder
+{
+    string ID;
+    string Name;
+    string Type;
+    string Parent;
+    string Description;
+    string SVNPath;
+    ESParray<ESPstruct NamedValue, Property> Properties;
+    ESParray<ESPstruct GSFolder, SubFolder> SubFolders;
+    ESParray<ESPstruct GSFile, File> Files;
+};
+
+ESPstruct [nil_remove] GSFolderNode
+{
+    string ID;
+    string SVNPath;
+    ESParray<ESPstruct GSFolderNode, SubFolderNode> SubFolderNodes;
+};
+
+ESPstruct [nil_remove] GSNode
+{
+    string  Ref; //ID
+    string  Name;
+    string  Parent;
+    string  SVNPath;
+    boolean IsLeaf;
+    string Description;
+};
+
+ESPstruct [nil_remove] GSOSImage
+{
+    string Name;
+    string Description;
+};
+
+ESPstruct [nil_remove] GSDNSServer
+{
+    string Name;
+    string Description;
+    string IPAddress;
+};
+
+ESPstruct [nil_remove] GSKernelConfig
+{
+    string Name;
+    string Description;
+};
+
+ESPstruct [nil_remove] GSShell
+{
+    string Name;
+    string Description;
+};
+
+ESPstruct [nil_remove] GSUser
+{
+    string Name;
+    string UID;
+    string HomeDirectory;
+    string ShellName;
+    string Description;
+};
+
+ESPstruct [nil_remove] GSUserGroup
+{
+    string Name;
+    string Description;
+    ESParray<string> UserNames;
+};
+
+ESPstruct [nil_remove] GSEnvironment
+{
+    string Name;
+    string Description;
+    ESParray<ESPstruct NamedValue, Property> Properties;
+    ESParray<string> Folders;
+    ESParray<string> Files;
+};
+
+ESPstruct [nil_remove] GSCluster
+{
+    string Name;
+    string Description;
+    string Environment;
+};
+
+ESPstruct [nil_remove] GSSubnet
+{
+    string Name;
+    string DNSServer;
+    string NetworkGateway;
+    string NetworkMask;
+    string NetworkNTP;
+    string NetworkPool;
+    string KernelConfig;
+    string OSImage;
+    string Description;
+};
+
+ESPrequest [nil_remove] ListGSRootsRequest
+{
+    string NavPane;
+};
+
+ESPresponse [nil_remove, exceptions_inline] ListGSRootsResponse
+{
+    ESPstruct BaseStatus status;
+    string Roots;
+};
+
+ESPrequest [nil_remove] AddSubnetRequest
+{
+    ESPstruct GSFolder Subnet;
+    string Comment;
+};
+
+ESPresponse [nil_remove, exceptions_inline] AddSubnetResponse
+{
+    ESPstruct BaseStatus status;
+};
+
+ESPrequest [nil_remove] DeleteSubnetRequest
+{
+    string Name;
+    string Comment;
+};
+
+ESPresponse [nil_remove, exceptions_inline] DeleteSubnetResponse
+{
+    ESPstruct BaseStatus status;
+};
+
+ESPrequest [nil_remove] UpdateSubnetRequest
+{
+    ESPstruct GSFolder Subnet;
+    string Comment;
+};
+
+ESPresponse [nil_remove, exceptions_inline] UpdateSubnetResponse
+{
+    ESPstruct BaseStatus status;
+};
+
+ESPrequest [nil_remove] GetSubnetInfoRequest
+{
+    string Name;
+};
+
+ESPresponse [nil_remove, exceptions_inline] GetSubnetInfoResponse
+{
+    ESPstruct GSFolder Subnet;
+    ESPstruct GSSVNInfo SVNInfo;
+    ESPstruct BaseStatus status;
+};
+
+ESPrequest [nil_remove] ListSubnetsRequest
+{
+};
+
+ESPresponse [nil_remove, exceptions_inline] ListSubnetsResponse
+{
+    ESParray<ESPstruct GSFolder, Subnet> Subnets;
+    ESPstruct BaseStatus status;
+};
+
+ESPrequest [nil_remove] AddHostRequest
+{
+    ESPstruct GSFolder Host;
+};
+
+ESPresponse [nil_remove, exceptions_inline] AddHostResponse
+{
+    ESPstruct BaseStatus status;
+};
+
+ESPrequest [nil_remove] DeleteHostRequest
+{
+    string Name;
+};
+
+ESPresponse [nil_remove, exceptions_inline] DeleteHostResponse
+{
+    ESPstruct BaseStatus status;
+};
+
+ESPrequest [nil_remove] UpdateHostRequest
+{
+    ESPstruct GSFolder Host;
+};
+
+ESPresponse [nil_remove, exceptions_inline] UpdateHostResponse
+{
+    ESPstruct BaseStatus status;
+};
+
+ESPrequest [nil_remove] GetHostInfoRequest
+{
+    string Name;
+};
+
+ESPresponse [nil_remove, exceptions_inline] GetHostInfoResponse
+{
+    ESPstruct GSFolder Host;
+    ESPstruct BaseStatus status;
+};
+
+ESPrequest [nil_remove] ListHostsRequest
+{
+};
+
+ESPresponse [nil_remove, exceptions_inline] ListHostsResponse
+{
+    ESParray<ESPstruct GSFolder, Host> Hosts;
+    ESPstruct BaseStatus status;
+};
+
+ESPrequest [nil_remove] AddClusterRequest
+{
+    string Name;
+};
+
+ESPresponse [nil_remove, exceptions_inline] AddClusterResponse
+{
+    ESPstruct BaseStatus status;
+};
+
+ESPrequest [nil_remove] DeleteClusterRequest
+{
+    string Name;
+};
+
+ESPresponse [nil_remove, exceptions_inline] DeleteClusterResponse
+{
+    ESPstruct BaseStatus status;
+};
+
+ESPrequest [nil_remove] UpdateClusterRequest
+{
+    string Name;
+};
+
+ESPresponse [nil_remove, exceptions_inline] UpdateClusterResponse
+{
+    ESPstruct BaseStatus status;
+};
+
+ESPrequest [nil_remove] GetClusterInfoRequest
+{
+    string Name;
+};
+
+ESPresponse [nil_remove, exceptions_inline] GetClusterInfoResponse
+{
+    ESPstruct BaseStatus status;
+};
+
+ESPrequest [nil_remove] ListClustersRequest
+{
+};
+
+ESPresponse [nil_remove, exceptions_inline] ListClustersResponse
+{
+    ESPstruct BaseStatus status;
+};
+
+ESPrequest [nil_remove] AddEnvironmentRequest
+{
+    string Name;
+};
+
+ESPresponse [nil_remove, exceptions_inline] AddEnvironmentResponse
+{
+    ESPstruct BaseStatus status;
+};
+
+ESPrequest [nil_remove] DeleteEnvironmentRequest
+{
+    string Name;
+};
+
+ESPresponse [nil_remove, exceptions_inline] DeleteEnvironmentResponse
+{
+    ESPstruct BaseStatus status;
+};
+
+ESPrequest [nil_remove] UpdateEnvironmentRequest
+{
+    string Name;
+};
+
+ESPresponse [nil_remove, exceptions_inline] UpdateEnvironmentResponse
+{
+    ESPstruct BaseStatus status;
+};
+
+ESPrequest [nil_remove] GetEnvironmentInfoRequest
+{
+    string Name;
+};
+
+ESPresponse [nil_remove, exceptions_inline] GetEnvironmentInfoResponse
+{
+    ESPstruct BaseStatus status;
+};
+
+ESPrequest [nil_remove] ListEnvironmentsRequest
+{
+};
+
+ESPresponse [nil_remove, exceptions_inline] ListEnvironmentsResponse
+{
+    ESPstruct BaseStatus status;
+};
+
+ESPrequest [nil_remove] UpdateGlobalSettingsRequest
+{
+    string Name;
+};
+
+ESPresponse [nil_remove, exceptions_inline] UpdateGlobalSettingsResponse
+{
+    ESPstruct BaseStatus status;
+};
+
+ESPrequest [nil_remove] GetGlobalSettingsRequest
+{
+    string SVNPath;
+};
+
+ESPresponse [nil_remove, exceptions_inline] GetGlobalSettingsResponse
+{
+    ESPstruct BaseStatus status;
+    ESPstruct GSFolder GlobalSettings;
+};
+
+ESPrequest [nil_remove] ListGSNavNodesRequest
+{
+    string NavPane;
+    ESParray<string> SVNDirs;
+    ESParray<string> DirNames;
+};
+
+ESPresponse [nil_remove, exceptions_inline] ListGSNavNodesResponse
+{
+    ESPstruct BaseStatus status;
+    string Nodes;
+    ESParray<ESPstruct GSFolder, Folder> Folders;
+};
+
+ESPrequest [nil_remove] ListGSTopNodesRequest
+{
+    string User;
+    string Password;
+    string Comment;
+    ESParray<string> Names;
+};
+
+ESPresponse [nil_remove, exceptions_inline] ListGSTopNodesResponse
+{
+    ESPstruct BaseStatus status;
+    ESParray<ESPstruct GSFolderNode, TopNode> TopNodes;
+};
+
+ESPrequest [nil_remove] GetGSNodeSettingsRequest
+{
+    string User;
+    string Password;
+    string Comment;
+    string SVNPath;
+};
+
+ESPresponse [nil_remove, exceptions_inline] GetGSNodeSettingsResponse
+{
+    ESPstruct BaseStatus status;
+    ESPstruct GSFolder NodeSettings;
+};
+
+ESPrequest [nil_remove] AddGSFolderRequest
+{
+    string User;
+    string Password;
+    string Comment;
+    string SVNPath;
+};
+
+ESPresponse [nil_remove, exceptions_inline] AddGSFolderResponse
+{
+    unsigned revision (0);
+    ESPstruct BaseStatus status;
+};
+
+ESPrequest [nil_remove] UpdateGSNodePropertiesRequest
+{
+    string SVNPath;
+    string User;
+    string Password;
+    string Comment;
+    ESParray<ESPstruct NamedValue, Property> Properties;
+};
+
+ESPresponse [nil_remove, exceptions_inline]UpdateGSNodePropertiesResponse
+{
+    unsigned revision (0);
+    ESPstruct BaseStatus status;
+};
+
+ESPrequest [nil_remove] RemoveGSFolderRequest
+{
+    string User;
+    string Password;
+    string Comment;
+    string SVNPath;
+};
+
+ESPresponse [nil_remove, exceptions_inline] RemoveGSFolderResponse
+{
+    unsigned revision (0);
+    ESPstruct BaseStatus status;
+};
+
+ESPrequest [nil_remove] GetGSFileContentRequest
+{
+    string User;
+    string Password;
+    string Comment;
+    string SVNPath;
+};
+
+ESPresponse [nil_remove, exceptions_inline] GetGSFileContentResponse
+{
+    ESPstruct BaseStatus status;
+    [http_content("application/octet-stream")] binary thefile;
+};
+
+ESPrequest [nil_remove] AddGSFileRequest
+{
+    string User;
+    string Password;
+    string Comment;
+    string Name;
+    string SVNPath;
+    string Content;
+};
+
+ESPresponse [nil_remove, exceptions_inline] AddGSFileResponse
+{
+    unsigned revision (0);
+    ESPstruct BaseStatus status;
+};
+
+ESPrequest [nil_remove] UpdateGSFileContentRequest
+{
+    string SVNPath;
+    string Content;
+    string User;
+    string Password;
+    string Comment;
+};
+
+ESPresponse [nil_remove, exceptions_inline]UpdateGSFileContentResponse
+{
+    unsigned revision (0);
+    ESPstruct BaseStatus status;
+};
+
+ESPrequest [nil_remove] RemoveGSFileRequest
+{
+    string User;
+    string Password;
+    string Comment;
+    string SVNPath;
+};
+
+ESPresponse [nil_remove, exceptions_inline] RemoveGSFileResponse
+{
+    unsigned revision (0);
+    ESPstruct BaseStatus status;
+};
+
+ESPrequest [nil_remove] AddUserRequest
+{
+    string User; //SVN login
+    string Password; //SVN login
+    string Comment;
+    string UserName; //User to be added
+};
+
+ESPresponse [nil_remove, exceptions_inline] AddUserResponse
+{
+    unsigned id;
+    unsigned revision (0);
+    ESPstruct BaseStatus status;
+};
+
+ESPrequest [nil_remove] RemoveUserRequest
+{
+    string User; //SVN login
+    string Password; //SVN login
+    string Comment;
+    string UserName; //User to be added
+};
+
+ESPresponse [nil_remove, exceptions_inline] RemoveUserResponse
+{
+    unsigned revision (0);
+    ESPstruct BaseStatus status;
+};
+
+ESPrequest [nil_remove] AddUserGroupRequest
+{
+    string User;
+    string Password;
+    string Comment;
+    string GroupName;
+};
+
+ESPresponse [nil_remove, exceptions_inline] AddUserGroupResponse
+{
+    unsigned id;
+    unsigned revision (0);
+    ESPstruct BaseStatus status;
+};
+
+ESPrequest [nil_remove] RemoveUserGroupRequest
+{
+    string User;
+    string Password;
+    string Comment;
+    string GroupName;
+};
+
+ESPresponse [nil_remove, exceptions_inline] RemoveUserGroupResponse
+{
+    unsigned id;
+    unsigned revision (0);
+    ESPstruct BaseStatus status;
+};
+
+ESPservice [version("1.00"), default_client_version("1.00"), exceptions_inline("./smc_xslt/exceptions.xslt")] WsGenesis
+{
+    ESPmethod ListGSTopNodes(ListGSTopNodesRequest, ListGSTopNodesResponse);
+    ESPmethod GetGSNodeSettings(GetGSNodeSettingsRequest, GetGSNodeSettingsResponse);
+    ESPmethod UpdateGSNodeProperties(UpdateGSNodePropertiesRequest, UpdateGSNodePropertiesResponse);
+
+    ESPmethod AddGSFolder(AddGSFolderRequest, AddGSFolderResponse);
+    ESPmethod RemoveGSFolder(RemoveGSFolderRequest, RemoveGSFolderResponse);
+
+    ESPmethod GetGSFileContent(GetGSFileContentRequest, GetGSFileContentResponse);
+    ESPmethod AddGSFile(AddGSFileRequest, AddGSFileResponse);
+    ESPmethod UpdateGSFileContent(UpdateGSFileContentRequest, UpdateGSFileContentResponse);
+    ESPmethod RemoveGSFile(RemoveGSFileRequest, RemoveGSFileResponse);
+
+    ESPmethod AddUser(AddUserRequest, AddUserResponse);
+    ESPmethod RemoveUser(RemoveUserRequest, RemoveUserResponse);
+    ESPmethod AddUserGroup(AddUserGroupRequest, AddUserGroupResponse);
+    ESPmethod RemoveUserGroup(RemoveUserGroupRequest, RemoveUserGroupResponse);
+
+    ESPmethod ListGSRoots(ListGSRootsRequest, ListGSRootsResponse);
+
+    ESPmethod AddHost(AddHostRequest, AddHostResponse);
+    ESPmethod DeleteHost(DeleteHostRequest, DeleteHostResponse);
+    ESPmethod UpdateHost(UpdateHostRequest, UpdateHostResponse);
+    ESPmethod GetHostInfo(GetHostInfoRequest, GetHostInfoResponse);
+    ESPmethod ListHosts(ListHostsRequest, ListHostsResponse);
+    ESPmethod AddSubnet(AddSubnetRequest, AddSubnetResponse);
+    ESPmethod DeleteSubnet(DeleteSubnetRequest, DeleteSubnetResponse);
+    ESPmethod UpdateSubnet(UpdateSubnetRequest, UpdateSubnetResponse);
+    ESPmethod GetSubnetInfo(GetSubnetInfoRequest, GetSubnetInfoResponse);
+    ESPmethod ListSubnets(ListSubnetsRequest, ListSubnetsResponse);
+    ESPmethod AddCluster(AddClusterRequest, AddClusterResponse);
+    ESPmethod DeleteCluster(DeleteClusterRequest, DeleteClusterResponse);
+    ESPmethod UpdateCluster(UpdateClusterRequest, UpdateClusterResponse);
+    ESPmethod GetClusterInfo(GetClusterInfoRequest, GetClusterInfoResponse);
+    ESPmethod ListClusters(ListClustersRequest, ListClustersResponse);
+    ESPmethod AddEnvironment(AddEnvironmentRequest, AddEnvironmentResponse);
+    ESPmethod DeleteEnvironment(DeleteEnvironmentRequest, DeleteEnvironmentResponse);
+    ESPmethod UpdateEnvironment(UpdateEnvironmentRequest, UpdateEnvironmentResponse);
+    ESPmethod GetEnvironmentInfo(GetEnvironmentInfoRequest, GetEnvironmentInfoResponse);
+    ESPmethod ListEnvironments(ListEnvironmentsRequest, ListEnvironmentsResponse);
+    ESPmethod GetGlobalSettings(GetGlobalSettingsRequest, GetGlobalSettingsResponse);
+    ESPmethod UpdateGlobalSettings(UpdateGlobalSettingsRequest, UpdateGlobalSettingsResponse);
+
+};
+
+SCMexportdef(WsGenesis);
+
+SCMapi(WsGenesis) IClientWsGenesis *createWsGenesisClient();

@@ -25,6 +25,16 @@ set ( ESPSCM_GENERATED_DIR ${CMAKE_BINARY_DIR}/generated )
 GET_TARGET_PROPERTY(HIDL_EXE hidl LOCATION)
 GET_TARGET_PROPERTY(ESDL_EXE esdl LOCATION)
 
+if(USE_SVN)
+set ( ESPSCM_SRCS
+      ws_config.ecm
+      ws_fileio.ecm
+      ws_account.ecm
+      ##### LIST FOR ESPECL
+      WsDeploy.ecm
+      ws_genesis.ecm
+    )
+else()
 set ( ESPSCM_SRCS
       ws_config.ecm
       ws_fileio.ecm
@@ -32,6 +42,7 @@ set ( ESPSCM_SRCS
       ##### LIST FOR ESPECL
       WsDeploy.ecm
     )
+endif(USE_SVN)
 
 foreach ( loop_var ${ESPSCM_SRCS} )
     string(  REGEX REPLACE "[.]ecm" "" result ${loop_var} )
