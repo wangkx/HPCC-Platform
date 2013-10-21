@@ -269,12 +269,6 @@ public:
         : CCsvPartitioner(_format) 
     { 
         noTranslation = _noTranslation;
-        const char * quote = _format.quote.get();  
-        if (quote && (*quote == '\0')) { 
-            isquoted = false;
-        }       
-        else // default is quoted
-            isquoted = true;
     }
 
 protected:
@@ -283,7 +277,6 @@ protected:
 
 protected:
     bool                        noTranslation;
-    bool                        isquoted;
 };
 
 //---------------------------------------------------------------------------
