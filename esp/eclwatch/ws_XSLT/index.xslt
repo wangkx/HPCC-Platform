@@ -540,7 +540,7 @@
                         <tr>
                             <td align="left">
                                 <xsl:choose>
-                                    <xsl:when test="SuperUser">
+                                    <xsl:when test="SuperUser = 1">
                                         <A href="javascript:void(0)" onclick="SetBanner();">
                                             <h3>Existing Activity on Servers:</h3>
                                         </A>
