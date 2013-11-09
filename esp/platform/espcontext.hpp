@@ -31,7 +31,17 @@
 #include "esp.hpp"
 #include "esphttp.hpp"
 
+// This MACRO is defined here for convenience of inclusion.
+#define ENABLE_DB_TIMING(dbNamespace) dbNamespace::setCumulativeTimerFetchFunc(&fetchCumulativeTimerFromContext);
+ESPHTTP_API CumulativeTimer* fetchCumulativeTimerFromContext(const char* name);
+
 ESPHTTP_API IEspContext* createEspContext();
+
+struct EspThreadLocalValue
+{
+    time_t threadCreateTime;
+    IEspContext* espContext;
+};
 
 // Get URL parameters (include these from Content)
 // Return: a=b&c=d format. 

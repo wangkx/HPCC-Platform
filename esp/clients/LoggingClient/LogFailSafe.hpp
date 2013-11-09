@@ -53,7 +53,8 @@ interface ILogFailSafe : IInterface
     virtual void SafeRollover() = 0;
 };
 
-extern "C" WSLOGFAILSAFE_API ILogFailSafe * createFailsafelogger(const char* logType="", const char* logsdir="./logs");
+///extern "C" WSLOGFAILSAFE_API ILogFailSafe * createFailsafelogger(const char* logType="", const char* logsdir="./logs");
+extern "C" WSLOGFAILSAFE_API ILogFailSafe* createFailsafelogger(const char* pszService, const char* logType="", const char* logsdir="./logs");
 
 class CLogFailSafe : public CInterface,  implements ILogFailSafe
 {
@@ -63,6 +64,7 @@ class CLogFailSafe : public CInterface,  implements ILogFailSafe
     StringBuffer m_LogType;
     StringArray m_UnsentLogs;
     StringBuffer m_logsdir;
+    StringBuffer m_LogService;
 
 private:
     void createNew(const char* logType);
@@ -72,7 +74,7 @@ private:
 public:
     IMPLEMENT_IINTERFACE;
     CLogFailSafe();
-    CLogFailSafe(const char* logType, const char* logsdir);
+    CLogFailSafe(const char* pszService, const char* logType, const char* logsdir);
     
     virtual ~CLogFailSafe();
     StringBuffer& GenerateGUID(StringBuffer& GUID,const char* seed="");

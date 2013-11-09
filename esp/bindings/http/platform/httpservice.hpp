@@ -63,6 +63,8 @@ public:
     }
     bool rootAuth(IEspContext* ctx);
 
+    IEspContext* queryContext() { return m_request->queryContext(); };
+
     virtual int processRequest();
 
     virtual int onPost();

@@ -464,8 +464,13 @@ bool CHttpThread::onRequest()
         httpserver.setown(new CEspHttpServer(*m_socket, m_apport, m_viewConfig, getMaxRequestEntityLength()));
     }
 
-    time_t t = time(NULL);  
-    initThreadLocal(sizeof(t), &t);
+    //time_t t = time(NULL);  
+    //initThreadLocal(sizeof(t), &t);
+
+    EspThreadLocalValue val;
+	val.threadCreateTime = time(NULL);
+	val.espContext = httpserver->queryContext();//Need to check not break anything
+	initThreadLocal(sizeof(EspThreadLocalValue), &val);
 
     httpserver->processRequest();
     clearThreadLocal();

@@ -35,8 +35,40 @@
 #include "esploggingservice.hpp"
 #include "esp.hpp"
 #include "jqueue.tpp"
-#include "LogFailSafe.hpp"
+#include "logfailsafe.hpp"
 #include "esploggingservice_esp.ipp"
+
+typedef enum LogTypes_
+{
+    Unknown_LogType				= 0,
+    Insurance_LogType			= 1,
+    InsuranceVendor_LogType		= 2,
+    PublicRecords_LogType		= 3,
+    FCRAPublicRecords_LogType	= 4,
+    LogTypeMax					= 5
+} LogType;
+
+static char logtypenames[][50] = {
+    "Unknown",
+    "Insurance",
+    "InsuranceVendor",
+    "PublicRecords",
+    "FCRAPublicRecords"
+};
+
+static std::map<std::string, LogType> logtypemap;
+static void initFormatLookUpMap()
+{
+    static bool inited = false;
+
+    if(!inited)
+    {
+        for(LogType tmp=LogType(0); tmp < LogTypeMax; tmp = LogType(tmp+1))
+            logtypemap[logtypenames[tmp]]=tmp;
+
+        inited = true;
+    }
+}
 
 interface IClientLogThread : extends IInterface
 {
@@ -51,6 +83,7 @@ interface IClientLogThread : extends IInterface
     virtual bool queueLog(IEspContext & context,const char* serviceName,int RecordsReturned,  IArrayOf<IEspLogInfo>& LogArray, StringBuffer& logInfo)=0;
     virtual bool queueLog(IEspContext & context,const char* serviceName,int RecordsReturned,bool bBlind,bool bEncrypt, IArrayOf<IEspLogInfo>& LogArray, IInterface& logInfo, IConstModelLogInformation* pModelLogInfo=0)=0; 
     virtual bool queueLog(IEspContext & context,const char* serviceName,int RecordsReturned, IArrayOf<IEspLogInfo>& LogArray) = 0;
+    virtual bool forwardLog(IEspContext & context, IEspLOGServiceUpdateRequest &) = 0;
     virtual IClientLogInfo& addLogInfoElement(IArrayOf<IEspLogInfo>& LogArray) = 0;
     
     virtual IClientModelLogInformation& getModelLogInformation() = 0;
@@ -66,10 +99,20 @@ interface IClientLogThread : extends IInterface
     virtual bool GenerateTransactionSeed(StringBuffer& UniqueID,char backendType)=0;
 };
 
+interface ITransactionSeedThread : extends IInterface
+{
+public:
+    virtual void start() = 0;
+    virtual void finish() = 0;
+    virtual StringBuffer & ReadSeed()=0;
+    virtual bool GotSeed()=0;
+};
+
 extern "C" WSLOGThread_API IClientLogThread * createLogClient(IPropertyTree *cfg, const char *process, const char *service,bool bFlatten = true);
 extern "C" WSLOGThread_API IClientLogThread * createLogClient3(IPropertyTree *logcfg, const char *service, bool bFlatten = true);
 extern "C" WSLOGThread_API IClientLogThread * createLogClient2(IPropertyTree *cfg, const char *process, const char *service, const char* name, bool bFlatten = true, bool bModelRequest = false);
 extern "C" WSLOGThread_API IClientLogThread * createModelLogClient(IPropertyTree *cfg, const char *process, const char *service,bool bFlatten = true);
+extern "C" WSLOGThread_API IClientLogThread * createReportServiceClient(IPropertyTree *cfg, const char *process, const char *service);
 
 
 struct LOG_INFO
@@ -193,8 +236,20 @@ class WSLOGThread_API CLogThread : public Thread , implements IClientLogThread ,
     bool m_bModelRequest;
     bool m_logResponse;
 
-    struct tm         m_startTime;
+    bool bUsingAlternativeSeed;
+    Owned<ILogFailSafe> m_LogFailSafeNRQ;
+    unsigned int m_CleanTankFileInHours;
+    bool m_bCleanTankFileConfigured;
+    unsigned long int m_startTimeEpoch;
+    StringAttr m_lcname;
+    StringBuffer m_transactionSeedSeqFileName;
+    LogType m_logType;
+    int m_MaxTriesRS;	// Max. # of attempts to send log message to WsReportService
+    bool m_bRemoveOldLogs;
+    Owned<ITransactionSeedThread> m_pTransactionSeedLoggingService;
 
+    struct tm         m_startTime;
+    StringBuffer m_targetServiceName;
 private:    
     void addLogInfo(IArrayOf<IEspLogInfo>& valueArray,IPropertyTree& logInfo);
     void deserializeLogInfo(IArrayOf<IEspLogInfo>& valueArray,IPropertyTree& logInfo);
@@ -221,17 +276,22 @@ private:
     virtual int onTransactionSeedComplete(IClientTransactionSeedResponse *resp,IInterface* state){return -1;}
     virtual int onTransactionSeedError(IClientTransactionSeedResponse *resp,IInterface* state){return -1;}
 
+    virtual int onUpdateModelMultiLogServiceComplete(IClientLOGServiceUpdateResponse *resp,IInterface* state);
+    virtual int onUpdateModelMultiLogServiceError(IClientLOGServiceUpdateResponse *resp,IInterface* state);
 
     bool queueLog(IEspContext & context,LOG_INFO& _InfoStruct,  IArrayOf<IEspLogInfo>& LogArray, IPropertyTree& logInfo);
     bool queueLog(IEspContext & context,LOG_INFO& _InfoStruct,  IArrayOf<IEspLogInfo>& LogArray, IConstModelLogInformation* pModelLogInfo=0);
 
     bool FetchTransactionSeed(StringBuffer& TransactionSeedID);
+    void SetupTransactionSeedSeqInFile(void);
+    void setLogType(const char * typeName);
     void UnserializeModelLogInfo(IPropertyTree* pModelTreeInfo,IClientModelLogInformation* pModelLogInformation);
     void checkRollOver();
 public:
     IMPLEMENT_IINTERFACE;
     CLogThread();
     CLogThread(IPropertyTree* pServerConfig,  const char* Service, bool bFlatten = true, bool bModelRequest = false);
+    CLogThread(IPropertyTree* pServerConfig,  const char* Service, const char *lcname, bool bFlatten = true, bool bModelRequest = false);
     virtual ~CLogThread();
     int run();
     void start();
@@ -260,6 +320,9 @@ public:
     bool queueLog(IEspContext & context,const char* serviceName,int RecordsReturned, IArrayOf<IEspLogInfo>& LogArray);
     bool queueLog(IEspContext & context,const char* serviceName,int RecordsReturned, IArrayOf<IEspLogInfo>& LogArray, StringBuffer& logInfo);
 
+    bool forwardLog(IEspContext & context, IEspLOGServiceUpdateRequest &);
+    void setTargetServiceName(const char* targetServiceName);
+
     IClientLogInfo& addLogInfoElement(IArrayOf<IEspLogInfo>& LogArray);
     virtual bool GenerateTransactionSeed(StringBuffer& UniqueID,char backendType);
 
@@ -273,6 +336,28 @@ public:
     virtual bool logResponseXml() {  return m_logResponse; }
 
     void CleanQueue();
+};
+
+class CTransactionSeedThread: public Thread,  implements ITransactionSeedThread
+{
+    CriticalSection m_ins_seed_gen_crit;
+    CriticalSection m_ins_seed_set_info_crit;
+    bool	m_IsThreadRunning;
+    StringBuffer m_TransactionSeed;
+    int m_NiceLevel;
+    Semaphore		m_sem;
+    Owned<IClientWsLogService> m_pTransactionSeedLoggingService;
+private:
+    bool GenerateTransactionSeed();
+public:
+    IMPLEMENT_IINTERFACE;
+    CTransactionSeedThread(const StringBuffer & , const char * , const char * );
+    ~CTransactionSeedThread();
+    int run();
+    void start();
+    void finish();
+    StringBuffer & ReadSeed();
+    bool GotSeed();
 };
 
 #endif // _LOGTHREAD_HPP__

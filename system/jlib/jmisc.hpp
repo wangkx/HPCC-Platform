@@ -328,4 +328,21 @@ public:
     }
 };
 
+#ifdef _WIN32
+
+// handle nasty DelayLoad DLL error: head ache for developers
+jlib_decl LONG DelayLoadDllExceptionFilter(PEXCEPTION_POINTERS pExcPointers);
+
+
+#define BEGIN_DELAYLOAD_EXCEPTION __try {
+#define END_DELAYLOAD_EXCEPTION }  __except (DelayLoadDllExceptionFilter(GetExceptionInformation())) {\
+    throw MakeStringException(-1, "Unhandled structure exception: code=%ld",GetExceptionCode()); \
+}
+
+#else
+
+#define BEGIN_DELAYLOAD_EXCEPTION
+#define END_DELAYLOAD_EXCEPTION
+
+#endif
 #endif

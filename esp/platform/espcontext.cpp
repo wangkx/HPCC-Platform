@@ -76,6 +76,9 @@ private:
 
     ESPSerializationFormat respSerializationFormat;
 
+    typedef std::map<std::string, CumulativeTimer*> TimeMap;
+    TimeMap mCumulativeTimers;
+
 public:
     IMPLEMENT_IINTERFACE;
 
@@ -458,6 +461,23 @@ public:
         DBGLOG("TxSummary[%s]", logstr.str());
     }
 
+    // Get a cumulative timer by name.
+    //
+    // If the named timer doesn't exist, create it.
+    // The timer gets removed when the context is destroyed.
+    CumulativeTimer* getCumulativeTimer(const char* name)
+    {
+        // Name is required.
+        const int kBadParamErr = 10; // Arbitrary #
+        if (!name || !*name)
+            throw MakeStringException(kBadParamErr, "EspContext::getCumulativeTimer(): Invalid timer name: (%s)", name ? "empty-string" : "null"); 	 	 
+
+        TimeMap::iterator itr = mCumulativeTimers.find(name);
+        if (itr == mCumulativeTimers.end())
+            itr = mCumulativeTimers.insert(std::make_pair(name, new CumulativeTimer())).first;
+
+        return itr->second;
+    }
     virtual ESPSerializationFormat getResponseFormat(){return respSerializationFormat;}
     virtual void setResponseFormat(ESPSerializationFormat fmt){respSerializationFormat = fmt;}
 };
@@ -745,6 +765,36 @@ IEspContainer* getESPContainer()
 {
     return getContainer();
 }
+
+IEspContext* queryThreadLocalContext()
+{
+    void* val = getThreadLocalVal();
+    if (val)
+    {
+        try
+        {
+            EspThreadLocalValue* obj = static_cast<EspThreadLocalValue*>(val);
+            IEspContext* ctx = dynamic_cast<IEspContext*>(obj->espContext);
+            return ctx;
+        }
+        catch (...)
+        {
+            DBGLOG("queryThreadLocalContext(): casting exception");
+        }
+    }
+
+    return NULL;
+}
+
+CumulativeTimer* fetchCumulativeTimerFromContext(const char* name)
+{
+    IEspContext* ctx = queryThreadLocalContext();
+    if (ctx)
+        return ctx->getCumulativeTimer(name);
+
+    return NULL;
+}
+
 
 static StringBuffer g_cfd;
 

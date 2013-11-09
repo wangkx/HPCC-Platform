@@ -34,6 +34,11 @@ interface IFile;
 class jlib_decl StringBuffer
 {
 public:
+    enum
+    {
+        NOT_FOUND = -1
+    };
+
     StringBuffer();
     StringBuffer(String & value);
     StringBuffer(const char *value);
@@ -113,6 +118,7 @@ public:
     StringBuffer &  toUpperCase();
     StringBuffer &  replace(char oldChar, char newChar);
     StringBuffer &  replaceString(const char* oldStr, const char* newStr);
+    StringBuffer &  replaceRange(unsigned startIdx, size_t len, const char* newString);
     char *          reserve(size32_t size);
     char *          reserveTruncate(size32_t size);
     StringBuffer &  stripChar(char oldChar);
@@ -130,6 +136,14 @@ public:
         return clear().append(value.str());
     }
 
+    size_t find(const char* needle) const
+    {
+        const char* haysack = str();
+        const char* p = strstr(haysack, needle);
+        if (p)
+            return p - haysack;
+        return (size_t) NOT_FOUND;
+    }
 
     StringBuffer &  appendlong(long value);
     StringBuffer &  appendulong(unsigned long value);
@@ -366,6 +380,7 @@ extern jlib_decl const char *decodeJSON(const char *x, StringBuffer &ret, unsign
 extern jlib_decl void extractItem(StringBuffer & res, const char * src, const char * sep, int whichItem, bool caps);
 extern jlib_decl const char *encodeXML(const char *x, StringBuffer &ret, unsigned flags=0, unsigned len=(unsigned)-1, bool utf8=false);
 extern jlib_decl const char *decodeXML(const char *x, StringBuffer &ret, const char **errMark=NULL, IEntityHelper *entityHelper=NULL, bool strict = true);
+extern jlib_decl const char *decodeXML(const char *x, StringBuffer &ret, unsigned len, const char **errMark=NULL, IEntityHelper *entityHelper=NULL);
 extern jlib_decl const char *encodeXML(const char *x, IIOStream &out, unsigned flags=0, unsigned len=(unsigned)-1, bool utf8=false);
 extern jlib_decl void decodeXML(ISimpleReadStream &in, StringBuffer &out, unsigned len=(unsigned)-1);
 

@@ -839,6 +839,37 @@ StringBuffer & StringBuffer::replaceString(const char* oldStr, const char* newSt
     return *this;
 }
 
+StringBuffer& StringBuffer::replaceRange(unsigned startIdx, size_t len, const char* newString)
+{
+    if (!newString)
+        return *this;
+
+    unsigned tgtLen = strlen(newString);
+
+    if (startIdx==curLen)
+    {
+        append(newString);
+    }
+    else if (startIdx<curLen)
+    {
+        if (tgtLen>len)
+            ensureCapacity(tgtLen-len);
+        char* start = buffer+startIdx;
+        if (tgtLen!=len)
+        {
+            memmove(start+tgtLen,start+len, curLen-startIdx-len);
+            curLen += tgtLen-len;
+        }
+        memcpy(start, newString, tgtLen);
+    }
+    else
+    {
+        assertex(!"Invalid parameters!");
+    }
+
+    return *this;
+}
+
 StringBuffer & StringBuffer::stripChar(char oldChar)
 {
     if (buffer)
@@ -1858,6 +1889,178 @@ const char *decodeXML(const char *x, StringBuffer &ret, const char **errMark, IE
     catch (IException *)
     {
         if (errMark) *errMark = x;
+        throw;
+    }
+    return x;
+}
+
+///Should we combine this function with the previous one if possible?
+const char *decodeXML(const char *x, StringBuffer &ret, unsigned len, const char **errMark, IEntityHelper *entityHelper)
+{
+    const char *end = ((unsigned)-1 == len) ? (const char *)0xffffffff : x+len;
+    try
+    {
+        while (x<end && *x)
+        {
+            if ('&' == *x)
+            {
+                switch (*(x+1))
+                {
+                    case 'a':
+                    case 'A':
+                    {
+                        switch (*(x+2))
+                        {
+                            case 'm':
+                            case 'M':
+                            {
+                                char c1 = *(x+3);
+                                if (('p' == c1 || 'P' == c1) && ';' == *(x+4))
+                                {
+                                    x += 5;
+                                    ret.append('&');
+                                    continue;
+                                }
+                                break;
+                            }
+                            case 'p':
+                            case 'P':
+                            {
+                                char c1 = *(x+3);
+                                char c2 = *(x+4);
+                                if (('o' == c1 || 'O' == c1) && ('s' == c2 || 'S' == c2) && ';' == *(x+5))
+                                {
+                                    x += 6;
+                                    ret.append('\'');
+                                    continue;
+                                }
+                                break;
+                            }
+                        }
+                        break;
+                    }
+                    case 'l':
+                    case 'L':
+                    {
+                        char c1 = *(x+2);
+                        if (('t' == c1 || 'T' == c1) && ';' == *(x+3))
+                        {
+                            x += 4;
+                            ret.append('<');
+                            continue;
+                        }
+                        break;
+                    }
+                    case 'g':
+                    case 'G':
+                    {
+                        char c1 = *(x+2);
+                        if (('t' == c1 || 'T' == c1) && ';' == *(x+3))
+                        {
+                            x += 4;
+                            ret.append('>');
+                            continue;
+                        }
+                        break;
+                    }
+                    case 'q':
+                    case 'Q':
+                    {
+                        char c1 = *(x+2);
+                        char c2 = *(x+3);
+                        char c3 = *(x+4);
+                        if (('u' == c1 || 'U' == c1) && ('o' == c2 || 'O' == c2) && ('t' == c3 || 'T' == c3) && ';' == *(x+5))
+                        {
+                            x += 6;
+                            ret.append('"');
+                            continue;
+                        }
+                        break;
+                    }
+                    case 'n':
+                    case 'N':
+                    {
+                        char c1 = *(x+2);
+                        char c2 = *(x+3);
+                        char c3 = *(x+4);
+                        if (('b' == c1 || 'B' == c1) && ('s' == c2 || 'S' == c2) && ('p' == c3 || 'P' == c3) && ';' == *(x+5))
+                        {
+                            x += 6;
+                            writeUtf8(0xa0, ret);
+                            continue;
+                        }
+                        break;
+                    }
+                    default:
+                    {
+                        x++;
+                        if (*x == '#')
+                        {
+                            x++;
+                            bool hex;
+                            if (*x == 'x' || *x == 'X') // strictly not sure about X.
+                            {
+                                hex = true;
+                                x++;
+                            }
+                            else
+                                hex = false;
+                            char *endptr;
+                            unsigned val = 0;
+                            if (hex)
+                                val = strtoul(x,&endptr,16);
+                            else
+                                val = strtoul(x,&endptr,10);
+                            if (x!=endptr && *endptr == ';')
+                                writeUtf8(val, ret);
+                            x = endptr+1;
+                            continue;
+                        }
+                        else
+                        {
+                            if ('\0' == *x)
+                                --x;
+                            else
+                            {
+                                bool error = false;
+                                if (entityHelper)
+                                {
+                                    const char *start=x;
+                                    loop
+                                    {
+                                        ++x;
+                                        if ('\0' == *x) throw MakeStringException(-1, "missing ';'");
+                                        if (';' == *x) break;
+                                    }
+                                    StringBuffer entity(x-start, start);
+                                    if (!entityHelper->find(entity, ret))
+                                    {
+                                        error = true;
+                                        x = start;
+                                    }
+                                }
+                                else
+                                    error = true;
+                                if (error)
+                                {
+                                    throw MakeStringException(-1, "invalid escaped sequence");
+                                    ret.append('&');
+                                }
+                            }
+                        }
+                        break;
+                    }
+                }
+                if (x>=end)
+                    throw MakeStringException(-1, "invalid escaped sequence");
+            }
+            ret.append(*x);
+            ++x;
+        }
+    }
+    catch (IException *)
+    {
+    if (errMark) *errMark = x;
         throw;
     }
     return x;

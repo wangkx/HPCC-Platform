@@ -141,6 +141,7 @@ extern jlib_decl MemoryBuffer &JBASE64_Decode(ISimpleReadStream &in, MemoryBuffe
  * @return              True when success
  */
 extern jlib_decl bool JBASE64_Decode(size32_t length, const char *in, StringBuffer &out);
+extern jlib_decl MemoryBuffer &JBASE64_Decode(const char *in, long length, MemoryBuffer &out);
 
 extern jlib_decl void JBASE32_Encode(const char *in,StringBuffer &out);  // result all lower
 extern jlib_decl void JBASE32_Decode(const char *in,StringBuffer &out);  

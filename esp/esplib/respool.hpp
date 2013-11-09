@@ -20,6 +20,7 @@
 
 #include "jwrapper.hpp"
 #include "jexcept.hpp"
+#include "jtime.hpp"
 #include <vector>
 
 namespace esp
@@ -69,6 +70,51 @@ public:
                         if(e)
                         {
                             it->set(e.get());
+                            return e;
+                        }
+                    }
+                    else if(!it->get()->IsShared())
+                    {
+                        return *it;
+                    }
+                }
+            }
+
+            long slp=timeout!=INFINITE && timeout<interval ? timeout : interval;
+            if(slp<=0)
+                break;
+
+            long start=msTick();
+            long elapsed=sem.wait(slp) ? (msTick()-start) : slp;
+
+            if(timeout!=INFINITE)
+                timeout-=elapsed;
+        }
+
+        throw MakeStringException(1, "Run out of resources");
+    }
+
+    //auto_release<T> get(long timeout=0, CumulativeTimer* timer = NULL)
+    Linked<T> get(long timeout, CumulativeTimer* timer)
+    {
+        const long interval=1000;
+
+        // Time this resource pool fetch, if a timer was passed.
+        CumulativeTimer::Scope scope(timer);
+
+        for(;;)
+        {
+            {
+                CriticalBlock b(crit);
+                typename std::vector<Linked<T> >::iterator it;
+                for(it=resources.begin();it!=resources.end();it++)
+                {
+                    if(it->get() == NULL)
+                    {
+                        Linked<T> e = factory->createResource();
+                        if(e)
+                        {
+                            it->setown(e.get());
                             return e;
                         }
                     }

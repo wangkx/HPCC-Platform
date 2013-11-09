@@ -21,6 +21,7 @@
 
 #include "LogThread.h"
 #include "jmisc.hpp"
+//#include "jptree.hpp"
 #include "soapbind.hpp"
 #include "esploggingservice_esp.ipp"
 
@@ -31,11 +32,19 @@
 
 static int DefaultThreadPoolSize = 50;
 static int LogThreadWaitTime = 90;
+const int DefaultMaxTriesRS = -1;	// Max. # of attempts to send log message to WsReportService.  Default:  infinite
 
 #ifndef _WIN32
 #include <sys/time.h>
 #include <sys/resource.h>
 #endif
+
+StringBuffer NRQFileName(const char* clientTag)
+{	// Name of file containing requests that are not re-queued.
+    StringBuffer fileName("loggingclient_retry_");
+    fileName.append(clientTag);
+    return fileName;
+}
 
 IClientLogThread * createLogClient(IPropertyTree *cfg, const char *process, const char *service,bool bFlatten)
 {
@@ -77,6 +86,38 @@ IClientLogThread * createLogClient2(IPropertyTree *cfg, const char *process, con
 IClientLogThread * createModelLogClient(IPropertyTree *cfg, const char *process, const char *service, bool bFlatten )
 {
     return createLogClient2( cfg, process, service, "loggingserver", bFlatten, true );
+}
+
+IClientLogThread * createReportServiceClient(IPropertyTree *cfg, const char *process, const char *service)
+{
+    const char * name = "loggingserver";
+    bool bFlatten = false;
+
+    IClientLogThread * pLoggingThread = NULL;
+    StringBuffer xpath;
+    xpath.appendf("Software/EspProcess[@name=\"%s\"]/EspService[@name=\"%s\"]/%s", process, service, name);
+    IPropertyTree* pServerInfo = cfg->queryPropTree(xpath.str());
+    if (pServerInfo)
+    {
+        const char * url = pServerInfo->queryProp("url");
+        if ((url == NULL) || (*url == 0))
+        {
+            return NULL;
+        }
+    }
+    else
+    {
+        return NULL;
+    }
+
+    CLogThread * logThread = new CLogThread(pServerInfo, service, name, bFlatten);
+    logThread->setTargetServiceName("WsReportService");
+
+    pLoggingThread = logThread;
+
+    pLoggingThread->start();
+
+    return pLoggingThread;
 }
 
 //////////////////////////////////////////////////////////////////////
@@ -169,6 +210,114 @@ CLogThread::CLogThread(IPropertyTree* pServerConfig , const char* Service, bool 
 
 }
 
+//May need to merge with previous one
+CLogThread::CLogThread(IPropertyTree* pServerConfig , const char* Service, const char *lcname, bool bFlatten, bool bModelRequest) : m_bRun(true),m_Logcount(0) , 
+    m_LogTreshhold(0), m_bModelRequest(bModelRequest), m_logResponse(false), m_bCleanTankFileConfigured(false), m_CleanTankFileInHours(0), m_lcname(lcname)
+{
+    if(pServerConfig==NULL)
+        throw MakeStringException(500,"No Logging Configuration");
+
+    if(pServerConfig->hasProp("url")==false)
+        throw MakeStringException(500,"No Logging Server URL");
+    m_ServiceURL.appendf("%s",pServerConfig->queryProp("url"));
+
+    m_bFailSafeLogging = pServerConfig->getPropBool("failsafe");
+
+
+    StringBuffer poolsizebuf;
+    if(pServerConfig->hasProp("MaxLoggingThreads"))
+    pServerConfig->getProp("MaxLoggingThreads", poolsizebuf);
+    if(poolsizebuf.length() > 0)
+    {
+        m_ThreadPoolSize = atoi(poolsizebuf.str());
+    }
+    else
+    {
+        // If thread pool size not even specified, use default size
+        m_ThreadPoolSize = DefaultThreadPoolSize;
+    }
+
+    m_MaxLogQueueLength = pServerConfig->getPropInt("MaxLogQueueLength", MaxLogQueueLength);
+    m_SignalGrowingQueueAt = pServerConfig->getPropInt("QueueSizeSignal", QueueSizeSignal);
+    m_bThrottle = pServerConfig->getPropBool("Throttle", true);
+    m_MaxTriesRS = pServerConfig->getPropInt("MaxTriesRS", DefaultMaxTriesRS);
+
+
+    m_logResponse = pServerConfig->getPropBool("LogResponseXml",false);
+    m_BurstWaitInterval = pServerConfig->getPropInt("BurstWaitInterval", 0);
+    m_LinearWaitInterval = pServerConfig->getPropInt("LinearWaitInterval", 0);
+    m_NiceLevel = pServerConfig->getPropInt("NiceLevel", 0);
+
+    if(pServerConfig->hasProp("CleanTankFileInHours"))
+    {
+        m_CleanTankFileInHours = pServerConfig->getPropInt("CleanTankFileInHours");
+        if( m_CleanTankFileInHours > 0 && m_CleanTankFileInHours < 24 )
+            m_bCleanTankFileConfigured = true;
+    }
+
+    m_bRemoveOldLogs = pServerConfig->getPropBool("RemoveOldLogs", false);
+
+    if( pServerConfig->hasProp("AlternativeSeedSequenceFilePath") )
+    {
+        pServerConfig->getProp("AlternativeSeedSequenceFilePath",m_transactionSeedSeqFileName);
+        m_transactionSeedSeqFileName.append("/");
+    }
+    else
+    {
+        m_transactionSeedSeqFileName.set("./");
+    }
+    m_transactionSeedSeqFileName.append("ESP_ALTERNATIVE_SEED_SEQ.TXT");
+    SetupTransactionSeedSeqInFile();
+
+    //by default flatten any trees passes into the service
+    m_bFlattenTree = bFlatten;
+    m_LogSendDelta = 0;
+    m_LogSend = 0;
+
+
+    if(m_ThreadPoolSize > 0)
+        m_pLoggingService.setown(new CPooledClientWsLogService(m_ThreadPoolSize));
+    else
+        m_pLoggingService.setown(createWsLogServiceClient());
+
+    m_pLoggingService->addServiceUrl(m_ServiceURL.str());
+    //temporary fix for authentication on logging service....
+    const char* loguser = pServerConfig->queryProp("LoggingUser");
+    const char* logpasswd = pServerConfig->queryProp("LoggingPassword");
+    m_pLoggingService->setUsernameToken((loguser && *loguser)?loguser:"loggingclient", (logpasswd&&*logpasswd)?logpasswd:"loggingpassword","");
+
+    m_pTransactionSeedLoggingService.setown(new CTransactionSeedThread(m_ServiceURL, (loguser && *loguser)?loguser:"loggingclient", (logpasswd&&*logpasswd)?logpasswd:"loggingpassword"));
+
+    if(pServerConfig->hasProp("Type")==false)
+        m_logType = Unknown_LogType;
+    else
+        setLogType(pServerConfig->queryProp("Type"));
+
+    if(m_bFailSafeLogging == true)
+    {
+        if (lcname == NULL)
+            lcname = "loggingserver";
+
+        const char * logsDir = pServerConfig->queryProp("LogsDir");
+        if (!logsDir || !*logsDir)
+            logsDir = "./logs";
+
+        m_LogFailSafe.setown(createFailsafelogger(Service, lcname, logsDir));
+        if (m_MaxTriesRS != DefaultMaxTriesRS)
+            m_LogFailSafeNRQ.setown(createFailsafelogger("", NRQFileName(lcname), logsDir));
+    }
+
+    bSeedAvailable = false;
+    bMadeSeedRequest = false;
+    bUsingAlternativeSeed = false;
+    id_counter=0;
+
+    time_t tNow;
+    time(&tNow);
+    localtime_r(&tNow, &m_startTime);
+    m_startTimeEpoch =  static_cast<unsigned long int>(time(NULL));
+}
+
 CLogThread::~CLogThread()
 {
     DBGLOG("CLogThread::~CLogThread()");
@@ -236,6 +385,37 @@ bool CLogThread::GenerateTransactionSeed(StringBuffer& UniqueID, char backendTyp
 
     return true;
 
+}
+
+void CLogThread::SetupTransactionSeedSeqInFile(void)
+{
+    try
+    {
+        OwnedIFile pIFile = createIFile(m_transactionSeedSeqFileName);
+        Owned<IFileIO> pFileIO = pIFile->openShared(IFOreadwrite,IFSHnone);
+
+        if (pFileIO != NULL)
+        {
+            char buf[10];
+            size_t bytes_in;
+            bytes_in = pFileIO->read(0,5,buf );
+            if (bytes_in < 5 )
+            {
+                strncpy(buf,"0000",4);
+                pFileIO->write(0,5,buf);
+                return;
+            }
+        }
+        else
+        {
+            ESPLOG(LogMin,"Unable to create/access seed sequence file: %s", m_transactionSeedSeqFileName.str());
+            return;
+        }
+    }
+    catch (IOSException *e)
+    {
+        ESPLOG(LogMin,"Unable to create/access seed sequence file: %s (errorCode %d)", m_transactionSeedSeqFileName.str(), e->errorCode());
+    }
 }
 
 IClientLogInfo& CLogThread::addLogInfoElement(IArrayOf<IEspLogInfo>& LogArray)
@@ -350,6 +530,81 @@ bool CLogThread::queueLog(IEspContext & context,const char* serviceName,int Reco
     StringBuffer dataStr;
     serializeRequest(context,logInfo,dataStr);
     return queueLog(context,serviceName,RecordsReturned,dataStr);
+}
+
+bool CLogThread::forwardLog(IEspContext & context, IEspLOGServiceUpdateRequest & req)
+{
+    const char * logInfoTag = "LogInformation";
+    const char * userNameTag = "UserName";
+
+    StringBuffer logInfo;
+    serializeRequest(context, req, logInfo);
+
+    ESPLOG(LogMax,"Log request: %s", logInfo.str());
+
+    IArrayOf<IEspLogInfo> LogArray;
+
+    //Owned<IPropertyTree> pLogInfoTree = createPTreeFromXMLString(logInfo.str(), false, false);
+    Owned<IPropertyTree> pLogInfoTree = createPTreeFromXMLString(logInfo.str(), ipt_none, ptr_none);
+
+    StringBuffer realUserName;	// Bug 102591:  Save the "real" user name to put
+                                // in the context before calling queueLog().
+    if (pLogInfoTree)
+    {
+        realUserName = pLogInfoTree->queryProp(userNameTag);
+
+        IPropertyTree * logInfoBranch = pLogInfoTree->queryBranch(logInfoTag);
+        if (logInfoBranch)
+        {
+            Owned<IPropertyTreeIterator> itr = logInfoBranch->getElements("*");
+            itr->first();
+            while(itr->isValid())
+            {
+                IPropertyTree & node = itr->query();
+                const char* name = node.queryProp("Name");
+                const char* data = node.queryProp("Data");
+                const char* value = node.queryProp("Value");
+                IClientLogInfo & newElement = addLogInfoElement(LogArray);
+                newElement.setName(name);
+                newElement.setData(data);
+                newElement.setValue(value);
+                itr->next();
+            }
+        }
+        else
+        {
+            ERRLOG("CLogThread::forwardLog:  %s branch not found", logInfoTag);
+        }
+    }
+    else
+    {
+        ERRLOG("CLogThread::forwardLog:  create property tree failure");
+        return false;
+    }
+
+    LOG_INFO LogStruct(req.getServiceName(), req.getRecordCount(), false);
+
+    StringBuffer savedUserName;		// Save and restore current user name
+    if (realUserName.length() > 0)	// - to be safe.
+    {
+        savedUserName = context.queryUserId();
+        context.setUserID(realUserName);
+    }
+
+    bool ret = queueLog(context, LogStruct, LogArray, NULL);
+
+    if (realUserName.length() > 0)
+    {
+        context.setUserID(savedUserName);
+    }
+
+    return ret;
+}
+
+
+void CLogThread::setTargetServiceName(const char* targetServiceName)
+{
+    m_targetServiceName.set(targetServiceName);
 }
 
 StringBuffer& CLogThread::serializeRequest(IEspContext& context,IInterface& logInfo, StringBuffer& returnStr)
@@ -1205,6 +1460,34 @@ int CLogThread::onUpdateModelLogServiceComplete(IClientLOGServiceUpdateResponse 
     return 0;
 }
 
+int CLogThread::onUpdateModelMultiLogServiceComplete(IClientLOGServiceUpdateResponse *Response,IInterface* state)
+{
+    if(Response==0 && state==0)
+    {
+        DBGLOG("NULL LogRequest passed into onUpdateModelLogServiceComplete");
+        return 0;
+    }
+
+    IClientLOGServiceUpdateModelRequest* Request  = dynamic_cast<IClientLOGServiceUpdateModelRequest*>(state);
+    if(Request==0)
+    {
+        DBGLOG("Could not cast state to IClientLOGServiceUpdateModelRequest");
+    }
+
+    // For a UpdateModelRequest, first cast to it's parent class so
+    // we can use the same code in HandleLoggingServerResponse
+    IClientLOGServiceUpdateRequest* base_request = dynamic_cast<IClientLOGServiceUpdateRequest*>(state);
+    if( base_request == 0 )
+    {
+        DBGLOG("Could not cast state to IClientLOGServiceUpdateRequest to pass to HandleLoggingServerResponse");
+        return 0;
+    }
+
+    HandleLoggingServerResponse(base_request,Response);
+
+    return 0;
+}
+
 int CLogThread::onUpdateLogServiceError(IClientLOGServiceUpdateResponse *Response,IInterface* state)
 {
     DBGLOG("Error Log");
@@ -1243,6 +1526,29 @@ int CLogThread::onUpdateModelLogServiceError(IClientLOGServiceUpdateResponse *Re
     return 0;
 }
 
+int CLogThread::onUpdateModelMultiLogServiceError(IClientLOGServiceUpdateResponse *Response,IInterface* state)
+{
+    DBGLOG("Error Log");
+    m_LogSend--;
+    IClientLOGServiceUpdateModelRequest* Request  = dynamic_cast<IClientLOGServiceUpdateModelRequest*>(state);
+    if(Request==0)
+    {
+        DBGLOG("Could not cast state to IClientLOGServiceUpdateModelRequest");
+    }
+
+    // For a UpdateModelRequest, first cast to it's parent class so
+    // we can use the same code in HandleLoggingServerResponse
+    IClientLOGServiceUpdateRequest* base_request = dynamic_cast<IClientLOGServiceUpdateRequest*>(state);
+    if( base_request == 0 )
+    {
+        DBGLOG("Could not cast state to IClientLOGServiceUpdateRequest to pass to HandleLoggingServerResponse");
+        return 0;
+    }
+
+    HandleLoggingServerResponse(base_request,Response);
+
+    return 0;
+}
 
 void CLogThread::start()
 {
@@ -1318,5 +1624,119 @@ void CPooledClientWsLogService::async_UpdateLogService(IClientLOGServiceUpdateRe
     }else{
         throw MakeStringExceptionDirect(-1, "LogServiceUpdateRequest is null.");
     }
+}
+
+void CLogThread::setLogType(const char * typeName)
+{
+    initFormatLookUpMap();
+
+    std::map<std::string, LogType>::iterator cur = logtypemap.end();
+
+    if (typeName)
+        cur = logtypemap.find(typeName);
+
+    if(cur != logtypemap.end())
+        m_logType = cur->second;
+    else
+        m_logType = Unknown_LogType;
+}
+
+
+/***********************************************************************************************************************
+CTransactionSeedThread
+
+This is a concrete thread class for querying the transaction seed logging service method.
+The thread calls the generate transaction seed every five minutes.
+After it successfully generates the transaction seed , the thread terminates itself storing the seed , user can check for a bool value to check if
+the seed is generated.
+
+If generated user can use an Accessor method to read the transaction seed.
+
+
+
+************************************************************************************************************************/
+
+
+CTransactionSeedThread::CTransactionSeedThread(const StringBuffer & theServiceURL, const char * theLoguser, const char * theLogpasswd) 
+:  m_IsThreadRunning(false), m_NiceLevel(19)
+{
+    m_pTransactionSeedLoggingService.setown(createWsLogServiceClient());
+    m_pTransactionSeedLoggingService->addServiceUrl(theServiceURL.str());
+    m_pTransactionSeedLoggingService->setUsernameToken(theLoguser,theLogpasswd,"");
+}
+
+CTransactionSeedThread::~CTransactionSeedThread()
+{
+}
+
+void CTransactionSeedThread::start()
+{
+    if(!m_IsThreadRunning )
+    {
+        setNice(m_NiceLevel);
+        Thread::start();
+    }
+}
+
+void CTransactionSeedThread::finish()
+{
+    m_sem.signal();
+    if (isAlive())
+        join();
+}
+
+int CTransactionSeedThread::run()
+{
+    // This check makes sure other threads will not wait if they get called simultaneously.
+    DBGLOG("Started Background CTransactionSeedThread::GeneratedTransactionSeed Thread");
+    CriticalBlock b(m_ins_seed_gen_crit);
+    m_IsThreadRunning=true;	m_TransactionSeed.clear();
+    while(!GenerateTransactionSeed())
+    {
+        DBGLOG("GeneratAlternativeThread will send a request after 5 minutes.");
+        m_sem.wait(5*60*1000);  // Every five minutes
+    }
+    m_IsThreadRunning=false;
+    return 0;
+}
+
+bool CTransactionSeedThread::GenerateTransactionSeed()
+{
+    bool bReturn=false;
+    try
+    {
+        Owned<IClientTransactionSeedRequest> pSeedReq = m_pTransactionSeedLoggingService->createTransactionSeedRequest();
+        Owned<IClientTransactionSeedResponse> pSeedResp = m_pTransactionSeedLoggingService->TransactionSeed(pSeedReq.get());
+        if(pSeedResp->getSeedAvailable()==true)
+        {
+            m_TransactionSeed.appendf("%s",pSeedResp->getSeedId());
+            bReturn = true;
+            DBGLOG("Background Thread generated seed successfully CTransactionSeedThread::GeneratedTransactionSeed (%s)", m_TransactionSeed.toCharArray());
+        }
+    }
+    catch(IException* ex)
+    {
+        StringBuffer errorStr;
+        ex->errorMessage(errorStr);
+        ERRLOG("Exception caught in CTransactionSeedThread::GeneratedTransactionSeed (%d) %s",ex->errorCode(),errorStr.str());
+        ex->Release();
+    }
+    catch(...)
+    {
+        ERRLOG("Unknown exception caught in CTransactionSeedThread::GeneratedTransactionSeed");
+    }
+    return(bReturn);
+}
+
+
+StringBuffer & CTransactionSeedThread::ReadSeed()
+{
+    return(m_TransactionSeed);
+}
+
+
+bool CTransactionSeedThread::GotSeed()
+{
+    return(m_TransactionSeed.length() > 0);
 }
 

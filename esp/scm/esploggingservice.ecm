@@ -67,6 +67,11 @@ ESPstruct ModelLogInformation
     ESParray<ESPstruct AttributeGroupLogInfo, AttributeGroup> AttributeGroups;
 };
 
+ESPStruct LogInformationSet
+{
+    ESParray<ESPstruct LogInfo, LogInfo> LogInformation;
+    ESPstruct ModelLogInformation ModelLogInformation;
+};
 
 ESPrequest
 [
@@ -82,15 +87,21 @@ LOGServiceUpdateRequest
     string GUID;
     bool BlindLogging;
     bool EncryptedLogging;
+    bool ForwardLog;
     string RawLogInformation;
     ESParray<ESPstruct LogInfo> LogInformation;
+    ESParray<ESPstruct LogInformationSet> LogMultiInformation;
 };
 
 ESPrequest[] LOGServiceUpdateModelRequest : LOGServiceUpdateRequest
 {
-    ESPstruct ModelLogInformation ModelLogInformation;  
+    ESPstruct ModelLogInformation ModelLogInformation;
 };
 
+ESPrequest[] LOGServiceUpdateMultiModelRequest : LOGServiceUpdateRequest
+{
+    ESPstruct ModelLogInformation ModelLogInformation;
+};
 
 ESPresponse
 [
@@ -120,6 +131,7 @@ ESPService [noforms] WsLogService
     ESPuses ESPStruct LogInfo;
     ESPmethod UpdateLogService(LOGServiceUpdateRequest, LOGServiceUpdateResponse);
     ESPmethod UpdateModelLogService(LOGServiceUpdateModelRequest, LOGServiceUpdateResponse);
+    ESPmethod UpdateModelMultiLogService(LOGServiceUpdateMultiModelRequest, LOGServiceUpdateResponse);
     ESPmethod TransactionSeed(TransactionSeedRequest,TransactionSeedResponse);
 };
 

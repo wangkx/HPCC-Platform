@@ -27,11 +27,15 @@
 
 const char* const RolloverExt="old";
 
-ILogFailSafe * createFailsafelogger(const char* logType, const char* logsdir)
+/*ILogFailSafe * createFailsafelogger(const char* logType, const char* logsdir)
 {
     return new CLogFailSafe(logType, logsdir);
-}
+}*/
 
+ILogFailSafe * createFailsafelogger(const char* pszService, const char* logType, const char* logsdir)
+{
+    return new CLogFailSafe(pszService, logType, logsdir && *logsdir ? logsdir : "./logs");
+}
 
 //////////////////////////////////////////////////////////////////////
 // Construction/Destruction
@@ -41,7 +45,9 @@ CLogFailSafe::CLogFailSafe()
     
 }
 
-CLogFailSafe::CLogFailSafe(const char* logType, const char* logsdir) : m_LogType(logType), m_logsdir(logsdir)
+//CLogFailSafe::CLogFailSafe(const char* logType, const char* logsdir) : m_LogType(logType), m_logsdir(logsdir)
+CLogFailSafe::CLogFailSafe(const char* pszService, const char* logType, const char* logsdir)
+    : m_LogService(pszService), m_LogType(logType), m_logsdir(logsdir)
 {
     loadFailed(logType);
     createNew(logType);
