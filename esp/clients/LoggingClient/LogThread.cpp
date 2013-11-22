@@ -1412,6 +1412,16 @@ void CLogThread::HandleLoggingServerResponse(IClientLOGServiceUpdateRequest* Req
     return;
 }
 
+int CLogThread::onLogActionComplete(IClientLogActionResponse *Response,IInterface* state)
+{
+    return 0;
+}
+
+int CLogThread::onLogActionError(IClientLogActionResponse *Response,IInterface* state)
+{
+    return 0;
+}
+
 int CLogThread::onUpdateLogServiceComplete(IClientLOGServiceUpdateResponse *Response,IInterface* state)
 {
     m_LogSend--;

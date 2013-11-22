@@ -126,6 +126,29 @@ TransactionSeedResponse
     bool SeedAvailable;
 };
 
+ESPstruct LogItem
+{
+    string Name;
+    string Type;
+    string Value;
+};
+
+ESPrequest[ ] LogActionRequest
+{
+    int Action;
+    string Option;
+    ESParray<ESPstruct LogItem, LogItem> LogContext;
+    ESParray<ESPstruct LogItem, LogItem> LogRequest;
+    ESParray<ESPstruct LogItem, LogItem> LogResponse;
+};
+
+ESPresponse[ ] LogActionResponse
+{
+    int StatusCode;
+    string StatusMessage;
+    string Response;
+};
+
 ESPService [noforms] WsLogService
 {
     ESPuses ESPStruct LogInfo;
@@ -133,6 +156,8 @@ ESPService [noforms] WsLogService
     ESPmethod UpdateModelLogService(LOGServiceUpdateModelRequest, LOGServiceUpdateResponse);
     ESPmethod UpdateModelMultiLogService(LOGServiceUpdateMultiModelRequest, LOGServiceUpdateResponse);
     ESPmethod TransactionSeed(TransactionSeedRequest,TransactionSeedResponse);
+
+    ESPmethod LogAction(LogActionRequest, LogActionResponse);
 };
 
 

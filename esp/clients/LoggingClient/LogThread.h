@@ -267,6 +267,9 @@ private:
     bool IsArray(IPropertyTree& tree);
     void HandleLoggingServerResponse(IClientLOGServiceUpdateRequest* Request,IClientLOGServiceUpdateResponse *Response);
 
+    virtual int onLogActionComplete(IClientLogActionResponse *resp,IInterface* state);
+    virtual int onLogActionError(IClientLogActionResponse *resp,IInterface* state);
+
     virtual int onUpdateLogServiceComplete(IClientLOGServiceUpdateResponse *resp,IInterface* state);
     virtual int onUpdateLogServiceError(IClientLOGServiceUpdateResponse *resp,IInterface* state);
 
