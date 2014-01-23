@@ -98,7 +98,7 @@ define([
             var context = this;
             this.tabContainer.watch("selectedChildWidget", function (name, oval, nval) {
                 if ((nval.id != context.id + "Packages") && (!nval.initalized)) {
-                    nval.init(nval.params);
+                    nval.init(nval.params, context.targets);
                 }
                 context.selectedTab = nval;
             });

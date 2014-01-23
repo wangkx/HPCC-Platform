@@ -80,14 +80,15 @@ define([
             this.inherited(arguments);
         },
 
-        init: function (params) {
+        init: function (params, targets) {
             if (this.initalized)
                 return;
             this.initalized = true;
             this.validateResult.set('style', 'visibility:hidden');
-            if (params.targets == undefined)
-                return;
-            this.initSelection(params.targets);
+            if (targets != undefined)
+                this.initSelections(targets);
+            else if (params.targets != undefined)
+                this.initSelections(params.targets);
         },
 
         initSelections: function (targets) {
