@@ -5,6 +5,6 @@ define(
     Target: "Target",
     State: "State",
     Owner: "Owner",
-    JobName: "Job Name"
+    JobName: "Job Name1"
 })
 );
