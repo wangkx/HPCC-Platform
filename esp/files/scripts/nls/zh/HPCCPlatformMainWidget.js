@@ -1,8 +1,8 @@
 define(
 ({
-    title: "HPCC Platform - Home",
+    title: "HPCC平台 - 首页",
 
-    Activity: "Activity",
-    SearchResults: "Search Results",
+    Activity: "活动",
+    SearchResults: "查询结果",
 })
 );
