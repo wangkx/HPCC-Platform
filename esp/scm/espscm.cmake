@@ -32,7 +32,6 @@ set ( ESPSCM_SRCS
       ecllib.ecm
       esp.ecm
       ws_access.ecm
-      ws_loggingservice.ecm
       esploggingservice.ecm
       roxiecommlibscm.ecm
       soapesp.ecm
