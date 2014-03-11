@@ -18,7 +18,7 @@
                     <div id="${id}Refresh" data-dojo-attach-event="onClick:_onRefresh" data-dojo-props="iconClass:'iconRefresh'" data-dojo-type="dijit.form.Button">${i18n.Reload}</div>
                     <br>
                     <div id="${id}Open" data-dojo-attach-event="onClick:_onOpen" data-dojo-type="dijit.form.Button">${i18n.Open}</div>
-                    <div id="${id}AddNew" data-dojo-attach-event="onClick:_onAdd" data-dojo-type="dijit.form.Button">${i18n.Add}</div>
+                    <input id="${id}AddProcessMapFileUploader" label="${i18n.Add}" type="file" data-dojo-attach-event="onChange:_onAdd" data-dojo-props='multiple: false' data-dojo-type="dojox.form.Uploader"/>
                     <div id="${id}Activate" data-dojo-attach-event="onClick:_onActivate" data-dojo-type="dijit.form.Button">${i18n.Activate}</div>
                     <div id="${id}Deactivate" data-dojo-attach-event="onClick:_onDeactivate" data-dojo-type="dijit.form.Button">${i18n.Deactivate}</div>
                     <div id="${id}Delete" data-dojo-attach-event="onClick:_onDelete" data-dojo-type="dijit.form.Button">${i18n.Delete}</div>
@@ -33,14 +33,8 @@
                 </div>
                 <div id="${id}AddProcessMapDialog" data-dojo-type="dijit/Dialog" data-dojo-id="${id}AddProcessMapDialog" title="${i18n.AddProcessMap}">
                     <div data-dojo-type="dijit/form/Form" id="${id}AddProcessMapForm" data-dojo-id="${id}AddProcessMapForm" method="post" enctype="multipart/form-data" >
-                       <table id="${id}AddProcessMapTable" class="dijitDialogPaneContentArea">
-                            <tr>
-                                <td><input id="${id}AddProcessMapFileUploader" name="${id}AddProcessMapFileUploader" multiple="false" type="file" data-dojo-type="dojox.form.Uploader" data-dojo-attach-event="onChange:_onCheckAddProcessMapInput" label="${i18n.SelectPackageFile}"/></td>
-                            </tr>
-                            <tr>
-                                <td><div id="${id}AddProcessMapFileToUpload" data-dojo-type="dojox/form/uploader/FileList" data-dojo-props='uploaderId:"${id}AddProcessMapFileUploader"'>
-                                </div></td>
-                            </tr>
+                        <div id="${id}AddProcessMapFileToUpload" class="dijitDialogPaneContentArea" data-dojo-props="uploaderId: '${id}AddProcessMapFileUploader'" data-dojo-type="dojox.form.uploader.FileList"></div>
+                        <table id="${id}AddProcessMapTable" class="dijitDialogPaneContentArea">
                             <tr>
                                 <td><label for="${id}AddProcessMapId" style="width: 15em;">${i18n.ID}:</label></td>
                                 <td><input name="${id}AddProcessMapId" id="${id}AddProcessMapId" data-dojo-attach-event="onKeyUp:_onAddProcessMapIdKeyUp" data-dojo-props="trim: true" data-dojo-type="dijit/form/TextBox"</td>

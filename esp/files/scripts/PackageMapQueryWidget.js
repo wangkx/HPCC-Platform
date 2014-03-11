@@ -51,6 +51,8 @@ define([
     "dijit/form/Button",
     "dijit/form/DropDownButton",
     "dijit/form/Select",
+    "dojox/form/Uploader",
+    "dojox/form/uploader/FileList",
     "dijit/Toolbar",
     "dijit/TooltipDialog"
 ], function (declare, lang, i18n, nlsHPCC, arrayUtil, dom, domConstruct, domForm, ObjectStore, on, topic,
@@ -74,6 +76,7 @@ define([
         processFilters: null,
         addPackageMapDialog: null,
         validateTab: null,
+        addPackageMapTargetSelected: null,
 
         buildRendering: function (args) {
             this.inherited(arguments);
@@ -92,6 +95,8 @@ define([
             this.addPackageMapDialog = registry.byId(this.id+"AddProcessMapDialog");
             this.addPackageMapTargetSelect = registry.byId(this.id + "AddProcessMapTargetSelect");
             this.addPackageMapProcessSelect = registry.byId(this.id + "AddProcessMapProcessSelect");
+            this.uploader = registry.byId(this.id + "AddProcessMapFileUploader");
+            this.uploadFileList = registry.byId(this.id + "AddProcessMapFileToUpload");
 
             var context = this;
             this.tabContainer.watch("selectedChildWidget", function (name, oval, nval) {
@@ -99,6 +104,14 @@ define([
                     nval.init(nval.params);
                 }
                 context.selectedTab = nval;
+            });
+            this.connect(this.uploader, "onComplete", function () {
+                context.addPackageMapDialog.hide();
+                return context.addPackageMapCallback();
+            });
+            this.connect(this.uploader, "onBegin", function(e) {
+                registry.byId(this.id+"AddProcessMapDialogSubmit").set('disabled', true);
+                return;
             });
         },
 
@@ -136,7 +149,14 @@ define([
         },
 
         _onChangeAddProcessMapTarget: function (event) {
-            this.updateProcessSelections(this.addPackageMapProcessSelect, this.processesToAdd, this.addPackageMapTargetSelect.getValue());
+            var targetName =  this.addPackageMapTargetSelect.getValue();
+            for (var i = 0; i < this.targets.length; ++i) {
+                if (targetName == this.targets[i].name) {
+                    addPackageMapTargetSelected = this.targets[i];
+                    break;
+                }
+            }
+            this.updateProcessSelections(this.addPackageMapProcessSelect, this.processesToAdd, targetName);
         },
 
         _onRefresh: function (event) {
@@ -163,19 +183,11 @@ define([
             }
         },
         _onAdd: function (event) {
+            this.uploadFileList.hideProgress();
             this.initAddProcessMapInput();
             this.addPackageMapDialog.show();
 
             var context = this;
-            var addPackageMapUploader = registry.byId(this.id+"AddProcessMapFileUploader");
-            dojo.connect(addPackageMapUploader, "onComplete", this, function(e) {
-                registry.byId(this.id+"AddProcessMapDialogSubmit").set('disabled', false);
-                return context.addPackageMapCallback();
-            });
-            dojo.connect(addPackageMapUploader, "onBegin", this, function(e) {
-                registry.byId(this.id+"AddProcessMapDialogSubmit").set('disabled', true);
-                return;
-            });
             var addPackageMapSubmitButton = registry.byId(this.id+"AddProcessMapDialogSubmit");
             dojo.connect(addPackageMapSubmitButton, "onClick", this, function(e) {
                 return context._onAddPackageMapSubmit();
@@ -186,46 +198,43 @@ define([
             });
         },
         initAddProcessMapInput: function () {
-            var defaultTarget = null;
-            for (var i = 0; i < this.targets.length; ++i) {
-                var target = this.targets[i];
-                if (target.Type == 'roxie') {//only roxie has package map for now.
-                    this.addPackageMapTargetSelect.options.push({label: target.Name, value: target.Name});
-                    if (defaultTarget == null)
-                        defaultTarget = target;
+            var files = registry.byId(this.id+"AddProcessMapFileUploader").getFileList();
+            if (files.length != 1)
+                return;
+
+            registry.byId(this.id+"AddProcessMapId").set('value', files[0].name);
+            registry.byId(this.id+"AddProcessMapDialogSubmit").set('disabled', false);
+
+            if (this.addPackageMapTargetSelected == null) {
+                for (var i = 0; i < this.targets.length; ++i) {
+		            var target = this.targets[i];
+		            if (target.Type == 'roxie') //only roxie has package map for now.
+		                this.addPackageMapTargetSelect.options.push({label: target.Name, value: target.Name});
                 }
+                this.addPackageMapTargetSelected = this.targets[0];
             }
-            if (defaultTarget != null) {
-                this.addPackageMapTargetSelect.set("value", defaultTarget.Name);
-                if (defaultTarget.Processes != undefined)
-                    this.addProcessSelections(this.addPackageMapProcessSelect, this.processesToAdd, defaultTarget.Processes.Item);
+
+            if (this.addPackageMapTargetSelected != null) {
+                this.addPackageMapTargetSelect.set("value", this.addPackageMapTargetSelected.Name);
+                if (this.addPackageMapTargetSelected.Processes != undefined)
+                    this.addProcessSelections(this.addPackageMapProcessSelect, this.processesToAdd, this.addPackageMapTargetSelected.Processes.Item);
             }
-            registry.byId(this.id+"AddProcessMapId").set('value', '');
+
             registry.byId(this.id+"AddProcessMapDaliIP").set('value', '');
             registry.byId(this.id+"AddProcessMapActivate").set('checked', 'checked');
             registry.byId(this.id+"AddProcessMapOverWrite").set('checked', '');
-            registry.byId(this.id+"AddProcessMapFileUploader").reset();
-            registry.byId(this.id+"AddProcessMapFileUploader").set('url', '');
-            registry.byId(this.id+"AddProcessMapForm").set('action', '');
-            registry.byId(this.id+"AddProcessMapDialogSubmit").set('disabled', true);
+            //registry.byId(this.id+"AddProcessMapForm").set('action', '');
         },
         _onAddProcessMapIdKeyUp: function () {
             this._onCheckAddProcessMapInput();
         },
         _onCheckAddProcessMapInput: function () {
-            var id = registry.byId(this.id+"AddProcessMapId").get('value');
             var files = registry.byId(this.id+"AddProcessMapFileUploader").getFileList();
-            if (files.length > 1) {
+            if (files.length != 1) {
                 alert(this.i18n.Only1PackageFileAllowed);
                 return;
             }
-            var fileName = '';
-            if (files.length > 0)
-                fileName = files[0].name;
-            if ((fileName != '') && (id == '')) {
-                registry.byId(this.id+"AddProcessMapId").set('value', fileName);
-                registry.byId(this.id+"AddProcessMapDialogSubmit").set('disabled', false);
-            } else if ((id == '') || (files.length < 1))
+            if (registry.byId(this.id+"AddProcessMapId").get('value') == '') 
                 registry.byId(this.id+"AddProcessMapDialogSubmit").set('disabled', true);
             else
                 registry.byId(this.id+"AddProcessMapDialogSubmit").set('disabled', false);
@@ -233,7 +242,6 @@ define([
         _onAddPackageMapSubmit: function () {
             var target = this.addPackageMapTargetSelect.getValue();
             var id = registry.byId(this.id+"AddProcessMapId").get('value');
-            //var process = registry.byId(this.id+"AddProcessMapProcess").get('value');
             var process = this.addPackageMapProcessSelect.getValue();
             var daliIp = registry.byId(this.id+"AddProcessMapDaliIP").get('value');
             var activate = registry.byId(this.id+"AddProcessMapActivate").get('checked');
@@ -256,10 +264,8 @@ define([
                 action += "&OverWrite=1";
             else
                 action += "&OverWrite=0";
-            var theForm = registry.byId(this.id+"AddProcessMapForm");
-            if (theForm == undefined)
-                return false;
-            theForm.set('action', action);
+            this.uploader.set("uploadUrl", action);
+            this.uploader.upload();
             return true;
         },
         _onDelete: function (event) {
