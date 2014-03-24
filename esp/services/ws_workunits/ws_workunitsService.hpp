@@ -25,6 +25,11 @@
 #include "zcrypt.hpp"
 #endif
 
+interface IECLWorkUnitsPager : extends IInterface
+{
+    virtual IConstWorkUnitIterator* getWorkUnitsSorted(IEspContext& context, IEspWUQueryRequest& req, unsigned pageFrom, unsigned pageSize, unsigned* numWUs, __int64* cacheHint) = 0;
+};
+
 class CWsWorkunitsEx : public CWsWorkunits
 {
 public:

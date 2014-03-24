@@ -2303,6 +2303,9 @@ public:
                                                 unsigned startoffset,
                                                 unsigned maxnum,
                                                 const char *queryowner, 
+                                                const char *querySecUserId,
+                                                int userAccessOwn,
+                                                int userAccessOthers,
                                                 __int64 *cachehint,
                                                 ISecManager *secmgr, 
                                                 ISecUser *secuser,
@@ -2337,22 +2340,51 @@ public:
                 return conn.getClear();
             }
         };
-        class CScopeChecker : public CSimpleInterface, implements ISortedElementsTreeFilter
+        class CWorkunitChecker : public CSimpleInterface, implements ISortedElementsTreeFilter
         {
             UniqueScopes done;
             ISecManager *secmgr;
             ISecUser *secuser;
+            StringAttr secUserId;
+            int userAccessOwn;
+            int userAccessOthers;
+            bool hasStateSubmittedFilter;
             CriticalSection crit;
+
+            bool checkStateSubmittedFilter(const char* wuid)
+            {
+                VStringBuffer path("/WorkUnitAborts/%s", wuid);
+                Owned<IRemoteConnection> acon = querySDS().connect(path.str(), myProcessSession(), 0, SDS_LOCK_TIMEOUT);
+                if (acon)
+                    return acon->queryRoot()->getPropInt(NULL)!=0;
+                else
+                    return false;
+            }
         public:
             IMPLEMENT_IINTERFACE_USING(CSimpleInterface);
 
-            CScopeChecker(ISecManager *_secmgr,ISecUser *_secuser)
+            CWorkunitChecker(ISecManager *_secmgr,ISecUser *_secuser, const char* _secUserId, int _userAccessOwn, int _userAccessOthers, bool _hasStateSubmittedFilter)
+                : secmgr(_secmgr), secuser(_secuser), secUserId(_secUserId), userAccessOwn(_userAccessOwn), userAccessOthers(_userAccessOthers),
+                  hasStateSubmittedFilter(_hasStateSubmittedFilter)
             {
-                secmgr = _secmgr;
-                secuser = _secuser;
             }
             bool isOK(IPropertyTree &tree)
             {
+                const char *owner = tree.queryProp("@submitID");
+                int userAccess = (!owner || !*owner || (secUserId.length() && streq(secUserId.get(), owner))) ? userAccessOwn : userAccessOthers;
+                if (userAccess < (int) SecAccess_Read)
+                    return false;
+                const char* parent = tree.queryProp("@parent");
+                if (parent && *parent)
+                    return false;
+                const char* wuid = tree.queryName();
+                if (!looksLikeAWuid(wuid))
+                    return false;
+                if (hasStateSubmittedFilter && !checkStateSubmittedFilter(wuid))
+                    return false;
+                if (!secmgr)
+                    return true;
+
                 const char *scopename = tree.queryProp("@scope");
                 if (!scopename||!*scopename)
                     return true;
@@ -2372,16 +2404,18 @@ public:
                 return ret;
             }
         };
-        Owned<ISortedElementsTreeFilter> sc = new CScopeChecker(secmgr,secuser);
         StringBuffer query;
         StringBuffer so;
         StringAttr namefilter("*");
         StringAttr namefilterlo;
         StringAttr namefilterhi;
+        bool hasStateSubmittedFilter =  false;
         StringArray unknownAttributes;
-        if (filters) {
+        if (filters)
+        {
             const char *fv = (const char *)filterbuf;
-            for (unsigned i=0;filters[i]!=WUSFterm;i++) {
+            for (unsigned i=0;filters[i]!=WUSFterm;i++)
+            {
                 int fmt = filters[i];
                 int subfmt = (fmt&0xff);
                 if (subfmt==WUSFwuid) 
@@ -2394,20 +2428,25 @@ public:
                     query.append("[").append(fv).append("]");
                 else if (!fv || !*fv)
                     unknownAttributes.append(getEnumText(subfmt,workunitSortFields));
-                else {
+                else
+                {
                     query.append('[').append(getEnumText(subfmt,workunitSortFields)).append('=');
                     if (fmt&WUSFnocase)
                         query.append('?');
                     if (fmt&WUSFwild)
                         query.append('~');
                     query.append('"').append(fv).append("\"]");
+                    if ((subfmt == WUSFstate) && strieq(fv, "submitted"))
+                        hasStateSubmittedFilter = true;
                 }
                 fv = fv + strlen(fv)+1;
             }
         }
         query.insert(0, namefilter.get());
-        if (sortorder) {
-            for (unsigned i=0;sortorder[i]!=WUSFterm;i++) {
+        if (sortorder)
+        {
+            for (unsigned i=0;sortorder[i]!=WUSFterm;i++)
+            {
                 if (so.length())
                     so.append(',');
                 int fmt = sortorder[i];
@@ -2421,8 +2460,9 @@ public:
             }
         }
         IArrayOf<IPropertyTree> results;
+        Owned<ISortedElementsTreeFilter> sc = new CWorkunitChecker(secmgr,secuser,querySecUserId,userAccessOwn,userAccessOthers,hasStateSubmittedFilter);
         Owned<IElementsPager> elementsPager = new CWorkUnitsPager(query.str(), so.length()?so.str():NULL, namefilterlo.get(), namefilterhi.get(), unknownAttributes);
-        Owned<IRemoteConnection> conn=getElementsPaged(elementsPager,startoffset,maxnum,secmgr?sc:NULL,queryowner,cachehint,results,total);
+        Owned<IRemoteConnection> conn=getElementsPaged(elementsPager,startoffset,maxnum,sc,queryowner,cachehint,results,total);
         return new CConstWUArrayIterator(conn, results, secmgr, secuser);
     }
 
@@ -2433,10 +2473,13 @@ public:
                                                 unsigned startoffset,
                                                 unsigned maxnum,
                                                 const char *queryowner, 
+                                                const char *querySecUserId,
+                                                int userAccessOwn,
+                                                int userAccessOthers,
                                                 __int64 *cachehint,
                                                 unsigned *total)
     {
-        return getWorkUnitsSorted(sortorder,filters,filterbuf,startoffset,maxnum,queryowner,cachehint, NULL, NULL, total);
+        return getWorkUnitsSorted(sortorder,filters,filterbuf,startoffset,maxnum,queryowner,querySecUserId,userAccessOwn,userAccessOthers,cachehint, NULL, NULL, total);
     }
 
     IConstQuerySetQueryIterator* getQuerySetQueriesSorted( WUQuerySortField *sortorder, // list of fields to sort by (terminated by WUSFterm)
@@ -2619,9 +2662,9 @@ public:
                                         const void *filterbuf,
                                         ISecManager *secmgr, 
                                         ISecUser *secuser)
-    {
+    {//Do we need this method?
         unsigned total;
-        Owned<IConstWorkUnitIterator> iter =  getWorkUnitsSorted( NULL,filters,filterbuf,0,0x7fffffff,NULL,NULL,secmgr,secuser,&total);
+        Owned<IConstWorkUnitIterator> iter =  getWorkUnitsSorted( NULL,filters,filterbuf,0,0x7fffffff,NULL,NULL,SecAccess_Read,SecAccess_Read,NULL,secmgr,secuser,&total);
         return total;
     }
 
@@ -2865,10 +2908,13 @@ public:
                                                         unsigned startoffset,
                                                         unsigned maxnum,
                                                         const char *queryowner, 
+                                                        const char *querySecUserId,
+                                                        int accessOwn,
+                                                        int accessOthers,
                                                         __int64 *cachehint,
                                                         unsigned *total)
     {
-        return factory->getWorkUnitsSorted(sortorder,filters,filterbuf,startoffset,maxnum,queryowner,cachehint, secMgr.get(), secUser.get(), total);
+        return factory->getWorkUnitsSorted(sortorder,filters,filterbuf,startoffset,maxnum,queryowner,querySecUserId,accessOwn,accessOthers,cachehint, secMgr.get(), secUser.get(), total);
     }
 
     virtual IConstQuerySetQueryIterator* getQuerySetQueriesSorted( WUQuerySortField *sortorder,

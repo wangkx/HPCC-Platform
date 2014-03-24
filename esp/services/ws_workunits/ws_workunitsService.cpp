@@ -1635,7 +1635,7 @@ void doWUQueryByXPath(IEspContext &context, IEspWUQueryRequest & req, IEspWUQuer
 
     return;
 }
-
+/*
 bool addWUQueryFilter(WUSortField *filters, unsigned short &count, MemoryBuffer &buff, const char *name, WUSortField value)
 {
     if (isEmpty(name))
@@ -1670,13 +1670,131 @@ bool addWUQueryFilterApplication(WUSortField *filters, unsigned short &count, Me
     filters[count++] = WUSFcustom;
     buff.append(path.str());
     return true;
-}
+}*/
 
 void doWUQueryWithSort(IEspContext &context, IEspWUQueryRequest & req, IEspWUQueryResponse & resp)
 {
-    SecAccessFlags accessOwn;
-    SecAccessFlags accessOthers;
-    getUserWuAccessFlags(context, accessOwn, accessOthers, true);
+    class CECLWorkUnitsPager : public CInterface, implements IECLWorkUnitsPager
+    {
+        WUSortField sortOrder[2];
+        WUSortField filters[10];
+        unsigned short filterCount;
+        MemoryBuffer filterBuf;
+
+        bool addWUQueryFilter(const char *name, WUSortField value)
+        {
+            if (isEmpty(name))
+                return false;
+            filters[filterCount++] = value;
+            filterBuf.append(name);
+            return true;
+        }
+
+        bool addWUQueryFilterTime(const char *stime, WUSortField value)
+        {
+            if (isEmpty(stime))
+                return false;
+            CDateTime dt;
+            dt.setString(stime, NULL, true);
+            unsigned year, month, day, hour, minute, second, nano;
+            dt.getDate(year, month, day, true);
+            dt.getTime(hour, minute, second, nano, true);
+            VStringBuffer wuid("W%4d%02d%02d-%02d%02d%02d",year,month,day,hour,minute,second);
+            filters[filterCount++] = value;
+            filterBuf.append(wuid.str());
+            return true;
+        }
+
+        bool addWUQueryFilterApplication(const char *appname, const char *appkey, const char *appdata)
+        {
+            if (isEmpty(appname) && isEmpty(appkey) && isEmpty(appdata)) //no application filter
+                return false;
+            VStringBuffer path("Application/%s/%s", appname && *appname ? appname : "*", appkey && *appkey ? appkey : "*");
+            if(appdata && *appdata)
+                path.append("=?~\"").append(appdata).append("\"");
+            filters[filterCount++] = WUSFcustom;
+            filterBuf.append(path.str());
+            return true;
+        }
+
+        void setSortOrder(IEspWUQueryRequest& req)
+        {
+            sortOrder[1] = WUSFterm;
+            if(!notEmpty(req.getSortby()))
+            {
+                sortOrder[0] = (WUSortField) (WUSFwuid | WUSFreverse);
+                return;
+            }
+
+            const char *sortby = req.getSortby();
+            if (strieq(sortby, "Owner"))
+                sortOrder[0] = WUSFuser;
+            else if (strieq(sortby, "JobName"))
+                sortOrder[0] = WUSFjob;
+            else if (strieq(sortby, "Cluster"))
+                sortOrder[0] = WUSFcluster;
+            else if (strieq(sortby, "RoxieCluster"))
+                sortOrder[0] = WUSFroxiecluster;
+            else if (strieq(sortby, "Protected"))
+                sortOrder[0] = WUSFprotected;
+            else if (strieq(sortby, "State"))
+                sortOrder[0] = WUSFstate;
+            else if (strieq(sortby, "ThorTime"))
+                sortOrder[0] = (WUSortField) (WUSFtotalthortime+WUSFnumeric);
+            else
+                sortOrder[0] = WUSFwuid;
+
+            sortOrder[0] = (WUSortField) (sortOrder[0] | WUSFnocase);
+            if (req.getDescending())
+                sortOrder[0] = (WUSortField) (sortOrder[0] | WUSFreverse);
+        }
+
+        void setFilters(IEspWUQueryRequest& req)
+        {
+            if(req.getState() && *req.getState())
+            {
+                filters[filterCount++] = WUSFstate;
+                if (!strieq(req.getState(), "unknown"))
+                    filterBuf.append(req.getState());
+                else
+                    filterBuf.append("");
+            }
+
+            addWUQueryFilter(req.getWuid(), WUSFwildwuid);
+            addWUQueryFilter(req.getCluster(), WUSFcluster);
+            addWUQueryFilter(req.getRoxieCluster(), WUSFroxiecluster);
+            addWUQueryFilter(req.getLogicalFile(), WUSFfileread);
+            addWUQueryFilter(req.getOwner(), (WUSortField) (WUSFuser | WUSFnocase));
+            addWUQueryFilter(req.getJobname(), (WUSortField) (WUSFjob | WUSFnocase));
+            addWUQueryFilter(req.getECL(), (WUSortField) (WUSFecl | WUSFwild));
+
+            addWUQueryFilterTime(req.getStartDate(), WUSFwuid);
+            addWUQueryFilterTime(req.getEndDate(), WUSFwuidhigh);
+            addWUQueryFilterApplication(req.getApplicationName(), req.getApplicationKey(), req.getApplicationData());
+
+            filters[filterCount] = WUSFterm;
+        }
+
+    public:
+        IMPLEMENT_IINTERFACE;
+
+        CECLWorkUnitsPager()
+        {
+            filterCount = 0;
+        }
+
+        IConstWorkUnitIterator* getWorkUnitsSorted(IEspContext& context, IEspWUQueryRequest& req, unsigned pageFrom, unsigned pageSize, unsigned* numWUs, __int64* cacheHint)
+        {
+            SecAccessFlags accessOwn;
+            SecAccessFlags accessOthers;
+            getUserWuAccessFlags(context, accessOwn, accessOthers, true);
+
+            setSortOrder(req);
+            setFilters(req);
+            Owned<IWorkUnitFactory> factory = getWorkUnitFactory(context.querySecManager(), context.queryUser());
+            return factory->getWorkUnitsSorted(sortOrder, filters, filterBuf.bufferBase(), pageFrom, pageSize+1, "", context.queryUserId(), accessOwn, accessOthers, cacheHint, numWUs);
+        }
+    };
 
     double version = context.getClientVersion();
 
@@ -1710,86 +1828,32 @@ void doWUQueryWithSort(IEspContext &context, IEspWUQueryRequest & req, IEspWUQue
         pagesize = count;
     }
 
-    WUSortField sortorder[2] = {(WUSortField) (WUSFwuid | WUSFreverse), WUSFterm};
-    if(notEmpty(req.getSortby()))
-    {
-        const char *sortby = req.getSortby();
-        if (strieq(sortby, "Owner"))
-            sortorder[0] = WUSFuser;
-        else if (strieq(sortby, "JobName"))
-            sortorder[0] = WUSFjob;
-        else if (strieq(sortby, "Cluster"))
-            sortorder[0] = WUSFcluster;
-        else if (strieq(sortby, "RoxieCluster"))
-            sortorder[0] = WUSFroxiecluster;
-        else if (strieq(sortby, "Protected"))
-            sortorder[0] = WUSFprotected;
-        else if (strieq(sortby, "State"))
-            sortorder[0] = WUSFstate;
-        else if (strieq(sortby, "ThorTime"))
-            sortorder[0] = (WUSortField) (WUSFtotalthortime+WUSFnumeric);
-        else
-            sortorder[0] = WUSFwuid;
-
-        sortorder[0] = (WUSortField) (sortorder[0] | WUSFnocase);
-        bool descending = req.getDescending();
-        if (descending)
-            sortorder[0] = (WUSortField) (sortorder[0] | WUSFreverse);
-    }
-
-    WUSortField filters[10];
-    unsigned short filterCount = 0;
-    MemoryBuffer filterbuf;
-
-    bool bDoubleCheckState = false;
-    if(req.getState() && *req.getState())
-    {
-        filters[filterCount++] = WUSFstate;
-        if (!strieq(req.getState(), "unknown"))
-            filterbuf.append(req.getState());
-        else
-            filterbuf.append("");
-        if (strieq(req.getState(), "submitted"))
-            bDoubleCheckState = true;
-    }
-
-    addWUQueryFilter(filters, filterCount, filterbuf, req.getWuid(), WUSFwildwuid);
-    addWUQueryFilter(filters, filterCount, filterbuf, req.getCluster(), WUSFcluster);
-    if(version > 1.07)
-        addWUQueryFilter(filters, filterCount, filterbuf, req.getRoxieCluster(), WUSFroxiecluster);
-    addWUQueryFilter(filters, filterCount, filterbuf, req.getLogicalFile(), WUSFfileread);
-    addWUQueryFilter(filters, filterCount, filterbuf, req.getOwner(), (WUSortField) (WUSFuser | WUSFnocase));
-    addWUQueryFilter(filters, filterCount, filterbuf, req.getJobname(), (WUSortField) (WUSFjob | WUSFnocase));
-    addWUQueryFilter(filters, filterCount, filterbuf, req.getECL(), (WUSortField) (WUSFecl | WUSFwild));
-
-    addWUQueryFilterTime(filters, filterCount, filterbuf, req.getStartDate(), WUSFwuid);
-    addWUQueryFilterTime(filters, filterCount, filterbuf, req.getEndDate(), WUSFwuidhigh);
-    addWUQueryFilterApplication(filters, filterCount, filterbuf, req.getApplicationName(), req.getApplicationKey(), req.getApplicationData());
-
-    filters[filterCount] = WUSFterm;
-
     __int64 cacheHint = 0;
     if (!req.getCacheHint_isNull())
         cacheHint = req.getCacheHint();
 
-    Owned<IWorkUnitFactory> factory = getWorkUnitFactory(context.querySecManager(), context.queryUser());
     unsigned numWUs;
-    Owned<IConstWorkUnitIterator> it = factory->getWorkUnitsSorted(sortorder, filters, filterbuf.bufferBase(), begin, pagesize+1, "", &cacheHint, &numWUs);
+    Owned<IECLWorkUnitsPager> eclWUsPager = new CECLWorkUnitsPager();
+    Owned<IConstWorkUnitIterator> it = eclWUsPager->getWorkUnitsSorted(context, req, begin, pagesize, &numWUs, &cacheHint);
     if (version >= 1.41)
         resp.setCacheHint(cacheHint);
+
+    //bool bDoubleCheckState = false;
+    //if (strieq(req.getState(), "submitted"))
+    //    bDoubleCheckState = true;
 
     unsigned actualCount = 0;
     ForEach(*it)
     {
         IConstWorkUnit& cw = it->query();
-        if (chooseWuAccessFlagsByOwnership(context.queryUserId(), cw, accessOwn, accessOthers) < SecAccess_Read)
+        /*if (chooseWuAccessFlagsByOwnership(context.queryUserId(), cw, accessOwn, accessOthers) < SecAccess_Read)
         {
             numWUs--;
             continue;
         }
 
         if (bDoubleCheckState && (cw.getState() != WUStateSubmitted))
-        {
+        {//A WU @state may indicate WUStateSubmitted, but, it is aborting. The cw.getState() will say: WUStateAborted
             numWUs--;
             continue;
         }
@@ -1808,7 +1872,14 @@ void doWUQueryWithSort(IEspContext &context, IEspWUQueryRequest & req, IEspWUQue
             WsWuInfo winfo(context, wuid);
             winfo.getCommon(*info, 0);
             results.append(*info.getClear());
-        }
+        }*/
+        SCMStringBuffer wuid;
+        cw.getWuid(wuid);
+        actualCount++;
+        Owned<IEspECLWorkunit> info = createECLWorkunit("","");
+        WsWuInfo winfo(context, wuid.str());
+        winfo.getCommon(*info, 0);
+        results.append(*info.getClear());
     }
 
     if (version > 1.02)
