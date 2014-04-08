@@ -1088,13 +1088,12 @@ void CWsSMCEx::getWUsNotOnTargetCluster(IEspContext &context, IPropertyTree* ser
     {
         IPropertyTree& serverNode = it->query();
         const char* serverName = serverNode.queryProp("@name");
-        const char* instance = serverNode.queryProp("@node");
-        if (!serverName || !*serverName || !instance || !*instance)
+        const char* queueName = serverNode.queryProp("@queue");
+        const char* node = serverNode.queryProp("@node");
+        if (!serverName || !*serverName || !node || !*node || strieq(serverName, "DFUserver"))//DFUServer already handled separately
             continue;
 
-        bool hasWU = false;
-        StringBuffer queueName;
-        queueName.appendf("%s_on_%s", serverName, instance);
+        VStringBuffer instanceName("%s_on_%s", serverName, node);
         Owned<IPropertyTreeIterator> wuids(serverNode.getElements("WorkUnit"));
         ForEach(*wuids)
         {
@@ -1106,14 +1105,13 @@ void CWsSMCEx::getWUsNotOnTargetCluster(IEspContext &context, IPropertyTree* ser
                 continue;
 
             Owned<IEspActiveWorkunit> wu;
-            createActiveWorkUnit(wu, context, wuid, NULL, 0, serverName, queueName.str(), instance, NULL);
+            createActiveWorkUnit(wu, context, wuid, NULL, 0, serverName, queueName, node, NULL);
             aws.append(*wu.getLink());
-            hasWU = true;
         }
-        if (hasWU && !uniqueServers.getValue(queueName))
+        if (!uniqueServers.getValue(instanceName))
         {
-            uniqueServers.setValue(queueName, true);
-            addServerJobQueue(version, serverJobQueues, queueName.str(), serverName, serverName);
+            uniqueServers.setValue(instanceName, true);
+            addServerJobQueue(version, serverJobQueues, queueName, instanceName, serverName);
         }
     }
 

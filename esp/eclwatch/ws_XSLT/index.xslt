@@ -811,6 +811,7 @@
                             <xsl:when test="$clusterType = 'ROXIE'">RoxieCluster - <xsl:value-of select="$cluster"/></xsl:when>
                             <xsl:when test="$clusterType = 'THOR'">ThorCluster - <xsl:value-of select="$cluster"/></xsl:when>
                             <xsl:when test="$clusterType = 'HTHOR'">HThorCluster - <xsl:value-of select="$cluster"/></xsl:when>
+                            <xsl:when test="$clusterType = 'ECLCCserver' or $clusterType = 'ECLserver'"><xsl:value-of select="$clusterType"/> - <xsl:value-of select="$cluster"/></xsl:when>
                             <xsl:otherwise>
                                 <xsl:value-of select="$clusterType"/> - <xsl:value-of select="$queue"/>
                             </xsl:otherwise>
