@@ -92,9 +92,56 @@
                 var countTCs=<xsl:value-of select="$countTargetClusters"/>;
                 <xsl:text disable-output-escaping="yes"><![CDATA[
                   var allowReloadPage = true;
-                  var sortableTable = null;
+                  var sortableTables = null;
                   var fromTargetClusterPage = true;
                   var clusterChecked=0;
+
+                  function initResultTables()
+                  {
+                    if (countTCs < 1)
+                      return;
+
+                    var table1 = document.getElementById('result_t_1');
+                    if (table1 == null)
+                      return;
+
+                    //dynamically create a sort list since our table is defined at run time based on info returned
+                    var cells = table1.tHead.rows[0].cells;
+                    var nCols = cells.length;
+                    var sortCriteria = new Array(nCols);
+                    for (var i = 0; i < nCols; i++)
+                    {
+                      var sort;
+                      var c = cells[i];
+                      switch (c.innerText)
+                      {
+                        case 'Location': 
+                        case 'Component':      
+                        case 'Processes': 
+                        case 'Processes Down':
+                        case 'Condition':
+                        case 'State':
+                          sort = 'String'; 
+                          break;
+                        case 'Up Time':
+                        case 'Computer Up Time': 
+                          sort = 'TimePeriod'; 
+                          break;
+                        default:
+                          sort = "Percentage";
+                          break;
+                      }//switch
+                      sortCriteria[i] = sort;
+                    }//for
+
+                    sortableTables = new Array(countTCs);
+                    for (var i = 1; i <= countTCs; i++)
+                    {
+                      var table = document.getElementById("result_t_" + i);
+                      if (table)
+                        sortableTables[i-1]= new SortableTable(table, table, sortCriteria);
+                    }
+                  }
 
                   function onLoad()
                   {
@@ -130,61 +177,7 @@
                       document.getElementById( 'TargetClusters.All2' ).checked = clusterChecked==countTCs;
                     }
 
-                    var table = document.getElementById('resultsTable');
-                    if (table)
-                    {
-                      //dynamically create a sort list since our table is defined at run time based on info returned
-                      var cells = table.tHead.rows[0].cells;
-                      var nCols = cells.length;
-                      var sortCriteria = new Array(nCols);
-                      sortCriteria[0] = "None";//multiselect checkbox
-
-                      for (var i = 1; i < nCols; i++)
-                      {
-                        var c = cells[i];
-                        var sort;
-                        switch (c.innerText)
-                        {
-                          case 'Location': 
-                            sort = 'IP_Address'; 
-                            break;
-                          case 'Type':      
-                          case 'Processes': 
-                          case 'Processes Down':
-                          case 'Condition':
-                          case 'State':
-                            sort = 'String'; 
-                            break;
-                          case 'Up Time':
-                          case 'Computer Up Time': 
-                            sort = 'TimePeriod'; 
-                            break;
-                          default:
-                            sort = "Percentage";
-                            break;
-                        }//switch
-                        sortCriteria[i] = sort;
-                      }//for
-
-                      sortableTable = new SortableTable(table, table, sortCriteria);
-
-                      var toolarray = [];
-                      for(i=0;i<table.rows.length;i++) 
-                      {
-                        for (var j=0;j<table.rows[i].cells.length;j++) 
-                        {
-                          var cell =table.rows[i].cells[j]
-                          if (cell.id.length>0 && cell.title.length>0) {
-                            toolarray.push(cell.id);
-                          }
-                        }
-                      }
-
-                      var ttA = new YAHOO.widget.Tooltip("ttA", { 
-                        context:toolarray,
-                        effect:{effect:YAHOO.widget.ContainerEffect.FADE,duration:0.20}
-                      });
-                    }//if table
+                    initResultTables();
                   }
 
                   function onRowCheck(checked)
@@ -327,6 +320,7 @@
                                   <xsl:call-template name="show-cluster">
                                     <xsl:with-param name="type" select="Type"/>
                                     <xsl:with-param name="name" select="Name"/>
+                                    <xsl:with-param name="cid" select="position()"/>
                                   </xsl:call-template>
                                 </xsl:for-each>
                                 <xsl:if test="TargetClusterInfoList/TargetClusterInfo[2]">
@@ -372,6 +366,7 @@
   <xsl:template name="show-cluster">
     <xsl:param name="type"/>
     <xsl:param name="name"/>
+    <xsl:param name="cid"/>
     <table id="resultsTable" class="sort-table" width="100%">
       <tr class="grey">
         <td valign="top" width="20">
@@ -405,7 +400,9 @@
         <td/>
         <td colspan="6" align="left" style="padding-left=30px">
           <span id="div_{$name}_{position()}" style="display:inline;visibility:visible">
-            <xsl:apply-templates select="Processes"/>
+            <xsl:apply-templates select="Processes">
+                <xsl:with-param name="cid" select="$cid"/>
+            </xsl:apply-templates>
           </span>
         </td>
       </tr>
@@ -413,8 +410,8 @@
   </xsl:template>
 
   <xsl:template match="Processes">
-      <!--xsl:variable name="order" select="../RequestInfo/SortBy/text()"/-->
-      <table class="blueline" border="2" frame="box" rules="groups">
+      <xsl:param name="cid"/>
+      <table id="result_t_{$cid}" class="sort-table">
          <thead>
             <tr bgcolor="#C0C0C0">
                <th>Location</th>

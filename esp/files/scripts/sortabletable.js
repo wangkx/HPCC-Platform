@@ -49,8 +49,11 @@
 |            | easier to add new, custom sort types.                          |
 | 2004-01-27 | Switch to use descending = false as the default sort order.    |
 |            | Change defaultDescending to suit your needs.                   |
+| 2014-04-17 | Support TimePeriod format: [1 day, ]52:86                      |
+|            | Also support TimePeriod format: '-' (for N/A)                  |
+|            | Not call reverse() if the sorting field has the same values.   |
 |-----------------------------------------------------------------------------|
-| Created 2003-01-10 | All changes are in the log above. | Updated 2004-01-27 |
+| Created 2003-01-10 | All changes are in the log above. | Updated 2014-04-17 |
 \----------------------------------------------------------------------------*/
 
 var tooltipDiv = null;
@@ -444,6 +447,17 @@ SortableTable.prototype.getSortType = function (nColumn) {
     return "String";
 };
 
+SortableTable.prototype.hasSameValue = function (a, compareFunction) {
+   var l = a.length;
+   if (l < 2)
+      return true;
+   for (var i = 0; i < l-1; i++) {
+      if (compareFunction(a[i], a[i+1]) != 0)
+         return false;
+   }
+   return true;
+};
+
 // only nColumn is required
 // if bDescending is left out the old value is taken into account
 // if sSortType is left out the sort type is found from the sortTypes array
@@ -474,10 +488,12 @@ SortableTable.prototype.sort = function (nColumn, bDescending, sSortType) {
     var a = this.getCache(sSortType, nColumn);
     var tBody = this.tBody;
 
-    a.sort(f);
+    if (!this.hasSameValue(a, f)) {
+        a.sort(f);
 
-    if (this.descending)
-        a.reverse();
+        if (this.descending)
+            a.reverse();
+    }
 
     if (SortableTable.removeBeforeSort) {
         // remove from doc
@@ -772,15 +788,28 @@ function ipAddress(str)
 function timePeriod(s) {
    //handle format: [15 days, ]21:52:32.86
    //
+   var sk = 7;
    var i = s.indexOf(' days');
+   if (i < 0) {
+      sk = 6;
+      i = s.indexOf(' day');
+   }  
    var period = i > 0 ? 86400 * Number(s.substring(0, i)).valueOf() : 0;
-      
-   i += 7; //skip ' days, '
-   s = s.substr( i, s.length - i);
-
-    var parts = s.split(":");
-   period += Number(parts[0])*3600 + Number(parts[1])*60 + Number(parts[2]);
-    return period;
+     
+   if (i > 0) {  
+      i += sk; //skip ' days, '
+      s = s.substr( i, s.length - i);
+   }
+   var parts = s.split(":");
+   if (parts.length > 2)
+      period += Number(parts[0])*3600 + Number(parts[1])*60 + Number(parts[2]);
+   else if (parts.length > 1)
+      period += Number(parts[0])*60 + Number(parts[1]);
+   else if (!isNaN(parts[0]))
+      period += Number(parts[0]);
+   else
+      period += 0;
+   return period;
 };
 
 
