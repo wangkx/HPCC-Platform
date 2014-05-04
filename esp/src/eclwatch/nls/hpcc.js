@@ -487,6 +487,8 @@ define({root:
     Users: "Users",
     UseSingleConnection: "Use Single Connection",
     Validate: "Validate",
+    ValidateActivePackageMap: "Validate Active Package Map",
+    ValidatePackageContent: "Validate Package Content",
     ValidatePackageMap: "Validate Package Map",
     ValidateResult: "=====Validate Result=====\n\n",
     Value: "Value",

@@ -43,6 +43,7 @@ define([
     "hpcc/WsPackageMaps",
     "hpcc/ESPPackageProcess",
     "hpcc/SFDetailsWidget",
+    "hpcc/DelayLoadWidget",
 
     "dojo/text!../templates/PackageMapQueryWidget.html",
 
@@ -58,7 +59,7 @@ define([
     _LayoutWidget, _TemplatedMixin, _WidgetsInTemplateMixin, registry,
     Uploader, FileUploader, EnhancedGrid, Pagination, IndirectSelection, ItemFileWriteStore,
     _TabContainerWidget, PackageMapDetailsWidget, PackageMapValidateWidget,
-    WsPackageMaps, ESPPackageProcess, SFDetailsWidget,
+    WsPackageMaps, ESPPackageProcess, SFDetailsWidget, DelayLoadWidget,
     template) {
     return declare("PackageMapQueryWidget", [_TabContainerWidget, _LayoutWidget, _TemplatedMixin, _WidgetsInTemplateMixin], {
         templateString: template,
@@ -75,6 +76,7 @@ define([
         processFilters: null,
         addPackageMapDialog: null,
         validateTab: null,
+        params: null,
 
         buildRendering: function (args) {
             this.inherited(arguments);
@@ -96,7 +98,7 @@ define([
 
             var context = this;
             this.tabContainer.watch("selectedChildWidget", function (name, oval, nval) {
-                if ((nval.id != context.id + "Packages") && (!nval.initalized)) {
+                if (!nval.initalized && (nval.id != context.id + "Packages")) {
                     nval.init(nval.params, context.targets);
                 }
                 context.selectedTab = nval;
@@ -330,6 +332,7 @@ define([
                         context.processFilters = response.ProcessFilters.Item;
                     }
                     context.initPackagesGrid();
+                    context.initTabs();
                 },
                 error: function (errMsg, errStack) {
                     context.showErrors(errMsg, errStack);
@@ -392,22 +395,46 @@ define([
             this.targetSelect.options.push({label: this.i18n.ANY, value: 'ANY' });
         },
 
+        ensureNewPane: function (id, params) {
+            id = this.createChildTabID(id);
+            var context = this;
+                var retVal = new DelayLoadWidget({
+                    id: id,
+                    title: params.title,
+                    closable: false,
+                    delayWidget: "PMValidateWidget",
+                    params: params
+                });
+            this.tabContainer.addChild(retVal, 1);
+            return retVal;
+        },
+
         init: function (params) {
             if (this.initalized)
                 return;
 
             this.initalized = true;
+            this.params = params;
+            this.getSelections();
+        },
 
+        initTabs: function() {
+            this.params.targets = this.targets;
             this.validateTab = new PackageMapValidateWidget({
                 id: this.id + "_ValidatePackageMap",
                 title: this.i18n.ValidatePackageMap,
-                params: params
+                params: this.params
             });
             //this.tabMap[this.id + "_ValidatePackageMap"] = this.validateTab;
             this.tabContainer.addChild(this.validateTab, 1);
 
+	    //var wuid = "W20140429-143631";
+            var validateTab = this.ensureNewPane("ValidatePackageMap1", {
+                title: "Validate Package Map",
+                params: this.params
+            });
+
             this.tabContainer.selectChild(this.packagesTab);
-            this.getSelections();
         },
 
         initPackagesGrid: function() {
