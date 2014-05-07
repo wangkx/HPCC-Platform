@@ -9,7 +9,7 @@
 <st id='BrowserTimedOut'>Browser timed out due to a long time delay.</st>
 <st id='Busy'>Busy</st>
 <st id='Bytes'>bytes</st>
-<st id='Cancel'>Cancel</st>
+<st id='Cancel'>撤消</st>
 <st id='Cluster'>Cluster</st>
 <st id='ClusterProcess'>Cluster Process</st>
 <st id='Clusters'>Clusters</st>
