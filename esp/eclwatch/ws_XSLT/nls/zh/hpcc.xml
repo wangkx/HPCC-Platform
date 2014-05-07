@@ -1,6 +1,6 @@
-<hpcc>
+﻿<hpcc>
 <strings>
-<st id='Action'>Action</st>
+<st id='Action'>操作</st>
 <st id='Available'>Available</st>
 <st id='AdditionalProcessesToFilter'>Additional processes to filter</st>
 <st id='AutoRefreshEvery'>Auto Refresh every</st>
