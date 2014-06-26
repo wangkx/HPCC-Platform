@@ -1268,8 +1268,6 @@ void appendQueueInfoFromAuditLine(IArrayOf<IEspThorQueue>& items, const char* li
 
     if (checkNewThorQueueItem(tq, showAll, items))
         items.append(*tq.getClear());
-
-    DBGLOG("Queue log: [%s]", line);
 }
 
 
@@ -1427,6 +1425,9 @@ int CWsWorkunitsSoapBindingEx::onGet(CHttpRequest* request, CHttpResponse* respo
          }
          if(!strnicmp(path.str(), "/WsWorkunits/JobList", 20))
          {
+            if (ctx->getClientVersion()<=0)
+                ctx->setClientVersion(1.51);
+
             const char *cluster = params->queryProp("Cluster");
             const char *startDate = params->queryProp("StartDate");
             const char *endDate = params->queryProp("EndDate");
