@@ -931,6 +931,10 @@ void streamJobListResponse(IEspContext &context, const char *cluster, const char
         toTime.getString(tostr, false);
     }
 
+    response->setContentType(HTTP_TYPE_TEXT_HTML_UTF8);
+    response->setStatus(HTTP_STATUS_OK);
+    response->startSend();
+
     StringBuffer sb;
     sb.append("<script language=\"javascript\">parent.displayLegend(");
     appendQuoted(sb, fromstr.str(), true);
@@ -1036,7 +1040,7 @@ void streamJobListResponse(IEspContext &context, const char *cluster, const char
     sb.clear().append("<script language=\"javascript\">\r\n");
     sb.append("parent.displaySasha();\r\nparent.displayEnd(");
     appendQuoted(sb, xls, true).append(")</script>\r\n");
-    response->sendChunk(sb.str());
+    response->sendFinalChunk(sb.str());
 }
 
 bool checkSameStrings(const char* s1, const char* s2)
@@ -1314,6 +1318,10 @@ void streamJobQueueListResponse(IEspContext &context, const char *cluster, const
         countLines++;
     }
 
+    response->setContentType(HTTP_TYPE_TEXT_HTML_UTF8);
+    response->setStatus(HTTP_STATUS_OK);
+    response->startSend();
+
     if (items.length() < 1)
     {
         response->sendChunk("<script language=\"javascript\">\r\nparent.displayQEnd(\'No data found\')</script>\r\n");
@@ -1371,7 +1379,7 @@ void streamJobQueueListResponse(IEspContext &context, const char *cluster, const
     sb.append("Max. Queue Length: ").append(longestQueue).append(".");
     sb.append("</td></tr></table>\')</script>\r\n");
 
-    response->sendChunk(sb.str());
+    response->sendFinalChunk(sb.str());
 }
 
 int CWsWorkunitsSoapBindingEx::onGet(CHttpRequest* request, CHttpResponse* response)
