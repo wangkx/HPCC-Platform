@@ -324,66 +324,44 @@ function displayQueue(count,dt,running,queued,waiting,connected,idle,wuid1, wuid
 
     if (running > 0)
     {
-        if (!isFF)
-        {
-            var s='<g stroke-width="1" onmouseout="hide_popup()" onclick="open_workunit(\''+wuid1+'\')"'+
-              ' onmouseover="show_q_popup(window.evt.screenX,window.evt.screenY,\''+wuid1+'\',\''+dt+'\')" stroke="blue">';
-            s+='<line x1="'+xpos+'" y1="'+ybase+'" x2="'+xpos+'" y2="'+(ybase - 1)+'" stroke-width="0.15" />'
-            s+='</g>';
-            g.appendChild(svg.getWindow().parseXML(s,svgdoc));
-        }
-        else
-        {
-            var g1=svgdoc.createElementNS("http://www.w3.org/2000/svg", "g");
-            g1.setAttribute("stroke","blue");
-            g1.setAttribute("stroke-width",1);
+        var g1=svgdoc.createElementNS("http://www.w3.org/2000/svg", "g");
+        g1.setAttribute("stroke","blue");
+        g1.setAttribute("stroke-width",1);
 
-            g1.addEventListener("mouseover",function(evt) { show_q_popup1(evt,wuid1,dt); }, false);
-            g1.addEventListener("mouseout",function(evt) { hide_popup(); }, false);
-            g1.addEventListener("click",function(evt) { open_workunit(wuid1); }, false);
-            
-            var line2=svgdoc.createElementNS("http://www.w3.org/2000/svg", "line");
-            line2.setAttribute("x1",+xpos);
-            line2.setAttribute("y1",ybase);
-            line2.setAttribute("x2",xpos);
-            line2.setAttribute("y2",ybase - 1);
-            line2.setAttribute("stroke-width",0.15);
-            g1.appendChild(line2);
-            
-            g.appendChild(g1);
-        }
+        g1.addEventListener("mouseover",function(evt) { show_q_popup1(evt,wuid1,dt); }, false);
+        g1.addEventListener("mouseout",function(evt) { hide_popup(); }, false);
+        g1.addEventListener("click",function(evt) { open_workunit(wuid1); }, false);
+
+        var line2=svgdoc.createElementNS("http://www.w3.org/2000/svg", "line");
+        line2.setAttribute("x1",+xpos);
+        line2.setAttribute("y1",ybase);
+        line2.setAttribute("x2",xpos);
+        line2.setAttribute("y2",ybase - 1);
+        line2.setAttribute("stroke-width",0.15);
+        g1.appendChild(line2);
+
+        g.appendChild(g1);
     }
 
     if (running > 1)
     {
-        if (!isFF)
-        {
-            var s='<g stroke-width="1" onmouseout="hide_popup()" onclick="open_workunit(\''+wuid2+'\')"'+
-              ' onmouseover="show_q_popup(window.evt.screenX,window.evt.screenY,\''+wuid2+'\',\''+dt+'\')" stroke="blue">';
-            s+='<line x1="'+xpos+'" y1="'+(ybase - 1)+'" x2="'+xpos+'" y2="'+(ybase - 2)+'" stroke-width="0.15" />'
-            s+='</g>';
-            g.appendChild(svg.getWindow().parseXML(s,svgdoc));
-        }
-        else
-        {
-            var g1=svgdoc.createElementNS("http://www.w3.org/2000/svg", "g");
-            g1.setAttribute("stroke","blue");
-            g1.setAttribute("stroke-width",1);
+        var g1=svgdoc.createElementNS("http://www.w3.org/2000/svg", "g");
+        g1.setAttribute("stroke","blue");
+        g1.setAttribute("stroke-width",1);
 
-            g1.addEventListener("mouseover",function(evt) { show_q_popup1(evt,wuid2,dt); }, false);
-            g1.addEventListener("mouseout",function(evt) { hide_popup(); }, false);
-            g1.addEventListener("click",function(evt) { open_workunit(wuid2); }, false);
-            
-            var line2=svgdoc.createElementNS("http://www.w3.org/2000/svg", "line");
-            line2.setAttribute("x1",+xpos);
-            line2.setAttribute("y1",ybase - 1);
-            line2.setAttribute("x2",xpos);
-            line2.setAttribute("y2",ybase - 2);
-            line2.setAttribute("stroke-width",0.15);
-            g1.appendChild(line2);
-            
-            g.appendChild(g1);
-        }
+        g1.addEventListener("mouseover",function(evt) { show_q_popup1(evt,wuid2,dt); }, false);
+        g1.addEventListener("mouseout",function(evt) { hide_popup(); }, false);
+        g1.addEventListener("click",function(evt) { open_workunit(wuid2); }, false);
+
+        var line2=svgdoc.createElementNS("http://www.w3.org/2000/svg", "line");
+        line2.setAttribute("x1",+xpos);
+        line2.setAttribute("y1",ybase - 1);
+        line2.setAttribute("x2",xpos);
+        line2.setAttribute("y2",ybase - 2);
+        line2.setAttribute("stroke-width",0.15);
+        g1.appendChild(line2);
+
+        g.appendChild(g1);
     }
 
     if (queued > 0)
