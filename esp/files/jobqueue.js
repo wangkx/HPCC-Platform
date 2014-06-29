@@ -168,7 +168,7 @@ var usageArray=null;
 var busagAarray = null;
 var nbusageArray = null;
 var totalWorkunits=0;
-
+var itemWidth=0.4;
 function displayQLegend()
 {
     var count = 3;
@@ -179,7 +179,6 @@ function displayQLegend()
     var svgdoc=svg.getSVGDocument();
     var g1=svgdoc.createElementNS("http://www.w3.org/2000/svg", "g");
     g1.setAttribute("transform","translate(20,20) scale(25,20)");
-    g1.setAttribute("id","top");
 
     var g=svgdoc.createElementNS("http://www.w3.org/2000/svg", "g");
     g.setAttribute("stroke-width","0.01");
@@ -187,7 +186,6 @@ function displayQLegend()
     g.setAttribute("font-size","0.5");
     g.setAttribute("stroke-width","0.01");
     g.setAttribute("alignment-baseline","middle");
-    g.setAttribute("id","toplines");
 
     for(var i=0;i<count;i++)
     {
@@ -235,7 +233,6 @@ function displayQBegin(queues, connected, count)
     g.setAttribute("font-size","0.5");
     g.setAttribute("stroke-width","0.01");
     g.setAttribute("alignment-baseline","middle");
-    g.setAttribute("id","toplines");
 
      var lines = queues + connected + 1;
     for(var i=0;i<lines;i++)
@@ -250,7 +247,7 @@ function displayQBegin(queues, connected, count)
         var line=svgdoc.createElementNS("http://www.w3.org/2000/svg", "line");
         line.setAttribute("x1",0);
         line.setAttribute("y1",i);
-        line.setAttribute("x2",count*0.3+0.3);
+        line.setAttribute("x2",count*itemWidth+0.3);
         line.setAttribute("y2",i);
         if(i==0 || i==(lines-1))
         {
@@ -286,12 +283,11 @@ function displayQueue(count,dt,running,queued,waiting,connected,idle,wuid1, wuid
 
     var g=svgdoc.createElementNS("http://www.w3.org/2000/svg", "g");
     g.setAttribute("stroke","black");
-    g.setAttribute("font-size","0.5");
+    g.setAttribute("font-size","0.4");
     g.setAttribute("stroke-width","0.02");
     g.setAttribute("alignment-baseline","middle");
-    g.setAttribute("id","toplines");
-
-    var xpos = 0.3*count - 0.1;
+ 
+    var xpos = itemWidth*count - 0.1;
     var ybase = max_queues + 2;
     var ypos = ybase+0.2;
 
@@ -300,7 +296,6 @@ function displayQueue(count,dt,running,queued,waiting,connected,idle,wuid1, wuid
         var gskew = svgdoc.createElementNS("http://www.w3.org/2000/svg", "g");
         var trans = "translate(" + xpos + "," + ypos + ") rotate(-90)";
         gskew.setAttribute("transform", trans);
-        gskew.setAttribute("font-size","0.35");
         var text3=svgdoc.createElementNS("http://www.w3.org/2000/svg", "text");
         text3.setAttribute("x",0);
         text3.setAttribute("y",0);
