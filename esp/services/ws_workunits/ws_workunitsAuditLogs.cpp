@@ -1370,7 +1370,7 @@ void streamJobQueueListResponse(IEspContext &context, const char *cluster, const
     sb.append("parent.displayQEnd(\'<table><tr><td>");
     sb.append("Total Records in the Time Period: ").append(items.length());
     sb.append(" (<a href=\"/WsWorkunits/WUClusterJobQueueLOG?").append(xls);
-    sb.append("\">txt</a>...<a href=\"/WsWorkunits/WUClusterJobQueueXLS?").append(xls).append("\">xls</a>).");
+    sb.append("\">job_queue_log</a>...<a href=\"/WsWorkunits/WUClusterJobQueueXLS?").append(xls).append("\">job_queue.html</a>).");
     sb.append("</td></tr><tr><td>");
     if (count > maxDisplay)
         sb.append("Displayed: First ").append(maxDisplay).append(". ");
@@ -1522,7 +1522,8 @@ bool CWsWorkunitsEx::onWUClusterJobQueueXLS(IEspContext &context, IEspWUClusterJ
         MemoryBuffer mb;
         mb.setBuffer(xls.length(), (void*)xls.str());
         resp.setResult(mb);
-        resp.setResult_mimetype("application/vnd.ms-excel");
+        resp.setResult_mimetype(HTTP_TYPE_TEXT_HTML);
+        context.addCustomerHeader("Content-disposition", "attachment;filename=job_queue.html");
     }
     catch(IException* e)
     {
@@ -1608,7 +1609,8 @@ bool CWsWorkunitsEx::onWUClusterJobXLS(IEspContext &context, IEspWUClusterJobXLS
         MemoryBuffer mb;
         mb.setBuffer(xls.length(), (void*)xls.str());
         resp.setResult(mb);
-        resp.setResult_mimetype("application/vnd.ms-excel");
+        resp.setResult_mimetype(HTTP_TYPE_TEXT_HTML);
+        context.addCustomerHeader("Content-disposition", "attachment;filename=cluster_jobs.html");
     }
     catch(IException* e)
     {
@@ -1639,7 +1641,7 @@ bool CWsWorkunitsEx::onWUClusterJobSummaryXLS(IEspContext &context, IEspWUCluste
         MemoryBuffer mb;
         mb.setBuffer(xls.length(), (void*)xls.str());
         resp.setResult(mb);
-        resp.setResult_mimetype("application/vnd.ms-excel");
+        resp.setResult_mimetype(HTTP_TYPE_TEXT_HTML);
     }
     catch(IException* e)
     {

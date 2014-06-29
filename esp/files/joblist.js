@@ -437,7 +437,7 @@ function displayEnd(xls)
 {
     displayStat();
     if (totalWorkunits > 0)
-        displayProgress('<table><tr><td>Total: '+(totalWorkunits)+' graphs (<a href=\"/WsWorkunits/WUClusterJobXLS?' + xls +'\">xls</a>...<a href=\"/WsWorkunits/WUClusterJobSummaryXLS?' + xls +'\">summary</a>)</td></tr></table>');
+        displayProgress('<table><tr><td>Total: '+(totalWorkunits)+' graphs (<a href=\"/WsWorkunits/WUClusterJobSummaryXLS?' + xls +'\">summary</a>...<a href=\"/WsWorkunits/WUClusterJobXLS?' + xls +'\">cluster_jobs.html</a>)</td></tr></table>');
     else
         displayProgress('<table><tr><td>Total: '+(totalWorkunits)+' graphs</td></tr></table>');
 }
