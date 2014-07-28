@@ -722,6 +722,8 @@ int EspHttpBinding::onGet(CHttpRequest* request, CHttpResponse* response)
             return onGetRespSampleXml(context, request, response, serviceName.str(), methodName.str());
         case sub_serv_query:
             return onGetQuery(context, request, response, serviceName.str(), methodName.str());
+        case sub_serv_echo:
+            return onEcho(context, request, response);
         case sub_serv_file_upload:
             return onStartUpload(context, request, response, serviceName.str(), methodName.str());
         default:
@@ -1684,6 +1686,37 @@ int EspHttpBinding::getWsdlBindings(IEspContext &context, CHttpRequest *request,
         }
     }
     content.append("</binding>");
+    return 0;
+}
+
+int EspHttpBinding::onEcho(IEspContext& context, CHttpRequest* request, CHttpResponse* response)
+{
+    LogLevel level = getEspLogLevel(&context);
+    if (level >= LogNormal)
+        DBGLOG("EspHttpBinding::onEcho");
+
+    response->setVersion(HTTP_VERSION);
+    response->addHeader("Expires", "0");
+
+    StringBuffer respMsg;
+    ISecUser* user = context.queryUser();
+    if(user != NULL)
+    {
+        const char* name = user->getName();
+        if (name && *name)
+            respMsg.appendf("%s: ", name);
+    }
+
+    const char* reqContent = request->queryParameters()->queryProp("Content");
+    if (reqContent && *reqContent)
+        respMsg.append(reqContent);
+    else
+        respMsg.append("<No Content>");
+
+    response->setContent(respMsg.str());
+    response->setContentType(HTTP_TYPE_TEXT_PLAIN_UTF8);
+    response->setStatus(HTTP_STATUS_OK);
+    response->send();
     return 0;
 }
 

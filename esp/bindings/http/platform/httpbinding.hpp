@@ -96,6 +96,7 @@ interface IEspHttpBinding
     virtual int onStartUpload(IEspContext &context, CHttpRequest* request, CHttpResponse* response, const char *serv, const char *method)=0;
     virtual int onFinishUpload(IEspContext &context, CHttpRequest* request, CHttpResponse* response,    const char *serv, const char *method,
         StringArray& fileNames, StringArray& files, IMultiException *me)=0;
+    virtual int onEcho(IEspContext &context, CHttpRequest* request, CHttpResponse* response) = 0;
 };
 
 typedef MapStringTo<int> wsdlIncludedTable;
@@ -224,6 +225,7 @@ public:
     virtual int onGetIframe(IEspContext &context, CHttpRequest* request, CHttpResponse* response, const char *path);
     virtual int onGetContent(IEspContext &context, CHttpRequest* request, CHttpResponse* response, const char *serv, const char *method);
     virtual int onGetSoapBuilder(IEspContext &context, CHttpRequest* request, CHttpResponse* response,  const char *serv, const char *method);
+    virtual int onEcho(IEspContext &context, CHttpRequest* request,  CHttpResponse* response);
 
     virtual int onSoapRequest(CHttpRequest* request, CHttpResponse* response){return 0;}
 

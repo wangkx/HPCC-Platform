@@ -1468,6 +1468,8 @@ void CHttpRequest::parseEspPathInfo()
                     m_sstype=sub_serv_form;
                 else if (m_queryparams && m_queryparams->hasProp("form"))
                     m_sstype=sub_serv_xform;
+                else if (m_queryparams && m_queryparams->hasProp("echo"))
+                    m_sstype=sub_serv_echo;
                 else if (isUpload())
                     m_sstype=sub_serv_file_upload;
                 else if (getParameterCount())// queryParamStr()!=NULL && *queryParamStr()!=0)
