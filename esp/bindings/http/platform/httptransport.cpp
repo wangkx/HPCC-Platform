@@ -1460,6 +1460,8 @@ void CHttpRequest::parseEspPathInfo()
                     m_sstype=sub_serv_roxie_builder;
                 else if (m_queryparams && m_queryparams->hasProp("config_"))
                     m_sstype=sub_serv_config;
+                else if (m_queryparams && m_queryparams->hasProp("echo_"))
+                    m_sstype=sub_serv_echo;
                 else if (m_espServiceName.length()==0)
                     m_sstype=(m_queryparams && m_queryparams->hasProp("main")) ? sub_serv_main : sub_serv_root;
                 else if (m_espMethodName.length()==0)
@@ -1468,8 +1470,6 @@ void CHttpRequest::parseEspPathInfo()
                     m_sstype=sub_serv_form;
                 else if (m_queryparams && m_queryparams->hasProp("form"))
                     m_sstype=sub_serv_xform;
-                else if (m_queryparams && m_queryparams->hasProp("echo"))
-                    m_sstype=sub_serv_echo;
                 else if (isUpload())
                     m_sstype=sub_serv_file_upload;
                 else if (getParameterCount())// queryParamStr()!=NULL && *queryParamStr()!=0)
