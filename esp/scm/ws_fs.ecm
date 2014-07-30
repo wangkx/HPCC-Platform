@@ -35,6 +35,7 @@ ESPStruct [nil_remove] DFUWorkunit
     int State;
 
     string SourceLogicalName;
+    [min_ver("1.11")] string SourceGroupName;
 
     string SourceIP;
     string SourceFilePath;
@@ -611,7 +612,7 @@ ESPresponse [exceptions_inline] UploadFilesResponse
 };
 
 ESPservice [
-    version("1.10"), default_client_version("1.10"),
+    version("1.11"), default_client_version("1.11"),
     exceptions_inline("./smc_xslt/exceptions.xslt")] FileSpray
 {
     ESPuses ESPstruct DFUWorkunit;

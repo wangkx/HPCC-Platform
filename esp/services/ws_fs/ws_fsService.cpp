@@ -320,6 +320,8 @@ static void DeepAssign(IEspContext &context, IConstDFUWorkUnit *src, IEspDFUWork
 
         if (file->getRawDirectory(tmp.clear()).length()!=0)
             dest.setSourceDirectory(tmp.str());
+        if ((version >= 1.11) && (file->getGroupName(0,tmp.clear()).length()))      // should handle multiple clusters?
+            dest.setDestGroupName(tmp.str());
         SocketEndpoint srcdali;
         StringBuffer srcdaliip;
         file->getForeignDali(srcdali);
