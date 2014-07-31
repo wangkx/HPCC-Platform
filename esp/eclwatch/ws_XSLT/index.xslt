@@ -889,8 +889,8 @@
         <xsl:param name="queue"/>
         <xsl:param name="thorlcr" select="'0'"/>
 
-        <xsl:variable name="active1" select="$workunits[State='running' and $queue = QueueName]"/>
-        <xsl:variable name="active2" select="$workunits[State='running' and $queue != QueueName]"/>
+        <xsl:variable name="active1" select="$workunits[starts-with(State,'running') and $queue = QueueName]"/>
+        <xsl:variable name="active2" select="$workunits[starts-with(State,'running') and $queue != QueueName]"/>
         <tbody>
             <xsl:choose>
                 <xsl:when test="$workunits[1]">
@@ -938,7 +938,7 @@
                         </tr>
                     </xsl:if>
 
-                    <xsl:for-each select="$workunits[State!='running']">
+                    <xsl:for-each select="$workunits[not(starts-with(State,'running'))]">
                         <tr>
                             <xsl:apply-templates select=".">
                                 <xsl:with-param name="cluster" select="$cluster"/>
