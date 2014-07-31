@@ -79,6 +79,8 @@ define([
 
         logicalFile: null,
         prevState: "",
+fileSize: 0,
+compressedSize: 0,
 
         postCreate: function (args) {
             this.inherited(arguments);
@@ -244,6 +246,11 @@ define([
         },
 
         updateInput: function (name, oldValue, newValue) {
+if (name == 'Filesize') {
+this.fileSize = parseInt(newValue.toString().replace(",", ""));
+} else if (name == 'CompressedFileSize') {
+this.compressedSize = parseInt(newValue.toString().replace(",", ""));
+}
             var registryNode = registry.byId(this.id + name);
             if (registryNode) {
                 registryNode.set("value", newValue);
@@ -253,7 +260,19 @@ define([
                     switch (domElem.tagName) {
                         case "SPAN":
                         case "DIV":
-                            domAttr.set(this.id + name, "innerHTML", newValue);
+if ((this.fileSize > 0) && (this.compressedSize > 0) && (name == 'Filesize')) {
+var rate = 100 * this.compressedSize/this.fileSize;
+var actualSizeStr = this.compressedSize + ' (' + rate.toFixed(2) + '% compressed)';
+domAttr.set(this.id + 'CompressedFileSize', "innerHTML", actualSizeStr);
+domAttr.set(this.id + name, "innerHTML", newValue);
+} else if ((this.fileSize > 0) && (this.compressedSize > 0) && (name == 'CompressedFileSize')) {
+var rate = 100 * this.compressedSize/this.fileSize;
+var actualSizeStr = this.compressedSize + ' (' + rate.toFixed(2) + '% compressed)';
+domAttr.set(this.id + name, "innerHTML", actualSizeStr);
+} else {
+                domAttr.set(this.id + name, "innerHTML", newValue);
+}
+                            ///domAttr.set(this.id + name, "innerHTML", newValue);
                             break;
                         case "INPUT":
                         case "TEXTAREA":
