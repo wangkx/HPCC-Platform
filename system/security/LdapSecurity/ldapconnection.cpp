@@ -1167,15 +1167,16 @@ public:
                     {
                         struct berval* val = bvalues[0];
                         calcPWExpiry(expiry, (unsigned)val->bv_len, val->bv_val);
-                        ldap_value_free_len(bvalues);
                     }
                     else
                     {
                         expiry.clear();
                         DBGLOG("LDAP: Password never expires for user %s", username);
                     }
+                    ldap_value_free_len(bvalues);
                     user.setPasswordExpiration(expiry);
                 }
+                ldap_memfree(attribute);
             }
             ber_free(ber, 0);
 
@@ -1514,6 +1515,7 @@ public:
                         ldap_value_free(values);
                     }
                 }
+                ldap_memfree(attribute);
             }
             ber_free(ber, 0);
             return true;
@@ -1641,6 +1643,7 @@ public:
                             ldap_value_free( values );
                         }
                     }
+                    ldap_memfree(attribute);
                 }
                 ber_free(ber, 0);
             }
@@ -1758,6 +1761,7 @@ public:
                     }
                     ldap_value_free( values );
                 }
+                ldap_memfree(attribute);
             }
             ber_free(ber, 0);
         }
@@ -1869,6 +1873,7 @@ public:
                     }
                     ldap_value_free( values );
                 }
+                ldap_memfree(attribute);
             }
             ber_free(ber, 0);
         }
@@ -1917,7 +1922,10 @@ public:
                 attribute = ldap_next_attribute( ld, searchResult,ber))
             {
                 if(stricmp(attribute, fieldname) != 0)
+                {
+                    ldap_memfree(attribute);
                     continue;
+                }
                 if (( bvalues = ldap_get_values_len( ld, message, attribute)) != NULL )
                 {
                     struct berval* val = bvalues[0];
@@ -1927,8 +1935,10 @@ public:
                         act_sid.append(val->bv_len, val->bv_val);
                     }
                     ldap_value_free_len(bvalues);
+                    ldap_memfree(attribute);
                     break;
                 }
+                ldap_memfree(attribute);
             }
             ber_free(ber, 0);
         }
@@ -2129,6 +2139,7 @@ public:
                         }
                     }
                 }
+                ldap_memfree(attribute);
             }
             ber_free(ber, 0);
             users.append(*LINK(user.get()));
@@ -2585,14 +2596,19 @@ public:
                 attribute = ldap_next_attribute( ld, searchResult,ber))
             {
                 if(stricmp(attribute, "cn") != 0)
+                {
+                    ldap_memfree(attribute);
                     continue;
+                }
                 if (( values = ldap_get_values( ld, message, attribute))  != NULL )
                 {
                     char* val = values[0];
                     userdn.append("cn=").append(val).append(",").append(m_ldapconfig->getUserBasedn());
                     ldap_value_free( values );
+                    ldap_memfree(attribute);
                     break;
                 }
+                ldap_memfree(attribute);
             }
             ber_free(ber, 0);
         }
@@ -2802,7 +2818,16 @@ public:
             StringBuffer userdn;
             message = LdapFirstEntry( ld, searchResult);
             if(message != NULL)
-                userdn.append(ldap_get_dn(ld, message));
+            {
+                char *ldn = ldap_get_dn(ld, message);
+                if (!ldn)
+                {
+                    DBGLOG("LDAP: dn not found for user %s", username);
+                    return false;
+                }
+                userdn.append(ldn);
+                ldap_memfree(ldn);
+            }
             
             char* passwdvalue[] = { (char*)newPassword, NULL };
             LDAPMod pmod = 
@@ -2888,7 +2913,7 @@ public:
                     }
                     ldap_value_free( values );
                 }
-
+                ldap_memfree(attribute);
             }
 
             if(curname.length() == 0)
@@ -2978,7 +3003,7 @@ public:
                     }
                     ldap_value_free( values );
                 }
-
+                ldap_memfree(attribute);
             }
 
             if(curname.length() == 0)
@@ -3079,7 +3104,7 @@ public:
                         ldap_value_free( values );
                     }
                 }
-            
+                ldap_memfree(attribute);
             }
         }
     }
@@ -3241,7 +3266,10 @@ public:
                     attribute = ldap_next_attribute( ld, searchResult,ber))
                 {
                     if(stricmp(attribute, "memberOf") != 0)
+                    {
+                        ldap_memfree(attribute);
                         continue;
+                    }
                     if (( values = ldap_get_values( ld, message, attribute)) 
                         != NULL )
                     {
@@ -3256,6 +3284,7 @@ public:
 
                         ldap_value_free( values );
                     }
+                    ldap_memfree(attribute);
                 }
                 ber_free(ber, 0);
             }
@@ -3529,6 +3558,7 @@ public:
 
                     ldap_value_free( values );
                 }
+                ldap_memfree(attribute);
             }
             ber_free(ber, 0);
         }
@@ -3856,6 +3886,7 @@ private:
                         userdn.append(val);
                         ldap_value_free( values );
                     }
+                    ldap_memfree(attribute);
                 }
                 ber_free(ber, 0);
             }
@@ -3922,6 +3953,7 @@ private:
                     uid.append(val);
                     ldap_value_free( values );
                 }
+                ldap_memfree(attribute);
             }
             ber_free(ber, 0);
         }
@@ -4256,7 +4288,9 @@ private:
                 }
                 else if(stricmp(attribute, des_fieldname) == 0) 
                 {
-                    bvalues = ldap_get_values_len( ld, message, attribute); 
+                    bvalues = ldap_get_values_len( ld, message, attribute);
+                    if (bvalues != NULL)
+                        ldap_value_free_len(bvalues);
                 }
                 ldap_memfree( attribute );
             }
@@ -4420,13 +4454,21 @@ private:
         for(message = LdapFirstEntry(ld, searchResult); message != NULL; message = ldap_next_entry(ld, message))
         {
             StringBuffer dn;
-            dn.append(ldap_get_dn(ld, message));
+            char *ldn = ldap_get_dn(ld, message);
+            if (ldn)
+            {
+                dn.append(ldn);
+                ldap_memfree(ldn);
+            }
+
             for ( attribute = ldap_first_attribute( ld,searchResult,&ber ); attribute != NULL; 
                     attribute = ldap_next_attribute( ld, searchResult,ber))
             {
                 if(stricmp(attribute, sd_fieldname) == 0) 
                 {
-                    bvalues = ldap_get_values_len( ld, message, attribute); 
+                    bvalues = ldap_get_values_len( ld, message, attribute);
+                    if (bvalues != NULL)
+                        ldap_value_free_len(bvalues);
                 }
                 ldap_memfree( attribute );
             }
@@ -4914,14 +4956,19 @@ private:
                 attribute = ldap_next_attribute( ld, searchResult,ber))
             {
                 if(stricmp(attribute, "userAccountControl") != 0)
+                {
+                    ldap_memfree(attribute);
                     continue;
+                }
                 if (( values = ldap_get_values( ld, message, attribute))  != NULL )
                 {
                     char* val = values[0];
                     act_ctrl.append(val);
                     ldap_value_free( values );
+                    ldap_memfree(attribute);
                     break;
                 }
+                ldap_memfree(attribute);
             }
             ber_free(ber, 0);
         }
