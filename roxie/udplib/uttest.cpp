@@ -39,7 +39,7 @@ Findings:
 
 */
 
-#if 0
+#if 0//KW//
 void usage()
 {
     printf("USAGE: uttest [options] iprange\n");
@@ -848,7 +848,7 @@ int main(int argc, char * argv[] )
     udpOutQsPriority = 5;
     udpTraceLevel = 1;
 
-    //setTotalMemoryLimit(104857600);
+    //KW//setTotalMemoryLimit(104857600);
     roxiemem::setTotalMemoryLimit(false, 1048576000, 0, NULL);
     enableSocketMaxSetting = true;
 
@@ -1133,6 +1133,7 @@ int main(int argc, char * argv[] )
     if (udpMaxSlotsPerClient > udpQueueSize)
         udpMaxSlotsPerClient = udpQueueSize;
 //////////////////////////KW
+
     // default is daul mode (send and receive)
     if (!modeType) modeType = SND_MODE_BIT | RCV_MODE_BIT;
     
@@ -1146,7 +1147,7 @@ int main(int argc, char * argv[] )
     if (modeType & RCV_MODE_BIT) 
     {
         rcvMgr = createReceiveManager(7000, 7001, 7002, 7003, multiCast, udpQueueSize, udpMaxSlotsPerClient, myIndex);
-        ///rcvMgr = createReceiveManager(7000, 7001, 7002, 7003, multiCast, 100, 0x7fffffff, myIndex);
+        //KW//rcvMgr = createReceiveManager(7000, 7001, 7002, 7003, multiCast, 100, 0x7fffffff, myIndex);
         rowMgr = roxiemem::createRowManager(0, NULL, queryDummyContextLogger(), NULL);
         msgCollA = rcvMgr->createMessageCollator(rowMgr, 100);
         if (destB)
@@ -1202,18 +1203,19 @@ int main(int argc, char * argv[] )
                     if (thisTrace > 1)
                         printf("Sending data : %s\n", locBuff);
 
-                    char *transBuff = (char*) msgPackA->getBuffer(buffSize, false);
-                    strncpy(transBuff, locBuff, buffSize);
-                    msgPackA->putBuffer(transBuff, buffSize, false);
-                    
+                    unsigned len = strlen(locBuff);
+                    void *transBuff = msgPackA->getBuffer(len, true);
+                    memcpy(transBuff, locBuff, len);
+                    msgPackA->putBuffer(transBuff, len, true);
+
                     if (msgPackB)
                     {
-                        transBuff = (char*) msgPackB->getBuffer(buffSize, false);
-                        strncpy(transBuff, locBuff, buffSize);
-                        msgPackB->putBuffer(transBuff, buffSize, false);
+                        void *transBuff = msgPackB->getBuffer(len, true);
+                        memcpy(transBuff, locBuff, len);
+                        msgPackB->putBuffer(transBuff, len, true);
                     }
 
-                    totalSize += buffSize;
+                    totalSize += len;
                 }
             }
             msgPackA->flush(true);
@@ -1283,7 +1285,7 @@ int main(int argc, char * argv[] )
 
             unsigned totalSize = 0;
             unsigned buffSize = initSize;
-            if (unpackerNum) 
+            /*if (unpackerNum) //KW//
             {
                 //int size;
                 if (thisTrace)
@@ -1293,14 +1295,28 @@ int main(int argc, char * argv[] )
                 RecordLengthType *rowlen = (RecordLengthType *) unpackA->getNext(sizeof(RecordLengthType));
                 if (rowlen)
                 {
-                    unpackA->getNext(*rowlen);//Not sure we need to read here
-                    totalSize += (*rowlen);
+                    int size = *rowlen;
+                    const void *transBuff = unpackA->getNext(*rowlen);
+                    if (!transBuff)
+                    {
+                        if (thisTrace)
+                            printf("No data\n");
+                    }
+                    else
+                    {
+                        char recvBuff[100000];
+                        memcpy(recvBuff, transBuff, size);
+                        recvBuff[size]=0;
+                        if (thisTrace)
+                            printf("Received (for unpacker=%i) data : %s\n", unpackerNum, recvBuff);
+                    }
+                    totalSize += size;
                 }
             }
-            else 
+            else */
             {
-                if (thisTrace)
-                    printf("Calling getNext() with diff sizes for packer \"%s\"\n", (char*) hdr);
+                //KW//if (thisTrace)
+                //    printf("Calling getNext() with diff sizes for packer \"%s\"\n", (char*) hdr);
                 buffSize = initSize;
                 int pkIx = unpackerNum;
                 int nmSizes = numSizes;
@@ -1324,7 +1340,7 @@ int main(int argc, char * argv[] )
                         RecordLengthType *rowlen = (RecordLengthType *) unpackA->getNext(sizeof(RecordLengthType));
                         if (!rowlen)
                         {
-                            if (thisTrace > 1)
+                            if (thisTrace)
                                 printf("end of data\n");
                         }
                         else
@@ -1332,18 +1348,19 @@ int main(int argc, char * argv[] )
                             const void *transBuff = unpackA->getNext(*rowlen);
                             if (!transBuff)
                             {
-                                if (thisTrace > 1)
-                                    printf("end of data\n");
+                                if (thisTrace)
+                                    printf("No data\n");
                             }
                             else
                             {
+                                char recvBuff[100000];
                                 int size = *rowlen;
                                 totalSize += size;
-                                memcpy(locBuff, transBuff, size);
-                                locBuff[size]=0;
-                                if (thisTrace > 1)
+                                memcpy(recvBuff, transBuff, size);
+                                recvBuff[size]=0;
+                                if (thisTrace)
                                     printf("Received (for size=%i num=%i multi=%i unpacker=%i) data : %s\n",
-                                            buffSize, sendNum, sizeNum, unpackerNum, locBuff);
+                                            buffSize, sendNum, sizeNum, unpackerNum, recvBuff);
                             }
                         }
                     }
@@ -1383,9 +1400,8 @@ int main(int argc, char * argv[] )
             unpackA->Release();
             if (unpackB) unpackB->Release();
         }
-
+        printf("Please wait...\n");
     }
-
 
     if (msgCollA) 
     {
