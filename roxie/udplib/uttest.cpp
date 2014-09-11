@@ -809,7 +809,7 @@ void usage(char *err = NULL)
     fprintf(stderr, " [-receive]           : Sets the mode to receiver mode (i.e roxie server like) <default dual mode>\n");
     fprintf(stderr, " [-destA IP]          : Sets the sender destination ip address to IP (i.e roxie server IP) <default to local host>\n");
     fprintf(stderr, " [-destB IP]          : Sets the sender second destination ip address to IP <default no sec dest>\n");
-    fprintf(stderr, " [-multiCast IP]      : Sets the sniffer multicast ip address to IP <default %s>\n", multiCast);
+    fprintf(stderr, " [-multiCast IP:Port] : Sets the sniffer multicast ip address to IP <default %s>\n", multiCast);
     fprintf(stderr, " [-udpTimeout sec]    : Sets the sender udpRequestToSendTimeout value  <default %i>\n", udpRequestToSendTimeout);
     fprintf(stderr, " [-udpMaxTimeouts val]: Sets the sender udpMaxRetryTimedoutReqs value <default %i>\n", udpMaxRetryTimedoutReqs);
     fprintf(stderr, " [-udpNumQs val]      : Sets the sender's number of output queues <default %i>\n", udpNumQs);
@@ -836,6 +836,22 @@ void usage(char *err = NULL)
 #define SND_MODE_BIT 0x01
 #define RCV_MODE_BIT 0x02
 
+bool readIPPort(const char *ipPortString, StringBuffer& ip, unsigned& port)
+{
+    if (!ipPortString || !*ipPortString)
+        return false;
+
+    StringArray slist;
+    slist.appendListUniq(ipPortString, ":");
+    ip.set(slist.item(0));
+    if (slist.length() > 1)
+    {
+        const char* sPort = slist.item(1);
+        if (sPort && *sPort)
+            port = atoi(sPort);
+    }
+    return true;
+}
 
 int main(int argc, char * argv[] ) 
 {
@@ -844,13 +860,15 @@ int main(int argc, char * argv[] )
     destA = myIndex = addRoxieNode(GetCachedHostName());
 
     udpRequestToSendTimeout = 5;
-    udpMaxRetryTimedoutReqs = 3;
-    udpOutQsPriority = 5;
+    udpMaxRetryTimedoutReqs = 0;
+    udpOutQsPriority = 0;
     udpTraceLevel = 1;
 
     //KW//setTotalMemoryLimit(104857600);
     roxiemem::setTotalMemoryLimit(false, 1048576000, 0, NULL);
     enableSocketMaxSetting = true;
+    StringBuffer multiCastIP;
+    unsigned multiCastPort = 7003;
 
     char errBuff[100];
 
@@ -893,6 +911,9 @@ int main(int argc, char * argv[] )
                 if (++i < argc) 
                 {
                     multiCast = argv[i];
+                    unsigned port = 0;
+                    if (readIPPort(multiCast, multiCastIP, port) && (port > 0))
+                        multiCastPort = port;
                 }
                 else 
                 {
@@ -1118,18 +1139,18 @@ int main(int argc, char * argv[] )
     udpInlineCollation=false;
     udpInlineCollationPacketLimit=50;
     udpLocalWriteSocketSize=131071;
-    udpMaxRetryTimedoutReqs=0;
+    ////udpMaxRetryTimedoutReqs=0;
     udpMaxSlotsPerClient=2147483647;
     //udpMulticastBufferSize=131071;
-    udpOutQsPriority=0;
+    ////udpOutQsPriority=0;
     udpQueueSize=100;
-    udpRequestToSendTimeout=5;
+    ////udpRequestToSendTimeout=5;
     ///udpResendEnabled=false;
     udpRetryBusySenders=0;
     udpSendCompletedInData=false;
     ///udpSendQueueSize=50;
     udpSnifferEnabled=true;
-    udpTraceLevel=1;
+    ////udpTraceLevel=1;
     if (udpMaxSlotsPerClient > udpQueueSize)
         udpMaxSlotsPerClient = udpQueueSize;
 //////////////////////////KW
@@ -1146,7 +1167,9 @@ int main(int argc, char * argv[] )
 
     if (modeType & RCV_MODE_BIT) 
     {
-        rcvMgr = createReceiveManager(7000, 7001, 7002, 7003, multiCast, udpQueueSize, udpMaxSlotsPerClient, myIndex);
+        printf("before createReceiveManager");
+        rcvMgr = createReceiveManager(7000, 7001, 7002, multiCastPort, multiCastIP.str(), udpQueueSize, udpMaxSlotsPerClient, myIndex);
+        printf("1");
         //KW//rcvMgr = createReceiveManager(7000, 7001, 7002, 7003, multiCast, 100, 0x7fffffff, myIndex);
         rowMgr = roxiemem::createRowManager(0, NULL, queryDummyContextLogger(), NULL);
         msgCollA = rcvMgr->createMessageCollator(rowMgr, 100);
@@ -1159,7 +1182,7 @@ int main(int argc, char * argv[] )
 
     if (modeType & SND_MODE_BIT)
     {
-        sendMgr = createSendManager(7000, 7001, 7002, 7003, multiCast, 100, udpNumQs, 100, NULL, myIndex);
+        sendMgr = createSendManager(7000, 7001, 7002, multiCastPort, multiCastIP.str(), 100, udpNumQs, 100, NULL, myIndex);
         Sleep(5000);
 
         char locBuff[100000];
@@ -1358,7 +1381,7 @@ int main(int argc, char * argv[] )
                                 totalSize += size;
                                 memcpy(recvBuff, transBuff, size);
                                 recvBuff[size]=0;
-                                if (thisTrace)
+                                if (thisTrace > 1)
                                     printf("Received (for size=%i num=%i multi=%i unpacker=%i) data : %s\n",
                                             buffSize, sendNum, sizeNum, unpackerNum, recvBuff);
                             }
