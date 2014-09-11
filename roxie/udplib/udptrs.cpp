@@ -1159,7 +1159,6 @@ public:
             maxRetryData = MAX_RESEND_TABLE_SIZE;
         for (unsigned i = 0; i < numNodes; i++)
             receiversTable[i].init(i, numQueues, q_size, maxRetryData, send_flow_port, data_port, i==myNodeIndex);
-
         data = new send_data(*this, sniffer_port, sniffer_multicast_ip, bucket);
         send_flow = new send_send_flow(*this, numNodes);
         receive_flow = new send_receive_flow(*this, client_flow_port);

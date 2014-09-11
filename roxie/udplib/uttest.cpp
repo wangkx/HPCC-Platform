@@ -39,7 +39,7 @@ Findings:
 
 */
 
-#if 1
+#if 0
 void usage()
 {
     printf("USAGE: uttest [options] iprange\n");
@@ -781,7 +781,7 @@ unsigned modeType = 0;
 unsigned myIndex = 0;
 unsigned destA = 0;
 unsigned destB = 0;
-char *multiCast = "239.1.1.2";
+const char *multiCast = "239.1.1.2";
 unsigned udpNumQs = 3;
 
 unsigned numPackers = 2;
@@ -848,7 +848,9 @@ int main(int argc, char * argv[] )
     udpOutQsPriority = 5;
     udpTraceLevel = 1;
 
-    setTotalMemoryLimit(104857600);
+    //setTotalMemoryLimit(104857600);
+    roxiemem::setTotalMemoryLimit(false, 1048576000, 0, NULL);
+    enableSocketMaxSetting = true;
 
     char errBuff[100];
 
@@ -1108,12 +1110,34 @@ int main(int argc, char * argv[] )
         }
     }
 
+//////////////////////////KW
+    int udpMaxSlotsPerClient = 0x7fffffff;
+    int udpQueueSize = 100;
 
+    udpFlowSocketsSize=131071;
+    udpInlineCollation=false;
+    udpInlineCollationPacketLimit=50;
+    udpLocalWriteSocketSize=131071;
+    udpMaxRetryTimedoutReqs=0;
+    udpMaxSlotsPerClient=2147483647;
+    //udpMulticastBufferSize=131071;
+    udpOutQsPriority=0;
+    udpQueueSize=100;
+    udpRequestToSendTimeout=5;
+    ///udpResendEnabled=false;
+    udpRetryBusySenders=0;
+    udpSendCompletedInData=false;
+    ///udpSendQueueSize=50;
+    udpSnifferEnabled=true;
+    udpTraceLevel=1;
+    if (udpMaxSlotsPerClient > udpQueueSize)
+        udpMaxSlotsPerClient = udpQueueSize;
+//////////////////////////KW
     // default is daul mode (send and receive)
     if (!modeType) modeType = SND_MODE_BIT | RCV_MODE_BIT;
     
     IReceiveManager *rcvMgr = NULL;
-    IRowManager *rowMgr = NULL;
+    roxiemem::IRowManager *rowMgr = NULL;
     IMessageCollator *msgCollA = NULL;
     IMessageCollator *msgCollB = NULL;
 
@@ -1121,8 +1145,9 @@ int main(int argc, char * argv[] )
 
     if (modeType & RCV_MODE_BIT) 
     {
-        rcvMgr = createReceiveManager(7000, 7001, 7002, 7003, multiCast, 100, 0x7fffffff, myIndex);
-        rowMgr = createRowManager(0, NULL, queryDummyContextLogger(), NULL);
+        rcvMgr = createReceiveManager(7000, 7001, 7002, 7003, multiCast, udpQueueSize, udpMaxSlotsPerClient, myIndex);
+        ///rcvMgr = createReceiveManager(7000, 7001, 7002, 7003, multiCast, 100, 0x7fffffff, myIndex);
+        rowMgr = roxiemem::createRowManager(0, NULL, queryDummyContextLogger(), NULL);
         msgCollA = rcvMgr->createMessageCollator(rowMgr, 100);
         if (destB)
         {
@@ -1201,7 +1226,7 @@ int main(int argc, char * argv[] )
                 msgPackB->flush(true);
                 msgPackB->Release();
                 if (thisTrace)
-                    printf("Packer %s total data size = \n", packBHdr, totalSize);
+                    printf("Packer %s total data size = %d\n", packBHdr, totalSize);
             }
 
             if (delayPackers) Sleep(delayPackers);
@@ -1237,13 +1262,13 @@ int main(int argc, char * argv[] )
             {
                 hdr = resultA->getMessageHeader(len);
                 if (thisTrace)
-                    printf("Got unpacker - hdrLen=%i header %s\n", len, hdr);
+                    printf("Got unpacker - hdrLen=%i header %s\n", len, (char*) hdr);
             }
             if (resultB)
             {
                 hdr = resultB->getMessageHeader(len);
                 if (thisTrace)
-                    printf("Got unpacker - hdrLen=%i header \"%s\"\n", len, hdr);
+                    printf("Got unpacker - hdrLen=%i header \"%s\"\n", len, (char*) hdr);
             }
         
             if (!resultA && resultB) 
@@ -1260,16 +1285,22 @@ int main(int argc, char * argv[] )
             unsigned buffSize = initSize;
             if (unpackerNum) 
             {
-                int size;
+                //int size;
                 if (thisTrace)
-                    printf("Calling getNext() for all data available in packer \"%s\"\n", hdr);
-                void * p= unpackA->getNext(0x0ffffffff,&size);
-                totalSize += size;
+                    printf("Calling getNext() for all data available in packer \"%s\"\n", (char*) hdr);
+                //void * p= unpackA->getNext(0x0ffffffff,&size);
+                //totalSize += size;
+                RecordLengthType *rowlen = (RecordLengthType *) unpackA->getNext(sizeof(RecordLengthType));
+                if (rowlen)
+                {
+                    unpackA->getNext(*rowlen);//Not sure we need to read here
+                    totalSize += (*rowlen);
+                }
             }
             else 
             {
                 if (thisTrace)
-                    printf("Calling getNext() with diff sizes for packer \"%s\"\n", hdr);
+                    printf("Calling getNext() with diff sizes for packer \"%s\"\n", (char*) hdr);
                 buffSize = initSize;
                 int pkIx = unpackerNum;
                 int nmSizes = numSizes;
@@ -1288,42 +1319,64 @@ int main(int argc, char * argv[] )
                     }
                     for (unsigned sendNum=0; sendNum < nmSends; sendNum++) 
                     {
-                        int size;
-                        void *transBuff= unpackA->getNext(buffSize, &size);
-                        if (!transBuff) 
+                        //int size;
+                        //void *transBuff= unpackA->getNext(buffSize, &size);
+                        RecordLengthType *rowlen = (RecordLengthType *) unpackA->getNext(sizeof(RecordLengthType));
+                        if (!rowlen)
                         {
                             if (thisTrace > 1)
                                 printf("end of data\n");
                         }
-                        else {
-                            totalSize += size;
-                            memcpy(locBuff, transBuff, size);
-                            locBuff[size]=0;
-                            if (thisTrace > 1)
-                                printf("Received (for size=%i num=%i multi=%i unpacker=%i) data : %s\n", 
-                                        buffSize, sendNum, sizeNum, unpackerNum, locBuff);
+                        else
+                        {
+                            const void *transBuff = unpackA->getNext(*rowlen);
+                            if (!transBuff)
+                            {
+                                if (thisTrace > 1)
+                                    printf("end of data\n");
+                            }
+                            else
+                            {
+                                int size = *rowlen;
+                                totalSize += size;
+                                memcpy(locBuff, transBuff, size);
+                                locBuff[size]=0;
+                                if (thisTrace > 1)
+                                    printf("Received (for size=%i num=%i multi=%i unpacker=%i) data : %s\n",
+                                            buffSize, sendNum, sizeNum, unpackerNum, locBuff);
+                            }
                         }
                     }
                 }
             }
             
             if (thisTrace)
-                printf("Unpacker %s total data size = %i\n", hdr, totalSize);           
+                printf("Unpacker %s total data size = %i\n", (char*) hdr, totalSize);
 
             buffSize=initSize;
             if (thisTrace > 1)
                 printf("Trying to read more than written\n");
-            void *transBuff = unpackA->getNext(buffSize);
-            if (!transBuff) 
+            //void *transBuff = unpackA->getNext(buffSize);
+            RecordLengthType *rowlen = (RecordLengthType *) unpackA->getNext(sizeof(RecordLengthType));
+            if (!rowlen)
             {
                 if (thisTrace > 1)
                     printf("OK: Could not read more than written\n");
             }
-            else 
+            else
             {
-                memcpy(locBuff, transBuff, buffSize);
-                locBuff[buffSize]=0;
-                printf("WARNING: read more than written: (%s)\n", locBuff);
+                const void *transBuff = unpackA->getNext(*rowlen);
+                if (!transBuff)
+                {
+                    if (thisTrace > 1)
+                        printf("OK: Could not read more than written\n");
+                }
+                else
+                {
+                    memcpy(locBuff, transBuff, buffSize);
+                    locBuff[buffSize]=0;
+                    printf("WARNING: read more than written: (%s)\n", locBuff);
+                }
             }
             printf("\n\n\n");
             
