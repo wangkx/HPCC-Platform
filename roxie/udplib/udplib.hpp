@@ -96,6 +96,7 @@ interface IReceiveManager : extends IInterface
     virtual IMessageCollator *createMessageCollator(roxiemem::IRowManager *rowManager, ruid_t ruid) = 0;
     virtual void detachCollator(const IMessageCollator *collator) = 0;
     virtual void setDefaultCollator(IMessageCollator *collator) = 0;
+    virtual void updateSenderTable(const char* ip) {};
 };
 
 interface ISendManager : extends IInterface 

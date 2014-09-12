@@ -798,7 +798,7 @@ unsigned numPackersInfo = 0;
 void usage(char *err = NULL) 
 {
     if (err) fprintf(stderr, "Usage Error: %s\n", err);
-    fprintf(stderr, "Usage: %s [ -send [-destA IP] [-destB IP] ] [-receive]\n", progName);
+    fprintf(stderr, "Usage: %s [ -send [-destA IP] [-destB IP] ] [-receive -sender]\n", progName);
     fprintf(stderr, "          [-multiCast IP] [-udpTimeout sec] [-udpMaxTimeouts val]\n");
     fprintf(stderr, "          [-udpNumQs val] [-udpQsPriority val] [-packerHdrSize val]\n");
     fprintf(stderr, "          [-numPackers val] [-numSizes val] [-numSends val]\n");
@@ -807,6 +807,7 @@ void usage(char *err = NULL)
 
     fprintf(stderr, " [-send]              : Sets the mode to sender mode (i.e roxie slave like) <default dual mode>\n");
     fprintf(stderr, " [-receive]           : Sets the mode to receiver mode (i.e roxie server like) <default dual mode>\n");
+    fprintf(stderr, " [-sender IP]         : Sets the sender ip address to IP (for udp test)\n");
     fprintf(stderr, " [-destA IP]          : Sets the sender destination ip address to IP (i.e roxie server IP) <default to local host>\n");
     fprintf(stderr, " [-destB IP]          : Sets the sender second destination ip address to IP <default no sec dest>\n");
     fprintf(stderr, " [-multiCast IP:Port] : Sets the sniffer multicast ip address to IP <default %s>\n", multiCast);
@@ -864,11 +865,14 @@ int main(int argc, char * argv[] )
     udpOutQsPriority = 0;
     udpTraceLevel = 1;
 
+    //KW
+    StringBuffer senderIP;
+    StringBuffer multiCastIP;
+    multiCastIP.set(multiCast);
+    unsigned multiCastPort = 7003;
     //KW//setTotalMemoryLimit(104857600);
     roxiemem::setTotalMemoryLimit(false, 1048576000, 0, NULL);
     enableSocketMaxSetting = true;
-    StringBuffer multiCastIP;
-    unsigned multiCastPort = 7003;
 
     char errBuff[100];
 
@@ -889,6 +893,18 @@ int main(int argc, char * argv[] )
                     destA = addRoxieNode(argv[++i]);
                 }
                 else 
+                {
+                    sprintf(errBuff,"Missing IP address after \"%s\"", argv[i]);
+                    usage(errBuff);
+                }
+            }
+            else if(stricmp(argv[i]+1,"sender")==0)
+            {
+                if (i+1 < argc)
+                {
+                    senderIP.set(argv[++i]);
+                }
+                else
                 {
                     sprintf(errBuff,"Missing IP address after \"%s\"", argv[i]);
                     usage(errBuff);
@@ -1167,9 +1183,9 @@ int main(int argc, char * argv[] )
 
     if (modeType & RCV_MODE_BIT) 
     {
-        printf("before createReceiveManager");
         rcvMgr = createReceiveManager(7000, 7001, 7002, multiCastPort, multiCastIP.str(), udpQueueSize, udpMaxSlotsPerClient, myIndex);
-        printf("1");
+        if (senderIP.length())
+            rcvMgr->updateSenderTable(senderIP.str());
         //KW//rcvMgr = createReceiveManager(7000, 7001, 7002, 7003, multiCast, 100, 0x7fffffff, myIndex);
         rowMgr = roxiemem::createRowManager(0, NULL, queryDummyContextLogger(), NULL);
         msgCollA = rcvMgr->createMessageCollator(rowMgr, 100);
@@ -1381,7 +1397,7 @@ int main(int argc, char * argv[] )
                                 totalSize += size;
                                 memcpy(recvBuff, transBuff, size);
                                 recvBuff[size]=0;
-                                if (thisTrace > 1)
+                                ///if (thisTrace > 1)
                                     printf("Received (for size=%i num=%i multi=%i unpacker=%i) data : %s\n",
                                             buffSize, sendNum, sizeNum, unpackerNum, recvBuff);
                             }

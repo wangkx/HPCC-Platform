@@ -69,6 +69,9 @@ class CReceiveManager : public CInterface, implements IReceiveManager
             unsigned destNodeIndex;
             unsigned myNodeIndex;
             ISocket *flowSocket;
+            ISocket *flowSocket2;
+            StringBuffer senderIP;
+            unsigned senderPort;
 
         public:
             unsigned nextIndex;     // Used to form list of all senders that have outstanding requests
@@ -93,6 +96,11 @@ class CReceiveManager : public CInterface, implements IReceiveManager
                     flowSocket->close();
                     flowSocket->Release();
                 }
+                if (flowSocket2)
+                {
+                    flowSocket2->close();
+                    flowSocket2->Release();
+                }
                 delete [] missing;
             }
 
@@ -103,6 +111,7 @@ class CReceiveManager : public CInterface, implements IReceiveManager
                 myNodeIndex = _myNodeIndex;
                 SocketEndpoint ep(port, getNodeAddress(destNodeIndex));
                 flowSocket = ISocket::udp_connect(ep);
+                flowSocket2 = NULL;
                 missingTableSize = _missingTableSize;
                 missing = new unsigned[_missingTableSize];
             }
@@ -253,7 +262,16 @@ class CReceiveManager : public CInterface, implements IReceiveManager
                         StringBuffer s;
                         DBGLOG("requestToSend %s", msg.toString(s).str());
                     }
-                    flowSocket->write(&msg, msg.hdr.length);
+                    if (!flowSocket2 && senderIP.length())
+                    {
+                        msg.hdr.destNodeIndex = 1;
+                        IpAddress ip(senderIP.str());
+                        SocketEndpoint ep(senderPort, ip);
+                        flowSocket2 = ISocket::udp_connect(ep);
+                        flowSocket2->write(&msg, msg.hdr.length);
+                    }
+                    if (!flowSocket2)
+                        flowSocket->write(&msg, msg.hdr.length);
                 }
                 catch(IException *e) 
                 {
@@ -261,6 +279,17 @@ class CReceiveManager : public CInterface, implements IReceiveManager
                     DBGLOG("UdpReceiver: send_acknowledge failed node=%u %s", destNodeIndex, e->errorMessage(s).toCharArray());
                     e->Release();
                 }
+            }
+
+            void setSenderIP(const char* ip)
+            {
+                if (ip && *ip)
+                    senderIP.set(ip);
+            }
+
+            void setSenderPort(unsigned port)
+            {
+                senderPort = port;
             }
 
         } *sendersTable;
@@ -294,6 +323,7 @@ class CReceiveManager : public CInterface, implements IReceiveManager
             for (unsigned i = 0; i < maxSenders; i++)
             {
                 sendersTable[i].init(i, parent.myNodeIndex, parent.send_flow_port, missingTableSize);
+                sendersTable[i].setSenderPort(parent.send_flow_port);
             }
         }
 
@@ -304,6 +334,16 @@ class CReceiveManager : public CInterface, implements IReceiveManager
             transferComplete.signal();
             join();
             delete [] sendersTable;
+        }
+
+        void updateSenderTable(const char* ip)
+        {
+            if (!ip || !*ip)
+                return;
+            for (unsigned i = 0; i < maxSenders; i++)
+            {
+                sendersTable[i].setSenderIP(ip);
+            }
         }
 
         unsigned send_acknowledge() 
@@ -869,6 +909,12 @@ public:
         if (udpTraceLevel>=5) DBGLOG("UdpReceiver: setDefaultCollator");
         SpinBlock b(collatorsLock);
         defaultMessageCollator.set(msgColl);
+    }
+
+    void updateSenderTable(const char* ip)
+    {
+        if (manager)
+            manager->updateSenderTable(ip);
     }
 
     void collatePackets()
