@@ -14,19 +14,32 @@
 #    limitations under the License.
 ################################################################################
 
-# component: udplib
+# Component: utmulticast
 
 #####################################################
 # Description:
 # ------------
-#    Cmake Input File udplib
+#    Cmake Input File for utmulticast
 #####################################################
 
 
+project( utmulticast )
 
-project (AllProjects)
+set (    SRCS
+         utmulticast.cpp
+    )
 
-include ( udplib.cmake)
-include ( udptransport.cmake)
-include ( utmulticast.cmake)
+include_directories (
+         ./../../system/include
+         ./../../system/jlib
+    )
+
+ADD_DEFINITIONS ( -D_CONSOLE )
+
+HPCC_ADD_EXECUTABLE ( utmulticast ${SRCS} )
+#install ( TARGETS utmulticast RUNTIME DESTINATION ${EXEC_DIR} )
+target_link_libraries ( utmulticast
+         jlib
+    )
+
 
