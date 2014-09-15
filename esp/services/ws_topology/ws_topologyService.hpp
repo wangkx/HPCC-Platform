@@ -89,6 +89,8 @@ private:
     bool                                m_enableSNMP;
     StringAttr                          defaultTargetClusterName;
     StringAttr                          defaultTargetClusterPrefix;
+    StringAttr                          espProcessName;
+    IArrayOf<IEspTpEspServicePlugin>    espServicePlugins;
 
     void getThorXml(const char *cluster,StringBuffer& strBuff);
     void getThorLog(const char *cluster,MemoryBuffer& returnbuff);

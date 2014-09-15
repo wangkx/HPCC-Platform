@@ -169,7 +169,7 @@ public:
     void getTpEclCCServers(IPropertyTree* environmentSoftware, IArrayOf<IConstTpEclServer>& ServiceList, const char* name = NULL);
     void getTpEclAgents(IArrayOf<IConstTpEclAgent>& list, const char* name = NULL);
     void getTpEclSchedulers(IArrayOf<IConstTpEclScheduler>& ServiceList, const char* name = NULL);
-    void getTpEspServers(IArrayOf<IConstTpEspServer>& list);
+    void getTpEspServers(double version, IArrayOf<IConstTpEspServer>& list, const char* espName, IArrayOf<IEspTpEspServicePlugin>& espServicePlugins);
     void getTpDfuServers(IArrayOf<IConstTpDfuServer>& list);
     void getTpSashaServers(IArrayOf<IConstTpSashaServer>& list);
     void getTpLdapServers(IArrayOf<IConstTpLdapServer>& list);

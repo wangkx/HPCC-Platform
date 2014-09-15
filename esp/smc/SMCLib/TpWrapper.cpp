@@ -405,7 +405,7 @@ void CTpWrapper::getTpEclSchedulers(IArrayOf<IConstTpEclScheduler>& list, const 
     }
 }
 
-void CTpWrapper::getTpEspServers(IArrayOf<IConstTpEspServer>& list)
+void CTpWrapper::getTpEspServers(double version, IArrayOf<IConstTpEspServer>& list, const char* espName, IArrayOf<IEspTpEspServicePlugin>& espServicePlugins)
 {
     DBGLOG("CTpWrapper::getEspServers()");
     Owned<IPropertyTree> root = getEnvironment("Software");
@@ -465,6 +465,21 @@ void CTpWrapper::getTpEspServers(IArrayOf<IConstTpEspServer>& list)
         }
 
         pService->setTpBindings( tpBindings);
+        if ((version >= 1.21) && strieq(name, espName))
+        {
+            IArrayOf<IEspTpEspServicePlugin> plugins;
+            ForEachItemIn(ii,espServicePlugins)
+            {
+                IEspTpEspServicePlugin& servicePlugin = espServicePlugins.item(ii);
+
+                Owned<IEspTpEspServicePlugin> plugin= createTpEspServicePlugin("","");
+                plugin->setName(servicePlugin.getName());
+                plugin->setType(servicePlugin.getType());
+                plugins.append(*plugin.getClear());
+            }
+            pService->setTpEspServicePlugins(plugins);
+        }
+
         list.append(*pService.getLink());
     }
 }

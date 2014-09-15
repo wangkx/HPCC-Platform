@@ -83,6 +83,24 @@ void CWsTopologyEx::init(IPropertyTree *cfg, const char *process, const char *se
             defaultTargetClusterPrefix.set(cfg->queryProp(xpath.str()));
     }
 
+    espProcessName.set(process);
+    xpath.clear().appendf("Software/EspProcess[@name=\"%s\"]/EspService[@servicePlugin]", process);
+    Owned<IPropertyTreeIterator> it= cfg->getElements(xpath.str());
+    ForEach(*it)
+    {
+        IPropertyTree& espService = it->query();
+        const char* servicePlugin = espService.queryProp("@servicePlugin");
+        const char* servicePluginType = espService.queryProp("@servicePluginType");
+        if (!servicePlugin || !*servicePlugin)
+            continue;
+        Owned<IEspTpEspServicePlugin> espServicePlugin= createTpEspServicePlugin("","");
+        espServicePlugin->setName(servicePlugin);
+        if (servicePluginType && *servicePluginType)
+            espServicePlugin->setType(servicePluginType);
+
+        espServicePlugins.append(*espServicePlugin.getClear());
+    }
+
     m_enableSNMP = false;
 }
 
@@ -1267,7 +1285,7 @@ bool CWsTopologyEx::onTpServiceQuery(IEspContext &context, IEspTpServiceQueryReq
             m_TpWrapper.getTpEclServers( ServiceList.getTpEclServers() );
             m_TpWrapper.getTpEclCCServers( ServiceList.getTpEclCCServers() );
             m_TpWrapper.getTpEclAgents( ServiceList.getTpEclAgents() );
-            m_TpWrapper.getTpEspServers( ServiceList.getTpEspServers() );   
+            m_TpWrapper.getTpEspServers(version, ServiceList.getTpEspServers(), espProcessName.get(), espServicePlugins);
             m_TpWrapper.getTpDfuServers( ServiceList.getTpDfuServers() );   
             m_TpWrapper.getTpSashaServers( ServiceList.getTpSashaServers() );   
             m_TpWrapper.getTpGenesisServers( ServiceList.getTpGenesisServers() );

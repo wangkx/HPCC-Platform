@@ -138,6 +138,12 @@ ESPStruct TpBinding
 
 };
 //  ===========================================================================
+ESPStruct TpEspServicePlugin
+{
+    string Name;
+    string Type;
+};
+
 ESPStruct TpEspServer
 {
     string Name;
@@ -148,7 +154,7 @@ ESPStruct TpEspServer
     string LogDirectory;
     ESParray<ESPstruct TpMachine> TpMachines;
     ESParray<ESPstruct TpBinding> TpBindings;
-
+    [min_ver("1.21")] ESParray<ESPstruct TpEspServicePlugin> TpEspServicePlugins;
 };
 //  ===========================================================================
 ESPStruct TpDfuServer
@@ -565,7 +571,7 @@ ESPresponse [exceptions_inline,encode(0)] TpThorStatusResponse
     int AutoRefresh;
 };
 
-ESPservice [noforms, version("1.20"), default_client_version("1.20"), exceptions_inline("./smc_xslt/exceptions.xslt")] WsTopology
+ESPservice [noforms, version("1.21"), default_client_version("1.21"), exceptions_inline("./smc_xslt/exceptions.xslt")] WsTopology
 {
     ESPuses ESPStruct TpBinding;
     ESPuses ESPstruct TpCluster;
