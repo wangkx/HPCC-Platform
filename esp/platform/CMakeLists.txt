@@ -42,6 +42,8 @@ include_directories (
          ./../bindings/http/platform 
          ./../../common/environment 
          ./../../system/mp 
+         ./../../rtl/eclrtl
+         ${JAVA_INCLUDE_PATH}
          ${CMAKE_BINARY_DIR}
          ${CMAKE_BINARY_DIR}/oss
     )
@@ -60,6 +62,8 @@ target_link_libraries ( esp
          remote 
          dalibase 
          environment 
+         ${JAVA_JVM_LIBRARY}
+         eclrtl
     )
 
 

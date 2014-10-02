@@ -30,6 +30,8 @@
 #include <sys/time.h>
 #endif
 
+#include <jni.h>
+#include "eclrtl.hpp"
 
 //SCM Interfaces
 #include "esp.hpp"
@@ -235,6 +237,354 @@ static void usage()
     exit(1);
 }
 
+static void checkException(JNIEnv *JNIenv)
+{
+    if (JNIenv->ExceptionCheck())
+    {
+        jthrowable exception = JNIenv->ExceptionOccurred();
+        JNIenv->ExceptionClear();
+        jclass throwableClass = JNIenv->FindClass("java/lang/Throwable");
+        jmethodID throwableToString = JNIenv->GetMethodID(throwableClass, "toString", "()Ljava/lang/String;");
+        jstring cause = (jstring) JNIenv->CallObjectMethod(exception, throwableToString);
+        const char *text = JNIenv->GetStringUTFChars(cause, 0);
+        VStringBuffer message("javaembed: %s", text);
+        JNIenv->ReleaseStringUTFChars(cause, text);
+        rtlFail(0, message.str());
+    }
+}
+
+void fromKELToECL(JNIEnv *JNIenv, const char* kel)
+{
+    unsigned unicodeChars;
+    UChar *unicode;
+    PROGLOG("**** fromKELToECL 1");
+    rtlStrToUnicodeX(unicodeChars, unicode, strlen(kel), kel);
+    PROGLOG("**** fromKELToECL 2");
+    jstring jArg = JNIenv->NewString(unicode, unicodeChars);
+    PROGLOG("**** fromKELToECL 3");
+
+    checkException(JNIenv);
+    JNIenv->ExceptionClear();
+    jclass testInputOutputStringClass = JNIenv->FindClass("TestInputOutputString");
+    PROGLOG("**** fromKELToECL 4");
+    checkException(JNIenv);
+    jmethodID getCompileMethod = JNIenv->GetStaticMethodID(testInputOutputStringClass, "AddTestToInput", "(Ljava/lang/String;)Ljava/lang/String;");
+    PROGLOG("**** fromKELToECL 5");
+    checkException(JNIenv);
+    jstring result = (jstring) JNIenv->CallStaticObjectMethod(testInputOutputStringClass, getCompileMethod, jArg);
+    PROGLOG("**** fromKELToECL 6");
+    checkException(JNIenv);
+
+    StringBuffer ecl, message;
+    size_t size = JNIenv->GetStringUTFLength(result);  // in bytes
+    PROGLOG("**** fromKELToECL 7");
+    const char *text = JNIenv->GetStringUTFChars(result, NULL);
+    if (text)
+        ecl.set(text);
+    PROGLOG("**** fromKELToECL 8");
+    message.setf("fromKELToECL: %s, length: %ld", text, size);
+    JNIenv->ReleaseStringUTFChars(result, text);
+    JNIenv->DeleteLocalRef(result);
+    PROGLOG("**** ecl<%s>", ecl.str());
+    PROGLOG("**** message<%s>", message.str());
+    PROGLOG("**** fromKELToECL OK");
+    PROGLOG("**** fromKELToECL 9");
+    return;
+}
+
+void fromKELToECL2(JNIEnv *JNIenv, const char* kel)
+{
+    PROGLOG("**** fromKELToECL O1");
+    jint iArg = 9;
+    JNIenv->ExceptionClear();
+    jclass testInputOutputStringClass = JNIenv->FindClass("TestInputOutput");
+    PROGLOG("**** fromKELToECL O2");
+    checkException(JNIenv);
+    jmethodID getCompileMethod = JNIenv->GetStaticMethodID(testInputOutputStringClass, "AddTestToInputObj2", "(LTestDataInput;)LTestDataOutput;");
+    PROGLOG("**** fromKELToECL O3");
+    checkException(JNIenv);
+
+    jstring inStr1 = JNIenv->NewStringUTF(kel);
+    jstring inStr2 = JNIenv->NewStringUTF("5678");
+    PROGLOG("**** fromKELToECL O4");
+
+    jclass testInputClass = JNIenv->FindClass("TestDataInput");
+    PROGLOG("**** fromKELToECL O5");
+    checkException(JNIenv);
+    jmethodID constructor = JNIenv->GetMethodID(testInputClass, "<init>", "(Ljava/lang/String;Ljava/lang/String;I)V");
+    PROGLOG("**** fromKELToECL O51");
+    checkException(JNIenv);
+
+    jobject inObject = JNIenv->NewObject(testInputClass, constructor, inStr1, inStr2, iArg);
+    checkException(JNIenv);
+    PROGLOG("**** fromKELToECL O6");
+
+    jobject outObject = JNIenv->CallStaticObjectMethod(testInputOutputStringClass, getCompileMethod, inObject);
+    assert(outObject != NULL);
+    checkException(JNIenv);
+    PROGLOG("**** fromKELToECL O7");
+
+    jclass outClass = JNIenv->GetObjectClass(outObject);
+    jmethodID methodID = JNIenv->GetMethodID(outClass, "getOutStr1","()Ljava/lang/String;");
+    jstring outStr1 = (jstring) JNIenv->CallObjectMethod(outObject, methodID);
+    PROGLOG("**** fromKELToECL O73");
+
+    //methodID = JNIenv->GetMethodID(outClass, "getOutInt1", "(I)V");
+    //jint outInt1 = JNIenv->CallIntMethod(outObject, methodID);
+
+    StringBuffer ecl, message;
+    size_t size = JNIenv->GetStringUTFLength(outStr1);  // in bytes
+    const char *text = JNIenv->GetStringUTFChars(outStr1, NULL);
+    if (text)
+        ecl.set(text);
+    message.setf("fromKELToECL: %s, length: %ld", text, size);
+    PROGLOG("**** ecl %s", ecl.str());
+    PROGLOG("**** message %s", message.str());
+    JNIenv->ReleaseStringUTFChars(outStr1, text);
+    JNIenv->DeleteLocalRef(outStr1);
+    PROGLOG("**** fromKELToECL O9");
+    return;
+}
+
+void fromKELToECL3(JNIEnv *JNIenv, const char* kel)
+{
+    PROGLOG("**** fromKELToECL O1");
+    JNIenv->ExceptionClear();
+    jclass testInputOutputStringClass = JNIenv->FindClass("TestInputOutput2");
+    PROGLOG("**** fromKELToECL O2");
+    checkException(JNIenv);
+    jmethodID getCompileMethod = JNIenv->GetStaticMethodID(testInputOutputStringClass, "AddTestToInputObj2", "(LTestDataInput2;)LTestDataOutput2;");
+    PROGLOG("**** fromKELToECL O3");
+    checkException(JNIenv);
+
+    jstring inStr1 = JNIenv->NewStringUTF(kel);
+    jstring inStr2 = JNIenv->NewStringUTF("5678");
+    jstring inStr3 = JNIenv->NewStringUTF("99");
+    PROGLOG("**** fromKELToECL O4");
+
+    jclass testInputClass = JNIenv->FindClass("TestDataInput2");
+    PROGLOG("**** fromKELToECL O5");
+    checkException(JNIenv);
+    jmethodID constructor = JNIenv->GetMethodID(testInputClass, "<init>", "([Ljava/lang/String;Ljava/lang/String;)V");
+    PROGLOG("**** fromKELToECL O51");
+    checkException(JNIenv);
+
+    jclass classString = JNIenv->FindClass("java/lang/String");
+    jobjectArray outJNIArray = JNIenv->NewObjectArray(2, classString, NULL);
+
+    jmethodID midStringInit = JNIenv->GetMethodID(classString, "<init>", "(Ljava/lang/String;)V");
+    //if (NULL == midStringInit) return NULL;
+    jobject objStr1 = JNIenv->NewObject(classString, midStringInit, inStr1);
+    jobject objStr2 = JNIenv->NewObject(classString, midStringInit, inStr2);
+    JNIenv->SetObjectArrayElement(outJNIArray, 0, objStr1);
+    JNIenv->SetObjectArrayElement(outJNIArray, 1, objStr2);
+
+    jobject inObject = JNIenv->NewObject(testInputClass, constructor, outJNIArray, inStr3);
+    checkException(JNIenv);
+    PROGLOG("**** fromKELToECL O6");
+
+    jobject outObject = JNIenv->CallStaticObjectMethod(testInputOutputStringClass, getCompileMethod, inObject);
+    assert(outObject != NULL);
+    checkException(JNIenv);
+    PROGLOG("**** fromKELToECL O7");
+
+    jclass outClass = JNIenv->GetObjectClass(outObject);
+    jmethodID methodID = JNIenv->GetMethodID(outClass, "getOutStr","()Ljava/lang/String;");
+    jstring outStr = (jstring) JNIenv->CallObjectMethod(outObject, methodID);
+    PROGLOG("**** fromKELToECL O73");
+
+    jmethodID methodID2 = JNIenv->GetMethodID(outClass, "getOutStrs","()[Ljava/lang/String;");
+    jobjectArray outStrs = (jobjectArray) JNIenv->CallObjectMethod(outObject, methodID2);
+
+    const char *param[20];
+    jsize stringCount = JNIenv->GetArrayLength(outStrs);
+
+    for (unsigned i=0; i<stringCount; i++)
+    {
+        jstring string = (jstring) JNIenv->GetObjectArrayElement( outStrs, i);
+        param[i] = JNIenv->GetStringUTFChars( string, NULL);
+        PROGLOG("**** param %s", param[i]);
+    }
+    PROGLOG("**** fromKELToECL O73");
+
+    StringBuffer ecl, message;
+    size_t size = JNIenv->GetStringUTFLength(outStr);  // in bytes
+    const char *text = JNIenv->GetStringUTFChars(outStr, NULL);
+    if (text)
+        ecl.set(text);
+    message.setf("fromKELToECL: %s, length: %ld", text, size);
+    PROGLOG("**** ecl %s", ecl.str());
+    PROGLOG("**** message %s", message.str());
+    JNIenv->ReleaseStringUTFChars(outStr, text);
+    JNIenv->DeleteLocalRef(outStr);
+    PROGLOG("**** fromKELToECL O9");
+    return;
+}
+
+void fromKELToECL4(JNIEnv *JNIenv, const char* kel)
+{
+    PROGLOG("**** fromKELToECL O1 *********");
+    JNIenv->ExceptionClear();
+    jclass testInputClass = JNIenv->FindClass("org/hpccsystems/kel/CompilerInputs");
+    PROGLOG("**** fromKELToECL O5");
+    checkException(JNIenv);
+    jclass testInputOutputStringClass = JNIenv->FindClass("org/hpccsystems/kel/Main");
+    PROGLOG("**** fromKELToECL O2");
+    checkException(JNIenv);
+    jmethodID getCompileMethod = JNIenv->GetStaticMethodID(testInputOutputStringClass, "compile", "(Lorg/hpccsystems/kel/CompilerInputs;)Lorg/hpccsystems/kel/CompilerOutputs;");
+    PROGLOG("**** fromKELToECL O3");
+    checkException(JNIenv);
+
+    jstring inStr0 = JNIenv->NewStringUTF(kel);
+    jstring inStr1 = JNIenv->NewStringUTF("-o");
+    jstring inStr2 = JNIenv->NewStringUTF("first_test1.ecl");
+    jstring inStr3 = JNIenv->NewStringUTF("first_test.kel");
+    PROGLOG("**** fromKELToECL O4");
+
+    jmethodID constructor = JNIenv->GetMethodID(testInputClass, "<init>", "([Ljava/lang/String;Ljava/lang/String;)V");
+    PROGLOG("**** fromKELToECL O51");
+    checkException(JNIenv);
+
+    jclass classString = JNIenv->FindClass("java/lang/String");
+    jobjectArray inJNIArray = JNIenv->NewObjectArray(3, classString, NULL);
+
+    jmethodID midStringInit = JNIenv->GetMethodID(classString, "<init>", "(Ljava/lang/String;)V");
+    //if (NULL == midStringInit) return NULL;
+    jobject objStr1 = JNIenv->NewObject(classString, midStringInit, inStr1);
+    jobject objStr2 = JNIenv->NewObject(classString, midStringInit, inStr2);
+    jobject objStr3 = JNIenv->NewObject(classString, midStringInit, inStr3);
+    JNIenv->SetObjectArrayElement(inJNIArray, 0, objStr1);
+    JNIenv->SetObjectArrayElement(inJNIArray, 1, objStr2);
+    JNIenv->SetObjectArrayElement(inJNIArray, 2, objStr3);
+
+    jobject inObject = JNIenv->NewObject(testInputClass, constructor, inJNIArray, inStr0);
+    checkException(JNIenv);
+    PROGLOG("**** fromKELToECL O6");
+
+    jobject outObject = JNIenv->CallStaticObjectMethod(testInputOutputStringClass, getCompileMethod, inObject);
+    assert(outObject != NULL);
+    checkException(JNIenv);
+    PROGLOG("**** fromKELToECL O7");
+
+    jclass outClass = JNIenv->GetObjectClass(outObject);
+    jmethodID methodID = JNIenv->GetMethodID(outClass, "getOutput","()Ljava/lang/String;");
+    jstring outStr = (jstring) JNIenv->CallObjectMethod(outObject, methodID);
+    PROGLOG("**** fromKELToECL O71");
+
+    StringBuffer ecl, message;
+    size_t size = JNIenv->GetStringUTFLength(outStr);  // in bytes
+    PROGLOG("**** fromKELToECL O711");
+    if (size > 0)
+    {
+        PROGLOG("**** fromKELToECL O712");
+		const char *text = JNIenv->GetStringUTFChars(outStr, NULL);
+		if (text)
+		{
+		    PROGLOG("**** fromKELToECL O713");
+			ecl.set(text);
+			message.setf("fromKELToECL: %s, length: %ld", text, size);
+			PROGLOG("**** ecl %s", ecl.str());
+			PROGLOG("**** message %s", message.str());
+		    JNIenv->ReleaseStringUTFChars(outStr, text);
+		}
+    }
+    PROGLOG("**** fromKELToECL O714");
+    JNIenv->DeleteLocalRef(outStr);
+
+    jmethodID methodID2 = JNIenv->GetMethodID(outClass, "getErrors","()[Ljava/lang/String;");
+    PROGLOG("**** fromKELToECL O72");
+    jobjectArray outStrs = (jobjectArray) JNIenv->CallObjectMethod(outObject, methodID2);
+    PROGLOG("**** fromKELToECL O73");
+
+    if (outStrs != NULL)
+    {
+		const char *param[20];
+		jsize stringCount = JNIenv->GetArrayLength(outStrs);
+		PROGLOG("**** fromKELToECL O74");
+		for (unsigned i=0; i<stringCount; i++)
+		{
+			PROGLOG("**** fromKELToECL O731");
+			jstring string = (jstring) JNIenv->GetObjectArrayElement( outStrs, i);
+			param[i] = JNIenv->GetStringUTFChars( string, NULL);
+			PROGLOG("**** param %s", param[i]);
+		}
+    }
+    PROGLOG("**** fromKELToECL O9");
+    return;
+}
+/*
+void fromKELToECL(JNIEnv *JNIenv, const char* kel,  StringBuffer& ecl, StringBuffer& message)
+{
+const char[] rawData = {0,1,2,3,4,5,6,7,8,9}; //Or get some raw data from somewhere
+int dataSize = sizeof(rawData);
+printf("Building raw data array copy\n");
+jbyteArray rawDataCopy = env->NewByteArray(dataSize);
+env->SetByteArrayRegion(rawDataCopy, 0, dataSize, rawData);
+
+
+printf("Finding callback method\n");
+//Assumes obj is the Java instance that will receive the raw data via callback
+jmethodID aMethodId = env->GetMethodID(env->GetObjectClass(obj),"handleData","([B)V");
+if(0==aMethodId) throw MyRuntimeException("Method not found error");
+printf("Invoking the callback\n");
+env->CallVoidMethod(obj,aMethodId, &rawDataCopy);
+
+}*/
+
+void test_jni()
+{
+    StringArray optionStrings;
+    optionStrings.append("-Djava.compiler=NONE");           //disable JIT
+#ifdef SIMPLE_TEST
+    optionStrings.append("-Djava.class.path=/home/lexis/hpcc/test/kel"); // user classes
+#else
+    optionStrings.append("-Djava.class.path=/opt/HPCCSystems/5.0.2/KEL:/opt/HPCCSystems/5.0.2/KEL/KEL.jar"); // user classes
+    optionStrings.append("-Djava.library.path=/opt/HPCCSystems/5.0.2/KEL");
+#endif
+    //optionStrings.append("-Djava.library.path=/usr/lib/jvm/java-1.7.0-openjdk-amd64/jre/lib/amd64/server");  // set native library path
+    //optionStrings.append("-verbose:jni");                   // print JNI-related messages
+
+    JavaVMOption* options = new JavaVMOption[optionStrings.length()];
+    ForEachItemIn(idx, optionStrings)
+    {
+        options[idx].optionString = (char *) optionStrings.item(idx);
+//        options[idx].extraInfo = NULL;
+    }
+
+    JavaVMInitArgs vm_args;
+    vm_args.version = JNI_VERSION_1_6;
+    vm_args.options = options;
+    vm_args.nOptions = optionStrings.length();
+    vm_args.ignoreUnrecognized = TRUE;
+
+    JavaVM *javaVM;
+    JNIEnv *env;
+    int createResult = JNI_CreateJavaVM(&javaVM, (void**)&env, &vm_args);
+    delete [] options;
+
+    if (createResult != 0)
+    {
+        PROGLOG("Unable to initialize JVM: JNI_CreateJavaVM returns %d", createResult);
+        return;
+    }
+
+    //fromKELToECL(env, "1234");
+    //fromKELToECL2(env, "1234");
+
+    fromKELToECL3(env, "1234");
+
+    StringBuffer inString;
+    inString.append("Person := ENTITY( FLAT(UID=DID,First_Name=fname,Last_Name=lname,Middle_Name=mname) );\n");
+    inString.append("Company := ENTITY( FLAT(UID=BDID,Company_Name=company_name) );\n");
+    inString.append("KnownLink := ASSOCIATION( FLAT(Person Who,Company What) );\n");
+    inString.append("USE Header.File_Headers(FLAT,Person),\n");
+    inString.append("Business_Header.File_Header(FLAT,Company),\n");
+    inString.append("Business_Header.File_Business_Contacts(FLAT,KnownLink);\n");
+    inString.append("QUERY: FindPeopleInContext(_First_Name,_Last_Name) <= Person(_First_Name,_Last_Name), Person(_First_Name), Person(_Last_Name);\n");
+    //inString.append("\n");
+    fromKELToECL4(env, inString.str());
+}
+
 int init_main(int argc, char* argv[])
 {
     InitModuleObjects();
@@ -321,6 +671,8 @@ int init_main(int argc, char* argv[])
         openEspLogFile(envpt.get(), procpt.get());
 
         DBGLOG("Esp starting %s", BUILD_TAG);
+
+test_jni();
 
         StringBuffer componentfilesDir;
         if(procpt->hasProp("@componentfilesDir"))

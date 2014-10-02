@@ -1,0 +1,9 @@
+Person := ENTITY( FLAT(UID=DID,First_Name=fname,Last_Name=lname,Middle_Name=mname) );
+Company := ENTITY( FLAT(UID=BDID,Company_Name=company_name) );
+KnownLink := ASSOCIATION( FLAT(Person Who,Company What) );
+USE Header.File_Headers(FLAT,Person),
+Business_Header.File_Header(FLAT,Company),
+Business_Header.File_Business_Contacts(FLAT,KnownLink);
+// Simple query syntax, removes First name from table as always fixed
+QUERY: FindPeopleInContext(_First_Name,_Last_Name) <= Person(_First_Name,_Last_Name), Person(_First_Name), Person(_Last_Name);
+//QUERY: FindPeopleAndLinks(_First_Name,_Last_Name) <= Person(First_Name=_First_Name,Last_Name=_Last_Name),KnownLink(Who IN _1{UID});
