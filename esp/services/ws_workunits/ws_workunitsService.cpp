@@ -3883,50 +3883,125 @@ bool CWsWorkunitsEx::onWUDeployWorkunit(IEspContext &context, IEspWUDeployWorkun
 #ifdef _USE_ZLIB
 void CWsWorkunitsEx::addProcessLogfile(IZZIPor* zipper, Owned<IConstWorkUnit> &cwu, WsWuInfo &winfo, const char * process, PointerArray &mbArr)
 {
-    Owned<IPropertyTreeIterator> procs = cwu->getProcesses(process, NULL);
-    ForEach (*procs)
+    if (strieq(process, File_ThorSlaveLog))
     {
-        StringBuffer logSpec;
-        IPropertyTree& proc = procs->query();
-        proc.getProp("@log",logSpec);
-        if (!logSpec.length())
-            continue;
-        StringBuffer pid;
-        pid.appendf("%d",proc.getPropInt("@pid"));
-        MemoryBuffer * pMB = NULL;
-        try
-        {
-            pMB = new MemoryBuffer;
-            if (0 == stricmp(process, "EclAgent"))
-                winfo.getWorkunitEclAgentLog(logSpec.str(), pid.str(), *pMB);
-            else if (0 == stricmp(process, "Thor"))
-                winfo.getWorkunitThorLog(logSpec.str(), *pMB);
-            else
-            {
-                delete pMB;
-                return;
-            }
-            mbArr.append(pMB);
-        }
+        SCMStringBuffer clusterName;
+        cwu->getClusterName(clusterName);
+        if (!clusterName.length()) //Cluster name may not be set yet
+            return;
 
-        catch(IException *e)
-        {
-            StringBuffer s;
-            e->errorMessage(s);
-            pMB->append(s.str());
-            e->Release();
-            mbArr.append(pMB);
-        }
+        Owned<IConstWUClusterInfo> clusterInfo = getTargetClusterInfo(clusterName.str());
+        if (!clusterInfo)
+            return;
 
-        if (pMB && pMB->length())
+        BoolHash uniqueProcesses;
+        Owned<IStringIterator> thorInstances = cwu->getProcesses("Thor");
+        ForEach (*thorInstances)
         {
-            const char * logName = logSpec.str();
-            for (const char * p=logSpec; *p; p++)
+            SCMStringBuffer processName;
+            thorInstances->str(processName);
+            if ((processName.length() < 1) || uniqueProcesses.getValue(processName.str()))
+                continue;
+
+            uniqueProcesses.setValue(processName.str(), true);
+
+            StringBuffer groupName, logDir;
+            getClusterThorGroupName(groupName, processName.str());
+            getConfigurationDirectory(directories, "log", "thor", processName.str(), logDir);
+            Owned<IStringIterator> thorLogs = cwu->getLogs("Thor", processName.str());
+            ForEach (*thorLogs)
             {
-                if (*p == '\\' || *p == '/')
-                    logName = p+1;
+                SCMStringBuffer logName;
+                thorLogs->str(logName);
+                if (logName.length() < 1)
+                    continue;
+
+                const char* pStr = logName.str();
+                const char* ppStr = strstr(pStr, "/thormaster.");
+                if (!ppStr)
+                    continue;
+
+                ppStr += 12;
+                StringBuffer logDate = ppStr;
+                logDate.setLength(10);
+
+                unsigned numberOfSlaves = clusterInfo->getSize();
+                for (unsigned i=0; i<numberOfSlaves; i++)
+                {
+                    MemoryBuffer * pMB = NULL;
+                    try
+                    {
+                        pMB = new MemoryBuffer;
+                        winfo.getWorkunitThorSlaveLog(groupName.str(), NULL, logDate.str(), logDir.str(), i+1, *pMB, false);
+                        mbArr.append(pMB);
+                    }
+
+                    catch(IException *e)
+                    {
+                        StringBuffer s;
+                        e->errorMessage(s);
+                        pMB->append(s.str());
+                        e->Release();
+                        mbArr.append(pMB);
+                    }
+
+                    if (pMB && pMB->length())
+                    {
+                        StringBuffer logName;
+                        logName.appendf("thorslave.%s.%d.%s.log", processName.str(), i, logDate.str());
+                        zipper->addContentToZIP(pMB->length(), pMB->bufferBase(), (char*) logName.str(), true);
+                    }
+                }
             }
-            zipper->addContentToZIP(pMB->length(), pMB->bufferBase(), (char*)logName, true);
+        }
+    }
+    else
+    {
+        Owned<IPropertyTreeIterator> procs = cwu->getProcesses(process, NULL);
+        ForEach (*procs)
+        {
+            StringBuffer logSpec;
+            IPropertyTree& proc = procs->query();
+            proc.getProp("@log",logSpec);
+            if (!logSpec.length())
+                continue;
+            StringBuffer pid;
+            pid.appendf("%d",proc.getPropInt("@pid"));
+            MemoryBuffer * pMB = NULL;
+            try
+            {
+                pMB = new MemoryBuffer;
+                if (0 == stricmp(process, "EclAgent"))
+                    winfo.getWorkunitEclAgentLog(logSpec.str(), pid.str(), *pMB);
+                else if (0 == stricmp(process, "Thor"))
+                    winfo.getWorkunitThorLog(logSpec.str(), *pMB);
+                else
+                {
+                    delete pMB;
+                    return;
+                }
+                mbArr.append(pMB);
+            }
+
+            catch(IException *e)
+            {
+                StringBuffer s;
+                e->errorMessage(s);
+                pMB->append(s.str());
+                e->Release();
+                mbArr.append(pMB);
+            }
+
+            if (pMB && pMB->length())
+            {
+                const char * logName = logSpec.str();
+                for (const char * p=logSpec; *p; p++)
+                {
+                    if (*p == '\\' || *p == '/')
+                        logName = p+1;
+                }
+                zipper->addContentToZIP(pMB->length(), pMB->bufferBase(), (char*)logName, true);
+            }
         }
     }
 }
@@ -4055,9 +4130,11 @@ bool CWsWorkunitsEx::onWUCreateZAPInfo(IEspContext &context, IEspWUCreateZAPInfo
             WsWuInfo winfo(context, cwu);
             PointerArray eclAgentLogs;//array of dynamically allocated MemoryBuffers
             PointerArray thorLogs;
+            PointerArray thorSlaveLogs;
 
             addProcessLogfile(zipper, cwu, winfo, "EclAgent", eclAgentLogs);
             addProcessLogfile(zipper, cwu, winfo, "Thor", thorLogs);
+            addProcessLogfile(zipper, cwu, winfo, File_ThorSlaveLog, thorSlaveLogs);
 
             //Add Workunit XML file
             MemoryBuffer wuXmlMB;
@@ -4072,6 +4149,8 @@ bool CWsWorkunitsEx::onWUCreateZAPInfo(IEspContext &context, IEspWUCreateZAPInfo
                 delete (MemoryBuffer*)eclAgentLogs.item(x);
             for (aindex_t x=0; x<thorLogs.length(); x++)
                 delete (MemoryBuffer*)thorLogs.item(x);
+            for (aindex_t x=0; x<thorSlaveLogs.length(); x++)
+                delete (MemoryBuffer*)thorSlaveLogs.item(x);
         }
 
         //Download ZIP file to user
