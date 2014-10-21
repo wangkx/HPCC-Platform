@@ -214,6 +214,21 @@
                                 </xs:restriction>
                             </xs:simpleType>
                         </xs:attribute>
+                        <xs:attribute name="defaultAuthPage" use="optional" default="true">
+                            <xs:annotation>
+                                <xs:appinfo>
+                                    <tooltip>Use default ESP page for user login, etc.</tooltip>
+                                    <required>true</required>
+                                    <colIndex>10</colIndex>
+                                </xs:appinfo>
+                            </xs:annotation>
+                            <xs:simpleType>
+                                <xs:restriction base="xs:string">
+                                    <xs:enumeration value="false"/>
+                                    <xs:enumeration value="true"/>
+                                </xs:restriction>
+                            </xs:simpleType>
+                        </xs:attribute>
                     </xs:complexType>
                 </xs:element>
                 <xs:element name="Authentication">
@@ -282,6 +297,20 @@
                             <xs:annotation>
                                 <xs:appinfo>
                                     <tooltip>In this time period, ESP displays a warning about password expiration.</tooltip>
+                                </xs:appinfo>
+                            </xs:annotation>
+                        </xs:attribute>
+                        <xs:attribute name="authCookieName" use="optional" default="ESPAUTH">
+                            <xs:annotation>
+                                <xs:appinfo>
+                                    <tooltip>Specify the name of authentication cookie.</tooltip>
+                                </xs:appinfo>
+                            </xs:annotation>
+                        </xs:attribute>
+                        <xs:attribute name="authCookieMaxAgeSec" use="optional" default="600">
+                            <xs:annotation>
+                                <xs:appinfo>
+                                    <tooltip>Specify expiration time in seconds for authentication cookie.</tooltip>
                                 </xs:appinfo>
                             </xs:annotation>
                         </xs:attribute>

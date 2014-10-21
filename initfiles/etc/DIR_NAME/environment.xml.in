@@ -444,7 +444,8 @@
                    ldapConnections="10"
                    ldapServer=""
                    method="none"/>
-   <EspBinding defaultForPort="true"
+   <EspBinding defaultAuthPage="true"
+               defaultForPort="true"
                defaultServiceVersion=""
                name="smc"
                port="8010"
@@ -574,7 +575,8 @@
                          resource="EclDirectAccess"
                          service="ecldirect"/>
    </EspBinding>
-   <EspBinding defaultForPort="true"
+   <EspBinding defaultAuthPage="true"
+               defaultForPort="true"
                defaultServiceVersion=""
                name="ws_ecl"
                port="8002"

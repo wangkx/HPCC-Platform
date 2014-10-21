@@ -100,7 +100,7 @@
             </Authenticate>
          </xsl:when>
          <xsl:when test="$authMethod='ldap' or $authMethod='ldaps'">
-            <Authenticate method="LdapSecurity" config="ldapserver">
+            <Authenticate method="LdapSecurity" config="ldapserver" defaultAuthPage="{$bindingNode/@defaultAuthPage}">
             <xsl:copy-of select="$bindingNode/@resourcesBasedn"/> <!--if binding has an ldap resourcebasedn specified then copy it out -->
 
             <xsl:for-each select="$bindingNode/Authenticate">

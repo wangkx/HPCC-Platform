@@ -104,20 +104,9 @@ CEspHttpServer::~CEspHttpServer()
     }
 }
 
-typedef enum espAuthState_
-{
-    authUnknown,
-    authRequired,
-    authProvided,
-    authSucceeded,
-    authPending,
-    authFailed
-} EspAuthState;
-
-
 bool CEspHttpServer::rootAuth(IEspContext* ctx)
 {
-    if (!m_apport->rootAuthRequired())
+    if (ctx->isAuthorized() || !m_apport->rootAuthRequired())
         return true;
 
     bool ret=false;
@@ -261,8 +250,20 @@ int CEspHttpServer::processRequest()
         IEspContext* ctx = m_request->queryContext();
         ctx->setServiceName(serviceName.str());
 
+        EspHttpBinding* authbinding = dynamic_cast<EspHttpBinding*>(m_defaultBinding.get());
+        if (m_request->isSoapMessage())
+            authbinding->readAuthCookie(m_request.get(), ctx);
+        else
+        {
+            authState = authbinding->checkUserAuth(m_request.get(), m_response.get(), ctx);
+            if ((authState == authFailed) || authState == authSucceededNow)
+                return 0;
+
+            ctx->setAuthorized(true);
+        }
+
         bool isSoapPost=(stricmp(method.str(), POST_METHOD) == 0 && m_request->isSoapMessage());
-        if (!isSoapPost)
+        if (!isSoapPost && (authState != authSucceeded))
         {
             StringBuffer peerStr, pathStr;
             const char *userid=ctx->queryUserId();
@@ -308,6 +309,13 @@ int CEspHttpServer::processRequest()
                 if (strieq(methodName.str(), "updatepasswordinput"))//process before authentication check
                     return onUpdatePasswordInput(m_request.get(), m_response.get());
 #endif
+                if (strieq(methodName.str(), "logout"))
+                {
+#ifdef _USE_OPENLDAP
+                    authbinding->handleUserLogOut(m_response.get());
+#endif
+                    return 0;
+                }
                 if (!rootAuth(ctx) )
                     return 0;
                 if (methodName.charAt(methodName.length()-1)=='_')
@@ -390,7 +398,7 @@ int CEspHttpServer::processRequest()
                     }
                     
                     thebinding->populateRequest(m_request.get());
-                    if(thebinding->authRequired(m_request.get()) && !thebinding->doAuth(ctx))
+                    if ((authState != authSucceeded) && thebinding->authRequired(m_request.get()) && !thebinding->doAuth(ctx))
                     {
                         authState=authRequired;
                         if(isSoapPost)

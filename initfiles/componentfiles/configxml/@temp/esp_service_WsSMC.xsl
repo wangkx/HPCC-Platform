@@ -143,7 +143,7 @@ This is required by its binding with ESP service '<xsl:value-of select="$espServ
             </xsl:if>
         </EspService>
         <EspBinding name="{$bindName}" service="{$serviceName}" protocol="{$bindingNode/@protocol}" type="{$bindType}" 
-             plugin="{$servicePlugin}" netAddress="0.0.0.0" port="{$bindingNode/@port}" defaultBinding="true">
+             plugin="{$servicePlugin}" netAddress="0.0.0.0" port="{$bindingNode/@port} " defaultBinding="true">
             <xsl:call-template name="bindAuthentication">
                 <xsl:with-param name="bindingNode" select="$bindingNode"/>
                 <xsl:with-param name="authMethod" select="$authNode/@method"/>
@@ -624,7 +624,7 @@ This is required by its binding with ESP service '<xsl:value-of select="$espServ
          </Authenticate>
       </xsl:when>
       <xsl:when test="$authMethod='ldap' or $authMethod='ldaps'">
-         <Authenticate method="LdapSecurity" config="ldapserver">
+         <Authenticate method="LdapSecurity" config="ldapserver"  defaultAuthPage="{$bindingNode/@defaultAuthPage}">
             <xsl:copy-of select="$bindingNode/@resourcesBasedn"/> <!--if binding has an ldap resourcebasedn specified then copy it out -->
             <xsl:copy-of select="$bindingNode/@workunitsBasedn"/> <!--if binding has an ldap workunitsbasedn specified then copy it out -->
             <xsl:for-each select="$bindingNode/Authenticate[@path='/']">
