@@ -151,7 +151,9 @@ bool ViewHelper::doit(FILE * fp)
                             res_req->setFormat("xml");
                         else
                             res_req->setFormat("raw");
+                        printf("Before wuclient->WUResultBin()\n");
                         Owned<IClientWUResultBinResponse> res_resp = wuclient->WUResultBin(res_req);
+                        printf("After wuclient->WUResultBin()\n");
 
                         const IMultiException* excep = &res_resp->getExceptions();
                         if(excep != NULL && excep->ordinality() > 0)
@@ -162,31 +164,47 @@ bool ViewHelper::doit(FILE * fp)
                             continue;
                         }
 
+                        printf("Before res_resp->getResult()\n");
                         const MemoryBuffer& resultbuf = res_resp->getResult();
+                        printf("After res_resp->getResult()\n");
                         count = res_resp->getCount();
+                        printf("After res_resp->getCount()\n");
                         total = res_resp->getTotal();
+                        printf("After res_resp->getTotal()\n");
+                        if (!fp)
+                            printf("NULL fp!!!\n");
                         
                         if(format)
                         {
+                            printf("has format\n");
                             format->setStartRowNumber(curpos);
+                            printf("After format->setStartRowNumber()\n");
                             format->printBody(fp, resultbuf.length(), (char*)resultbuf.toByteArray());
+                            printf("After format->printBody()\n");
                         }
                         else
                         {
+                            printf("no format\n");
                             // This should never happen
                             fprintf(fp, "%s", resultbuf.toByteArray());
                         }
                         
+                        printf("Before curpos += count\n");
                         curpos += count;
                     }
                     while (count > 0 && curpos < total - 1);
+                    printf("After do while\n");
                 }
-                
+                printf("printFooter?\n");
                 if(format)
                     format->printFooter(fp);
+                printf("next result?\n");
             }
+            printf("After all results\n");
         }
+        printf("After 1\n");
     }
+    printf("After 2\n");
     return true;
 }
 
