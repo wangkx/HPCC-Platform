@@ -1,0 +1,172 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+################################################################################
+#    Copyright (C) 2014 HPCC Systems.
+#
+#    All rights reserved.
+################################################################################
+-->
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" elementFormDefault="qualified">
+  <xs:include schemaLocation="environment.xsd"/>
+  <xs:element name="MySQLLoggingAgent">
+    <xs:complexType>
+      <xs:annotation>
+        <xs:appinfo>
+            <title>MySQL Logging Agent</title>
+        </xs:appinfo>
+      </xs:annotation>
+      <xs:attribute name="build" type="buildType" use="required">
+        <xs:annotation>
+          <xs:appinfo>
+            <viewType>hidden</viewType>
+          </xs:appinfo>
+        </xs:annotation>
+      </xs:attribute>
+      <xs:attribute name="buildSet" type="buildSetType" use="required">
+        <xs:annotation>
+          <xs:appinfo>
+            <viewType>hidden</viewType>
+          </xs:appinfo>
+        </xs:annotation>
+      </xs:attribute>
+      <xs:attribute name="name" type="xs:string" use="required">
+        <xs:annotation>
+          <xs:appinfo>
+            <tooltip>Name for this agent</tooltip>
+          </xs:appinfo>
+        </xs:annotation>
+      </xs:attribute>
+      <xs:attribute name="description" type="xs:string" use="optional" default="MySQL Logging Agent">
+        <xs:annotation>
+          <xs:appinfo>
+            <tooltip>Description for this process</tooltip>
+          </xs:appinfo>
+        </xs:annotation>
+      </xs:attribute>
+      <xs:attribute name="MaxTriesGTS" type="xs:nonNegativeInteger" use="optional" default="3">
+        <xs:annotation>
+          <xs:appinfo>
+            <tooltip>Maximum retries of sending GetTransactionSeed requests when failed to get a response.</tooltip>
+          </xs:appinfo>
+        </xs:annotation>
+      </xs:attribute>
+      <xs:attribute name="MaxTriesRS" type="xs:nonNegativeInteger" use="optional" default="3">
+        <xs:annotation>
+          <xs:appinfo>
+            <tooltip>Maximum retries of sending LogUpdate requests when failed to get a response.</tooltip>
+          </xs:appinfo>
+        </xs:annotation>
+      </xs:attribute>
+      <xs:attribute name="MaxLogQueueLength" type="xs:nonNegativeInteger" use="optional" default="500000">
+        <xs:annotation>
+          <xs:appinfo>
+            <tooltip>maximum queue length for log update requests.</tooltip>
+          </xs:appinfo>
+        </xs:annotation>
+      </xs:attribute>
+      <xs:attribute name="QueueSizeSignal" type="xs:nonNegativeInteger" use="optional" default="10000">
+        <xs:annotation>
+          <xs:appinfo>
+            <tooltip>Add warning to esp log when the queue length of log update requests reaches this value.</tooltip>
+          </xs:appinfo>
+        </xs:annotation>
+      </xs:attribute>
+      <xs:attribute name="FailSafe" type="xs:boolean" use="optional" default="true">
+        <xs:annotation>
+          <xs:appinfo>
+            <tooltip>Enable FailSafe functionality.</tooltip>
+          </xs:appinfo>
+        </xs:annotation>
+      </xs:attribute>
+      <xs:attribute name="FailSafeLogsDir" type="xs:string" use="optional" default="">
+        <xs:annotation>
+          <xs:appinfo>
+            <tooltip>Log directory where Failsafe files are stored.</tooltip>
+          </xs:appinfo>
+        </xs:annotation>
+      </xs:attribute>
+      <xs:attributeGroup ref="MySQL"/>
+      <xs:sequence>
+        <xs:element name="FieldMap" minOccurs="0" maxOccurs="unbounded">
+          <xs:annotation>
+            <xs:appinfo>
+              <title>FieldMap</title>
+            </xs:appinfo>
+          </xs:annotation>
+          <xs:complexType>
+            <xs:attribute name="fieldpath" type="relativePath" use="required">
+              <xs:annotation>
+                <xs:appinfo>
+                  <colIndex>1</colIndex>
+                </xs:appinfo>
+              </xs:annotation>
+            </xs:attribute>
+            <xs:attribute name="mapto" type="xs:string" use="required">
+              <xs:annotation>
+                <xs:appinfo>
+                  <colIndex>2</colIndex>
+                </xs:appinfo>
+              </xs:annotation>
+            </xs:attribute>
+            <xs:attribute name="type" use="required" default="string">
+              <xs:annotation>
+                <xs:appinfo>
+                  <colIndex>3</colIndex>
+                </xs:appinfo>
+              </xs:annotation>
+              <xs:simpleType>
+                <xs:restriction base="xs:string">
+                  <xs:enumeration value="string"/>
+                  <xs:enumeration value="numeric"/>
+                </xs:restriction>
+              </xs:simpleType>
+            </xs:attribute>
+          </xs:complexType>
+        </xs:element>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+
+  <xs:attributeGroup name="MySQL">
+    <xs:attribute name="MySQL" type="mysqlType" use="required">
+      <xs:annotation>
+        <xs:appinfo>
+          <tooltip>Specifies the MySQL process.</tooltip>
+        </xs:appinfo>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="dbName" type="xs:string" use="required" default="">
+      <xs:annotation>
+         <xs:appinfo>
+           <tooltip>Specifies the name of the database in the database server.</tooltip>
+           <required>true</required>
+         </xs:appinfo>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="dbTableName" type="xs:string" use="required" default="">
+      <xs:annotation>
+        <xs:appinfo>
+          <tooltip>Specifies the name of the database table in the database server.</tooltip>
+          <required>true</required>
+        </xs:appinfo>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="dbUser" type="xs:string" use="required">
+      <xs:annotation>
+        <xs:appinfo>
+          <tooltip>Specifies the user name for accessing the database.</tooltip>
+          <required>true</required>
+        </xs:appinfo>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="dbPassword" type="xs:string" use="required">
+      <xs:annotation>
+        <xs:appinfo>
+          <viewType>password</viewType>
+          <tooltip>Specifies the user's password for accessing the database.</tooltip>
+          <required>true</required>
+        </xs:appinfo>
+      </xs:annotation>
+    </xs:attribute>
+  </xs:attributeGroup>
+</xs:schema>

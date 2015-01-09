@@ -85,6 +85,7 @@ IF ("${COMMONSETUP_DONE}" STREQUAL "")
   option(USE_MEMCACHED "Enable Memcached support" ON)
 
   option(USE_OPTIONAL "Automatically disable requested features with missing dependencies" ON)
+  option(USE_LOGGING_SERVICE "Enable logging service support" ON)
 
   if ( USE_PYTHON OR USE_V8 OR USE_JNI OR USE_RINSIDE OR USE_SQLITE3 OR USE_MYSQL OR USE_CASSANDRA OR USE_MEMCACHED)
       set( WITH_PLUGINS ON )

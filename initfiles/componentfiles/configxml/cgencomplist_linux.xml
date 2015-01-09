@@ -90,6 +90,10 @@
     <File name="plugins.xsl" method="esp_plugin" destName="plugins.xml" destPath="@temp"/>
     <File name="@temp/esp_service_WsSMC.xsl" method="esp_service_module"/>
   </Component>
+  <Component name="esploggingagent" processName='ESPLoggingAgent' schema='esploggingagent.xsd' deployable='no'/>
+  <Component name="loggingmanager" processName='LoggingManager' schema='loggingmanager.xsd' deployable='no'/>
+  <Component name="mysqlloggingagent" processName='MySQLLoggingAgent' schema='mysqlloggingagent.xsd' deployable='no'/>
+  <Component name="wslogging" processName='EspService' schema='wslogging.xsd' deployable='no'>
   <Component name="ws_account" processName='EspService' schema='esp_service_account.xsd' deployable='no'>
     <File name="@temp/esp_service.xsl" method="esp_service_module" destName="WsAccount.xml" destPath="@temp"/>
   </Component>
