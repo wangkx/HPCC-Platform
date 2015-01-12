@@ -1,0 +1,69 @@
+################################################################################
+#    HPCC SYSTEMS software Copyright (C) 2014 HPCC Systems.
+#
+#    Licensed under the Apache License, Version 2.0 (the "License");
+#    you may not use this file except in compliance with the License.
+#    You may obtain a copy of the License at
+#
+#       http://www.apache.org/licenses/LICENSE-2.0
+#
+#    Unless required by applicable law or agreed to in writing, software
+#    distributed under the License is distributed on an "AS IS" BASIS,
+#    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#    See the License for the specific language governing permissions and
+#    limitations under the License.
+################################################################################
+
+
+# Component: libtest
+#####################################################
+# Description:
+# ------------
+#   Cmake Input File for libtest
+#####################################################
+
+project( libtest )
+
+include(${HPCC_SOURCE_DIR}/esp/scm/espscm.cmake)
+
+set ( SRCS
+    ${ESPSCM_GENERATED_DIR}/ws_echo_test_esp.cpp
+    libtest.cpp
+)
+
+include_directories (
+    ${HPCC_SOURCE_DIR}/esp/platform
+    ${HPCC_SOURCE_DIR}/system/jlib
+    ${HPCC_SOURCE_DIR}/system/boost/include
+    ${HPCC_SOURCE_DIR}/system/security/shared
+    ${HPCC_SOURCE_DIR}/system/xmllib
+    ${HPCC_SOURCE_DIR}/system/include
+    ${HPCC_SOURCE_DIR}/esp/bindings/SOAP/client
+    ${HPCC_SOURCE_DIR}/esp/bindings/SOAP/Platform
+#    ${HPCC_SOURCE_DIR}/esp/clients
+#    ${HPCC_SOURCE_DIR}/esp/clients/espcommonclient
+#    ${HPCC_SOURCE_DIR}/esp/clients/LoggingClient
+    ${HPCC_SOURCE_DIR}/esp/bindings
+    ${HPCC_SOURCE_DIR}/esp/bindings/SOAP/LoggingService
+    ${HPCC_SOURCE_DIR}/esp/bindings/SOAP/xpp
+    ./..
+)
+
+ADD_DEFINITIONS( -D_USRDLL -DESPCOMMONCLIENT_EXPORTS -DLOGGINGMANAGER_EXPORTS )
+
+if (RELEASE_BUILD EQUAL 1)
+    ADD_DEFINITIONS( -DISC_NO_MAIN)
+endif (RELEASE_BUILD EQUAL 1)
+
+HPCC_ADD_LIBRARY( libtest SHARED ${SRCS} )
+
+add_dependencies( libtest espscm )
+
+install ( TARGETS libtest DESTINATION ${LIB_DIR} )
+
+target_link_libraries ( libtest
+    ${XALAN_LIBRARIES} ${XERCES_LIBRARIES}
+    jlib
+#    xmllib
+#    esphttp
+)

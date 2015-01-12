@@ -1,13 +1,9 @@
 /*##############################################################################
-
-    HPCC SYSTEMS software Copyright (C) 2015 HPCC Systems.
-
+    HPCC SYSTEMS software Copyright (C) 2014 HPCC Systems.
     Licensed under the Apache License, Version 2.0 (the "License");
     you may not use this file except in compliance with the License.
     You may obtain a copy of the License at
-
        http://www.apache.org/licenses/LICENSE-2.0
-
     Unless required by applicable law or agreed to in writing, software
     distributed under the License is distributed on an "AS IS" BASIS,
     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -15,21 +11,28 @@
     limitations under the License.
 ############################################################################## */
 
-#ifndef _ESPWIZ_WsEchoTest_HPP__
-#define _ESPWIZ_WsEchoTest_HPP__
+#include "libtest.hpp"
 
-#include "libtestcommon.hpp"
-
-class CWsEchoTestEx : public CWsEchoTest
+//Called when this lib is created.
+bool CLibTest::init(IPropertyTree* cfg, const char* parent)
 {
-    Owned<ILibTest> testLib;
-    void loadTestLib(const char * libName);
+    parentName.set(parent);
+    return true;
+}
 
-public:
-    virtual void init(IPropertyTree *cfg, const char *process, const char *service);
+void CLibTest::echoTest(IEspContext &context, IEspEchoTestRequest& req, IEspEchoTestResponse& resp)
+{
+    const char* inputString = req.getInputString();
+    if (!inputString || !*inputString)
+        throw MakeStringException(-1, "InputString not specified");
 
-    virtual bool onEchoTest(IEspContext &context, IEspEchoTestRequest &req, IEspEchoTestResponse &resp);
-};
+    resp.setEchoString(inputString);
+}
 
-#endif //_ESPWIZ_WsEchoTest_HPP__
-
+extern "C"
+{
+LIBTEST_API ILibTest* newLibTest()
+{
+    return new CLibTest();
+}
+}

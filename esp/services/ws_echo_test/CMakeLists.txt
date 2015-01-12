@@ -42,6 +42,7 @@ include_directories (
          ./../../../system/xmllib
          ./../../bindings
          ./../../bindings/SOAP/xpp
+         ./../../test/libtest
     )
 
 ADD_DEFINITIONS( -D_USRDLL )
