@@ -28,9 +28,11 @@ include(${HPCC_SOURCE_DIR}/esp/scm/smcscm.cmake)
 
 set (    SRCS 
          ${ESPSCM_GENERATED_DIR}/ws_topology_esp.cpp 
+         ${ESPSCM_GENERATED_DIR}/ws_machine_esp.cpp 
          LogicFileWrapper.cpp 
          TpWrapper.cpp 
-         WUXMLInfo.cpp 
+         WUXMLInfo.cpp
+         componentstatus.cpp
     )
 
 include_directories ( 

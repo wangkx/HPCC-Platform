@@ -21,6 +21,7 @@
 #include "exception_util.hpp"
 #include "workunit.hpp"
 #include "roxiecommlibscm.hpp"
+#include "componentstatus.hpp"
 
 #ifndef eqHoleCluster
 #define eqHoleCluster  "HoleCluster"
@@ -198,6 +199,10 @@ void Cws_machineEx::init(IPropertyTree *cfg, const char *process, const char *se
         NULL, m_threadPoolSize, 10000, m_threadPoolStackSize)); //10 sec timeout for available thread; use stack size of 2MB
 
     setupLegacyFilters();
+
+    Owned<IComponentStatusUtils> componentStatusUtils = getComponentStatusUtils();
+    componentStatusUtils->setComponentTypes(pServiceNode);
+    componentStatusUtils->setComponentStatusTypes(pServiceNode);
 }
 
 StringBuffer& Cws_machineEx::getAcceptLanguage(IEspContext& context, StringBuffer& acceptLanguage)
@@ -2291,3 +2296,60 @@ void Cws_machineEx::getAccountAndPlatformInfo(const char* address, StringBuffer&
 
     bLinux = machine->getOS() == MachineOsLinux;
 }
+
+bool Cws_machineEx::onGetComponentStatus(IEspContext &context, IEspGetComponentStatusRequest &req, IEspGetComponentStatusResponse &resp)
+{
+    try
+    {
+        if (!context.validateFeatureAccess(FEATURE_URL, SecAccess_Read, false))
+            throw MakeStringException(ECLWATCH_MACHINE_INFO_ACCESS_DENIED, "Failed to Get Component Status. Permission denied.");
+
+        Owned<IComponentStatusFactory> factory = getComponentStatusFactory();
+        Owned<IESPComponentStatusInfo> status = factory->getComponentStatus();
+        if (!status) //Should never happen
+            return false;
+
+        int statusID = status->getSystemStatusID();
+        if (statusID < 0)
+            resp.setSystemStatus("Not reported");
+        else
+        {
+            StringBuffer statusStr;
+            Owned<IComponentStatusUtils> componentStatusUtils = getComponentStatusUtils();
+            componentStatusUtils->getComponentStatusTypeByID(statusID, statusStr);
+            resp.setSystemStatus(statusStr.str());
+            resp.setComponentStatusList(status->getComponentStatus());
+        }
+        resp.setSystemStatusID(statusID);
+    }
+    catch(IException* e)
+    {
+        FORWARDEXCEPTION(context, e,  ECLWATCH_INTERNAL_ERROR);
+    }
+
+    return true;
+}
+
+bool Cws_machineEx::onUpdateComponentStatus(IEspContext &context, IEspUpdateComponentStatusRequest &req, IEspUpdateComponentStatusResponse &resp)
+{
+    try
+    {
+        if (!context.validateFeatureAccess(FEATURE_URL, SecAccess_Write, false))
+            throw MakeStringException(ECLWATCH_MACHINE_INFO_ACCESS_DENIED, "Failed to Update Component Status. Permission denied.");
+
+        const char* reporter = req.getReporter();
+        if (!reporter || !*reporter)
+            throw MakeStringException(ECLWATCH_INVALID_INPUT, "Report not specified.");
+        
+        Owned<IComponentStatusFactory> factory = getComponentStatusFactory();
+        factory->updateComponentStatus(reporter, req.getComponentStatusList());
+        resp.setStatusCode(0);
+    }
+    catch(IException* e)
+    {
+        FORWARDEXCEPTION(context, e,  ECLWATCH_INTERNAL_ERROR);
+    }
+
+    return true;
+}
+
