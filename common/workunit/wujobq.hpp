@@ -76,6 +76,7 @@ interface IJobQueueConst: extends IInterface
     virtual bool paused(StringBuffer& info)=0;    // true if paused
     virtual bool stopped()=0;   // true if stopped
     virtual bool stopped(StringBuffer& info)=0;   // true if stopped
+    virtual const char* getName()=0;
 };
 
 interface IJobQueue: extends IJobQueueConst
@@ -140,6 +141,7 @@ interface IJobQueue: extends IJobQueueConst
 interface IJQSnapshot : extends IInterface
 {
     virtual IJobQueueConst *getJobQueue(const char *name)=0;
+    virtual void getJobQueues(const char *type, IArrayOf<IJobQueueConst>& jobQueues)=0;
 };
 
 extern WORKUNIT_API IJQSnapshot *createJQSnapshot();

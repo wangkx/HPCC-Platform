@@ -22,6 +22,7 @@
 #include "wujobq.hpp"
 #include "TpWrapper.hpp"
 #include "WUXMLInfo.hpp"
+#include "dfuwu.hpp"
 
 enum BulletType
 {
@@ -48,10 +49,14 @@ enum WsSMCStatusServerType
     WsSMCSSTRoxieCluster = 1,
     WsSMCSSTHThorCluster = 2,
     WsSMCSSTECLagent = 3,
-    WsSMCSSTterm = 4
+    WsSMCSSTDFUServer = 4,
+    WsSMCSSTECLCCServer = 5,
+    WsSMCSSTECLServer = 6,
+    WsSMCSSTterm = 7
 };
 
-static const char *WsSMCStatusServerTypeNames[] = { "ThorMaster", "RoxieServer", "HThorServer", "ECLagent" };
+static const char *WsSMCStatusServerTypeNames[] = { "ThorMaster", "RoxieServer", "HThorServer", "ECLagent",
+    "DFUserver", "ECLCCserver", "ECLserver"};
 
 class CWsSMCQueue
 {
@@ -93,6 +98,22 @@ public:
     virtual ~CWsSMCTargetCluster(){};
 };
 
+class CWsSMCServerStatus : public CInterface
+{
+public:
+    CWsSMCServerStatus(){};
+    virtual ~CWsSMCServerStatus(){};
+
+    StringAttr name;
+    StringBuffer instanceName;
+    StringBuffer started;
+    StringBuffer node;
+    int mpport;
+    StringArray queueNames;
+    WsSMCStatusServerType type;
+    IArrayOf<IEspActiveWorkunit> wus;
+};
+
 class CActivityInfo : public CInterface, implements IInterface
 {
     CDateTime timeCached;
@@ -111,7 +132,6 @@ class CActivityInfo : public CInterface, implements IInterface
     void readTargetClusterInfo(CConstWUClusterInfoArray& clusters, IPropertyTree* serverStatusRoot);
     void readTargetClusterInfo(IConstWUClusterInfo& cluster, IPropertyTree* serverStatusRoot, CWsSMCTargetCluster* targetCluster);
     bool findQueueInStatusServer(IPropertyTree* serverStatusRoot, const char* serverName, const char* queueName);
-    const char *getStatusServerTypeName(WsSMCStatusServerType type);
     bool readJobQueue(const char* queueName, StringArray& wuids, StringBuffer& state, StringBuffer& stateDetails);
     void readActiveWUsAndQueuedWUs(IEspContext& context, IPropertyTree* envRoot, IPropertyTree* serverStatusRoot);
     void readRunningWUsOnStatusServer(IEspContext& context, IPropertyTree* serverStatusRoot, WsSMCStatusServerType statusServerType);
@@ -149,6 +169,53 @@ public:
     inline IArrayOf<IEspDFUJob>& queryDFURecoveryJobs() { return DFURecoveryJobs; };
 };
 
+class CServerStatusList : public CInterface, implements IInterface
+{
+    CDateTime timeCached;
+    CIArrayOf<CWsSMCServerStatus> serverStatusList;
+
+    void readServerStatus(IEspContext& context, IPropertyTree* envRoot, IPropertyTree* serverStatusRoot);
+    void readServerStatusByType(IEspContext& context, WsSMCStatusServerType type,
+        IPropertyTree* envRoot, IPropertyTree* serverStatusRoot);
+    void parseQueueNames(const char* queue, StringArray& queueNames);
+    void readWUs(IEspContext& context, const char* wuid, IPropertyTree* envRoot, IPropertyTree& serverStatusNode,
+        CWsSMCServerStatus* serverStatus);
+    void createActiveWorkUnit(IEspContext& context, Owned<IEspActiveWorkunit>& ownedWU, const char* wuid, IPropertyTree* envRoot,
+        CWsSMCServerStatus* serverStatus);
+    void readDFUServerQueue(IEspContext& context, IPropertyTree& serverStatusNode, CWsSMCServerStatus* server);
+    void readDFUWUDetails(IDFUWorkUnitFactory* wuFactory, const char* wuid, const char* queueName, bool running,
+        CWsSMCServerStatus* serverStatus);
+
+public:
+    IMPLEMENT_IINTERFACE;
+
+    CServerStatusList() {};
+    virtual ~CServerStatusList() { };
+
+    bool isCachedServerStatusValid(unsigned timeOutSeconds);
+    void createServerStatus(IEspContext& context);
+    inline CIArrayOf<CWsSMCServerStatus>& queryServerStatus() { return serverStatusList; };
+};
+
+class CJobQueuesCache : public CInterface, implements IInterface
+{
+    CDateTime timeCached;
+    IArrayOf<IEspJobQueueItem> jobQueues;
+
+    void readJobQueues(IEspContext& context);
+    void readJobsFromQueue(IEspContext& context, IJobQueueConst& jobQueueCached, IEspJobQueueItem* jobQueueReturned);
+    const char* parseQueueType(const char* queueName);
+public:
+    IMPLEMENT_IINTERFACE;
+
+    CJobQueuesCache() {};
+    virtual ~CJobQueuesCache() { };
+
+    bool isCachedJobQueueValid(unsigned timeOutSeconds);
+    void createJobQueues(IEspContext& context);
+    inline IArrayOf<IEspJobQueueItem>& queryJobQueues() { return jobQueues; };
+};
+
 class CWsSMCEx : public CWsSMC
 {
     long m_counter;
@@ -156,6 +223,11 @@ class CWsSMCEx : public CWsSMC
     CriticalSection getActivityCrit;
     Owned<CActivityInfo> activityInfoCache;
     unsigned activityInfoCacheSeconds;
+
+    CriticalSection getServerStatusCrit;
+    Owned<CServerStatusList> serverStatusCache;
+    CriticalSection getJobQueueCrit;
+    Owned<CJobQueuesCache> jobQueueCache;
 
     StringBuffer m_ChatURL;
     StringBuffer m_Banner;
@@ -184,6 +256,8 @@ public:
     bool onClearQueue(IEspContext &context, IEspSMCQueueRequest &req, IEspSMCQueueResponse &resp);
     bool onIndex(IEspContext &context, IEspSMCIndexRequest &req, IEspSMCIndexResponse &resp);
     bool onActivity(IEspContext &context, IEspActivityRequest &req, IEspActivityResponse &resp);
+    bool onGetServerStatus(IEspContext &context, IEspGetServerStatusRequest &req, IEspGetServerStatusResponse &resp);
+    bool onGetJobQueue(IEspContext &context, IEspGetJobQueueRequest &req, IEspGetJobQueueResponse &resp);
     bool onSetJobPriority(IEspContext &context, IEspSMCPriorityRequest &req, IEspSMCPriorityResponse &resp);
     bool onGetThorQueueAvailability(IEspContext &context, IEspGetThorQueueAvailabilityRequest &req, IEspGetThorQueueAvailabilityResponse& resp);
     bool onSetBanner(IEspContext &context, IEspSetBannerRequest &req, IEspSetBannerResponse& resp);
@@ -229,6 +303,15 @@ private:
     void setActiveWUs(IEspContext &context, const char *serverType, const char *clusterName, const char *queueName, const IArrayOf<IEspActiveWorkunit>& aws, IEspStatusServerInfo& statusServerInfo);
     void setActiveWUs(IEspContext &context, const char *serverType, const char *instance, const IArrayOf<IEspActiveWorkunit>& aws, IEspStatusServerInfo& statusServerInfo);
     void setActiveWUs(IEspContext &context, IEspActiveWorkunit& wu, IEspActiveWorkunit* wuToSet);
+
+    CServerStatusList* getServerStatus(IEspContext &context);
+    void setServerStatusResponse(IEspContext &context, WsSMCStatusServerType serverType, CServerStatusList* serverStatusList, IEspGetServerStatusRequest &req,
+        IEspGetServerStatusResponse& resp);
+    void setServerStatusList(IEspContext &context, const char* serverName, WsSMCStatusServerType serverType,
+        const CIArrayOf<CWsSMCServerStatus>& cachedServerStatusList, IArrayOf<IEspServerStatus>& serverStatusList);
+    void setServerStatus(IEspContext &context, CWsSMCServerStatus& smcServerStatus, IEspServerStatus* serverStatus);
+    CJobQueuesCache* getJobQueues(IEspContext &context);
+    void setJobQueueResponse(IEspContext &context, CJobQueuesCache* jobQueues, IEspGetJobQueueRequest &req, IEspGetJobQueueResponse& resp);
 };
 
 

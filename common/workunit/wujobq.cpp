@@ -300,6 +300,7 @@ struct sQueueData
 
 class CJobQueueBase: public CInterface, implements IJobQueueConst
 {
+    StringAttr qname;
     class cOrderedIterator
     {
         CJobQueueBase &parent;
@@ -410,7 +411,7 @@ public:
 
     IMPLEMENT_IINTERFACE;
 
-    CJobQueueBase(const char *_qname)
+    CJobQueueBase(const char *_qname) : qname(_qname)
     {
         StringArray qlist;
         qlist.appendListUniq(_qname, ",");
@@ -773,6 +774,7 @@ public:
         if ((strieq(st, "paused") || strieq(st, "stopped")))
             stateDetails.set(qdata->root->queryProp("@stateDetails"));
     }
+    virtual const char* getName() { return qname.get(); };
 };
 
 class CJobQueueConst: public CJobQueueBase
@@ -2062,6 +2064,11 @@ public:
         Cconnlockblock block(this,false);
         CJobQueueBase::getState(state, stateDetails);
     }
+    virtual const char* getName()
+    {
+        Cconnlockblock block(this,false);
+        return CJobQueueBase::getName();
+    }
 };
 
 class CJQSnapshot : public CInterface, implements IJQSnapshot
@@ -2085,6 +2092,25 @@ public:
         if (!jobQueueInfo)
             return NULL;
         return new CJobQueueConst(name, jobQueueInfo.getLink());
+    }
+
+    void getJobQueues(const char *type, IArrayOf<IJobQueueConst>& jobQueues)
+    {
+        StringBuffer xpath = "*";
+        if (!type || !*type)
+            xpath.set("*");
+        else
+            xpath.setf("Queue[@name=\"*.%s\"]", type);
+        Owned<IPropertyTreeIterator> jobQueueIterator = jobQueueInfo->getElements(xpath.str());
+        ForEach(*jobQueueIterator)
+        {
+            IPropertyTree& jobQueueTree = jobQueueIterator->query();
+            const char* queueName = jobQueueTree.queryProp("@name");
+            if (!queueName || !*queueName)
+                continue;
+            Owned<IJobQueueConst> jobQueue = new CJobQueueConst(queueName, jobQueueInfo.getLink());
+            jobQueues.append(*jobQueue.getClear());
+        }
     }
 };
 

@@ -157,6 +157,57 @@ ESPresponse [exceptions_inline] ActivityResponse
     [min_ver("1.14")] ESParray<ESPstruct ServerJobQueue> ServerJobQueues;
 };
 
+ESPStruct [nil_remove] ServerStatus
+{
+    string ServerName;
+    string ServerType;
+    string StartTime;
+    string NetworkAddress;
+    int Port;
+    ESParray<string> QueueNames;
+    ESParray<ESPstruct ActiveWorkunit> WUs;
+};
+
+ESPrequest [nil_remove] GetServerStatusRequest
+{
+    string ServerName;
+    string ServerType;
+};
+
+ESPresponse [nil_remove, exceptions_inline] GetServerStatusResponse
+{
+    string Build;
+    ESParray<ESPstruct ServerStatus> ServerStatusList;
+};
+
+ESPStruct [nil_remove] WUInQueue
+{
+    string WUID;
+    string EnqueueDT;
+    int64  SessionID;
+    int    Priority;
+};
+
+ESPStruct [nil_remove] JobQueueItem
+{
+    string QueueName;
+    string QueueType;
+    string Status;
+    string StatusDetails;
+    ESParray<ESPstruct WUInQueue> WUs;
+};
+
+ESPrequest [nil_remove] GetJobQueueRequest
+{
+    string QueueName;
+    string QueueType;
+};
+
+ESPresponse [nil_remove, exceptions_inline] GetJobQueueResponse
+{
+    ESParray<ESPstruct JobQueueItem> JobQueues;
+};
+
 ESPrequest SMCIndexRequest
 {
 };
@@ -361,6 +412,8 @@ ESPservice [noforms, version("1.19"), default_client_version("1.19"), exceptions
 {
     ESPmethod Index(SMCIndexRequest, SMCIndexResponse);
     ESPmethod [resp_xsl_default("/esp/xslt/index.xslt")] Activity(ActivityRequest, ActivityResponse);
+    ESPmethod GetServerStatus(GetServerStatusRequest, GetServerStatusResponse);
+    ESPmethod GetJobQueue(GetJobQueueRequest, GetJobQueueResponse);
 
     ESPmethod ClearQueue(SMCQueueRequest, SMCQueueResponse);
     ESPmethod PauseQueue(SMCQueueRequest, SMCQueueResponse);
