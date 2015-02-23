@@ -75,18 +75,18 @@ interface IESPComponentStatusInfo : extends IInterface
 {
     virtual const char* getReporter() = 0;
     virtual const char* getTimeStamp() = 0;
-    virtual int getSystemStatusID() = 0;
+    virtual int getComponentStatusID() = 0;
+    virtual const int getComponentTypeID() = 0;
+    virtual IEspStatusReport* getStatusReport() = 0;
     virtual IArrayOf<IEspComponentStatus>& getComponentStatus() = 0;
-    virtual void mergeComponentStatus(const char* reporter, const char* time, IArrayOf<IEspComponentStatus>& statusIn) = 0;
-    virtual IArrayOf<IEspComponentStatus>& updateComponentStatus(IArrayOf<IEspComponentStatus>& StatusList) = 0;
-    virtual IArrayOf<IEspComponentStatus>& updateComponentStatus(IArrayOf<IConstComponentStatus>& StatusList) = 0;
+    virtual void mergeComponentStatusInfo(IESPComponentStatusInfo& statusInfo) = 0;
+    virtual void updateComponentStatus(IArrayOf<IConstComponentStatus>& StatusList) = 0;
 };
 
 interface IComponentStatusFactory : extends IInterface
 {
     virtual IESPComponentStatusInfo* getComponentStatus() = 0;
     virtual void updateComponentStatus(const char* reporter, IArrayOf<IConstComponentStatus>& StatusList) = 0;
-    virtual void updateComponentStatus(const char* reporter, IArrayOf<IEspComponentStatus>& StatusList) = 0;
 };
 
 extern "C" COMPONENTSTATUS_API IComponentStatusFactory* getComponentStatusFactory();

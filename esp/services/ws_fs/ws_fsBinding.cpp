@@ -23,7 +23,6 @@
 #include "dfuwu.hpp"
 #include "dadfs.hpp"
 #include "exception_util.hpp"
-#include "componentstatus.hpp"
 
 #define FILE_SPRAY_URL      "FileSprayAccess"
 #define FILE_DESPRAY_URL    "FileDesprayAccess"

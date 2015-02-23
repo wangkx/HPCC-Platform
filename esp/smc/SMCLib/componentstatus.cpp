@@ -87,9 +87,13 @@ class CESPComponentStatusInfo : public CInterface, implements IESPComponentStatu
 {
     StringAttr reporter;
     StringAttr timeCached;
-    int systemStatusID; //the worst component status in the system
-    IArrayOf<IEspComponentStatus> status;
+    IArrayOf<IEspComponentStatus> statusList;
     Owned<IComponentStatusUtils> componentStatusUtils;
+
+    bool fromReporter; //this CESPComponentStatusInfo object is created by ws_machine.UpdateComponentStatus
+    int componentStatusID; //the worst component status in the system
+    int componentTypeID; //the worst component status in the system
+    Owned<IEspStatusReport> componentStatusReport; //the worst component status in the system
 
     void updateTimeStamp()
     {
@@ -108,101 +112,116 @@ class CESPComponentStatusInfo : public CInterface, implements IESPComponentStatu
 #endif
         timeCached.set(timeStr);
     }
-    void copyAndSaveComponentStatus(IConstComponentStatus& st)
+    void addStatusReport(const char* reporterIn, const char* timeCachedIn, IConstComponentStatus& csIn, IEspComponentStatus& csOut)
     {
-        Owned<IEspComponentStatus> cs = createComponentStatus();
-        cs->setComponentTypeID(st.getComponentTypeID());
-        cs->setComponentType(st.getComponentType());
-        cs->setStatusTypeID(st.getStatusTypeID());
-        cs->setStatusType(st.getStatusType());
-        cs->setStatusDetails(st.getStatusDetails());
-        status.append(*cs.getClear());
-    }
-    void addNewComponentStatus(const char* reporter, const char* timeCached, IEspComponentStatus& st)
-    {
-        int statusID = st.getStatusTypeID();
-        if (statusID > systemStatusID) //worst case
-            systemStatusID = statusID;
-
-        StringBuffer componentTypeStr, statusStr;
-        int componentTypeID = st.getComponentTypeID();
-        componentStatusUtils->getComponentTypeByID(componentTypeID, componentTypeStr);
-        componentStatusUtils->getComponentStatusTypeByID(statusID, statusStr);
-        VStringBuffer details("%s %s: %s -- %s", timeCached, reporter, statusStr.str(), st.getStatusDetails());
-
-        Owned<IEspComponentStatus> cs = createComponentStatus();
-        cs->setComponentTypeID(componentTypeID);
-        cs->setComponentType(componentTypeStr.str());
-        cs->setStatusTypeID(statusID);
-        cs->setStatusType(statusStr.str());
-        cs->setStatusDetails(details.str());
-        status.append(*cs.getClear());
-    }
-    void updateStatus(const char* reporter, const char* timeCached, IEspComponentStatus& st, IEspComponentStatus& stMerged)
-    {
-        int statusID = st.getStatusTypeID();
-        if (statusID > systemStatusID) //worst case
-            systemStatusID = statusID;
-
-        StringBuffer statusStr;
-        componentStatusUtils->getComponentStatusTypeByID(statusID, statusStr);
-        if (statusID > stMerged.getStatusTypeID())
+        int componentType = csIn.getComponentTypeID();
+        IArrayOf<IConstStatusReport>& statusReports = csOut.getStatusReports();
+        IArrayOf<IConstStatusReport>& reportsIn = csIn.getStatusReports();
+        ForEachItemIn(i, reportsIn)
         {
-            stMerged.setStatusTypeID(statusID);
-            stMerged.setStatusType(statusStr.str());
-        }
+            IConstStatusReport& report = reportsIn.item(i);
 
-        VStringBuffer details("%s; %s %s: %s -- %s", stMerged.getStatusDetails(), timeCached, reporter, statusStr.str(), st.getStatusDetails());
-        stMerged.setStatusDetails(details.str());
+            int statusID = report.getStatusTypeID();
+            Owned<IEspStatusReport> statusReport = createStatusReport();
+            statusReport->setStatusTypeID(statusID);
+
+            const char* details = report.getStatusDetails();
+            if (details && *details)
+                statusReport->setStatusDetails(details);
+
+            const char* url = report.getURL();
+            if (url && *url)
+                statusReport->setURL(url);
+
+            statusReport->setReporter(reporterIn);
+            statusReport->setTimeCached(timeCachedIn);
+            if (!fromReporter)
+            {//We need to add more info for a user-friendly output
+                StringBuffer statusStr;
+                statusReport->setStatusType(componentStatusUtils->getComponentStatusTypeByID(statusID, statusStr).str());
+
+                if (statusID > csOut.getComponentStatusID()) //worst case
+                {
+                    csOut.setComponentStatusID(statusID);
+                    csOut.setComponentStatus(statusStr.str());
+                    csOut.setReporter(reporterIn);
+                }
+                if (statusID > componentStatusID) //worst case
+                {
+                    componentTypeID = componentType;
+                    componentStatusID = statusID;
+                    componentStatusReport.setown(statusReport.getLink());
+                    reporter.set(reporterIn);
+                }
+            }
+            statusReports.append(*statusReport.getClear());
+        }
+    }
+    void addComponentStatus(const char* reporterIn, const char* timeCachedIn, IConstComponentStatus& st)
+    {
+        Owned<IEspComponentStatus> cs = createComponentStatus();
+        cs->setComponentStatusID(-1);
+
+        int componentType = st.getComponentTypeID();
+        cs->setComponentTypeID(componentType);
+
+        StringBuffer componentTypeStr;
+        cs->setComponentType(componentStatusUtils->getComponentTypeByID(componentType, componentTypeStr).str());
+
+        IArrayOf<IConstStatusReport> statusReports;
+        cs->setStatusReports(statusReports);
+
+        addStatusReport(reporterIn, timeCachedIn, st, *cs);
+        statusList.append(*cs.getClear());
     }
 public:
     IMPLEMENT_IINTERFACE;
 
-    CESPComponentStatusInfo(const char* _reporter) : reporter(_reporter)
+    CESPComponentStatusInfo(const char* _reporter)
     {
-        systemStatusID = -1;
         componentStatusUtils.setown(getComponentStatusUtils());
+        componentStatusID = -1;
+        fromReporter = _reporter? true : false;
+        if (_reporter && *_reporter)
+            reporter.set(_reporter);
     };
 
     virtual const char* getReporter() { return reporter.get(); };
     virtual const char* getTimeStamp() { return timeCached.get(); };
-    virtual int getSystemStatusID() { return systemStatusID; };
-    virtual IArrayOf<IEspComponentStatus>& getComponentStatus() { return status; };
-    virtual void mergeComponentStatus(const char* reporter, const char* timeCached, IArrayOf<IEspComponentStatus>& statusIn)
+    virtual int getComponentStatusID() { return componentStatusID; };
+    virtual const int getComponentTypeID() { return componentTypeID; };
+    virtual IEspStatusReport* getStatusReport() { return componentStatusReport; };
+    virtual IArrayOf<IEspComponentStatus>& getComponentStatus() { return statusList; };
+
+    virtual void mergeComponentStatusInfo(IESPComponentStatusInfo& statusInfo)
     {
-        ForEachItemIn(i, statusIn)
+        const char* reporterIn = statusInfo.getReporter();
+        const char* timeCachedIn = statusInfo.getTimeStamp();
+        IArrayOf<IEspComponentStatus>& statusListIn = statusInfo.getComponentStatus();
+        ForEachItemIn(i, statusListIn)
         {
             bool newCompoment = true;
-            IEspComponentStatus& item = statusIn.item(i);
-            ForEachItemIn(ii, status)
+            IEspComponentStatus& statusIn = statusListIn.item(i);
+            ForEachItemIn(ii, statusList)
             {
-                IEspComponentStatus& item1 = status.item(ii);
-                if (item.getComponentTypeID() == item1.getComponentTypeID())
+                IEspComponentStatus& statusOut = statusList.item(ii);
+                if (statusIn.getComponentTypeID() == statusOut.getComponentTypeID())
                 {
-                    updateStatus(reporter, timeCached, item, item1);
+                    addStatusReport(reporterIn, timeCachedIn, statusIn, statusOut);
                     newCompoment =  false;
                     break;
                 }
             }
             if (newCompoment)
-                addNewComponentStatus(reporter, timeCached, item);
+                addComponentStatus(reporterIn, timeCachedIn, statusIn);
         }
     }
-    virtual IArrayOf<IEspComponentStatus>& updateComponentStatus(IArrayOf<IConstComponentStatus>& statusList)
-    {//Called from another process, such as a SOAP call
-        status.kill();
+    virtual void updateComponentStatus(IArrayOf<IConstComponentStatus>& statusListIn)
+    {
+        statusList.kill();
         updateTimeStamp();
-        ForEachItemIn(s, statusList)
-            copyAndSaveComponentStatus(statusList.item(s));
-        return status;
-    }
-    virtual IArrayOf<IEspComponentStatus>& updateComponentStatus(IArrayOf<IEspComponentStatus>& statusList)
-    {//Called from another thread
-        status.kill();
-        updateTimeStamp();
-        ForEachItemIn(s, statusList)
-            status.append(*LINK(&statusList.item(s)));
-        return status;
+        ForEachItemIn(s, statusListIn)
+            addComponentStatus(reporter, timeCached, statusListIn.item(s));
     }
 };
 
@@ -238,26 +257,17 @@ public:
     {
         CriticalBlock block(componentStatusSect);
 
-        Owned<IESPComponentStatusInfo> status = new CESPComponentStatusInfo("");
+        Owned<IESPComponentStatusInfo> status = new CESPComponentStatusInfo(NULL);
         ForEachItemIn(i, cache)
         {
             IESPComponentStatusInfo& item = cache.item(i);
-            status->mergeComponentStatus(item.getReporter(), item.getTimeStamp(), item.getComponentStatus());
+            status->mergeComponentStatusInfo(item);
         }
         return status.getClear();
     }
 
     virtual void updateComponentStatus(const char* reporter, IArrayOf<IConstComponentStatus>& statusList)
-    {//Called from another process, such as a SOAP call
-        CriticalBlock block(componentStatusSect);
-
-        Owned<IESPComponentStatusInfo> status = new CESPComponentStatusInfo(reporter);
-        status->updateComponentStatus(statusList);
-        updateCache(reporter, status.getClear());
-    }
-
-    virtual void updateComponentStatus(const char* reporter, IArrayOf<IEspComponentStatus>& statusList)
-    {//Called from another thread
+    {
         CriticalBlock block(componentStatusSect);
 
         Owned<IESPComponentStatusInfo> status = new CESPComponentStatusInfo(reporter);

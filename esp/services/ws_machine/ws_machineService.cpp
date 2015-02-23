@@ -2297,6 +2297,90 @@ void Cws_machineEx::getAccountAndPlatformInfo(const char* address, StringBuffer&
     bLinux = machine->getOS() == MachineOsLinux;
 }
 
+bool Cws_machineEx::onTestGetComponentStatus(IEspContext &context, IEspTestGetComponentStatusRequest &req, IEspTestGetComponentStatusResponse &resp)
+{
+    try
+    {
+        int id = req.getID();
+        const char* reporter = req.getReporter();
+        if (!reporter || !*reporter)
+            throw MakeStringException(ECLWATCH_INVALID_INPUT, "Report not specified.");
+
+        Owned<IComponentStatusFactory> factory = getComponentStatusFactory();
+        IArrayOf<IConstComponentStatus> statusList;
+        if (id == 1)
+        {
+            Owned<IEspComponentStatus> cs1 = createComponentStatus();
+            cs1->setComponentTypeID(1);
+
+            IArrayOf<IConstStatusReport> statusReports1;
+            Owned<IEspStatusReport> statusReport1 = createStatusReport();
+            statusReport1->setStatusTypeID(0);
+            statusReport1->setURL("www.yahoo.com");
+            statusReports1.append(*statusReport1.getClear());
+            cs1->setStatusReports(statusReports1);
+            statusList.append(*cs1.getClear());
+
+            Owned<IEspComponentStatus> cs2 = createComponentStatus();
+            cs2->setComponentTypeID(2);
+
+            IArrayOf<IConstStatusReport> statusReports2;
+            Owned<IEspStatusReport> statusReport2 = createStatusReport();
+            statusReport2->setStatusTypeID(2);
+            statusReport2->setStatusDetails("This is error test1.");
+            statusReport2->setURL("www.yahoo.com");
+            statusReports2.append(*statusReport2.getClear());
+            cs2->setStatusReports(statusReports2);
+            statusList.append(*cs2.getClear());
+
+            Owned<IEspComponentStatus> cs3 = createComponentStatus();
+            cs3->setComponentTypeID(3);
+
+            IArrayOf<IConstStatusReport> statusReports3;
+            Owned<IEspStatusReport> statusReport3 = createStatusReport();
+            statusReport3->setStatusTypeID(2);
+            statusReport3->setStatusDetails("This is error test1.");
+            statusReport3->setURL("www.yahoo.com");
+            statusReports3.append(*statusReport3.getClear());
+            cs3->setStatusReports(statusReports3);
+            statusList.append(*cs3.getClear());
+        }
+        else
+        {
+            Owned<IEspComponentStatus> cs1 = createComponentStatus();
+            cs1->setComponentTypeID(4);
+
+            IArrayOf<IConstStatusReport> statusReports1;
+            Owned<IEspStatusReport> statusReport1 = createStatusReport();
+            statusReport1->setStatusTypeID(1);
+            statusReport1->setStatusDetails("This is warning test2.");
+            statusReport1->setURL("www.hpcc.com");
+            statusReports1.append(*statusReport1.getClear());
+            cs1->setStatusReports(statusReports1);
+            statusList.append(*cs1.getClear());
+
+            Owned<IEspComponentStatus> cs2 = createComponentStatus();
+            cs2->setComponentTypeID(2);
+
+            IArrayOf<IConstStatusReport> statusReports2;
+            Owned<IEspStatusReport> statusReport2 = createStatusReport();
+            statusReport2->setStatusTypeID(0);
+            statusReport2->setURL("www.hpcc1.com");
+            statusReports2.append(*statusReport2.getClear());
+            cs2->setStatusReports(statusReports2);
+            statusList.append(*cs2.getClear());
+        }
+        factory->updateComponentStatus(reporter, statusList);
+        resp.setStatusCode(0);
+    }
+    catch(IException* e)
+    {
+        FORWARDEXCEPTION(context, e,  ECLWATCH_INTERNAL_ERROR);
+    }
+
+    return true;
+}
+
 bool Cws_machineEx::onGetComponentStatus(IEspContext &context, IEspGetComponentStatusRequest &req, IEspGetComponentStatusResponse &resp)
 {
     try
@@ -2309,18 +2393,31 @@ bool Cws_machineEx::onGetComponentStatus(IEspContext &context, IEspGetComponentS
         if (!status) //Should never happen
             return false;
 
-        int statusID = status->getSystemStatusID();
+        int statusID = status->getComponentStatusID();
         if (statusID < 0)
-            resp.setSystemStatus("Not reported");
+        {
+            resp.setComponentStatus("Not reported");
+        }
         else
         {
-            StringBuffer statusStr;
+            StringBuffer statusStr, componentTypeStr;
+            int componentTypeID = status->getComponentTypeID();
+            resp.setComponentTypeID(componentTypeID);
+
             Owned<IComponentStatusUtils> componentStatusUtils = getComponentStatusUtils();
-            componentStatusUtils->getComponentStatusTypeByID(statusID, statusStr);
-            resp.setSystemStatus(statusStr.str());
+            resp.setComponentType(componentStatusUtils->getComponentTypeByID(componentTypeID, componentTypeStr).str());
+            resp.setComponentStatus(componentStatusUtils->getComponentStatusTypeByID(statusID, statusStr).str());
+
+            IConstStatusReport* componentStatus = status->getStatusReport();
+            if (componentStatus)
+                resp.setStatusReport(*componentStatus);
+
+            const char* reporter = status->getReporter();
+            if (reporter && *reporter)
+                resp.setReporter(reporter);
             resp.setComponentStatusList(status->getComponentStatus());
         }
-        resp.setSystemStatusID(statusID);
+        resp.setComponentStatusID(statusID);
     }
     catch(IException* e)
     {
