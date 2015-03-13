@@ -5925,6 +5925,15 @@ void EspServInfo::write_esp_binding()
         outf("\tif (context.getClientVersion()<=0)\n");
         outf("\t\tcontext.setClientVersion(%s);\n\n", defVer.str());
     }
+    else
+    {
+        hasDefVer = getMetaVerInfo(tags,"version",defVer);
+        if (hasDefVer)
+        {
+            outf("\tif (context.getClientVersion()<=0)\n");
+            outf("\t\tcontext.setClientVersion(%s);\n\n", defVer.str());
+        }
+    }
     outs("\tif(request == NULL || response == NULL)\n");
     outs("\t\treturn -1;\n");
     
