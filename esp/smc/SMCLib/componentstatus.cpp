@@ -15,8 +15,12 @@
     limitations under the License.
 ############################################################################## */
 
-#include "jlib.hpp"
+#include "jiface.hpp"
 #include "componentstatus.hpp"
+#include "jlib.hpp"
+#include "esp.hpp"
+#include "ws_machine_esp.ipp"
+#include "ws_machine.hpp"
 
 class CComponentStatusUtils : public CInterface, implements IComponentStatusUtils
 {

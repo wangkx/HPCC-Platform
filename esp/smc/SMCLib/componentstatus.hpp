@@ -21,8 +21,16 @@
 #define _COMPONENTSTATUS_HPP__
 
 #include "jiface.hpp"
-#include "esp.hpp"
-#include "ws_machine_esp.ipp"
+
+class IEspComponentStatus;
+class IEspStatusReport;
+class IConstComponentStatus;
+class IEspComponentStatus;
+class IPropertyTreeIterator;
+class StringBuffer;
+class IPropertyTree;
+template<class IEspComponentStatus> class IArrayOf;
+
 
 #ifdef WIN32
     #ifdef SMCLIB_EXPORTS
@@ -63,16 +71,18 @@ enum ComponentStatusTypeID
 
 static const char *componentStatusType[] = { "Normal", "Warning", "Error"};
 
-interface IComponentStatusUtils : extends IInterface
+class IComponentStatusUtils : public IInterface
 {
+public:
     virtual StringBuffer& getComponentTypeByID(unsigned ID, StringBuffer& out) = 0;
     virtual StringBuffer& getComponentStatusTypeByID(unsigned ID, StringBuffer& out) = 0;
     virtual void setComponentTypes(IPropertyTree* cfg) = 0;
     virtual void setComponentStatusTypes(IPropertyTree* cfg) = 0;
 };
 
-interface IESPComponentStatusInfo : extends IInterface
+class IESPComponentStatusInfo : public IInterface
 {
+public:
     virtual const char* getReporter() = 0;
     virtual const char* getTimeStamp() = 0;
     virtual int getComponentStatusID() = 0;
@@ -83,8 +93,9 @@ interface IESPComponentStatusInfo : extends IInterface
     virtual void updateComponentStatus(IArrayOf<IConstComponentStatus>& StatusList) = 0;
 };
 
-interface IComponentStatusFactory : extends IInterface
+class IComponentStatusFactory : public IInterface
 {
+public:
     virtual IESPComponentStatusInfo* getComponentStatus() = 0;
     virtual void updateComponentStatus(const char* reporter, IArrayOf<IConstComponentStatus>& StatusList) = 0;
 };
