@@ -324,6 +324,9 @@ ESPstruct [nil_remove] ComponentStatus
 {
     int ComponentTypeID;
     string ComponentType;
+    string ComponentName;
+    string ComponentIP;
+    int ComponentPort;
     int ComponentStatusID;
     string ComponentStatus;
     string Reporter;
@@ -338,6 +341,9 @@ ESPresponse [encode(0), nil_remove, exceptions_inline] GetComponentStatusRespons
 {
     int ComponentTypeID;
     string ComponentType;
+    string ComponentName;
+    string ComponentIP;
+    int ComponentPort;
     int ComponentStatusID;
     string ComponentStatus;
     string Reporter;

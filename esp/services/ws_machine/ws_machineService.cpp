@@ -1060,6 +1060,111 @@ void Cws_machineEx::getMachineInfo(IEspContext& context, bool getRoxieState, CGe
         m_threadPool->join(threadHandles.item(i));
 }
 
+unsigned checkSpace(unsigned threshold, const char* thresholdType, IConstStorageInfo& storage)
+{
+    if (streq(thresholdType, "0") && (storage.getPercentAvail() < threshold))
+        return 1;
+    if (storage.getAvailable() < threshold)
+        return 1;
+    return 0;
+}
+
+unsigned checkSpaces(IEspMachineInfoEx& machineInfoEx, IEspRequestInfoStruct* requestInfo)
+{
+    unsigned memThreshold = requestInfo->getMemThreshold();
+    const char* memThresholdType = requestInfo->getMemThresholdType();
+    if (!checkSpace(memThreshold, memThresholdType, machineInfoEx.getPhysicalMemory()))
+        return 1;
+
+    if (!checkSpace(memThreshold, memThresholdType, machineInfoEx.getVirtualMemory()))
+        return 1;
+
+    unsigned diskThreshold = requestInfo->getDiskThreshold();
+    const char* diskThresholdType = requestInfo->getDiskThresholdType();
+    IArrayOf<IConstStorageInfo>& storages = machineInfoEx.getStorage();
+    ForEachItemIn(i, storages)
+    {
+        //StorageInfo& storage = storages.item(i);
+        if (!checkSpace(diskThreshold, diskThresholdType, storages.item(i)))
+            return 1;
+    }
+    return 0;
+}
+
+unsigned checkStatus(IEspMachineInfoEx& machineInfoEx, IEspRequestInfoStruct* requestInfo)
+{
+    unsigned statusID = 0;
+    IConstComponentInfo& info = machineInfoEx.getComponentInfo();
+    int condition = info.getCondition();
+    int state = info.getState();
+    if ((condition != 1) || (state != 5))
+        statusID = 2;
+
+    if (!requestInfo)
+        return statusID;
+
+    //TODO: unsigned cpuThreshold = requestInfo->getCpuThreshold();
+
+    return checkSpaces(machineInfoEx, requestInfo);
+}
+
+void addOne(unsigned deleteMe, IComponentStatusFactory* factory, IEspMachineInfoEx& machineInfoEx, IEspRequestInfoStruct* requestInfo, IArrayOf<IConstComponentStatus>& statusList)
+{
+    unsigned componentTypeID = deleteMe;//TODO
+    unsigned componentPort = 0;
+    StringBuffer componentName, componentIP, statusDetails, url;
+    statusDetails.set("Normal");
+    componentName.set("myesp");
+    componentIP.set("10.10.10.10");
+    url.set("www.yahoo.com");
+
+    const char* ip = machineInfoEx.getAddress();
+    const char* name = machineInfoEx.getComponentName();
+    const char* type = machineInfoEx.getDisplayType();
+    int number = machineInfoEx.getProcessNumber();
+    unsigned statusID = checkStatus(machineInfoEx, requestInfo);
+
+    Owned<IEspComponentStatus> status = createComponentStatus();
+    status->setComponentTypeID(componentTypeID);
+    if (name && *name)
+        status->setComponentName(name);
+    if (ip && *ip)
+        status->setComponentIP(ip);
+    ///if (componentPort > 0)
+     ///   status->setComponentPort(componentPort);
+    status->setComponentPort(number);
+
+    IArrayOf<IConstStatusReport> statusReports;
+    Owned<IEspStatusReport> statusReport = createStatusReport();
+    statusReport->setStatusTypeID(statusID);
+    if (statusDetails.length())
+        statusReport->setStatusDetails(statusDetails.str());
+    if (url.length())
+        statusReport->setURL(url.str());
+    if (type && *type)
+        statusReport->setStatusDetails(type);
+    statusReports.append(*statusReport.getClear());
+    status->setStatusReports(statusReports);
+    statusList.append(*status.getClear());
+}
+
+void reportComponentStatus(const char* reporter, IArrayOf<IEspMachineInfoEx>& machineArray, IEspRequestInfoStruct* requestInfo)
+{
+    unsigned machineCount = machineArray.ordinality();
+    if (machineCount < 1)
+        return;
+
+    unsigned deleteMe = 1;
+    Owned<IComponentStatusFactory> factory = getComponentStatusFactory();
+    IArrayOf<IConstComponentStatus> statusList;
+    ForEachItemIn(i, machineArray)
+    {
+        IEspMachineInfoEx& machineInfoEx = machineArray.item(i);
+        addOne(deleteMe++, factory, machineInfoEx, requestInfo, statusList);
+    }
+    factory->updateComponentStatus("HPCC Preflight", statusList);
+}
+
 ////////////////////////////////////////////////////////////////////
 // Get Machine Information based on Machine Information request   //
 ////////////////////////////////////////////////////////////////////
@@ -2083,6 +2188,8 @@ void Cws_machineEx::setMachineInfoResponse(IEspContext& context, IEspGetMachineI
     if (machineInfoData.getMachineInfoTable().ordinality())
         resp.setMachines(machineInfoData.getMachineInfoTable());
 
+    reportComponentStatus("HPCC Preflight", machineInfoData.getMachineInfoTable(), &reqInfo);
+
     char timeStamp[32];
     getTimeStamp(timeStamp);
     resp.setTimeStamp( timeStamp );
@@ -2149,6 +2256,7 @@ void Cws_machineEx::setTargetClusterInfoResponse(IEspContext& context, IEspGetTa
         if (targetClusterInfoList.ordinality())
             resp.setTargetClusterInfoList(targetClusterInfoList);
     }
+    reportComponentStatus("HPCC Preflight", machineInfoData.getMachineInfoTable(), &reqInfo);
 
     char timeStamp[32];
     getTimeStamp(timeStamp);
@@ -2169,6 +2277,9 @@ void Cws_machineEx::setTargetClusterInfo(IPropertyTree* pTargetClusterTree, IArr
     if (machineCount < 1)
         return;
 
+    //unsigned deleteMe = 1;
+    //Owned<IComponentStatusFactory> factory = getComponentStatusFactory();
+    //IArrayOf<IConstComponentStatus> statusList;
     Owned<IPropertyTreeIterator> targetClusters = pTargetClusterTree->getElements("TargetCluster");
     ForEach(*targetClusters)
     {
@@ -2204,6 +2315,7 @@ void Cws_machineEx::setTargetClusterInfo(IPropertyTree* pTargetClusterTree, IArr
                 pMachineInfo->copy(machineInfoEx);
                 machineArrayNew.append(*pMachineInfo.getLink());
                 //Cannot break here because more than one processes match (ex. EclAgent/AgentExec)
+                //addOne(deleteMe++, factory, machineInfoEx, statusList);
             }
         }
 
