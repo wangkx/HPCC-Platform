@@ -14,3 +14,4 @@
 #    limitations under the License.
 ################################################################################
 add_subdirectory (soapplus)
+add_subdirectory (espjobs)
