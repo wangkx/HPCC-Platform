@@ -440,19 +440,76 @@ enum LockDataField
     LDFtimeLocked = 6
 };
 
+#define LDFilterSeparator ','
+
+class CLockDataFilters : public CInterface
+{
+    StringAttr epIP;
+    StringAttr xPath;
+    int mode;
+    int durationLow;
+    int durationHigh;
+
+    bool isValidInteger(const char *s)
+    {
+        if (!s)
+            return false;
+        while (*s)
+        {
+            if ((*s != '-') && !isdigit(*s))
+                return false;
+            s++;
+        }
+        return true;
+    }
+    bool checkMode(unsigned _mode)
+    {
+        return (mode == 0) || ((mode & _mode) > 0);
+    }
+    bool checkDuration(int duration)
+    {
+        return (durationLow <= duration) && ((durationHigh < 0) || (duration <= durationHigh));
+    }
+    bool checkEPIP(const char *ep);
+    void setFilter(const char *_filter);
+public:
+    CLockDataFilters()
+    {
+        mode = 0;
+        durationLow = -1;
+        durationHigh = -1;
+    }
+    void setFilters(const char *_filters)
+    {
+        if (!_filters || !*_filters || streq(_filters, "*"))
+            return;
+        StringArray filterArray;
+        char sep[] = { LDFilterSeparator, '\0' };
+        filterArray.appendListUniq(_filters, sep);
+        ForEachItemIn(f, filterArray)
+            setFilter(filterArray.item(f));
+    }
+    bool checkEPLock(const char *_ep, unsigned _mode, __int64 _duration)
+    {
+        return checkEPIP(_ep) && checkMode(_mode) && checkDuration(_duration);
+    }
+    bool checkXPath(const char *_xPath);
+};
+
 class CLockDataHelper
 {
-    bool checkEP(const char *ep, const char *ipPattern);
-    void formatLock(IPropertyTree &query, bool fileLock, unsigned formatType, bool &headerDone, const char *ipPattern, const char *xpathPattern,
-        Int64Array *connIds, StringBuffer &out);
+    CLockDataFilters filters;
+    void setFilter(const char *_filter);
+    void formatLock(IPropertyTree &query, bool fileLock, unsigned formatType, bool &headerDone, Int64Array *connIds, StringBuffer &out);
 
 public:
     CLockDataHelper() {};
+    void setFilters(const char* _filters);
+    bool checkFileOnlyFilter(const char *filters);
     void serializeLockData(CheckedCriticalSection &crit, unsigned critTimeout, const char *xpath, ConnectionInfoMap &connectionInfo, CMessageBuffer &lockInfo);
     IPropertyTreeIterator *getLockDataTreeIterator(MemoryBuffer &lockInfo);
     StringBuffer &formatLockData(MemoryBuffer &lockInfo, StringBuffer &out);
-    void formatLocks(IPropertyTreeIterator *itr, bool fileLock, unsigned formatType, const char *ipPattern, const char *xPathPattern,
-        Int64Array *connIds, StringBuffer &out);
+    void formatLocks(IPropertyTreeIterator *itr, bool fileLock, unsigned formatType, Int64Array *connIds, StringBuffer &out);
 };
 
 #endif

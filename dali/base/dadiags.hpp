@@ -25,7 +25,7 @@
 extern da_decl StringBuffer & getDaliDiagnosticValue(const char *name,StringBuffer &ret);
 extern da_decl MemoryBuffer & getDaliDiagnosticValue(MemoryBuffer &m);
 
-extern da_decl IPropertyTreeIterator *getLockDataTreeIterator();
+extern da_decl IPropertyTreeIterator *getLockDataTreeIterator(const char *filter);
 
 // for server use
 interface IDaliServer;

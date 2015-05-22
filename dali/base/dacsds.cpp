@@ -1887,10 +1887,14 @@ StringBuffer &CClientSDSManager::getLocks(StringBuffer &out)
     return getInfo(DIAG_CMD_LOCKINFO, out);
 }
 
-void CClientSDSManager::getLocks(CMessageBuffer &out)
+void CClientSDSManager::getLocks(const char *filters, CMessageBuffer &out)
 {
     out.append((int)DAMP_SDSCMD_DIAGNOSTIC);
     out.append((int)DIAG_CMD_LOCKINFO);
+    if (filters && *filters)
+        out.append(filters);
+    else
+        out.append("*");
 
     if (!queryCoven().sendRecv(out, RANK_RANDOM, MPTAG_DALI_SDS_REQUEST))
     {

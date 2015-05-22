@@ -1991,7 +1991,7 @@ public:
     virtual void unsubscribe(SubscriptionId id);
     virtual void unsubscribeExact(SubscriptionId id);
     virtual StringBuffer &getLocks(StringBuffer &out);
-    virtual void getLocks(CMessageBuffer &out);
+    virtual void getLocks(const char *filters, CMessageBuffer &out);
     virtual StringBuffer &getUsageStats(StringBuffer &out);
     virtual StringBuffer &getConnections(StringBuffer &out);
     virtual StringBuffer &getSubscribers(StringBuffer &out);
@@ -3758,12 +3758,20 @@ int CSDSTransactionServer::run()
                             {
                                 case DIAG_CMD_LOCKINFO:
                                 {
-                                    StringBuffer out;
-                                    SDSManager->getLocks(out);
-                                    mb.clear().append(DAMP_SDSREPLY_OK);
-                                    mb.append(out.length());
-                                    mb.append(out.length(), out.str());
-
+                                    if (mb.getPos() < mb.length())
+                                    {
+                                        StringAttr filters;
+                                        mb.read(filters);
+                                        SDSManager->getLocks(filters.get(), mb);
+                                    }
+                                    else
+                                    {
+                                        StringBuffer out;
+                                        SDSManager->getLocks(out);
+                                        mb.clear().append(DAMP_SDSREPLY_OK);
+                                        mb.append(out.length());
+                                        mb.append(out.length(), out.str());
+                                    }
                                     break;
                                 }
                                 case DIAG_CMD_STATS:
@@ -7804,9 +7812,11 @@ StringBuffer &CCovenSDSManager::getLocks(StringBuffer &out)
     return out.length() ? out : out.append("No current locks");
 }
 
-void CCovenSDSManager::getLocks(CMessageBuffer &mb)
+void CCovenSDSManager::getLocks(const char *filters, CMessageBuffer &mb)
 {
     CLockDataHelper helper;
+    helper.setFilters(filters);
+
     unsigned lockCount=0;
     mb.clear();
     mb.append(lockCount);
@@ -7817,9 +7827,11 @@ void CCovenSDSManager::getLocks(CMessageBuffer &mb)
     while (iter.isValid())
     {
         CLockInfo &lockInfo = iter.query();
+        size32_t lastPos = mb.length();
         if (lockInfo.lockCount())
             lockInfo.serializeLockData(helper, mb);
-        lockCount++;
+        if (lastPos < mb.length())
+            lockCount++;
         if (!iter.next())
             break;
     }

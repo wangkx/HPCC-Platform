@@ -67,9 +67,9 @@ void usage(const char *exe)
     printf("-cleartracetransactions  -- stop tracing dali transactions\n");
     printf("-setldapflags <val>      -- set LDAP flags\n");
     printf("-getldapflags            -- get LDAP flags\n");
+    printf("-filelocks          -- [ type=(READ|WRITE),durationLow=(.. in ms),durationHigh=(.. in ms),epIP=(ip) ]\n");
 
 }
-
 
 class CTestSDSSubscription : public CInterface, implements ISDSSubscription
 {
@@ -458,12 +458,18 @@ static bool begins(const char *&ln,const char *pat)
     return false;
 }
 
-void fileLocks(const char *ip)
+void fileLocks(const char *filters)
 {
-    Owned<IPropertyTreeIterator> itr = getLockDataTreeIterator();
     CLockDataHelper helper;
+    StringBuffer filterStr;
+    if (!filters || !*filters)
+        filterStr.append("xpath=/Files*");
+    else if (!helper.checkFileOnlyFilter(filters))
+        filterStr.append(filters).append(LDFilterSeparator).append("xpath=/Files*");
+
+    Owned<IPropertyTreeIterator> itr = getLockDataTreeIterator(filterStr.str());
     StringBuffer buf;
-    helper.formatLocks(itr, true, 0, ip, NULL, NULL, buf);
+    helper.formatLocks(itr, true, 0, NULL, buf);
     if (buf.length())
         printf("%s", buf.str());
     else

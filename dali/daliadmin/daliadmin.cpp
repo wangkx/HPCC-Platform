@@ -114,7 +114,7 @@ void usage(const char *exe)
   printf("  mpping <server-ip>              -- time MP connect\n");
   printf("  daliping [ <num> ]              -- time dali server connect\n");
   printf("  getxref <destxmlfile>           -- get all XREF information\n");
-  printf("  dalilocks [ <ip-pattern> ] [ files ] -- get all locked files/xpaths\n");
+  printf("  dalilocks [ type=(READ|WRITE),durationLow=(.. in ms),durationHigh=(.. in ms),epIP=(ip),xpath=(/Files/Scope..) ] -- get all locked files/xpaths\n");
   printf("  unlock <xpath or logicalfile>   --  unlocks either matching xpath(s) or matching logical file(s), can contain wildcards\n");
   printf("  validatestore [fix=<true|false>]\n"
          "                [verbose=<true|false>]\n"
@@ -2271,15 +2271,16 @@ static bool begins(const char *&ln,const char *pat)
     return false;
 }
 
-static void dodalilocks(const char *pattern,const char *obj,Int64Array *conn,bool filesonly)
+
+static void dodalilocks(const char *filters, Int64Array *conn)
 {
-    Owned<IPropertyTreeIterator> itr = getLockDataTreeIterator();
+    Owned<IPropertyTreeIterator> itr = getLockDataTreeIterator(filters);
 
     StringBuffer buf;
     CLockDataHelper helper;
-    if (!filesonly)
-        helper.formatLocks(itr, false, 1, pattern, obj, conn, buf);
-    helper.formatLocks(itr, true, 1, pattern, obj, conn, buf);
+    if (!helper.checkFileOnlyFilter(filters))
+        helper.formatLocks(itr, false, 1, conn, buf);
+    helper.formatLocks(itr, true, 1, conn, buf);
 
     if (conn)
         return;
@@ -2289,9 +2290,9 @@ static void dodalilocks(const char *pattern,const char *obj,Int64Array *conn,boo
         printf("No lock found\n");
 }
 
-static void dalilocks(const char *pattern,bool fileonly)
+static void dalilocks(const char *filters)
 {
-    dodalilocks(pattern,NULL,NULL,fileonly);
+    dodalilocks(filters, NULL);
 }
 
 //=============================================================================
@@ -2299,7 +2300,8 @@ static void dalilocks(const char *pattern,bool fileonly)
 static void unlock(const char *pattern)
 {
     Int64Array conn;
-    dodalilocks(NULL,pattern,&conn,false);
+    VStringBuffer filters("xpath=%s", pattern);
+    dodalilocks(filters.str(), &conn);
     ForEachItemIn(i,conn) {
         MemoryBuffer mb;
         __int64 connectionId = conn.item(i);
@@ -2888,13 +2890,8 @@ int main(int argc, char* argv[])
                         getxref(params.item(1));
                     }
                     else if (stricmp(cmd,"dalilocks")==0) {
-                        CHECKPARAMS(0,2);
-                        bool filesonly = false;
-                        if (np&&(stricmp(params.item(np),"files")==0)) {
-                            filesonly = true;
-                            np--;
-                        }
-                        dalilocks(np>0?params.item(1):NULL,filesonly);
+                        CHECKPARAMS(0,1);
+                        dalilocks(np>0?params.item(1):NULL);
                     }
                     else if (stricmp(cmd,"unlock")==0) {
                         CHECKPARAMS(1,1);

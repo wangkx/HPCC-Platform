@@ -3120,9 +3120,79 @@ extern da_decl const char* getLockDataFieldName(LockDataField feild)
     return LockDataFieldNames[feild];
 }
 
+void CLockDataFilters::setFilter(const char *_filter)
+{
+    if (!_filter || !*_filter)
+        return;
+    const char *p = strchr(_filter, '=');
+    if (!p)
+        return;
+
+    StringBuffer name, value;
+    name.append(_filter);
+    name.setLength(p - _filter);
+    value.append(++p);
+    if (!name.length() || !value.length() || streq(value.str(), "*"))
+        return;
+
+    if (strieq(name, "type"))
+    {
+        if (strieq(value, "read"))
+            mode |= RTM_LOCK_READ;
+        else if (strieq(value, "write"))
+            mode |= RTM_LOCK_WRITE;
+    }
+    else if (strieq(name, "epip"))
+    {
+        if (!streq(value.str(), "*"))
+            epIP.set(value.str());
+    }
+    else if (strieq(name, "xpath"))
+    {
+        const char *path = value.str();
+        if (path[0] == '/')
+            path++;
+        if (*path && !streq(path, "*"))
+            xPath.set(path);
+    }
+    else if (strlen(name) > 11) //durationHigh
+    {
+        if (isValidInteger(value))
+            durationHigh = atoi(value);
+    }
+    else
+    {
+        if (isValidInteger(value))
+            durationLow = atoi(value);
+    }
+}
+
+bool CLockDataFilters::checkXPath(const char *_xPath)
+{
+    return !xPath.length() || (_xPath && WildMatch(_xPath, xPath.get()));
+}
+
+bool CLockDataFilters::checkEPIP(const char *ep)
+{
+    if (!epIP.length())
+        return true;
+    StringBuffer ips;
+    while (*ep && (*ep != ':'))
+        ips.append(*(ep++));
+    return WildMatch(ips.str(), epIP.get());
+}
+
+void CLockDataHelper::setFilters(const char *_filters)
+{
+    filters.setFilters(_filters);
+}
+
 void CLockDataHelper::serializeLockData(CheckedCriticalSection &crit, unsigned critTimeout, const char *xpath, ConnectionInfoMap &connectionInfo, CMessageBuffer &mb)
 {
-    unsigned epCount=0;
+    if (!filters.checkXPath(xpath))
+        return;
+    mb.append(xpath);
+
     MemoryBuffer locks;
     UInt64Array keys;
     {
@@ -3134,26 +3204,37 @@ void CLockDataHelper::serializeLockData(CheckedCriticalSection &crit, unsigned c
             LockData *lD = connectionInfo.mapToValue(&imap);
             keys.append(* ((ConnectionId *) imap.getKey()));
             locks.append(sizeof(LockData), lD);
-            epCount++;
         }
     }
-    mb.append(xpath);
+
+    size32_t countPos = mb.length();
+    unsigned epCount=0;
     mb.append(epCount);
-    if (epCount < 1)
+    if (keys.length() < 1)
         return;
+
+    unsigned msNow = msTick();
+    CDateTime time;
+    time.setNow();
 
     ForEachItemIn(k, keys)
     {
         LockData lD;
         memcpy(&lD, ((const byte *)locks.toByteArray())+k*sizeof(LockData), sizeof(LockData));
-
         StringBuffer sessEpStr;
-        mb.append(querySessionManager().getClientProcessEndpoint(lD.sessId, sessEpStr).str());
+        const char *ep = querySessionManager().getClientProcessEndpoint(lD.sessId, sessEpStr).str();
+        unsigned mode = lD.mode;
+        if (!filters.checkEPLock(ep, mode, msNow - lD.timeLockObtained))
+            continue;
+
+        mb.append(ep);
         mb.append(lD.sessId);
         mb.append(keys.item(k));
-        mb.append(lD.mode);
+        mb.append(mode);
         mb.append(lD.timeLockObtained);
+        ++epCount;
     }
+    mb.writeDirect(countPos, sizeof(epCount), &epCount);
 }
 
 IPropertyTreeIterator *deserializeLockDataIterator(MemoryBuffer &mb)
@@ -3281,16 +3362,7 @@ StringBuffer &CLockDataHelper::formatLockData(MemoryBuffer &lockInfo, StringBuff
     return out;
 }
 
-bool CLockDataHelper::checkEP(const char *ep, const char *ipPattern)
-{
-    StringBuffer ips;
-    while (*ep && (*ep != ':'))
-        ips.append(*(ep++));
-    return WildMatch(ips.str(), ipPattern);
-}
-
-void CLockDataHelper::formatLock(IPropertyTree &query, bool fileLock, unsigned formatType, bool &headerDone, const char *ipPattern,
-    const char *xpathPattern, Int64Array *connIds, StringBuffer &out)
+void CLockDataHelper::formatLock(IPropertyTree &query, bool fileLock, unsigned formatType, bool &headerDone, Int64Array *connIds, StringBuffer &out)
 {
     unsigned epCount =  query.getPropInt(getLockDataFieldName(LDFEPCount));
     if (epCount < 1)
@@ -3303,9 +3375,6 @@ void CLockDataHelper::formatLock(IPropertyTree &query, bool fileLock, unsigned f
     lfn.xPathToLName(xpath.insert(0, '/').str(), file);
 
     if ((file.length() > 0) != fileLock)
-        return;
-    if (xpathPattern && (!xpath.length() || !WildMatch(xpath.str(), xpathPattern))
-        && (!file.length() || !WildMatch(file.str(), xpathPattern)))
         return;
 
     unsigned msNow = msTick();
@@ -3321,9 +3390,6 @@ void CLockDataHelper::formatLock(IPropertyTree &query, bool fileLock, unsigned f
         __int64 sessId = e.getPropInt64(getLockDataFieldName(LDFsessId));
         unsigned mode = e.getPropInt(getLockDataFieldName(LDFmode));
         unsigned timeLockObtained = e.getPropInt(getLockDataFieldName(LDFtimeLocked));
-
-        if (ipPattern && !checkEP(ep, ipPattern))
-            continue;;
 
         if (connIds)
         {
@@ -3363,12 +3429,26 @@ void CLockDataHelper::formatLock(IPropertyTree &query, bool fileLock, unsigned f
     return;
 }
 
-void CLockDataHelper::formatLocks(IPropertyTreeIterator *itr, bool fileLock, unsigned formatType, const char *ipPattern,
-    const char *xPathPattern, Int64Array *connIds, StringBuffer &out)
+void CLockDataHelper::formatLocks(IPropertyTreeIterator *itr, bool fileLock, unsigned formatType, Int64Array *connIds, StringBuffer &out)
 {
     bool headerDone = false;
     ForEach(*itr)
-        formatLock(itr->query(), fileLock, formatType, headerDone, ipPattern, xPathPattern, connIds, out);
+        formatLock(itr->query(), fileLock, formatType, headerDone, connIds, out);
     if (out.length())
         out.appendf("\n");
+}
+
+bool CLockDataHelper::checkFileOnlyFilter(const char *filters)
+{
+    StringBuffer filterStr, filterStr1;
+    const char *fileOnlyXPath = "xpath=/files*";
+    filterStr1.append(fileOnlyXPath).append(LDFilterSeparator);
+    const char *pStr = filterStr.append(filters).toLowerCase().str();
+    if (streq(pStr, fileOnlyXPath) || strstr(pStr, filterStr1.str()))
+        return true;
+    unsigned len = strlen(pStr);
+    unsigned lenFileOnlyXPath = strlen(fileOnlyXPath);
+    if ((len > lenFileOnlyXPath) && streq(pStr + len - lenFileOnlyXPath, fileOnlyXPath))
+        return true;
+    return false;
 }

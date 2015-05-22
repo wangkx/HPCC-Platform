@@ -123,7 +123,9 @@ public:
                     mb.append(getReceiveQueueDetails(buf).str());
                 }
                 else if (0 == stricmp(id, "locks")) {
-                    querySDS().getLocks(mb);
+                    StringAttr filters;
+                    params.read(filters);
+                    querySDS().getLocks(filters.get(), mb);
                 }
                 else if (0 == stricmp(id, "sdsstats")) {
                     mb.append(querySDS().getUsageStats(buf).str());
@@ -279,10 +281,14 @@ StringBuffer & getDaliDiagnosticValue(const char *name,StringBuffer &ret)
     return ret;
 }
 
-IPropertyTreeIterator *getLockDataTreeIterator()
+IPropertyTreeIterator *getLockDataTreeIterator(const char *filters)
 {
     MemoryBuffer mb;
     mb.append("locks");
+    if (filters && *filters)
+        mb.append(filters);
+    else
+        mb.append("*");
     getDaliDiagnosticValue(mb);
 
     CLockDataHelper helper;
