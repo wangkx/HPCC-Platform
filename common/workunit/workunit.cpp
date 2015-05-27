@@ -2815,6 +2815,7 @@ public:
                 sortElements(iter, sortOrder.get(), nameFilterLo.get(), nameFilterHi.get(), unknownAttributes, elements);
                 return conn.getClear();
             }
+            virtual unsigned getTotalElements() { throw MakeStringException(-1, "not implemented"); }
         };
         class CScopeChecker : public CSimpleInterface, implements ISortedElementsTreeFilter
         {
@@ -2901,7 +2902,7 @@ public:
         }
         IArrayOf<IPropertyTree> results;
         Owned<IElementsPager> elementsPager = new CWorkUnitsPager(query.str(), so.length()?so.str():NULL, namefilterlo.get(), namefilterhi.get(), unknownAttributes);
-        Owned<IRemoteConnection> conn=getElementsPaged(elementsPager,startoffset,maxnum,secmgr?sc:NULL,queryowner,cachehint,results,total);
+        Owned<IRemoteConnection> conn=getElementsPaged(elementsPager,startoffset,maxnum,secmgr?sc:NULL,queryowner,cachehint,results,total,NULL);
         return new CConstWUArrayIterator(conn, results, secmgr, secuser);
     }
 
@@ -3027,6 +3028,7 @@ public:
                 sortElements(iter, sortOrder.get(), NULL, NULL, unknownAttributes, elements);
                 return conn.getClear();
             }
+            virtual unsigned getTotalElements() { throw MakeStringException(-1, "not implemented"); }
         };
         StringAttr querySet;
         StringBuffer xPath;
@@ -3079,7 +3081,7 @@ public:
         }
         IArrayOf<IPropertyTree> results;
         Owned<IElementsPager> elementsPager = new CQuerySetQueriesPager(querySet.get(), xPath.str(), so.length()?so.str():NULL, postFilters, unknownAttributes, _subset);
-        Owned<IRemoteConnection> conn=getElementsPaged(elementsPager,startoffset,maxnum,NULL,"",cachehint,results,total);
+        Owned<IRemoteConnection> conn=getElementsPaged(elementsPager,startoffset,maxnum,NULL,"",cachehint,results,total,NULL);
         return new CConstQuerySetQueryIterator(results);
     }
 

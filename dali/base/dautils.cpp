@@ -1964,6 +1964,7 @@ IRemoteConnection *getElementsPaged( IElementsPager *elementsPager,
                                      const char *owner,
                                      __int64 *hint,
                                      IArrayOf<IPropertyTree> &results,
+                                     unsigned *returned,
                                      unsigned *total,
                                      bool checkConn)
 {
@@ -1991,8 +1992,8 @@ IRemoteConnection *getElementsPaged( IElementsPager *elementsPager,
     if (checkConn && !elem->conn)
         return NULL;
     unsigned n;
-    if (total)
-        *total = elem->totalres.ordinality();
+    if (returned)
+        *returned = elem->totalres.ordinality();
     if (postfilter) {
         unsigned numFiltered = 0;
         n = 0;
@@ -2015,7 +2016,7 @@ IRemoteConnection *getElementsPaged( IElementsPager *elementsPager,
                     if (results.ordinality()>=pagesize)
                     {
                         // if total needed, need to iterate through all items
-                        if (NULL == total)
+                        if (NULL == returned)
                             break;
                         startoffset = (unsigned)-1; // no more results needed
                     }
@@ -2025,8 +2026,8 @@ IRemoteConnection *getElementsPaged( IElementsPager *elementsPager,
             else
                 ++numFiltered;
         }
-        if (total)
-            *total -= numFiltered;
+        if (returned)
+            *returned -= numFiltered;
     }
     else {
         n = (elem->totalres.ordinality()>startoffset)?(elem->totalres.ordinality()-startoffset):0;
@@ -2036,6 +2037,15 @@ IRemoteConnection *getElementsPaged( IElementsPager *elementsPager,
             IPropertyTree &item = elem->totalres.item(i);
             item.Link();
             results.append(item);
+        }
+    }
+    if (total) {
+        try {
+            *total = elementsPager->getTotalElements();
+        }
+        catch(IException* e) {
+            EXCLOG(e, "elementsPager->getTotalElements()");
+            e->Release();
         }
     }
     IRemoteConnection *ret = NULL;
