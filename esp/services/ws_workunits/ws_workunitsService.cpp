@@ -50,6 +50,7 @@
 
 #define SDS_LOCK_TIMEOUT (5*60*1000) // 5 mins
 const unsigned CHECK_QUERY_STATUS_THREAD_POOL_SIZE = 25;
+//const unsigned WAIT_WU_STATE_THREAD_POOL_SIZE = 25;
 
 class ExecuteExistingQueryInfo
 {
@@ -84,6 +85,7 @@ typedef enum _WuActionType
     ActionPause,
     ActionPauseNow,
     ActionResume,
+    ActionAbortDelete,
     ActionUnknown
 } WsWuActionType;
 
@@ -97,6 +99,12 @@ void setActionResult(const char* wuid, int action, const char* result, StringBuf
     case ActionDelete:
     {
         strAction = "Delete";
+        break;
+    }
+    case ActionAbortDelete:
+    {
+        strAction = "Abort and delete";
+        result = "Started";
         break;
     }
     case ActionProtect:
@@ -157,6 +165,67 @@ void setActionResult(const char* wuid, int action, const char* result, StringBuf
     results->append(*res.getClear());
 }
 
+class CDeleteActiveWUThread : public Thread
+{
+    IEspContext& context;
+    StringAttr wuid;
+    unsigned timeout;
+    bool wait;
+
+public:
+    CDeleteActiveWUThread(IEspContext& _context, const char* _wuid, unsigned _timeout) : context(_context), wuid(_wuid), timeout(_timeout) { };
+    virtual void start() { Thread::start(); };
+    virtual int run();
+};
+
+int CDeleteActiveWUThread::run()
+{
+    int ret = 0;
+    Thread::Link();
+    try
+    {
+        secAbortWorkUnit(wuid.get(), *context.querySecManager(), *context.queryUser());
+        while (1)
+        {
+            if (waitForWorkUnitToComplete(wuid.get(), timeout) == WUStateAborted)
+            {
+                Owned<IWorkUnitFactory> factory = getWorkUnitFactory(context.querySecManager(), context.queryUser());
+                factory->deleteWorkUnit(wuid.get());
+                AuditSystemAccess(context.queryUserId(), true, "Deleted %s", wuid.get());
+                break;
+            }
+        }
+    }
+    catch(IException *e)
+    {
+        EXCLOG(e, "CDeleteActiveWUThread::run()");
+        ret = -1;
+    }
+    catch(...)
+    {
+        DBGLOG("unknown exception");
+        ret = -1;
+    }
+    Thread::Release();
+    return ret;
+}
+
+/*
+void CDeleteActiveWUParam::deleteActiveWU(IEspContext &context, const char* wuid, unsigned timeout)
+{
+    secAbortWorkUnit(wuid, *context.querySecManager(), *context.queryUser());
+    while (1)
+    {
+        if (waitForWorkUnitToComplete(wuid, timeout) == WUStateAborted)
+        {
+            Owned<IWorkUnitFactory> factory = getWorkUnitFactory(context.querySecManager(), context.queryUser());
+            factory->deleteWorkUnit(wuid);
+            AuditSystemAccess(context.queryUserId(), true, "Deleted %s", wuid);
+            break;
+        }
+    }
+}*/
+
 bool doAction(IEspContext& context, StringArray& wuids, int action, IProperties* params, IArrayOf<IConstWUActionResult>* results)
 {
     if (!wuids.length())
@@ -167,6 +236,7 @@ bool doAction(IEspContext& context, StringArray& wuids, int action, IProperties*
     bool bAllSuccess = true;
     for(aindex_t i=0; i<wuids.length();i++)
     {
+        bool addActionResult = true;
         StringBuffer strAction;
         StringBuffer wuidStr = wuids.item(i);
         const char* wuid = wuidStr.trim().str();
@@ -270,16 +340,35 @@ bool doAction(IEspContext& context, StringArray& wuids, int action, IProperties*
                             case WUStateArchived:
                             case WUStateCompiled:
                             case WUStateUploadingFiles:
+                                cw.clear();
+                                factory->deleteWorkUnit(wuid);
+                                AuditSystemAccess(context.queryUserId(), true, "Deleted %s", wuid);
+                                break;
+                            case WUStateBlocked:
+                            case WUStateRunning:
+                            case WUStateDebugRunning:
+                            case WUStateDebugPaused:
+                            case WUStatePaused:
+                                cw.clear();
+                                {
+                                    Owned<CDeleteActiveWUThread> thrd = new CDeleteActiveWUThread(context, wuid, 500);
+                                    thrd->start();
+                                    //Owned<CDeleteActiveWUParam> param = new CDeleteActiveWUParam(context, wuid, 500);
+                                    //deleteActiveWUThreadPool->start( param.getClear() );
+                                }
+                                AuditSystemAccess(context.queryUserId(), true, "Deleted %s after abort", wuid);
+                                setActionResult(wuid, ActionAbortDelete, "Started", strAction, results);
+                                addActionResult = false;
                                 break;
                             default:
                             {
                                 WorkunitUpdate wu(&cw->lock());
                                 wu->setState(WUStateFailed);
+                                cw.clear();
+                                factory->deleteWorkUnit(wuid);
+                                AuditSystemAccess(context.queryUserId(), true, "Deleted %s", wuid);
                             }
                         }
-                        cw.clear();
-                        factory->deleteWorkUnit(wuid);
-                        AuditSystemAccess(context.queryUserId(), true, "Deleted %s", wuid);
                     }
                    break;
                 case ActionAbort:
@@ -323,7 +412,8 @@ bool doAction(IEspContext& context, StringArray& wuids, int action, IProperties*
                     break;
                 }
             }
-            setActionResult(wuid, action, "Success", strAction, results);
+            if (addActionResult)
+                setActionResult(wuid, action, "Success", strAction, results);
         }
         catch (IException *e)
         {
@@ -483,6 +573,10 @@ void CWsWorkunitsEx::init(IPropertyTree *cfg, const char *process, const char *s
     Owned<CClusterQueryStateThreadFactory> threadFactory = new CClusterQueryStateThreadFactory();
     clusterQueryStatePool.setown(createThreadPool("CheckAndSetClusterQueryState Thread Pool", threadFactory, NULL,
             cfg->getPropInt(xpath.str(), CHECK_QUERY_STATUS_THREAD_POOL_SIZE)));
+    //xpath.setf("Software/EspProcess[@name=\"%s\"]/EspService[@name=\"%s\"]/WaitWUStateThreadPoolSize", process, service);
+    //Owned<CDeleteActiveWUThreadFactory> daWUthreadFactory = new CDeleteActiveWUThreadFactory();
+    //deleteActiveWUThreadPool.setown(createThreadPool("Wait WU State Thread Pool", daWUthreadFactory, NULL,
+    //    cfg->getPropInt(xpath.str(), WAIT_WU_STATE_THREAD_POOL_SIZE)));
 }
 
 void CWsWorkunitsEx::refreshValidClusters()

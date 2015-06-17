@@ -165,6 +165,7 @@ public:
         filesInUse.unsubscribe();
         filesInUse.abort();
         clusterQueryStatePool.clear();
+        //deleteActiveWUThreadPool.clear();
     };
     virtual void init(IPropertyTree *cfg, const char *process, const char *service);
     virtual void setContainer(IEspContainer * container)
@@ -180,6 +181,7 @@ public:
     void getGraphsByQueryId(const char *target, const char *queryId, const char *graphName, const char *subGraphId, IArrayOf<IEspECLGraphEx>& ECLGraphs);
     void checkAndSetClusterQueryState(IEspContext &context, const char* cluster, const char* querySetId, IArrayOf<IEspQuerySetQuery>& queries);
     void checkAndSetClusterQueryState(IEspContext &context, const char* cluster, StringArray& querySetIds, IArrayOf<IEspQuerySetQuery>& queries);
+    void deleteActiveWU(IEspContext &context, const char* wuid, unsigned timeout);
 
     bool onWUQuery(IEspContext &context, IEspWUQueryRequest &req, IEspWUQueryResponse &resp);
     bool onWUPublishWorkunit(IEspContext &context, IEspWUPublishWorkunitRequest & req, IEspWUPublishWorkunitResponse & resp);
@@ -283,6 +285,7 @@ private:
     Owned<IPropertyTree> directories;
     int maxRequestEntityLength;
     Owned<IThreadPool> clusterQueryStatePool;
+    ///Owned<IThreadPool> deleteActiveWUThreadPool;
     StringAttr authMethod;
 public:
     QueryFilesInUse filesInUse;
@@ -385,5 +388,59 @@ public:
         return new CClusterQueryStateThread();
     }
 };
+/*
+class CDeleteActiveWUParam : public CInterface
+{
+    Linked<CWsWorkunitsEx>  wsWorkunitsService;
+    IEspContext&            context;
+    StringAttr              wuid;
+    unsigned                timeout;
+
+public:
+    IMPLEMENT_IINTERFACE;
+
+    CDeleteActiveWUParam(IEspContext& _context, const char* _wuid, unsigned _timeout)
+        : context(_context), wuid(_wuid), timeout(_timeout) { };
+    virtual void doWork()
+    {
+        deleteActiveWU(context, wuid.get(), timeout);
+    }
+    void deleteActiveWU(IEspContext &context, const char* wuid, unsigned timeout);
+};
+
+class CDeleteActiveWUThreadFactory : public CInterface, public IThreadFactory
+{
+    class CDeleteActiveWUThread : public CInterface, implements IPooledThread
+    {
+        Owned<CDeleteActiveWUParam> param;
+    public:
+        IMPLEMENT_IINTERFACE;
+
+        void init(void *_param)
+        {
+            param.setown((CDeleteActiveWUParam *)_param);
+        }
+        void main()
+        {
+            param->doWork();
+            param.clear();
+        }
+        bool canReuse()
+        {
+            return true;
+        }
+        bool stop()
+        {
+            return true;
+        }
+    };
+
+public:
+    IMPLEMENT_IINTERFACE;
+    IPooledThread *createNew()
+    {
+        return new CDeleteActiveWUThread();
+    }
+};*/
 
 #endif
