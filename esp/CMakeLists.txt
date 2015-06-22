@@ -14,7 +14,7 @@
 #    limitations under the License.
 ################################################################################
 include_directories (${SCM_GENERATED_DIR})
-HPCC_ADD_SUBDIRECTORY (bindings)
+HPCC_ADD_SUBDIRECTORY (bindings1)
 HPCC_ADD_SUBDIRECTORY (clients "PLATFORM")
 HPCC_ADD_SUBDIRECTORY (eclwatch "PLATFORM")
 HPCC_ADD_SUBDIRECTORY (files "PLATFORM")
