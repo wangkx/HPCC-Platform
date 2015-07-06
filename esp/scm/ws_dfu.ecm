@@ -18,6 +18,8 @@
 #include "xslprocessor.hpp" 
 //  ===========================================================================
 
+EspInclude(common);
+
 ESPStruct SpaceItem
 {
     string Name;
@@ -685,6 +687,23 @@ ESPresponse [exceptions_inline, nil_remove, http_encode(0)] DFUGetFileMetaDataRe
     int64 TotalResultRows;
 };
 
+ESPrequest [nil_remove] DFUGetFileDataRequest
+{
+    string LogicalName;
+    string ParentName;
+    ESParray<ESPstruct NamedValue> Filters;
+    int64 PageStart(0);
+    int PageSize;
+    bool DisableUppercaseTranslation;
+};
+
+ESPresponse [exceptions_inline, nil_remove] DFUGetFileDataResponse
+{
+    string Schema;
+    string DataSets;
+    int NumRows;
+    int64 Total;
+};
 
 //  ===========================================================================
 ESPservice [
@@ -708,6 +727,7 @@ ESPservice [
     ESPmethod [resp_xsl_default("/esp/xslt/dfu_viewdata.xslt")] DFUBrowseData(DFUBrowseDataRequest, DFUBrowseDataResponse);
     ESPmethod [resp_xsl_default("/esp/xslt/dfu_searchdata.xslt")] DFUSearchData(DFUSearchDataRequest, DFUSearchDataResponse);
     ESPmethod DFUGetFileMetaData(DFUGetFileMetaDataRequest, DFUGetFileMetaDataResponse);
+    ESPmethod DFUGetFileData(DFUGetFileDataRequest, DFUGetFileDataResponse);
     ESPmethod DFUDefFile(DFUDefFileRequest, DFUDefFileResponse);
 
     ESPmethod [resp_xsl_default("/esp/xslt/addto_superfile.xslt")] AddtoSuperfile(AddtoSuperfileRequest, AddtoSuperfileResponse);

@@ -65,6 +65,7 @@ public:
     bool onDFUBrowseData(IEspContext &context, IEspDFUBrowseDataRequest &req, IEspDFUBrowseDataResponse &resp);
     bool onDFUSearchData(IEspContext &context, IEspDFUSearchDataRequest &req, IEspDFUSearchDataResponse &resp);
     bool onDFUGetFileMetaData(IEspContext &context, IEspDFUGetFileMetaDataRequest &req, IEspDFUGetFileMetaDataResponse &resp);
+    bool onDFUGetFileData(IEspContext &context, IEspDFUGetFileDataRequest &req, IEspDFUGetFileDataResponse &resp);
 
     virtual bool onSavexml(IEspContext &context, IEspSavexmlRequest &req, IEspSavexmlResponse &resp);
     virtual bool onAdd(IEspContext &context, IEspAddRequest &req, IEspAddResponse &resp);
@@ -136,6 +137,9 @@ private:
         const char* beforeSubFile, bool existingSuperfile, bool autocreatesuper, bool deleteFile, bool removeSuperfile =  true);
     void getFilePartsOnClusters(IEspContext &context, const char* clusterReq, StringArray& clusters, IDistributedFile* df, IEspDFUFileDetail& FileDetails,
         offset_t& mn, offset_t& mx, offset_t& sum, offset_t& count);
+    void setResultSetFilter(INewResultSet* result, IResultSetFilter* filter, IArrayOf<IConstNamedValue>* filters, bool disableUppercaseTranslation);
+    void getFileTreeBrowser(IEspContext& context, const char* fileName, const char* cluster,
+        IDistributedFile* df, IUserDescriptor* udesc, Owned<IFileTreeBrowser>& browser, Owned<INewResultSet>& result);
 private:
     bool         m_disableUppercaseTranslation;
     StringBuffer m_clusterName;

@@ -69,6 +69,7 @@ static const char* FEATURE_URL="DfuAccess";
 #define     COUNTBY_MONTH   "Month"
 #define     COUNTBY_DAY     "Day"
 
+#define GETFILEDATAPAGESIZEDEFAULT 50
 #define REMOVE_FILE_SDS_CONNECT_TIMEOUT (1000*15)  // 15 seconds
 
 const int DESCRIPTION_DISPLAY_LENGTH = 12;
@@ -4467,6 +4468,172 @@ bool CWsDfuEx::onDFUGetFileMetaData(IEspContext &context, IEspDFUGetFileMetaData
             resp.setXmlXPathSchema(dataReader.getXmlXPathSchema(s1, req.getAddHeaderInXmlXPathSchema()).str());
 
         resp.setTotalResultRows(result->getNumRows());
+    }
+    catch(IException* e)
+    {
+        FORWARDEXCEPTION(context, e,  ECLWATCH_INTERNAL_ERROR);
+    }
+    return true;
+}
+
+void CWsDfuEx::getFileTreeBrowser(IEspContext& context, const char* fileName, const char* cluster,
+    IDistributedFile* df, IUserDescriptor* udesc, Owned<IFileTreeBrowser>& browser, Owned<INewResultSet>& result)
+{
+    ViewGatherOptions options;
+    options.primaryDepth = 100;             // we want to traverse secondary->primary, but not the reverse
+    options.secondaryDepth = 0;
+    options.setPayloadFilter(true);         // we're only interested in payload links
+
+    const char *rootFileName = fileName;
+    Owned<IResultSetFactory> resultSetFactory = getSecResultSetFactory(context.querySecManager(), context.queryUser(),
+        context.queryUserId(), context.queryPassword());
+    Owned<IViewFileWeb> web = createViewFileWeb(*resultSetFactory, cluster, udesc);
+    try
+    {
+        web->gatherWeb(rootFileName, df, options);
+        browser.setown(web->createBrowseTree(rootFileName));
+    }
+    catch(IException* e)
+    {
+        if ((e->errorCode() != FVERR_CouldNotResolveX) || (rootFileName[0] != '~'))
+        {
+            throw e;
+        }
+        else
+        {
+            e->Release();
+
+            rootFileName = fileName+1;
+            web->gatherWeb(rootFileName, df, options);
+            browser.setown(web->createBrowseTree(rootFileName));
+        }
+    }
+    result.setown(resultSetFactory->createNewFileResultSet(rootFileName, cluster));
+}
+
+void CWsDfuEx::setResultSetFilter(INewResultSet* result, IResultSetFilter* filter, IArrayOf<IConstNamedValue>* filters, bool disableUppercaseTranslation)
+{
+    if (!result || !filter || !filters || filters->empty())
+        return;
+
+    const IResultSetMetaData &meta = result->getMetaData();
+    unsigned columnCount = meta.getColumnCount();
+    if (columnCount < 1)
+        return;
+
+    filter->clearFilters();
+    ForEachItemIn(i, *filters)
+    {
+        IConstNamedValue &item = filters->item(i);
+        const char *name = item.getName();
+        StringBuffer value = item.getValue();
+        if (!name || !*name || !value.length())
+            continue;
+
+        if (!disableUppercaseTranslation)
+            value.toUpperCase();
+
+        for(unsigned col = 0; col < columnCount; col++)
+        {
+            bool hasSetTranslation = false;
+            SCMStringBuffer scmbuf;
+            if (meta.hasSetTranslation(col))
+            {
+                hasSetTranslation = true;
+                meta.getNaturalColumnLabel(scmbuf, col);
+            }
+            if (!scmbuf.length())
+                meta.getColumnLabel(scmbuf, col);
+            if (strieq(scmbuf.str(), name))
+            {
+                if (hasSetTranslation)
+                    filter->addNaturalFilter(col, value.length(), value.str());
+                else
+                    filter->addFilter(col, value.length(), value.str());
+                break;
+            }
+        }
+    }
+    return;
+}
+
+bool CWsDfuEx::onDFUGetFileData(IEspContext& context, IEspDFUGetFileDataRequest& req, IEspDFUGetFileDataResponse& resp)
+{
+    try
+    {
+        if (!context.validateFeatureAccess(FEATURE_URL, SecAccess_Read, false))
+            throw MakeStringException(ECLWATCH_DFU_ACCESS_DENIED, "Failed to View Data File. Permission denied.");
+
+        StringBuffer logicalName = req.getLogicalName();
+        logicalName.trim();
+        if (!logicalName.length())
+             throw MakeStringException(ECLWATCH_INVALID_INPUT,"No LogicalName defined.");
+
+        double version = context.getClientVersion();
+        Owned<IUserDescriptor> userdesc;
+        userdesc.setown(createUserDescriptor());
+        userdesc->set(context.queryUserId(), context.queryPassword());
+
+        Owned<IDistributedFile> df = queryDistributedFileDirectory().lookup(logicalName.str(), userdesc);
+        if(!df)
+            throw MakeStringException(ECLWATCH_FILE_NOT_EXIST,"Could not find file %s.", logicalName.str());
+
+        const char* cluster = NULL;
+        const char* wuid = df->queryAttributes().queryProp("@workunit");
+        if (wuid && *wuid)
+        {
+            CWUWrapper wu(wuid, context);
+            if (wu)
+                cluster = wu->queryClusterName();
+        }
+        if ((!cluster || !*cluster) && m_clusterName.length())
+            cluster = m_clusterName.str();
+
+        Owned<IFileTreeBrowser> browser;
+        Owned<INewResultSet> result;
+        getFileTreeBrowser(context, logicalName.str(), cluster, df, userdesc, browser, result);
+
+        StringBuffer schemaText, schemaTextBuf, dataSetText;
+        StringArray columnLabels, columnLabelsType, columnsHide, dataSets;
+        browseRelatedFileSchema(browser->queryRootFile(), req.getParentName(), 0, schemaTextBuf, columnLabels, columnLabelsType, columnsHide);
+        schemaText.appendf("<XmlSchema name=\"%s_schema\">%s</XmlSchema>", logicalName.str(), schemaTextBuf.str());
+        resp.setSchema(schemaText.str());
+
+        IArrayOf<IConstNamedValue>* filters = &req.getFilters();
+        if (filters->ordinality())
+        {
+            StringBuffer mapping;
+            df->getColumnMapping(mapping);
+
+            bool disableUppercaseTranslation = m_disableUppercaseTranslation;
+            if (mapping.length() > 37 && strstr(mapping.str(), "word{set(stringlib.StringToLowerCase)}"))
+                disableUppercaseTranslation = true;
+            else if (!req.getDisableUppercaseTranslation_isNull())
+                disableUppercaseTranslation = req.getDisableUppercaseTranslation();
+
+            IResultSetFilter* filter = browser->queryRootFilter();
+            setResultSetFilter(result, filter, &req.getFilters(), disableUppercaseTranslation);
+        }
+
+        __int64 numRows = 0;
+        __int64 pageSize = req.getPageSize() ? req.getPageSize() : GETFILEDATAPAGESIZEDEFAULT;
+        if (browseRelatedFileDataSet(version, browser->queryRootFile(), req.getParentName(), 0,
+            req.getPageStart(), pageSize, numRows, columnsHide, dataSets) > 0)
+            throw MakeStringException(ECLWATCH_INVALID_INPUT, "This search has timed out due to the restrictive filter. There may be more records.");
+
+        dataSetText.appendf("<DataSets xmlSchema=\"%s_schema\">", logicalName.str());
+        for (unsigned i = 0; i<dataSets.length(); i++)
+        {
+            StringBuffer text = dataSets.item(i);
+            if (text.length() > 0)
+                dataSetText.append(text);
+        }
+        dataSetText.append("</DataSets>");
+        resp.setDataSets(dataSetText.str());
+        resp.setNumRows(numRows);
+        __int64 total=result->getNumRows();
+        if (total != UNKNOWN_NUM_ROWS)
+            resp.setTotal(total);
     }
     catch(IException* e)
     {

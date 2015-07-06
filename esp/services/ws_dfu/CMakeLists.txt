@@ -27,7 +27,8 @@ project( ws_dfu )
 include(${HPCC_SOURCE_DIR}/esp/scm/smcscm.cmake)
 
 set (    SRCS 
-         ../../../dali/dfu/dfuutil.cpp 
+         ../../../dali/dfu/dfuutil.cpp
+         ${ESPSCM_GENERATED_DIR}/common_esp.cpp
          ${ESPSCM_GENERATED_DIR}/ws_dfu_esp.cpp 
          ${ESPSCM_GENERATED_DIR}/ws_dfuXref_esp.cpp 
          ${HPCC_SOURCE_DIR}/esp/scm/ws_dfu.ecm
