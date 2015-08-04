@@ -119,8 +119,7 @@
                     </a>
                     <xsl:if test="ConfigAccess='1'">
                       <xsl:text disable-output-escaping="yes">&amp;nbsp;</xsl:text>
-                      <img onclick="go('iframe?inner=../main/%3Fconfig_&amp;esp_iframe_title=ESP%20Configuration%20File')"
-                      border="0" src="files_/img/config.png" title="View Configuration" width="14" height="14"/>
+                      <img onclick="go('iframe?esp_iframe_title=ESP%20Configuration%20File&amp;inner=/esp/files/stub.htm%3fWidget%3dXMLContentWidget')" border="0" src="files_/img/config.png" title="View Configuration" width="14" height="14"/>
                     </xsl:if>
                     <xsl:text disable-output-escaping="yes">&amp;nbsp;</xsl:text>
                     <img src="files_/img/refresh.png" style="cursor:pointer" onclick="parent.frames['main'].location.reload();" title="Refresh" width="13" height="15"/>

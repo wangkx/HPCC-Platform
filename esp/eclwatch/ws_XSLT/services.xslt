@@ -548,7 +548,8 @@
                           <xsl:variable name="captionLen" select="string-length($caption)-1"/>
                           <xsl:variable name="href0">
                               <xsl:value-of select="concat('/esp/iframe?esp_iframe_title=', $caption, ' ', ../../Name, ' -- ', $hpccStrings/st[@id='Configuration'])"/>
-                              <xsl:text disable-output-escaping="yes">&amp;inner=/WsTopology/TpGetComponentFile%3fNetAddress%3d</xsl:text>
+                              <xsl:text disable-output-escaping="yes">&amp;inner=/esp/files/stub.htm%3fWidget%3dXMLContentWidget%26</xsl:text>
+                              <xsl:text disable-output-escaping="yes">SourceType%3dServer%26NetAddress%3d</xsl:text>
                               <xsl:value-of select="Netaddress"/>
                               <xsl:text>%26FileType%3dcfg%26Directory%3d</xsl:text>
                               <xsl:value-of select="$absolutePath"/>
@@ -692,7 +693,8 @@
                           <a>
                             <xsl:attribute name="href">
                               <xsl:value-of select="concat('/esp/iframe?esp_iframe_title=', $caption, ' ', ../../Name, ' -- ', $hpccStrings/st[@id='Configuration'])"/>
-                              <xsl:text disable-output-escaping="yes">&amp;inner=/WsTopology/TpGetComponentFile%3fNetAddress%3d</xsl:text>
+                              <xsl:text disable-output-escaping="yes">&amp;inner=/esp/files/stub.htm%3fWidget%3dXMLContentWidget%26</xsl:text>
+                              <xsl:text disable-output-escaping="yes">SourceType%3dServer%26NetAddress%3d</xsl:text>
                               <xsl:value-of select="Netaddress"/>
                               <xsl:text>%26FileType%3dcfg%26Directory%3d</xsl:text>
                               <xsl:value-of select="$absolutePath"/>

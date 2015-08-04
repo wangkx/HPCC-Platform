@@ -127,9 +127,6 @@
                         }
                         return rc;
                     }                         
-          function getWUXML(url) {
-              document.location.href = url;
-          }                     
                 ]]></xsl:text>
                 </script>
                 <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
@@ -302,18 +299,19 @@
         <tr>
             <th>ID</th><th>:</th>
             <td>
-        <xsl:variable name="href0">
-          <xsl:text>/esp/iframe?esp_iframe_title=DFU Workunit XML - </xsl:text>
-          <xsl:value-of select="$wuid"/>
-          <xsl:text disable-output-escaping="yes">&amp;inner=/FileSpray/DFUWUFile%3fWuid%3d</xsl:text>
-          <xsl:value-of select="$wuid"/>
-        </xsl:variable>
+                <xsl:variable name="href">
+                    <xsl:text>/esp/iframe?esp_iframe_title=DFU Workunit XML - </xsl:text>
+                    <xsl:value-of select="$wuid"/>
+                    <xsl:text disable-output-escaping="yes">&amp;inner=/esp/files/stub.htm%3fWidget%3dXMLContentWidget%26</xsl:text>
+                    <xsl:text disable-output-escaping="yes">SourceType%3dDFUWU%26Wuid%3d</xsl:text>
+                    <xsl:value-of select="$wuid"/>
+                </xsl:variable>
                 <xsl:choose>
                     <xsl:when test="number($archived)">
                         <xsl:value-of select="$wuid"/>
                     </xsl:when>
                     <xsl:otherwise>         
-                        <a href="javascript:getWUXML('{$href0}')" onclick="launch(this)">
+                        <a href="javascript:go('{$href}')">
                             <xsl:value-of select="$wuid"/>
                         </a>
                     </xsl:otherwise>

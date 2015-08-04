@@ -37,6 +37,13 @@
               WUID:
             </td>
             <td>
+              <xsl:variable name="href">
+                <xsl:text>/esp/iframe?esp_iframe_title=ECL Workunit XML - </xsl:text>
+                <xsl:value-of select="$wuid"/>
+                <xsl:text disable-output-escaping="yes">&amp;inner=/esp/files/stub.htm%3fWidget%3dXMLContentWidget%26</xsl:text>
+                <xsl:text disable-output-escaping="yes">SourceType%3dECLWU%26Wuid%3d</xsl:text>
+                <xsl:value-of select="$wuid"/>
+              </xsl:variable>
               <xsl:choose>
                 <xsl:when test="number(Archived)">
                   <xsl:value-of select="$wuid"/>
@@ -44,7 +51,7 @@
                 <xsl:otherwise>
                   <xsl:value-of select="$wuid"/>
                   &nbsp;
-                  <a href="/esp/iframe?esp_iframe_title=ECL Workunit XML - {$wuid}&amp;inner=/WsWorkunits/WUFile%3fWuid%3d{$wuid}%26Type%3dXML%26Option%3d0%26SizeLimit%3d5000000" >XML</a>
+                  <a href="javascript:go('{$href}')" >XML</a>
                   &nbsp;
                   <a href="/esp/iframe?esp_iframe_title=Download ECL Workunit XML - {$wuid}&amp;inner=/WsWorkunits/WUFile%3fWuid%3d{$wuid}%26Type%3dXML%26Option%3d2" >Download XML</a>
                   &nbsp;
