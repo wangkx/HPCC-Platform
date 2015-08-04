@@ -64,6 +64,8 @@ void usage()
     printf("\toutput=<outputfile>\n");
     printf("\tjobname=<name>\n");
     printf("\tpagesize=<pagesize>\n");
+    printf("\tgraph=<graph name>\n");
+    printf("\tlistgraphs=<true | false>\n");
     printf("\t{-fdebugparam1=debugvalue1 -fdebugparam2=debugvalue2 ... }\n");
     printf("\t{-Ipath -Lpath -g -E as eclcc}\n");
     printf("\t{_applicationparam1=applicationvalue1 _applicationparam2=applicationvalue2 ... }\n");

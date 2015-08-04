@@ -110,40 +110,73 @@ GraphHelper::~GraphHelper()
 
 bool GraphHelper::doit(FILE * fp)
 {
-    if (globals->hasProp("WUID"))
-    {
-        const char* wuid = globals->queryProp("WUID");
-        Owned<IClientWUProcessGraphRequest> req = wuclient->createWUProcessGraphRequest();
-        StringBuffer fname(wuid);
-        req->setWuid(fname.str());
-
-        StringBuffer graph;
-        if(globals->hasProp("graph"))
-            graph.append(globals->queryProp("graph"));
-
-        req->setName(graph.str());
-        Owned<IClientWUProcessGraphResponse> resp = wuclient->WUProcessGraph(req);
-        const IMultiException* excep = &resp->getExceptions();
-        if(excep != NULL && excep->ordinality() > 0)
-        {
-            StringBuffer msg;
-            excep->errorMessage(msg);
-            printf("%s\n", msg.str());
-            return false;
-        }
-
-            StringBuffer graphbuf;
-            graphbuf.append(resp->getTheGraph());
-            fprintf(fp, "%s", graphbuf.str());
-            return true;
-        
-        return false;
-    }
-    else 
+    if (!globals->hasProp("WUID"))
     {
         printf("Please specify the WUID\n");
         return false;
     }
+
+    bool listG = false;
+    if(globals->hasProp("listgraphs"))
+    {
+        const char* list = globals->queryProp("listgraphs");
+        if (strieq(list, "true"))
+            listG =  true;
+    }
+    if(listG)
+        return listGraphs(fp);
+    else if(globals->hasProp("graph"))
+        return processGraph(fp);
+    else
+        printf("Please specify the graph name\n");
+    return false;
+}
+
+bool GraphHelper::processGraph(FILE * fp)
+{
+    Owned<IClientWUProcessGraphRequest> req = wuclient->createWUProcessGraphRequest();
+    req->setWuid(globals->queryProp("WUID"));
+    req->setName(globals->queryProp("graph"));
+
+    Owned<IClientWUProcessGraphResponse> resp = wuclient->WUProcessGraph(req);
+    if(checkExceptions(&resp->getExceptions()))
+        return false;
+
+    StringBuffer graphbuf;
+    graphbuf.append(resp->getTheGraph());
+    fprintf(fp, "%s", graphbuf.str());
+    return true;
+}
+
+bool GraphHelper::listGraphs(FILE * fp)
+{
+    Owned<IClientWUGetGraphNameAndTypesRequest> req = wuclient->createWUGetGraphNameAndTypesRequest();
+    req->setWuid(globals->queryProp("Wuid"));
+    if(globals->hasProp("Type"))
+        req->setType(globals->queryProp("Type"));
+
+    Owned<IClientWUGetGraphNameAndTypesResponse> resp = wuclient->WUGetGraphNameAndTypes(req);
+    if(checkExceptions(&resp->getExceptions()))
+        return false;
+
+    IArrayOf<IConstNameAndType>& graphs = resp->getGraphNameAndTypes();
+    ForEachItemIn(i, graphs)
+    {
+        IConstNameAndType& g = graphs.item(i);
+        fprintf(fp, "graph name:%s, type:%s\n", g.getName(), g.getType());
+    }
+    return true;
+}
+
+bool GraphHelper::checkExceptions(const IMultiException* excep)
+{
+    if(!excep || !excep->ordinality())
+        return false;
+
+    StringBuffer msg;
+    excep->errorMessage(msg);
+    printf("%s\n", msg.str());
+    return true;
 }
 
 

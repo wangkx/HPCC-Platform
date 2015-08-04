@@ -51,5 +51,8 @@ private:
     Owned<IProperties> globals;
     Owned<IFormatType> format;
     Owned<IClientWsWorkunits> wuclient;
+    bool processGraph(FILE * fp);
+    bool listGraphs(FILE * fp);
+    bool checkExceptions(const IMultiException* excep);
 };
 #endif // DUMPHELPER_HPP
