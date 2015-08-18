@@ -492,6 +492,8 @@ interface ILockInfo : extends IInterface
     virtual void prune(const char *ipPattern) = 0;
     virtual void serialize(MemoryBuffer &mb) const = 0;
     virtual StringBuffer &toString(StringBuffer &out, unsigned format, bool header, const char *altText=NULL) const = 0;
+    virtual StringBuffer &toString2(StringBuffer &out, unsigned format, bool header, int type,
+            int durLow, int durHigh, const char *altText=NULL) const = 0;
 };
 
 extern da_decl ILockInfo *createLockInfo(const char *xpath, const ConnectionInfoMap &map);

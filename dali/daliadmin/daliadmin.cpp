@@ -2298,6 +2298,35 @@ static void dalilocks(const char *ipPattern, bool files)
     }
 }
 
+static void dalilocks2(const char *ipPattern, const char *xpath, unsigned type, int durLow, int durHigh)
+{
+    if (xpath)
+        PROGLOG("xpath=%s", xpath);
+    Owned<ILockInfoCollection> lockInfoCollection = querySDS().getLocks(ipPattern, xpath);
+    bool headers = true;
+    CDfsLogicalFileName dlfn;
+    for (unsigned l=0; l<lockInfoCollection->queryLocks(); l++)
+    {
+        ILockInfo &lockInfo = lockInfoCollection->queryLock(l);
+        //if (files)
+        //{
+        //    if (!dlfn.setFromXPath(lockInfo.queryXPath()))
+        //        continue;
+        //}
+        if (0 == lockInfo.queryConnections())
+            continue;
+        StringBuffer lockFormat;
+        lockInfo.toString2(lockFormat, 1, headers, type, durLow, durHigh, NULL);
+        headers = false;
+        PROGLOG("%s", lockFormat.str());
+    }
+    if (headers) // if still true, no locks matched
+    {
+        printf("No lock(s) found\n");
+        return;
+    }
+}
+
 //=============================================================================
 
 static void unlock(const char *pattern, bool files)
@@ -2639,6 +2668,7 @@ int main(int argc, char* argv[])
         return -1;
     }
 
+    PROGLOG("argc: %d", argc);
     Owned<IProperties> props = createProperties("daliadmin.ini");
     StringArray params;
     SocketEndpoint ep;
@@ -2669,7 +2699,7 @@ int main(int argc, char* argv[])
         usage(argv[0]);
         return -1;
     }
-
+    PROGLOG("params: %d", params.length());
     try {
         StringBuffer logname;
         StringBuffer aliasname;
@@ -2911,13 +2941,22 @@ int main(int argc, char* argv[])
                         getxref(params.item(1));
                     }
                     else if (stricmp(cmd,"dalilocks")==0) {
-                        CHECKPARAMS(0,2);
+                        CHECKPARAMS(0,8);
                         bool filesonly = false;
                         if (np&&(stricmp(params.item(np),"files")==0)) {
                             filesonly = true;
                             np--;
                         }
-                        dalilocks(np>0?params.item(1):NULL,filesonly);
+                        if (np > 2)
+                        {
+                            const char* item2 = params.item(2);
+                            if (streq(item2, "/"))
+                                item2 = NULL;
+                            dalilocks2(params.item(1), item2, atoi(params.item(3)), atoi(params.item(4)),
+                                    atoi(params.item(5)));
+                        }
+                        else
+                            dalilocks(np>0?params.item(1):NULL,filesonly);
                     }
                     else if (stricmp(cmd,"unlock")==0) {
                         CHECKPARAMS(2,2);

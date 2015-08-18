@@ -3235,6 +3235,73 @@ public:
         }
         return out;
     }
+    virtual StringBuffer &toString2(StringBuffer &out, unsigned format, bool header, int type, int durLow, int durHigh, const char *altText) const
+    {
+        if (ldInfo.ordinality())
+        {
+            unsigned msNow = msTick();
+            CDateTime time;
+            time.setNow();
+            time_t timeSimple = time.getSimple();
+
+            if (header)
+            {
+                switch (format)
+                {
+                    case 0: // internal
+                    {
+                        out.append("Locks on path: ").append(altText ? altText : xpath.get()).newline();
+                        out.append("Endpoint            |SessionId       |ConnectionId    |mode    |time(duration)]").newline();
+                        break;
+                    }
+                    case 1: // daliadmin
+                    {
+                        out.appendf("Server IP           |Session         |Mode    |Time                |Duration    |Lock").newline();
+                        out.appendf("====================|================|========|====================|============|======").newline();
+                        break;
+                    }
+                    default:
+                        throwUnexpected();
+                }
+            }
+
+            CDateTime timeLocked;
+            StringBuffer timeStr;
+            unsigned c = 0;
+            loop
+            {
+                CLockMetaData &lD = *ldInfo.item(c);
+                if ((type <= 0) || (lD.mode & type))
+                {
+                    unsigned lockedFor = msNow-lD.timeLockObtained;
+                    if ((durLow == -1) || ((durLow <= lockedFor/1000) && (durHigh >= lockedFor/1000)))
+                    {
+                        time_t tt = timeSimple - (lockedFor/1000);
+                        timeLocked.set(tt);
+                        timeLocked.getString(timeStr.clear());
+
+                        switch (format)
+                        {
+                            case 0: // internal
+                                out.appendf("%-20s|%-16" I64F "x|%-16" I64F "x|%-8x|%s(%d ms)", lD.queryEp(), lD.sessId, lD.connectionId, lD.mode, timeStr.str(), lockedFor);
+                                break;
+                            case 1: // daliadmin
+                                out.appendf("%-20s|%-16" I64F "x|%-8x|%-20s|%-12d|%s", lD.queryEp(), lD.sessId, lD.mode, timeStr.str(), lockedFor, altText ? altText : xpath.get());
+                                break;
+                            default:
+                                throwUnexpected();
+                        }
+                    }
+                }
+                ++c;
+                if (c>=ldInfo.ordinality())
+                    break;
+                out.newline();
+            }
+
+        }
+        return out;
+    }
 };
 
 ILockInfo *createLockInfo(const char *xpath, const ConnectionInfoMap &map)
