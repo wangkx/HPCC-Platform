@@ -27,6 +27,18 @@
 #include "bindutil.hpp"
 #include "seclib.hpp"
 
+typedef enum espAuthState_
+{
+    authUnknown,
+    authRequired,
+    authProvided,
+    authSucceeded,
+    authSucceededNow,
+    authPending,
+    authFailedMissingAuth,
+    authFailedWrongAuth
+} EspAuthState;
+
 class CMethodInfo : public CInterface
 {
 public:
@@ -143,6 +155,14 @@ private:
     StringAttrMapping desc_map;
     StringAttrMapping help_map;
 
+#ifdef _USE_OPENLDAP
+    StringAttr              authCookieName;
+    StringAttr              appCookieName;
+    StringBuffer            encryptedAppCookieValue;
+    unsigned                authCookieMaxAgeSec;
+    bool                    defaultAuthPage;
+#endif
+
 protected:
     MethodInfoArray m_methods;
     bool                    m_includeSoapTest;
@@ -171,6 +191,13 @@ public:
     virtual bool rootAuthRequired();
     virtual bool authRequired(CHttpRequest *request);
     virtual bool doAuth(IEspContext* ctx);
+#ifdef _USE_OPENLDAP
+    void readUserAuthToContext(CHttpRequest* request, IEspContext* ctx);
+    espAuthState_ checkUserAuth(IEspContext* ctx, CHttpRequest* request, CHttpResponse* response);
+    void askUserLogOn(IEspContext* ctx, const char* path, CHttpRequest* request, CHttpResponse* response);
+    void handleUserLogOn(CHttpRequest* request, CHttpResponse* response, bool isBasicAuth);
+    void handleUserLogOut(CHttpRequest* request, CHttpResponse* response);
+#endif
     virtual void populateRequest(CHttpRequest *request);
     virtual void getNavSettings(int &width, bool &resizable, bool &scroll){width=165;resizable=false;scroll=true;}
     virtual const char* getRootPage(IEspContext* ctx) {return NULL;}
@@ -305,6 +332,12 @@ protected:
     void sortResponse(IEspContext& context, CHttpRequest* request,MemoryBuffer& contentconst,
                             const char *serviceName, const char* methodName);
     const char* queryAuthMethod() {return m_authmethod.str(); }
+#ifdef _USE_OPENLDAP
+    void addAuthCookieToResponse(const char *username, const char *password, CHttpResponse* response);
+    bool readAuthCookie(CHttpRequest* request, StringBuffer& userId, StringBuffer& password);
+    //void getUserLogOnHtml(const char* message, StringBuffer& html);
+    //void getUserLogOutHtml(StringBuffer& html);
+#endif
 };
 
 inline bool isEclIdeRequest(CHttpRequest *request)

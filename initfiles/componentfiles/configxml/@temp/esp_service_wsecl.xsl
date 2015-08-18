@@ -195,14 +195,14 @@
             </Authenticate>
          </xsl:when>
          <xsl:when test="$authMethod='local'">
-            <Authenticate method="Local">
+            <Authenticate method="Local" defaultAuthPage="{$bindingNode/@defaultAuthPage}">
                <xsl:for-each select="$bindingNode/Authenticate[string(@path) != '']">
                   <Location path="{@path}" resource="{@resource}" required="{@access}" description="{@description}"/>
                </xsl:for-each>
             </Authenticate>
          </xsl:when>
          <xsl:when test="$authMethod='ldap' or $authMethod='ldaps'">
-            <Authenticate method="LdapSecurity" config="ldapserver">
+            <Authenticate method="LdapSecurity" config="ldapserver" defaultAuthPage="{$bindingNode/@defaultAuthPage}">
                <xsl:copy-of select="$bindingNode/@resourcesBasedn"/> <!--if binding has an ldap resourcebasedn specified then copy it out -->
                
                <xsl:for-each select="$bindingNode/Authenticate[string(@path) != '']">
@@ -215,7 +215,7 @@
             </Authenticate>
          </xsl:when>
          <xsl:when test="$authMethod='htpasswd'">
-           <Authenticate method="htpasswd">
+           <Authenticate method="htpasswd" defaultAuthPage="{$bindingNode/@defaultAuthPage}">
              <xsl:attribute name="htpasswdFile"> <xsl:value-of select="$bindingNode/../Authentication/@htpasswdFile"/> </xsl:attribute>
            </Authenticate>
          </xsl:when>

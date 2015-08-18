@@ -48,6 +48,13 @@
 
 #define FILE_UPLOAD     "FileUploadAccess"
 
+#ifdef _USE_OPENLDAP
+const char* defaultAppCookieName = "ESPAPP";
+const char* defaultAppCookieValue = "ESP";
+const char* defaultAuthCookieName = "ESPAUTH";
+const unsigned defaultAuthCookieMaxAge = 600;
+#endif
+
 static HINSTANCE getXmlLib()
 {
     const char* name = SharedObjectPrefix "xmllib" SharedObjectExtension;
@@ -243,6 +250,23 @@ EspHttpBinding::EspHttpBinding(IPropertyTree* tree, const char *bindname, const 
         }
     }
 
+#ifdef _USE_OPENLDAP
+    const char* _appCookieName = proc_cfg? proc_cfg->queryProp("Authentication/@appCookieName") : NULL;
+    if (_appCookieName && *_appCookieName)
+        appCookieName.set(_appCookieName);
+    else
+        appCookieName.set(defaultAppCookieName);
+    encrypt(encryptedAppCookieValue, defaultAppCookieValue);
+    const char* _authCookieName = proc_cfg? proc_cfg->queryProp("Authentication/@authCookieName") : NULL;
+    if (_authCookieName && *_authCookieName)
+        authCookieName.set(_authCookieName);
+    else
+        authCookieName.set(defaultAuthCookieName);
+    authCookieMaxAgeSec = proc_cfg? proc_cfg->getPropInt("Authentication/@authCookieMaxAgeSec", 0) : 0;
+    if (authCookieMaxAgeSec < 1)
+        authCookieMaxAgeSec = defaultAuthCookieMaxAge;
+#endif
+
     if(m_secmgr.get())
     {
         const char* desc = m_secmgr->getDescription();
@@ -435,6 +459,9 @@ void EspHttpBinding::populateRequest(CHttpRequest *request)
 
 bool EspHttpBinding::doAuth(IEspContext* ctx)
 {
+//    if (ctx->isAuthorized())
+//        return true;
+//
     if(m_authtype.length() == 0 || stricmp(m_authtype.str(), "Basic") == 0)
     {
         return basicAuth(ctx);
@@ -2211,3 +2238,321 @@ void EspHttpBinding::sortResponse(IEspContext& context, CHttpRequest* request, M
         DBGLOG("Unexpected error: parsing XML: %s", e->errorMessage(msg).str());
     }
 }
+
+#ifdef _USE_OPENLDAP
+void EspHttpBinding::addAuthCookieToResponse(const char *username, const char *password, CHttpResponse* response)
+{
+    StringBuffer encryptedAuthString;
+    VStringBuffer authString("%s:%s", username, password);
+    encrypt(encryptedAuthString, authString.str());
+
+    char expiresTime[64];
+    time_t tExpires;
+    time(&tExpires);
+    tExpires += authCookieMaxAgeSec;
+#ifdef _WIN32
+    struct tm *gmtExpires;
+    gmtExpires = gmtime(&tExpires);
+    strftime(expiresTime, 64, "%a, %d %b %Y %H:%M:%S GMT", gmtExpires);
+#else
+    struct tm gmtExpires;
+    gmtime_r(&tExpires, &gmtExpires);
+    strftime(expiresTime, 64, "%a, %d %b %Y %H:%M:%S GMT", &gmtExpires);
+#endif //_WIN32
+
+    CEspCookie* cookie = new CEspCookie(authCookieName, encryptedAuthString.str());
+    cookie->setExpires(expiresTime);
+    response->addCookie(cookie);
+    response->addCookie(new CEspCookie(appCookieName, encryptedAppCookieValue));
+}
+
+void EspHttpBinding::readUserAuthToContext(CHttpRequest* request, IEspContext* ctx)
+{
+    const char* authMethod = queryAuthMethod();
+    if (!authMethod || !*authMethod || strieq(authMethod, "none"))
+        return;
+
+    StringBuffer userId, password;
+    if (ctx->getUserID(userId).length())
+        return;
+
+    if (!readAuthCookie(request, userId, password))
+        return;
+
+    ctx->setUserID(userId.str());
+    ctx->setPassword(password.str());
+}
+
+bool EspHttpBinding::readAuthCookie(CHttpRequest* request, StringBuffer& userId, StringBuffer& password)
+{
+    CEspCookie* authCookie = request->queryCookie(authCookieName);
+    if (!authCookie)
+        return false;
+
+    const char* authString = authCookie->getValue();
+    if (!authString || !*authString)
+        return false;
+
+    StringArray strList;
+    StringBuffer decryptedAuthString;
+    decrypt(decryptedAuthString, authString);
+    strList.appendListUniq(decryptedAuthString, ":");
+    if (strList.length() < 2)
+        return false;
+
+    const char *_userId = strList.item(0);
+    const char *_password = strList.item(1);
+    if (_userId && *_userId)
+        userId.set(_userId);
+    if (_password && *_password)
+        password.set(_password);
+
+    return (_userId && *_userId && _password && *_password);
+}
+
+//bool readAppCookie(CHttpRequest* request)
+bool readAppCookie(CHttpRequest* request, const char* appCookieName, const char* encryptedAppCookieValue)
+{
+    CEspCookie* appCookie = request->queryCookie(appCookieName);
+    if (!appCookie)
+        return false;
+
+    const char* value = appCookie->getValue();
+    if (!value || !*value)
+        return false;
+
+    return streq(value, encryptedAppCookieValue);
+}
+
+bool hasLogonHtml()
+{
+    return true;
+}
+
+bool isSpecialGet(IEspContext* ctx)
+{
+    return ctx->getResponseFormat() != ESPSerializationANY;
+}
+
+bool isSpecialPost(CHttpRequest* request)
+{
+    return false;
+}
+
+bool checkAllowPath(const char* path)
+{
+    if (!path || !*path)
+        return false;
+    if (strieq(path, "/esp/files/userlogon.html"))
+        return true;
+    if (strieq(path, "/esp/files/userlogout.html"))
+        return true;
+    if (strieq(path, "/favicon.ico"))
+        return true;
+
+    return false;
+}
+
+void setPathCookie(const char* path, CHttpRequest* request, CHttpResponse* response)
+{
+    StringBuffer param;
+    request->getParamStr(param);
+    if (!param.length())
+        param.set(path);
+    else
+        param.insert(0, "?").insert(0, path);
+    response->addCookie(new CEspCookie("appPath", param));
+}
+
+void clearCookie(const char* cookieName, CHttpResponse* response)
+{
+    CEspCookie* cookie = new CEspCookie(cookieName, "");
+    cookie->setExpires("Thu, 01 Jan 1970 00:00:01 GMT");
+    response->addCookie(cookie);
+    response->addHeader(cookieName,  "max-age=0");
+}
+
+espAuthState_ EspHttpBinding::checkUserAuth(IEspContext* ctx, CHttpRequest* request, CHttpResponse* response)
+{
+    if(!m_authmap.get()) //No auth requirement
+        return authSucceeded;
+
+    const char* authMethod = queryAuthMethod();
+    if (!authMethod || !*authMethod || strieq(authMethod, "none"))
+        return authSucceeded;
+
+    StringBuffer path;
+    request->getPath(path);
+    if(!path.length())
+        throw MakeStringException(-1, "Path is empty for http request");
+
+    if (checkAllowPath(path.str()))
+        return authSucceeded;
+
+    ISecResourceList* rlist = m_authmap->getResourceList(path.str());
+    if(!rlist) //No auth requirement for the path. Should we also check auth in this case?
+        return authSucceeded;
+
+    DBGLOG("EspHttpBinding::checkUserAuth() 5");
+    ctx->setAuthenticationMethod(authMethod);
+    ctx->setResources(rlist);
+    CEspCookie* basicChallengeCookie = request->queryCookie("BasicChallenge");
+    if (basicChallengeCookie)
+    {
+        const char* value = basicChallengeCookie->getValue();
+        if (value && streq(value, "Wait"))
+        {
+            populateRequest(request);
+            if (!doAuth(ctx))
+            {
+                //TODO: DBGLOG("Authentication failed. GET %s, from %s@%s", path.str(), userName.str(), request->getPeer(peer).str());
+                askUserLogOn(ctx, path.str(), request, response);
+                return authFailedWrongAuth;
+            }
+
+            handleUserLogOn(request, response, true);
+            return authSucceeded;
+        }
+    }
+
+    StringBuffer userName, password, peer;
+    bool authFromCookie = false;
+    IProperties* params = request->queryParameters();
+    userName = (params) ? params->queryProp("username") : NULL;
+    password = (params) ? params->queryProp("password") : NULL;
+    if (!userName.length() || !password.length())
+        authFromCookie = readAuthCookie(request, userName, password);
+    if (!userName.length() || !password.length())
+    {
+        DBGLOG("readAuthCookie failed. GET %s, from %s@%s", path.str(), userName.length()?
+                            userName.str() : "unknown", request->getPeer(peer).str());
+        askUserLogOn(ctx, path.str(), request, response);
+        return authFailedMissingAuth;
+    }
+
+    ctx->setUserID(userName.str());
+    ctx->setPassword(password.str());
+    populateRequest(request);
+    if (!doAuth(ctx))
+    {
+        DBGLOG("Authentication failed. GET %s, from %s@%s", path.str(), userName.str(), request->getPeer(peer).str());
+        askUserLogOn(ctx, path.str(), request, response);
+        return authFailedWrongAuth;
+    }
+
+    DBGLOG("GET %s, from %s@%s", path.str(), userName.str(), request->getPeer(peer).str());
+    addAuthCookieToResponse(userName.str(), password.str(), response);
+    if (authFromCookie)
+    {
+        ctx->setAuthorized(true);
+        return authSucceeded;
+    }
+    else
+    {
+        handleUserLogOn(request, response, false);
+        return authSucceededNow;
+    }
+/*
+    if (m_request->isSoapMessage())
+        authbinding->readUserAuthToContext(m_request.get(), ctx);//??If SOAP call, should we read auth from cookie?
+    */
+}
+
+void EspHttpBinding::askUserLogOn(IEspContext* ctx, const char* path, CHttpRequest* request, CHttpResponse* response)
+{
+    setPathCookie(path, request, response);
+    if (readAppCookie(request, appCookieName, encryptedAppCookieValue) || (hasLogonHtml() && !isSpecialPost(request) && !isSpecialGet(ctx)))
+    {
+        DBGLOG("EspHttpBinding::askUserLogOn() -- redirect to /esp/files/userlogon.html");
+        response->redirect(*request, "/esp/files/userlogon.html");
+    }
+    else
+    {
+        StringBuffer sBuf = getChallengeRealm();
+        if(!sBuf.length())
+            sBuf.append("ESP");
+        response->addCookie(new CEspCookie("BasicChallenge", "Wait"));
+        response->sendBasicChallenge(sBuf.str(), true);
+        return;
+    }
+}
+
+void EspHttpBinding::handleUserLogOn(CHttpRequest* request, CHttpResponse* response, bool isBasicAuth)
+{
+    clearCookie("appPath", response);
+    if (isBasicAuth)
+    {
+        clearCookie("BasicChallenge", response);
+        return;
+    }
+
+    /*StringBuffer appPath;
+    CEspCookie* appCookie = request->queryCookie("appPath");
+    if (appCookie)
+        appPath.append(appCookie->getValue());
+
+    if (!appPath.length())
+        response->redirect(*request,"/");
+    else
+        response->redirect(*request, appPath.str());*/
+    response->redirect(*request,"/");
+}
+
+void EspHttpBinding::handleUserLogOut(CHttpRequest* request, CHttpResponse* response)
+{
+    /*const char* authMethod = queryAuthMethod();
+    if (!authMethod || !*authMethod || strieq(authMethod, "none"))
+        return;
+
+    clearCookie(authCookieName, response);
+
+    StringBuffer html;
+    getUserLogOutHtml(html);
+
+    response->setContent(html.length(), html.str());
+    response->setContentType("text/html; charset=UTF-8");
+    response->setStatus(HTTP_STATUS_OK);
+    response->send();*/
+    //clearCookie(appCookieName, response);
+    clearCookie(authCookieName, response);
+    //clearCookie("BasicChallenge", response);
+    response->redirect(*request, "/esp/files/userlogout.html");
+    DBGLOG("Leave EspHttpBinding::handleUserLogOut");
+}
+/*
+void EspHttpBinding::getUserLogOnHtml(const char* message, StringBuffer& html)
+{
+    IXslProcessor* xslp = getXmlLibXslProcessor();
+    if (!xslp)
+    {
+        ERRLOG("XSL conversion not found");
+        return;
+    }
+
+    if (message && *message)
+        html.setf("<UserLogOn><Message>%s</Message></UserLogOn>", message);
+    else
+        html.set("<UserLogOn><Message>Please log on.</Message></UserLogOn>");
+
+    Owned<IXslTransform> xform = xslp->createXslTransform();
+    xform->loadXslFromFile(StringBuffer(getCFD()).append("./xslt/userlogon.xsl").str());
+    xform->setXmlSource(html.str(), html.length()+1);
+    xform->transform(html.clear());
+}
+
+void EspHttpBinding::getUserLogOutHtml(StringBuffer& html)
+{
+    IXslProcessor* xslp = getXmlLibXslProcessor();
+    if (!xslp)
+    {
+        ERRLOG("XSL conversion not found");
+        return;
+    }
+
+    html.set("<UserLogOut><Message>Log out successfully.</Message></UserLogOut>");
+    Owned<IXslTransform> xform = xslp->createXslTransform();
+    xform->loadXslFromFile(StringBuffer(getCFD()).append("./xslt/userlogout.xsl").str());
+    xform->setXmlSource(html.str(), html.length()+1);
+    xform->transform(html.clear());
+}*/
+#endif

@@ -45,6 +45,8 @@ FOREACH( iFILES
     ${CMAKE_CURRENT_SOURCE_DIR}/esdl2java_srvbase.xslt
     ${CMAKE_CURRENT_SOURCE_DIR}/esdl2java_srvdummy.xslt
     ${CMAKE_CURRENT_SOURCE_DIR}/roxie_page.xsl
+    ${CMAKE_CURRENT_SOURCE_DIR}/userlogon.xsl
+    ${CMAKE_CURRENT_SOURCE_DIR}/userlogout.xsl
 )
     Install ( FILES ${iFILES} DESTINATION componentfiles/xslt COMPONENT Runtime )
 ENDFOREACH ( iFILES )
