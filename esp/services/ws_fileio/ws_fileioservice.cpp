@@ -20,13 +20,18 @@
 
 #include "jiface.hpp"
 #include "environment.hpp"
+#include "thorxmlwrite.hpp"
 #include "ws_fileioservice.hpp"
 #ifdef _WIN32
 #include "windows.h"
 #endif
+#ifdef _USE_ZLIB
+#include "zcrypt.hpp"
+#endif
+#include "exception_util.hpp"
 
-///#define FILE_DESPRAY_URL "FileDesprayAccess"
 #define FILE_IO_URL     "FileIOAccess"
+const char* TEMPZIPDIR = "tempzipfiles";
 
 void CWsFileIOEx::init(IPropertyTree *cfg, const char *process, const char *service)
 {
@@ -366,4 +371,249 @@ bool CWsFileIOEx::onWriteFileData(IEspContext &context, IEspWriteFileDataRequest
     return true;
 }
 
+//#define SAVETOFILE_TEST
+void readTableContentCSV(IEspSaveTableToFileRequest& req, StringBuffer& buf)
+{
+#ifdef SAVETOFILE_TEST
+    StringArray headers;
+    headers.append("h1");
+    headers.append("h2");
+    headers.append("h3");
+    IArrayOf<IEspRow> rows;
+    StringArray row01, row02;
+    row01.append("c11");
+    row01.append("c12");
+    row01.append("c13");
+    row02.append("c21");
+    row02.append("c22");
+    row02.append("c23");
+    Owned<IEspRow> row1 = new CRow("", "");
+    row1->setCells(row01);
+    Owned<IEspRow> row2 = new CRow("", "");
+    row2->setCells(row02);
+    rows.append(*row1.getLink());
+    rows.append(*row2.getLink());
+#endif
+#ifndef SAVETOFILE_TEST
+    StringArray& headers = req.getHeaders();
+#endif
+    ForEachItemIn(i, headers)
+    {
+        if (buf.length())
+            buf.append(",");
+        buf.append(headers.item(i));
+    }
+    if (buf.length())
+        buf.append("\n");
 
+#ifndef SAVETOFILE_TEST
+    IArrayOf<IConstRow>& rows = req.getTableRows();
+#endif
+    ForEachItemIn(ri, rows)
+    {
+        StringArray& cells = rows.item(ri).getCells();
+        bool firstCell = true;
+        ForEachItemIn(ci, cells)
+        {
+            if (!firstCell)
+                buf.append(",");
+            else
+                firstCell = false;
+            buf.append(cells.item(ci));
+        }
+        buf.append("\n");
+    }
+}
+
+void readTableContentXMLJSON(IEspSaveTableToFileRequest& req, IXmlWriter &writer)
+{
+#ifdef SAVETOFILE_TEST
+    StringArray headers;
+    headers.append("h1");
+    headers.append("h2");
+    headers.append("h3");
+    IArrayOf<IEspRow> rows;
+    StringArray row01, row02;
+    row01.append("c11");
+    row01.append("c12");
+    row01.append("c13");
+    row02.append("c21");
+    row02.append("c22");
+    row02.append("c23");
+    Owned<IEspRow> row1 = new CRow("", "");
+    row1->setCells(row01);
+    Owned<IEspRow> row2 = new CRow("", "");
+    row2->setCells(row02);
+    rows.append(*row1.getLink());
+    rows.append(*row2.getLink());
+#endif
+#ifndef SAVETOFILE_TEST
+    StringArray& headers = req.getHeaders();
+#endif
+    unsigned headerCount = headers.length();
+
+    writer.outputBeginNested("Table", true);
+    writer.outputBeginNested("Rows", true);
+#ifndef SAVETOFILE_TEST
+    IArrayOf<IConstRow>& rows = req.getTableRows();
+#endif
+    ForEachItemIn(ri, rows)
+    {
+        StringArray& cells = rows.item(ri).getCells();
+        unsigned cellCount = cells.length();
+        writer.outputBeginNested("Row", false);
+        ForEachItemIn(ci, cells)
+        {
+            const char* header = headers.item(ci);
+            if (!header || !*header || (cellCount != headerCount))
+                header = "Cell";
+            const char* cell = cells.item(ci);
+            if (!cell)
+                cell = "";
+            writer.outputString(strlen(cell), cell, header);
+        }
+        writer.outputEndNested("Row");
+    }
+    writer.outputEndNested("Rows");
+    writer.outputEndNested("Table");
+}
+
+void readTableContent(IEspSaveTableToFileRequest& req, CSaveTableToFileContentFormats contentFormat, MemoryBuffer& buf)
+{
+    StringBuffer content;
+    if (contentFormat == CSaveTableToFileContentFormats_XML)
+    {
+        Owned<CommonXmlWriter> writer = CreateCommonXmlWriter(XWFexpandempty);
+        readTableContentXMLJSON(req, *writer);
+
+        const char *str = writer->str();
+        unsigned len = writer->length();
+        if (len && str[len-1]=='\n')
+            len--;
+
+        content.append("<?xml version=\"1.0\" encoding=\"ISO-8859-1\"?>\n<?xml-stylesheet href=\"../esp/xslt/xmlformatter.xsl\" type=\"text/xsl\"?>\n");
+        content.append(len, str);
+    }
+    else if (contentFormat == CSaveTableToFileContentFormats_JSON)
+    {
+        Owned<CommonJsonWriter> writer = new CommonJsonWriter(0);
+        writer->outputBeginRoot();
+        readTableContentXMLJSON(req, *writer);
+        writer->outputEndRoot();
+        content.set(writer->str());
+    }
+    else //CSV
+        readTableContentCSV(req, content);
+    buf.append(content.length(), content.str());
+}
+
+void saveToFile(IEspContext& context, const char* fileName, CSaveTableToFileFormats fileFormat,
+    CSaveTableToFileContentFormats contentFormat, MemoryBuffer& buf, IEspSaveTableToFileResponse& resp)
+{
+    if (fileFormat == CSaveTableToFileFormats_Plain)
+    {
+        StringBuffer headerStr("attachment;");
+        if (fileName && *fileName)
+        {
+            const char* pFileName = strrchr(fileName, PATHSEPCHAR);
+            if (pFileName)
+                headerStr.appendf("filename=%s", pFileName+1);
+            else
+                headerStr.appendf("filename=%s", fileName);
+        }
+
+        MemoryBuffer buf0;
+        unsigned i = 0;
+        char* p = (char*) buf.toByteArray();
+        while (i < buf.length())
+        {
+            if (p[0] != 10)
+                buf0.append(p[0]);
+            else
+                buf0.append(0x0d);
+
+            p++;
+            i++;
+        }
+        resp.setThefile(buf);
+        if (contentFormat == CSaveTableToFileContentFormats_XML)
+            resp.setThefile_mimetype(HTTP_TYPE_TEXT_XML);
+        else if (contentFormat == CSaveTableToFileContentFormats_JSON)
+            resp.setThefile_mimetype("application/json");
+        else //CSV
+            resp.setThefile_mimetype("text/csv");
+        context.addCustomerHeader("Content-disposition", headerStr.str());
+        return;
+    }
+
+#ifndef _USE_ZLIB
+    throw MakeStringException(ECLWATCH_CANNOT_COMPRESS_DATA,"The data cannot be compressed.");
+#else
+    StringBuffer fileNameStr, headerStr("attachment;");
+    if (fileName && fileName)
+    {
+        fileNameStr.append(fileName);
+        headerStr.append("filename=").append(fileName).append((fileFormat == CSaveTableToFileFormats_GZIP) ? ".gz" : ".zip");
+    }
+    else
+        fileNameStr.append("file");
+
+    VStringBuffer ifname("%s%sT%xAT%x", TEMPZIPDIR, PATHSEPSTR, (unsigned)(memsize_t)GetCurrentThreadId(), msTick());
+    ifname.append((fileFormat == CSaveTableToFileFormats_GZIP)? "" : ".zip");
+
+    IZZIPor* Zipor = createZZIPor();
+    int ret = 0;
+    if (fileFormat == CSaveTableToFileFormats_GZIP)
+        ret = Zipor->gzipToFile(buf.length(), (void*)buf.toByteArray(), ifname.str());
+    else
+        ret = Zipor->zipToFile(buf.length(), (void*)buf.toByteArray(), fileNameStr.str(), ifname.str());
+    releaseIZ(Zipor);
+
+    if (ret < 0)
+    {
+        Owned<IFile> rFile = createIFile(ifname.str());
+        if (rFile->exists())
+            rFile->remove();
+        throw MakeStringException(ECLWATCH_CANNOT_COMPRESS_DATA,"The data cannot be compressed.");
+    }
+
+    Owned <IFile> rf = createIFile(ifname.str());
+    if (!rf->exists())
+        throw MakeStringException(ECLWATCH_CANNOT_COMPRESS_DATA,"The data cannot be compressed.");
+
+    MemoryBuffer out;
+    Owned <IFileIO> fio = rf->open(IFOread);
+    read(fio, 0, (size32_t) rf->size(), out);
+    resp.setThefile(out);
+    fio.clear();
+    rf->remove();
+
+    resp.setThefile_mimetype((fileFormat == CSaveTableToFileFormats_GZIP) ? "application/x-gzip" : "application/zip");
+    context.addCustomerHeader("Content-disposition", headerStr.str());
+#endif
+}
+
+bool CWsFileIOEx::onSaveTableToFile(IEspContext& context, IEspSaveTableToFileRequest& req, IEspSaveTableToFileResponse& resp)
+{
+    try
+    {
+        context.validateFeatureAccess(FILE_IO_URL, SecAccess_Read, true);
+
+        CSaveTableToFileFormats fileFormat = req.getFileFormat();
+        if (fileFormat == SaveTableToFileFormats_Undefined)
+            throw MakeStringException(ECLWATCH_INVALID_INPUT,"FileFormat not defined.");
+
+        CSaveTableToFileContentFormats contentFormat = req.getContentFormat();
+        if (contentFormat == SaveTableToFileContentFormats_Undefined)
+            throw MakeStringException(ECLWATCH_INVALID_INPUT,"ContentFormat not defined.");
+
+        MemoryBuffer buf;
+        readTableContent(req, contentFormat, buf);
+        saveToFile(context, req.getFileName(), fileFormat, contentFormat, buf, resp);
+    }
+    catch(IException* e)
+    {
+        FORWARDEXCEPTION(context, e,  ECLWATCH_INTERNAL_ERROR);
+    }
+    return true;
+}

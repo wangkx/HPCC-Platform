@@ -71,6 +71,38 @@ ReadFileDataResponse
     string Result;
 };
 
+ESPenum SaveTableToFileFormats : string
+{
+    Plain("Plain"),
+    ZIP("ZIP"),
+    GZIP("GZIP"),
+};
+
+ESPenum SaveTableToFileContentFormats : string
+{
+    CSV("CSV"),
+    XML("XML"),
+    JSON("JSON"),
+};
+
+ESPStruct [nil_remove] Row
+{
+    ESParray<string> Cells;
+};
+
+ESPrequest [nil_remove] SaveTableToFileRequest
+{
+    string FileName;
+    ESPenum SaveTableToFileFormats FileFormat;
+    ESPenum SaveTableToFileContentFormats ContentFormat;
+    ESParray<string> Headers;
+    ESParray<ESPstruct Row> TableRows;
+};
+
+ESPresponse [nil_remove, exceptions_inline] SaveTableToFileResponse 
+{
+    [http_content("application/octet-stream")] binary thefile;
+};
 
 ESPservice [exceptions_inline("./smc_xslt/exceptions.xslt")] WsFileIO
 {
@@ -78,6 +110,7 @@ ESPservice [exceptions_inline("./smc_xslt/exceptions.xslt")] WsFileIO
     ESPmethod CreateFile(CreateFileRequest, CreateFileResponse);
     ESPmethod WriteFileData(WriteFileDataRequest, WriteFileDataResponse);
     ESPmethod ReadFileData(ReadFileDataRequest, ReadFileDataResponse);
+    ESPmethod SaveTableToFile(SaveTableToFileRequest, SaveTableToFileResponse);
 };
 
 SCMexportdef(WsFileIO);

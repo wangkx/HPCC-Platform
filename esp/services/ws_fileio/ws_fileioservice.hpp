@@ -38,6 +38,7 @@ public:
     virtual bool onCreateFile(IEspContext &context, IEspCreateFileRequest &req, IEspCreateFileResponse &resp);
     virtual bool onWriteFileData(IEspContext &context,  IEspWriteFileDataRequest &req,  IEspWriteFileDataResponse &resp);
     virtual bool onReadFileData(IEspContext &context,     IEspReadFileDataRequest &req,   IEspReadFileDataResponse &resp);
+    virtual bool onSaveTableToFile(IEspContext &context, IEspSaveTableToFileRequest &req, IEspSaveTableToFileResponse &resp);
 
 protected:
     bool CheckServerAccess(const char* server, const char* relPath, StringBuffer& netAddr, StringBuffer& absPath);
