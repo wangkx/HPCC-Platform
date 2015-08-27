@@ -473,17 +473,33 @@ bool Cws_accessEx::onUserEdit(IEspContext &context, IEspUserEditRequest &req, IE
 {
     try
     {
-        checkUser(context);
+        bool isSuperUser = true;
+        try
+        {
+            checkUser(context);
+        }
+        catch(IException *e)
+        {
+            if (e->errorCode() != ECLWATCH_ADMIN_ACCESS_DENIED)
+                throw e;
+            isSuperUser = false;
+            e->Release();
+        }
+        const char* userName = NULL;
+        if (!isSuperUser)
+            userName = context.queryUserId();
+        else
+            userName = req.getUsername();
 
         ISecManager* secmgr = context.querySecManager();
 
         if(secmgr == NULL)
             throw MakeStringException(ECLWATCH_INVALID_SEC_MANAGER, MSG_SEC_MANAGER_IS_NULL);
         CLdapSecManager* ldapsecmgr = (CLdapSecManager*)secmgr;
-        resp.setUsername(req.getUsername());
+        resp.setUsername(userName);
 
         StringArray groupnames;
-        ldapsecmgr->getGroups(req.getUsername(), groupnames);
+        ldapsecmgr->getGroups(userName, groupnames);
         IArrayOf<IEspGroupInfo> groups;
         for(unsigned i = 0; i < groupnames.length(); i++)
         {
@@ -643,16 +659,12 @@ bool Cws_accessEx::onGroups(IEspContext &context, IEspGroupRequest &req, IEspGro
             throw MakeStringException(ECLWATCH_INVALID_SEC_MANAGER, MSG_SEC_MANAGER_IS_NULL);
 
         secmgr->getAllGroups(groupnames, groupManagedBy, groupDescriptions);
-        ///groupnames.append("Administrators");
-        ///groupnames.append("Full_Access_TestingOnly");
-        //groupnames.kill();
         if (groupnames.length() > 0)
         {
             IArrayOf<IEspGroupInfo> groups;
             for(unsigned i = 0; i < groupnames.length(); i++)
             {
                 const char* grpname = groupnames.item(i);
-                //if(grpname == NULL || grpname[0] == '\0' || stricmp(grpname, "Authenticated Users") == 0)
                 if(grpname == NULL || grpname[0] == '\0')
                     continue;
                 Owned<IEspGroupInfo> onegrp = createGroupInfo();
@@ -664,14 +676,6 @@ bool Cws_accessEx::onGroups(IEspContext &context, IEspGroupRequest &req, IEspGro
 
             resp.setGroups(groups);
         }
-/*
-    IArrayOf<IEspGroupInfo> groups;
-            Owned<IEspGroupInfo> onegrp = createGroupInfo();
-            onegrp->setName("grpname");
-            groups.append(*onegrp.getLink());
-
-    resp.setGroups(groups);
-*/
     }
     catch(IException* e)
     {
@@ -3051,10 +3055,226 @@ bool Cws_accessEx::onUserSudoers(IEspContext &context, IEspUserSudoersRequest &r
     return true;
 }
 
+StringBuffer& Cws_accessEx::getModuleBasedn(StringBuffer& moduleBasedn)
+{
+    ForEachItemIn(i, m_basedns)
+    {
+        IEspDnStruct* curbasedn = &(m_basedns.item(i));
+        const char *aBasedn = curbasedn->getBasedn();
+        const char *aRtype = curbasedn->getRtype();
+        if (!aBasedn || !*aBasedn ||!aRtype || !*aRtype)
+            continue;
+
+        SecResourceType rtype = str2type(aRtype);
+        if (rtype == RT_MODULE)
+        {
+            moduleBasedn.append(aBasedn);
+            break;
+        }
+    }
+    return moduleBasedn;
+}
+
+void Cws_accessEx::getEspResources(CLdapSecManager* secmgr, const char *basedn, SecResourceType rtype, StringBuffer& moduleBasedn, IArrayOf<IEspResource>& espResources)
+{
+    IArrayOf<ISecResource> rs;
+    if(secmgr->getResources(rtype, basedn, rs))
+    {
+        ForEachItemIn(i, rs)
+        {
+            ISecResource& r = rs.item(i);
+            const char* rname = r.getName();
+            if(!rname || !*rname)
+                continue;
+
+            //permission codegenerator.cpp is saved as a service permission (not a module permission)
+            //when it is added for a user
+            if ((rtype == RT_MODULE) && (strieq(rname, "codegenerator.cpp")))
+                continue;
+
+            if((rtype == RT_MODULE) && Utils::strncasecmp(rname, "repository", 10))
+                continue;
+
+            Owned<IEspResource> oneresource = createResource();
+            oneresource->setName(rname);
+            oneresource->setDescription(r.getDescription());
+            espResources.append(*oneresource.getLink());
+        }
+    }
+
+    if(rtype == RT_WORKUNIT_SCOPE)
+    {
+        StringBuffer deft_basedn, deft_name;
+        const char* comma = strchr(basedn, ',');
+        const char* eqsign = strchr(basedn, '=');
+        if(eqsign != NULL)
+        {
+            if(!comma)
+                deft_name.append(eqsign+1);
+            else
+            {
+                deft_name.append(comma - eqsign - 1, eqsign+1);
+                deft_basedn.append(comma + 1);
+            }
+        }
+
+        if (deft_name.length())
+        {
+            Owned<IEspResource> oneresource = createResource();
+            oneresource->setName(deft_name);
+            oneresource->setDescription(deft_basedn);
+            espResources.append(*oneresource.getLink());
+        }
+    }
+
+    if((rtype == RT_SERVICE) && moduleBasedn.length())
+    {  //permission codegenerator.cpp is saved as a service permission when it is added for a user
+        Owned<IEspResource> oneresource = createResource();
+        oneresource->setName("codegenerator.cpp");
+        oneresource->setDescription(moduleBasedn.str());
+        espResources.append(*oneresource.getLink());
+    }
+}
+
+void Cws_accessEx::readAllowedPermissions(double version, StringArray& accountNames, const char* basedn, const char* rtypestr, const char* rtitle,
+    const char* permissonName, const char* resourceDesc, IArrayOf<CPermission>& permissions, IArrayOf<IEspAccountPermission>& accPermissions)
+{
+    if (!accountNames.length())
+        return;
+
+    bool found = false;
+    int denies = 0;
+    ForEachItemIn(p, permissions)
+    {
+        CPermission& perm = permissions.item(p);
+        ForEachItemIn(i, accountNames)
+        {
+            int accountType = (i==0) ? 0 : 1;
+            if ((accountType == perm.getAccount_type()) && perm.getAccount_name() && streq(perm.getAccount_name(), accountNames.item(i)))
+            {
+                if (!found)
+                {
+                    found = true;
+                    denies = perm.getDenies();
+                }
+                else
+                    denies |= perm.getDenies();
+                break;
+            }
+        }
+    }
+    if (!found || ((denies & NewSecAccess_Full) == NewSecAccess_Full))
+        return;
+
+    int allows = ~denies;
+    Owned<IEspAccountPermission> permission = createAccountPermission();
+    permission->setPermissionName(permissonName);
+    if (resourceDesc && *resourceDesc && (version >= 1.10))
+        permission->setResourceDesc(resourceDesc);
+    permission->setBasedn(basedn);
+    permission->setRType(rtypestr);
+    if (rtitle && *rtitle)
+        permission->setRtitle(rtitle);
+
+    if((allows & NewSecAccess_Access) == NewSecAccess_Access)
+        permission->setAllow_access(true);
+    if((allows & NewSecAccess_Read) == NewSecAccess_Read)
+        permission->setAllow_read(true);
+    if((allows & NewSecAccess_Write) == NewSecAccess_Write)
+        permission->setAllow_write(true);
+    if((allows & NewSecAccess_Full) == NewSecAccess_Full)
+        permission->setAllow_full(true);
+    if((denies & NewSecAccess_Access) == NewSecAccess_Access)
+        permission->setDeny_access(true);
+    if((denies & NewSecAccess_Read) == NewSecAccess_Read)
+        permission->setDeny_read(true);
+    if((denies & NewSecAccess_Write) == NewSecAccess_Write)
+        permission->setDeny_write(true);
+    if((denies & NewSecAccess_Full) == NewSecAccess_Full)
+        permission->setDeny_full(true);
+    accPermissions.append(*permission.getClear());
+}
+
+bool Cws_accessEx::getCurrentUserPermissions(CLdapSecManager* secmgr, IEspContext &context, IEspAccountPermissionsRequest &req, IEspAccountPermissionsResponse &resp)
+{
+    const char* userId = context.queryUserId();
+    if (!userId || !*userId)
+        throw MakeStringException(ECLWATCH_INVALID_INPUT, "Could not get user ID.");
+
+    double version = context.getClientVersion();
+
+    StringArray accountNames;
+    accountNames.append(userId);
+    secmgr->getGroups(userId, accountNames);
+    accountNames.append("Authenticated Users");
+    accountNames.append("everyone");
+
+    StringBuffer moduleBasedn; //To be used by the Permission: codegenerator.cpp
+    getModuleBasedn(moduleBasedn);
+
+    IArrayOf<IEspAccountPermission> userPermissions;
+    ForEachItemIn(i, m_basedns)
+    {
+        IEspDnStruct* curbasedn = &(m_basedns.item(i));
+        const char* basednName = curbasedn->getName();
+        const char* basedn = curbasedn->getBasedn();
+        const char* rtypestr = curbasedn->getRtype();
+        if (!basednName || !*basednName || !basedn || !*basedn || !rtypestr || !*rtypestr)
+            continue;
+
+        SecResourceType rtype = str2type(rtypestr);
+        const char* rtitle = curbasedn->getRtitle();
+
+        IArrayOf<IEspResource> espResources;
+        getEspResources(secmgr, basedn, rtype, moduleBasedn, espResources);
+
+        IArrayOf<IEspAccountPermission> accPermissions;
+        ForEachItemIn(j, espResources)
+        {
+            IEspResource& r = espResources.item(j);
+            const char* rname = r.getName();
+            if(!rname || !*rname)
+                continue;
+
+            StringBuffer namebuf(rname);
+            if((rtype == RT_MODULE) && !strieq(rname, "repository") && Utils::strncasecmp(rname, "repository.", 11) != 0)
+                namebuf.insert(0, "repository.");
+
+            try
+            {
+                IArrayOf<CPermission> permissions;
+                secmgr->getPermissionsArray(basedn, rtype, namebuf.str(), permissions);
+                readAllowedPermissions(version, accountNames, basedn, rtypestr, rtitle, namebuf.str(), r.getDescription(), permissions,
+                    userPermissions);
+            }
+            catch(IException* e) //exception may be thrown when no permission for the resource
+            {
+                e->Release();
+                break;
+            }
+        }
+    }
+    resp.setPermissions(userPermissions);
+
+    return true;
+}
+
 bool Cws_accessEx::onAccountPermissions(IEspContext &context, IEspAccountPermissionsRequest &req, IEspAccountPermissionsResponse &resp)
 {
     try
     {
+        CLdapSecManager* ldapsecmgr = queryLDAPSecurityManager(context);
+        if(ldapsecmgr == NULL)
+            throw MakeStringException(ECLWATCH_INVALID_SEC_MANAGER, MSG_SEC_MANAGER_IS_NULL);
+
+        if(m_basedns.length() == 0)
+        {
+            setBasedns(context);
+        }
+
+        if(!ldapsecmgr->isSuperUser(context.queryUser()))
+            return getCurrentUserPermissions(ldapsecmgr, context, req, resp);
+
         StringBuffer userID;
         bool bGroupAccount = req.getIsGroup();
         const char* username = req.getAccountName();
@@ -3070,18 +3290,7 @@ bool Cws_accessEx::onAccountPermissions(IEspContext &context, IEspAccountPermiss
             checkUser(context);
 
         double version = context.getClientVersion();
-
-        CLdapSecManager* ldapsecmgr = queryLDAPSecurityManager(context);
-
-        if(ldapsecmgr == NULL)
-            throw MakeStringException(ECLWATCH_INVALID_SEC_MANAGER, MSG_SEC_MANAGER_IS_NULL);
-
         bool bIncludeGroup = req.getIncludeGroup();
-
-        if(m_basedns.length() == 0)
-        {
-            setBasedns(context);
-        }
 
         StringArray groupnames;
         if (version > 1.02 && !bGroupAccount && bIncludeGroup)
@@ -3200,7 +3409,7 @@ bool Cws_accessEx::onAccountPermissions(IEspContext &context, IEspAccountPermiss
 
                     Owned<IEspResource> oneresource = createResource();
                     oneresource->setName(rname);
-                    oneresource->setDescription(aBasedn);
+                    oneresource->setDescription(r.getDescription());
                     ResourceArray.append(*oneresource.getLink());
                 }
             }

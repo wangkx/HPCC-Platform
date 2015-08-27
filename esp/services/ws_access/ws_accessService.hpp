@@ -81,6 +81,12 @@ class Cws_accessEx : public Cws_access
         int accountType, StringArray& basednNames);
     int enableDisableScopeScans(IEspContext &context, bool doEnable, StringBuffer &retMsg);
     CLdapSecManager* queryLDAPSecurityManager(IEspContext &context);
+    bool getCurrentUserPermissions(CLdapSecManager* ldapsecmgr, IEspContext &context, IEspAccountPermissionsRequest &req,
+        IEspAccountPermissionsResponse &resp);
+    StringBuffer& getModuleBasedn(StringBuffer& moduleBasedn);
+    void getEspResources(CLdapSecManager* secmgr, const char *basedn, SecResourceType rtype, StringBuffer& moduleBasedn, IArrayOf<IEspResource>& espResources);
+    void readAllowedPermissions(double version, StringArray& accountNames, const char* basedn, const char* rtypestr, const char* rtitle, const char* permissonName,
+        const char* resourceDesc, IArrayOf<CPermission>& permissions, IArrayOf<IEspAccountPermission>& accPermissions);
 
 public:
     IMPLEMENT_IINTERFACE;
