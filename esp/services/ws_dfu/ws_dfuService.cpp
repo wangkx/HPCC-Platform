@@ -5834,4 +5834,152 @@ int CWsDfuEx::GetIndexData(IEspContext &context, bool bSchemaOnly, const char* i
     return iRet;
 }
 
+static const char *DFURelationshipKinds[] = { "link", "view" };
+
+bool CWsDfuEx::onFileRelationQuery(IEspContext &context, IEspFileRelationQueryRequest &req, IEspFileRelationQueryResponse &resp)
+{
+    try
+    {
+        if (!context.validateFeatureAccess(FEATURE_URL, SecAccess_Read, false))
+            throw MakeStringException(ECLWATCH_DFU_ACCESS_DENIED, "Failed to Search File Relationships. Permission denied.");
+
+        IConstDFUFileRelation& relationReq = req.getFileRelation();
+        bool isPayload = relationReq.getIsPayload();
+
+        const char *kind = S_LINK_RELATIONSHIP_KIND;
+        CDFURelationshipKinds kindReq = relationReq.getKind();
+        if (kindReq == CDFURelationshipKinds_view)
+            kind = S_VIEW_RELATIONSHIP_KIND;
+
+        IArrayOf<IEspDFUFileRelation> relationships;
+
+        Owned<IFileRelationshipIterator> iter = queryDistributedFileDirectory().lookupFileRelationships(
+            relationReq.getPrimaryFileName(), relationReq.getSecondaryFileName(), relationReq.getPrimaryFields(),
+            relationReq.getSecondaryFields(), kind, relationReq.getCardinality(), &isPayload);
+        ForEach(*iter)
+        {
+            IFileRelationship &rel=iter->query();
+            const char* primary = rel.queryPrimaryFilename();
+            const char* secondary = rel.querySecondaryFilename();
+            const char* primaryFields = rel.queryPrimaryFields();
+            const char* secondaryFields = rel.querySecondaryFields();
+            const char* type = rel.queryKind();
+            const char* cardinality = rel.queryCardinality();
+            const char* description = rel.queryDescription();
+
+            if (primary && *primary && secondary && *secondary)
+            {
+                Owned<IEspDFUFileRelation> relation = createDFUFileRelation();
+                relation->setPrimaryFileName(primary);
+                relation->setSecondaryFileName(secondary);
+                relation->setIsPayload(rel.queryDescription());
+                if (primaryFields && *primaryFields)
+                    relation->setPrimaryFields(primaryFields);
+                if (secondaryFields && *secondaryFields)
+                    relation->setSecondaryFields(secondaryFields);
+                if (type && *type)
+                    relation->setKind(type);
+                if (cardinality && *cardinality)
+                    relation->setCardinality(cardinality);
+                if (description && *description)
+                    relation->setDescription(description);
+
+                relationships.append(*relation.getClear());
+            }
+        }
+
+        resp.setNumRelations(relationships.length());
+        if (relationships.length())
+            resp.setFileRelations(relationships);
+    }
+    catch(IException* e)
+    {
+        FORWARDEXCEPTION(context, e,  ECLWATCH_INTERNAL_ERROR);
+    }
+
+    return true;
+}
+
+bool CWsDfuEx::onAddFileRelations(IEspContext &context, IEspAddFileRelationsRequest &req, IEspAddFileRelationsResponse &resp)
+{
+    try
+    {
+        if (!context.validateFeatureAccess(FEATURE_URL, SecAccess_Write, false))
+            throw MakeStringException(ECLWATCH_DFU_ACCESS_DENIED, "Failed to Browse Space Usage. Permission denied.");
+
+        IArrayOf<IConstDFUFileRelation>& relations = req.getFileRelations();
+        if(!relations.length())
+            throw MakeStringException(ECLWATCH_INVALID_INPUT, "No file relation specified");
+
+        Owned<IUserDescriptor> userdesc;
+        const char *username = context.queryUserId();
+        if(username && *username)
+        {
+            userdesc.setown(createUserDescriptor());
+            userdesc->set(username, context.queryPassword());
+        }
+
+        ForEachItemIn(i, relations)
+        {
+            IConstDFUFileRelation& relation=relations.item(i);
+
+            char* primaryFileName = (char*) relation.getPrimaryFileName();
+            char* secondaryFileName = (char*) relation.getSecondaryFileName();
+            char* primaryFields = (char*) relation.getPrimaryFields();
+            char* secondaryFields = (char*) relation.getSecondaryFields();
+            char* cardinality = (char*) relation.getCardinality();
+            char* description = (char*) relation.getDescription();
+            bool isPayload = relation.getIsPayload();
+            const char *kind = S_LINK_RELATIONSHIP_KIND;
+            CDFURelationshipKinds kindReq = relation.getKind();
+            if (kindReq == CDFURelationshipKinds_view)
+                kind = S_VIEW_RELATIONSHIP_KIND;
+
+            queryDistributedFileDirectory().addFileRelationship(primaryFileName, secondaryFileName,
+                primaryFields, secondaryFields, kind, cardinality, isPayload, userdesc, description);
+        }
+    }
+    catch (IException *e)
+    {
+        FORWARDEXCEPTION(context, e,  ECLWATCH_INTERNAL_ERROR);
+    }
+
+    return true;
+}
+
+bool CWsDfuEx::onRemoveFileRelations(IEspContext &context, IEspRemoveFileRelationsRequest &req, IEspRemoveFileRelationsResponse &resp)
+{
+    try
+    {
+        if (!context.validateFeatureAccess(FEATURE_URL, SecAccess_Write, false))
+            throw MakeStringException(ECLWATCH_DFU_ACCESS_DENIED, "Failed to Browse Space Usage. Permission denied.");
+
+        IArrayOf<IConstDFUFileRelation>& relations = req.getFileRelations();
+        if(!relations.length())
+            throw MakeStringException(ECLWATCH_INVALID_INPUT, "No file relation specified");
+
+        ForEachItemIn(i, relations)
+        {
+            IConstDFUFileRelation& relation=relations.item(i);
+
+            char* primaryFileName = (char*) relation.getPrimaryFileName();
+            char* secondaryFileName = (char*) relation.getSecondaryFileName();
+            char* primaryFields = (char*) relation.getPrimaryFields();
+            char* secondaryFields = (char*) relation.getSecondaryFields();
+            const char *kind = S_LINK_RELATIONSHIP_KIND;
+            CDFURelationshipKinds kindReq = relation.getKind();
+            if (kindReq == CDFURelationshipKinds_view)
+                kind = S_VIEW_RELATIONSHIP_KIND;
+
+            queryDistributedFileDirectory().removeFileRelationships(primaryFileName, secondaryFileName,
+                primaryFields, secondaryFields, kind);
+        }
+    }
+    catch (IException *e)
+    {
+        FORWARDEXCEPTION(context, e,  ECLWATCH_INTERNAL_ERROR);
+    }
+
+    return true;
+}
 //////////////////////HPCC Browser//////////////////////////

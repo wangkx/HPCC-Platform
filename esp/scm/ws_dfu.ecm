@@ -696,6 +696,52 @@ ESPresponse [exceptions_inline, nil_remove, http_encode(0)] DFUGetFileMetaDataRe
     int64 TotalResultRows;
 };
 
+ESPenum DFURelationshipKinds : string
+{
+    link("link"),
+    view("view")
+};
+
+ESPStruct [nil_remove] DFUFileRelation
+{
+    string PrimaryFileName;
+    string SecondaryFileName;
+    string PrimaryFields;
+    string SecondaryFields;
+    ESPenum DFURelationshipKinds Kind;
+    string Cardinality;
+    string Description;
+    bool   IsPayload(true);
+};
+
+ESPrequest FileRelationQueryRequest
+{
+    ESPstruct DFUFileRelation FileRelation;
+};
+
+ESPresponse [exceptions_inline, nil_remove] FileRelationQueryResponse
+{
+    ESParray<ESPstruct DFUFileRelation, FileRelation> FileRelations;
+    int64 NumRelations;
+};
+
+ESPrequest [nil_remove] AddFileRelationsRequest
+{
+    ESParray<ESPstruct DFUFileRelation, FileRelation> FileRelations;
+};
+
+ESPresponse [exceptions_inline, nil_remove] AddFileRelationsResponse
+{
+};
+
+ESPrequest [nil_remove] RemoveFileRelationsRequest
+{
+    ESParray<ESPstruct DFUFileRelation, FileRelation> FileRelations;
+};
+
+ESPresponse [exceptions_inline, nil_remove] RemoveFileRelationsResponse
+{
+};
 
 //  ===========================================================================
 ESPservice [
@@ -724,7 +770,11 @@ ESPservice [
     ESPmethod [resp_xsl_default("/esp/xslt/addto_superfile.xslt")] AddtoSuperfile(AddtoSuperfileRequest, AddtoSuperfileResponse);
     ESPmethod [resp_xsl_default("/esp/xslt/dfu_superedit.xslt")] SuperfileList(SuperfileListRequest, SuperfileListResponse);
     ESPmethod [resp_xsl_default("/esp/xslt/dfu_superresult.xslt")] SuperfileAction(SuperfileActionRequest, SuperfileActionResponse);
-    
+
+    ESPmethod AddFileRelations(AddFileRelationsRequest, AddFileRelationsResponse);
+    ESPmethod RemoveFileRelations(RemoveFileRelationsRequest, RemoveFileRelationsResponse);
+    ESPmethod FileRelationQuery(FileRelationQueryRequest, FileRelationQueryResponse);
+
     ESPmethod Savexml(SavexmlRequest, SavexmlResponse);
     ESPmethod Add(AddRequest, AddResponse);
     ESPmethod AddRemote(AddRemoteRequest, AddRemoteResponse);

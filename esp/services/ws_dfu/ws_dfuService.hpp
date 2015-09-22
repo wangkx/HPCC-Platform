@@ -144,6 +144,10 @@ public:
     virtual bool onSuperfileList(IEspContext &context, IEspSuperfileListRequest &req, IEspSuperfileListResponse &resp);
     virtual bool onSuperfileAction(IEspContext &context, IEspSuperfileActionRequest &req, IEspSuperfileActionResponse &resp);
 
+    virtual bool onAddFileRelations(IEspContext &context, IEspAddFileRelationsRequest &req, IEspAddFileRelationsResponse &resp);
+    virtual bool onRemoveFileRelations(IEspContext &context, IEspRemoveFileRelationsRequest &req, IEspRemoveFileRelationsResponse &resp);
+    virtual bool onFileRelationQuery(IEspContext &context, IEspFileRelationQueryRequest &req, IEspFileRelationQueryResponse& resp);
+
 private:
     const char* getPrefixFromLogicalName(const char* logicalName, StringBuffer& prefix);
     const char* getShortDescription(const char* description, StringBuffer& shortDesc);
