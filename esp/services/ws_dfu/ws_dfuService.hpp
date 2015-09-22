@@ -147,6 +147,8 @@ public:
     virtual bool onAddFileRelations(IEspContext &context, IEspAddFileRelationsRequest &req, IEspAddFileRelationsResponse &resp);
     virtual bool onRemoveFileRelations(IEspContext &context, IEspRemoveFileRelationsRequest &req, IEspRemoveFileRelationsResponse &resp);
     virtual bool onFileRelationQuery(IEspContext &context, IEspFileRelationQueryRequest &req, IEspFileRelationQueryResponse& resp);
+    virtual bool onGetFileColumnMapping(IEspContext &context, IEspGetFileColumnMappingRequest &req, IEspGetFileColumnMappingResponse& resp);
+    virtual bool onSetFileColumnMapping(IEspContext &context, IEspSetFileColumnMappingRequest &req, IEspSetFileColumnMappingResponse& resp);
 
 private:
     const char* getPrefixFromLogicalName(const char* logicalName, StringBuffer& prefix);

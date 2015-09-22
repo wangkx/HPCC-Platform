@@ -743,6 +743,26 @@ ESPresponse [exceptions_inline, nil_remove] RemoveFileRelationsResponse
 {
 };
 
+ESPrequest [nil_remove] GetFileColumnMappingRequest
+{
+    string LogicalFile;
+};
+
+ESPresponse [exceptions_inline, nil_remove] GetFileColumnMappingResponse
+{
+    string Mapping;
+};
+
+ESPrequest [nil_remove] SetFileColumnMappingRequest
+{
+    string LogicalFile;
+    string Mapping;
+};
+
+ESPresponse [exceptions_inline, nil_remove] SetFileColumnMappingResponse
+{
+};
+
 //  ===========================================================================
 ESPservice [
     version("1.32"),
@@ -774,6 +794,8 @@ ESPservice [
     ESPmethod AddFileRelations(AddFileRelationsRequest, AddFileRelationsResponse);
     ESPmethod RemoveFileRelations(RemoveFileRelationsRequest, RemoveFileRelationsResponse);
     ESPmethod FileRelationQuery(FileRelationQueryRequest, FileRelationQueryResponse);
+    ESPmethod GetFileColumnMapping(GetFileColumnMappingRequest, GetFileColumnMappingResponse);
+    ESPmethod SetFileColumnMapping(SetFileColumnMappingRequest, SetFileColumnMappingResponse);
 
     ESPmethod Savexml(SavexmlRequest, SavexmlResponse);
     ESPmethod Add(AddRequest, AddResponse);

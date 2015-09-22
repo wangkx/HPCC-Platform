@@ -5982,4 +5982,72 @@ bool CWsDfuEx::onRemoveFileRelations(IEspContext &context, IEspRemoveFileRelatio
 
     return true;
 }
+
+bool CWsDfuEx::onGetFileColumnMapping(IEspContext &context, IEspGetFileColumnMappingRequest &req, IEspGetFileColumnMappingResponse &resp)
+{
+    try
+    {
+        if (!context.validateFeatureAccess(FEATURE_URL, SecAccess_Read, false))
+            throw MakeStringException(ECLWATCH_DFU_ACCESS_DENIED, "Failed to Browse Space Usage. Permission denied.");
+
+        const char* fileName = req.getLogicalFile();
+        if(!fileName || !*fileName)
+            throw MakeStringException(ECLWATCH_INVALID_INPUT, "No file specified");
+
+        Owned<IUserDescriptor> userdesc;
+        const char *username = context.queryUserId();
+        if(username && *username)
+        {
+            userdesc.setown(createUserDescriptor());
+            userdesc->set(username, context.queryPassword());
+        }
+
+        Owned<IDistributedFile> df = queryDistributedFileDirectory().lookup(fileName, userdesc.get(), true);
+        if (!df)
+            throw MakeStringException(ECLWATCH_INVALID_INPUT, "Could not find logical file %s", fileName);
+
+        StringBuffer mapping;
+        df->getColumnMapping(mapping);
+        resp.setMapping(mapping.str());
+    }
+    catch (IException *e)
+    {
+        FORWARDEXCEPTION(context, e,  ECLWATCH_INTERNAL_ERROR);
+    }
+
+    return true;
+}
+
+bool CWsDfuEx::onSetFileColumnMapping(IEspContext &context, IEspSetFileColumnMappingRequest &req, IEspSetFileColumnMappingResponse &resp)
+{
+    try
+    {
+        if (!context.validateFeatureAccess(FEATURE_URL, SecAccess_Write, false))
+            throw MakeStringException(ECLWATCH_DFU_ACCESS_DENIED, "Failed to Browse Space Usage. Permission denied.");
+
+        const char* fileName = req.getLogicalFile();
+        if(!fileName || !*fileName)
+            throw MakeStringException(ECLWATCH_INVALID_INPUT, "No file specified");
+
+        Owned<IUserDescriptor> userdesc;
+        const char *username = context.queryUserId();
+        if(username && *username)
+        {
+            userdesc.setown(createUserDescriptor());
+            userdesc->set(username, context.queryPassword());
+        }
+
+        Owned<IDistributedFile> df = queryDistributedFileDirectory().lookup(fileName, userdesc.get(), true);
+        if (!df)
+            throw MakeStringException(ECLWATCH_INVALID_INPUT, "Could not find logical file %s", fileName);
+
+        df->setColumnMapping(req.getMapping());
+    }
+    catch (IException *e)
+    {
+        FORWARDEXCEPTION(context, e,  ECLWATCH_INTERNAL_ERROR);
+    }
+
+    return true;
+}
 //////////////////////HPCC Browser//////////////////////////
