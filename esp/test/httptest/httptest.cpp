@@ -152,7 +152,7 @@ HttpClient::HttpClient(int threads, int times, const char* host, int port, FILE*
     m_use_ssl = use_ssl;
     if(use_ssl)
     {
-#ifdef USE_OPENSSL
+#ifdef _USE_OPENSSL
         if(sslconfig != NULL)
             m_ssctx.setown(createSecureSocketContextEx2(sslconfig, ClientSocket));
         else
@@ -165,6 +165,7 @@ HttpClient::HttpClient(int threads, int times, const char* host, int port, FILE*
 
 int HttpClient::getUrl(const char* url)
 {
+    DBGLOG("HttpClient::getUrl");
     if(!url || !*url || !m_times)
         return 0;
 
@@ -187,7 +188,7 @@ int HttpClient::getUrl(const char* url)
 
     if(m_use_ssl)
     {
-#if USE_OPENSSL
+#if _USE_OPENSSL
         if(m_ssctx.get() == NULL)
             m_ssctx.setown(createSecureSocketContext(ClientSocket));
 #else
@@ -213,6 +214,82 @@ int HttpClient::getUrl(const char* url)
         request.appendf("Authorization: Basic %s\r\n", auth.str());
     }
     request.append("\r\n");
+    DBGLOG("sendRequest");
+
+    return sendRequest(request);
+}
+
+int HttpClient::postData(const char* url, const char* infile)
+{
+    DBGLOG("HttpClient::postData");
+    if(!url || !*url || !m_times)
+        return 0;
+
+    StringBuffer data;
+    try
+    {
+        data.loadFile(infile, true);
+    }
+    catch(IException* e)
+    {
+        StringBuffer errmsg;
+        printf("\nerror loading file %s - %s", infile, e->errorMessage(errmsg).str());
+        return -1;
+    }
+    catch(...)
+    {
+        printf("\nerror loading file %s", infile);
+        return -1;
+    }
+
+    StringBuffer protocol, user, passwd, port, path;
+    m_host.clear();
+    SplitURL(url, protocol, user, passwd, m_host, port, path);
+
+    if(port.length() > 0)
+        m_port = atoi(port.str());
+    else
+    {
+        if(protocol.length() > 0 && stricmp(protocol.str(), "https") == 0)
+            m_port = 443;
+        else
+            m_port = 80;
+    }
+
+    if(stricmp(protocol.str(), "HTTPS") == 0)
+        m_use_ssl = true;
+
+    if(m_use_ssl)
+    {
+#if _USE_OPENSSL
+        if(m_ssctx.get() == NULL)
+            m_ssctx.setown(createSecureSocketContext(ClientSocket));
+#else
+        throw MakeStringException(-1, "HttpClient: failure to create SSL socket - OpenSSL not enabled in build");
+#endif
+    }
+
+    StringBuffer request;
+    request.appendf("POST %s HTTP/1.0\r\n", path.str());
+    request.append("Accept: image/gif, image/x-xbitmap, image/jpeg, image/pjpeg, application/vnd.ms-excel, application/vnd.ms-powerpoint, application/msword, application/x-shockwave-flash, */*\r\n");
+    request.append("Accept-Language: en-us\r\n");
+    //request.append("Accept-Encoding: gzip, deflate\r\n");
+    request.append("User-Agent: Mozilla/4.0 (compatible; MSIE 6.0; Windows NT 5.1)\r\n");
+    request.append("Host: ").append(m_host.str());
+    if(m_port != 80)
+        request.appendf(":%d", m_port);
+    request.append("\r\n");
+    if(user.length() > 0)
+    {
+        StringBuffer auth, abuf;
+        abuf.appendf("%s:%s", user.str(), passwd.str());
+        JBASE64_Encode(abuf.str(), abuf.length(), auth);
+        request.appendf("Authorization: Basic %s\r\n", auth.str());
+    }
+    request.append("\r\n");
+    request.append(data.str());
+    request.append("\r\n");
+    DBGLOG("sendRequest");
 
     return sendRequest(request);
 }
@@ -284,7 +361,7 @@ int HttpClient::sendSoapRequest(const char* url, const char* soapaction, const c
 
     if(m_use_ssl)
     {
-#ifdef USE_OPENSSL
+#ifdef __USE_OPENSSL
         if(m_ssctx.get() == NULL)
             m_ssctx.setown(createSecureSocketContext(ClientSocket));
 #else
@@ -614,7 +691,7 @@ HttpServer::HttpServer(int port, const char* in, FILE* ofile, bool use_ssl, IPro
     m_recvDelay = m_sendDelay = m_closeDelay = 0;
     if(use_ssl)
     {
-#ifdef USE_OPENSSL
+#ifdef _USE_OPENSSL
         if(sslconfig != NULL)
             m_ssctx.setown(createSecureSocketContextEx2(sslconfig, ServerSocket));
         else
@@ -1184,7 +1261,7 @@ HttpProxy::HttpProxy(int localport, const char* host, int port, FILE* ofile, boo
     m_use_ssl = use_ssl;
     if(use_ssl)
     {
-#if USE_OPENSSL
+#if _USE_OPENSSL
         if(sslconfig != NULL)
             m_ssctx.setown(createSecureSocketContextEx2(sslconfig, ClientSocket));
         else

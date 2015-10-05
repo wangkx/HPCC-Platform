@@ -98,13 +98,13 @@ int main(int argc, char* argv[])
     bool use_ssl = false;
     bool add_soap_headers = false;
     StringBuffer scfname;
-    StringBuffer url;
+    StringBuffer url, dfile;
 
     const char* soapaction = NULL;
 
     int delay = 0;
     int recvDelay = 0, sendDelay = 0, blockDelay = 0;
-    
+    unsigned kTest = 1;
     int i = 1;
     while(i<argc)
     {
@@ -193,6 +193,11 @@ int main(int argc, char* argv[])
             i++;
             url.append(argv[i++]);
         }
+        else if(stricmp(argv[i], "-dfile") == 0)
+        {
+            i++;
+            dfile.append(argv[i++]);
+        }
         else if (stricmp(argv[i], "-soap")==0)
         {
             add_soap_headers = true;
@@ -274,6 +279,11 @@ int main(int argc, char* argv[])
                 if(delay > 0)
                     client.setDelay(delay);
                 client.sendRequest(in_fname.str());         
+            }
+            else if (kTest == 1)
+            {
+                HttpClient client(threads, times, ofile);
+                client.postData(url.str(), dfile.str());
             }
             else
             {

@@ -78,6 +78,7 @@ public:
     int sendRequest(int times, HttpStat& stat, StringBuffer& req);
     int sendRequest(const char* infile);
     int getUrl(const char* url);
+    int postData(const char* url, const char* data);
     int sendSoapRequest(const char* url, const char* soapaction, const char* infile);
     void setDelay(int secs);
     HttpStat& getStat() {return m_stat;}
