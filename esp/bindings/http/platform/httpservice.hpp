@@ -33,10 +33,39 @@
 #include "SOAP/Platform/soapmessage.hpp"
 
 #include "espsession.ipp"
+#include "jhash.hpp"
 
+typedef enum espAuthState_
+{
+    authUnknown,
+    authRequired,
+    authProvided,
+    authSucceeded,
+    authPending,
+    authUpdatePassword,
+    authFailed
+} EspAuthState;
+
+enum HTTPSessionState
+{
+    HTTPSS_new,
+    HTTPSS_active,
+    HTTPSS_timeout
+};
+
+struct EspAuthRequest
+{
+    IEspContext* ctx;
+    EspHttpBinding* authBinding;
+    IProperties* requestParams;
+    StringBuffer httpPath, httpMethod, serviceName, methodName;
+    sub_service stype = sub_serv_unknown;
+    bool isSoapPost;
+};
 
 class CEspHttpServer : implements IHttpServerService, public CInterface
 {
+    CriticalSection critDaliSession;
 protected:
     ISocket&                m_socket;
     Owned<CHttpRequest>     m_request;
@@ -49,6 +78,28 @@ protected:
 
     int unsupported();
     EspHttpBinding* getBinding();
+    EspAuthState checkUserAuth();
+    void readAuthRequest(EspAuthRequest& req);
+    EspAuthState preCheckAuth(EspAuthRequest& authReq);
+    EspAuthState checkUserAuthPerRequest(EspAuthRequest& authReq);
+    EspAuthState checkUserAuthPerSession(EspAuthRequest& authReq);
+    EspAuthState doSessionAuth(unsigned sessionID, EspAuthRequest& req, const char* _userName, const char* _password);
+    void postSessionAuth(EspAuthRequest& authReq, unsigned sessionID, HTTPSessionState sessionState, time_t timeNow, void* _conn, IPropertyTree* sessionTree);
+    void askUserLogin(EspHttpBinding* authBinding, unsigned sessionID);
+    void handleAuthFailed(bool sessionAuth, EspAuthRequest& authReq, unsigned* sessionID);
+    void handlePasswordExpired(bool sessionAuth);
+    EspHttpBinding* getEspHttpBinding(EspAuthRequest& req);
+    bool isAuthRequiredForBinding(EspAuthRequest& req);
+    void authOptionalGroups(EspAuthRequest& req);
+    unsigned createHTTPSession(EspAuthRequest& authReq, IPropertyTree* domainSessions, const char* loginURL);
+    IPropertyTree* readAndCleanDomainSessions(EspHttpBinding* authBinding, void* conn, time_t timeNow);
+    void addCookie(const char* cookieName, const char *cookieValue, int maxAgeSec);
+    void clearCookie(const char* cookieName);
+    unsigned readCookie(const char* cookieName);
+    void sendMessage(const char* msg, const char* msgType);
+    bool commitAndCloseRemoteConnection(void* conn);
+    void send200OK();
+
 public:
     IMPLEMENT_IINTERFACE;
 

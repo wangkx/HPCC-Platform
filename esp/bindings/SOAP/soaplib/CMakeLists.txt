@@ -60,6 +60,8 @@ include_directories (
          ./../../../../system/xmllib 
          ./.. 
          ./../../../bindings/SOAP/xpp 
+         ./../../../../system/mp 
+         ./../../../../dali/base
     )
 
 ADD_DEFINITIONS( -DESPHTTP_EXPORTS )

@@ -408,11 +408,11 @@
 	                </xs:appinfo>
 	              </xs:annotation>
 	            </xs:attribute>
-	            <xs:attribute name="resourceURL" type="xs:string" use="optional" default="/favicon.ico,/esp/files/img/favicon.ico,/esp/files/eclwatch/img/Loginlogo.png,/esp/files/dojo/*,/esp/files/eclwatch/nls/*">
+	            <xs:attribute name="unrestrictedResources" type="xs:string" use="optional" default="/favicon.ico,/esp/files/img/favicon.ico,/esp/files/eclwatch/img/Loginlogo.png,/esp/files/dojo/*,/esp/files/eclwatch/nls/*">
 	              <xs:annotation>
 	                <xs:appinfo>
 	                  <width>50</width>
-	                  <tooltip>Resource URL</tooltip>
+	                  <tooltip>unrestricted resources for user authentication</tooltip>
 	                  <colIndex>6</colIndex>
 	                </xs:appinfo>
 	              </xs:annotation>

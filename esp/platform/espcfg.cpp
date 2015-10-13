@@ -111,6 +111,93 @@ StringBuffer &CVSBuildToEspVersion(char const * tag, StringBuffer & out)
     return out;
 }
 
+void CEspConfig::ensureSDSSessionDomains()
+{
+    bool hasDefaultSessionDomain = false;
+    Owned<IPropertyTree> proc_cfg = getProcessConfig(m_envpt, m_process.str());
+    Owned<IPropertyTreeIterator> it = proc_cfg->getElements("AuthDomains/AuthDomain");
+    ForEach(*it)
+    {
+        IPropertyTree& authDomain = it->query();
+        const char* authType = authDomain.queryProp("@authType");
+        if (isEmptyString(authType) || (!strieq(authType, "AuthPerSessionOnly") && !strieq(authType, "AuthTypeMixed")))
+            continue;
+
+        const char* authDomainName = authDomain.queryProp("@name");
+        if (isEmptyString(authDomainName))
+        {
+            if (hasDefaultSessionDomain)
+                throw MakeStringException(-1, ">1 AuthDomains are not named.");
+
+            hasDefaultSessionDomain = true;
+            authDomainName = "default";
+        }
+
+        Owned<IRemoteConnection> conn = querySDS().connect(PathSessionRoot, myProcessSession(), RTM_LOCK_WRITE, SESSION_SDS_LOCK_TIMEOUT);
+        if (!conn)
+        {
+            conn.setown(querySDS().connect("/", myProcessSession(), RTM_LOCK_WRITE, SESSION_SDS_LOCK_TIMEOUT));
+            if (!conn)
+                throw MakeStringException(-1, "Failed to connect SDS.");
+
+            IPropertyTree* sdsRoot = conn->queryRoot();
+            if (!sdsRoot)
+                throw MakeStringException(-1, "Failed to get SDS.");
+
+            Owned<IPropertyTree> sessionTree = createPTree();
+            if (!ensureSessionDomainInTree(sessionTree, m_process.str(), authDomainName))
+                throw MakeStringException(-1, "Failed to add ProcessSession.");
+
+            sdsRoot->addPropTree(PathSessionRoot, LINK(sessionTree));
+        }
+        else
+        {
+            IPropertyTree* sessionRoot = conn->queryRoot();
+            if (!sessionRoot)
+                throw MakeStringException(-1, "Failed to get SDS session tree.");
+
+            if (!ensureSessionDomainInTree(sessionRoot, m_process.str(), authDomainName))
+                throw MakeStringException(-1, "Failed to add ProcessSession.");
+        }
+
+        conn->commit();
+        conn->close(false);
+    }
+}
+
+bool CEspConfig::ensureSessionDomainInTree(IPropertyTree* sessionRoot, const char* procName, const char* domainName)
+{
+    if (!sessionRoot || isEmptyString(procName) || isEmptyString(domainName))
+        return false;
+
+    VStringBuffer xpath("Process[@name=\"%s\"]", procName);
+    IPropertyTree* procSessionTree = sessionRoot->queryBranch(xpath.str());
+    if (!procSessionTree)
+    {
+        Owned<IPropertyTree> processSessionTree = createPTree();
+        processSessionTree->addProp("@name", procName);
+
+        Owned<IPropertyTree> domainSessionTree = createPTree();
+        domainSessionTree->addProp("@name", domainName);
+        processSessionTree->addPropTree(PathSessionDomain, LINK(domainSessionTree));
+
+        sessionRoot->addPropTree("Process", LINK(processSessionTree));
+    }
+    else
+    {
+        xpath.setf("%s[@name='%s']", PathSessionDomain, domainName);
+        IPropertyTree* domainSessionTree = procSessionTree->queryBranch(xpath.str());
+        if (!domainSessionTree)
+        {
+            Owned<IPropertyTree> ptree = createPTree();
+            ptree->addProp("@name", domainName);
+            procSessionTree->addPropTree(PathSessionDomain, LINK(ptree));
+        }
+    }
+
+    return true;
+}
+
 
 
 CEspConfig::CEspConfig(IProperties* inputs, IPropertyTree* envpt, IPropertyTree* procpt, bool isDali)
