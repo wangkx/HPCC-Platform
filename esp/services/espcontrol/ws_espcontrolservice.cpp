@@ -22,6 +22,85 @@
 #include "ws_espcontrolservice.hpp"
 #include "jlib.hpp"
 #include "exception_util.hpp"
+#include "dasds.hpp"
+
+#define SDS_LOCK_TIMEOUT (5*60*1000) // 5 mins
+
+const char* CWSESPControlEx::readSessionState(int st)
+{
+    return (st < NumOfSessionStates) ? SessionStates[st] : "Unknown";
+}
+
+const char* CWSESPControlEx::readSessionTimeStamp(int t, StringBuffer& str)
+{
+    CDateTime time;
+    time.set(t);
+    return time.getString(str).str();
+}
+
+float CWSESPControlEx::readSessionTimeoutMin(int sessionTimeoutMinutes, int lastAccessed)
+{
+    CDateTime time, timeNow;
+    timeNow.setNow();
+    time.set(lastAccessed);
+    return sessionTimeoutMinutes - (timeNow.getSimple() - time.getSimple())/60;
+}
+
+IEspSession* CWSESPControlEx::setSessionInfo(const char* sessionID, IPropertyTree* espSessionTree, const char* domainName, IEspSession* session)
+{
+    if (espSessionTree == nullptr)
+        return nullptr;
+
+    StringBuffer createTimeStr, lastAccessedStr;
+    int lastAccessed = espSessionTree->getPropInt(PropSessionLastAccessed, 0);
+
+    session->setAuthDomain(domainName);
+    session->setSessionID(sessionID);
+    session->setUserID(espSessionTree->queryProp(PropSessionUserID));
+    session->setNetworkAddress(espSessionTree->queryProp(PropSessionNetworkAddress));
+    session->setState(readSessionState(espSessionTree->getPropInt(PropSessionState, NumOfSessionStates)));
+    session->setCreateTime(readSessionTimeStamp(espSessionTree->getPropInt(PropSessionCreateTime, 0), createTimeStr));
+    session->setLastAccessed(readSessionTimeStamp(lastAccessed, lastAccessedStr));
+    int* sessionTimeoutMinutes = sessionTimeoutMinutesMap.getValue(domainName);
+    if (!sessionTimeoutMinutes)
+        throw MakeStringException(ECLWATCH_INVALID_INPUT, "AuthDomain %s not found.", domainName);
+    if (*sessionTimeoutMinutes < 0)
+    {
+        session->setTimeoutMinutes(-1);
+        return session;
+    }
+
+    float timeout = readSessionTimeoutMin(*sessionTimeoutMinutes, lastAccessed);
+    if (timeout < 0.0)
+        session->setTimeoutMinutes(0);
+    else
+        session->setTimeoutMinutes((int) timeout);
+    return session;
+}
+
+void CWSESPControlEx::init(IPropertyTree *cfg, const char *process, const char *service)
+{
+    if(cfg == NULL)
+        throw MakeStringException(-1, "Can't initialize CWSESPControlEx, cfg is NULL");
+
+    espProcess.set(process);
+
+    VStringBuffer xpath("Software/EspProcess[@name=\"%s\"]", process);
+    IPropertyTree* espCFG = cfg->queryPropTree(xpath.str());
+    if (!espCFG)
+        throw MakeStringException(-1, "Can't find EspBinding for %s", process);
+
+    Owned<IPropertyTreeIterator> it = espCFG->getElements("AuthDomains/AuthDomain");
+    ForEach(*it)
+    {
+        IPropertyTree& authDomain = it->query();
+        StringBuffer name = authDomain.queryProp("@domainName");
+        if (name.isEmpty())
+            name.set("default");
+        sessionTimeoutMinutesMap.setValue(name.str(), authDomain.getPropInt("@sessionTimeoutMinutes", 0));
+    }
+}
+
 
 bool CWSESPControlEx::onSetLogging(IEspContext& context, IEspSetLoggingRequest& req, IEspSetLoggingResponse& resp)
 {
@@ -44,6 +123,198 @@ bool CWSESPControlEx::onSetLogging(IEspContext& context, IEspSetLoggingRequest& 
             m_container->setLogResponses(req.getLogResponses());
         resp.setStatus(0);
         resp.setMessage("Logging settings are updated.");
+    }
+    catch(IException* e)
+    {
+        FORWARDEXCEPTION(context, e, ECLWATCH_INTERNAL_ERROR);
+    }
+    return true;
+}
+
+bool CWSESPControlEx::onSessionQuery(IEspContext& context, IEspSessionQueryRequest& req, IEspSessionQueryResponse& resp)
+{
+    try
+    {
+#ifdef _USE_OPENLDAP
+        CLdapSecManager* secmgr = dynamic_cast<CLdapSecManager*>(context.querySecManager());
+        if(secmgr && !secmgr->isSuperUser(context.queryUser()))
+            throw MakeStringException(ECLWATCH_SUPER_USER_ACCESS_DENIED, "Failed to query session. Permission denied.");
+#endif
+
+        StringBuffer fromIP = req.getFromIP();
+        CSessionState state = req.getState();
+        StringBuffer authDomain = req.getAuthDomain();
+        if (authDomain.isEmpty())
+            authDomain.set("default");
+
+        VStringBuffer xpath("/%s/%s[@name='%s']/%s[@name='%s']", PathSessionRoot, PathSessionProcess, espProcess.get(), PathSessionDomain, authDomain.str());
+        Owned<IRemoteConnection> globalLock = querySDS().connect(xpath.str(), myProcessSession(), RTM_LOCK_READ, SESSION_SDS_LOCK_TIMEOUT);
+        if (!globalLock)
+            throw MakeStringException(ECLWATCH_INTERNAL_ERROR, "Unable to connect to ESP Session information in dali %s", xpath.str());
+
+        IArrayOf<IEspSession> sessions;
+        if (!fromIP.trim().isEmpty())
+            xpath.setf("%s[%s='%s']", PathSessionSession, PropSessionNetworkAddress, fromIP.str());
+        else if (state != SessionState_Undefined)
+            xpath.setf("%s[%s='%d']", PathSessionSession, PropSessionState, state);
+        Owned<IPropertyTreeIterator> iter = globalLock->getElements(xpath.str());
+        ForEach(*iter)
+        {
+            IPropertyTree& sessionTree = iter->query();
+            Owned<IEspSession> s = createSession();
+            setSessionInfo(sessionTree.queryProp(PropSessionID), &sessionTree, authDomain.str(), s);
+            sessions.append(*s.getLink());
+        }
+        resp.setSessions(sessions);
+    }
+    catch(IException* e)
+    {
+        FORWARDEXCEPTION(context, e, ECLWATCH_INTERNAL_ERROR);
+    }
+    return true;
+}
+
+bool CWSESPControlEx::onSessionInfo(IEspContext& context, IEspSessionInfoRequest& req, IEspSessionInfoResponse& resp)
+{
+    try
+    {
+#ifdef _USE_OPENLDAP
+        CLdapSecManager* secmgr = dynamic_cast<CLdapSecManager*>(context.querySecManager());
+        if(secmgr && !secmgr->isSuperUser(context.queryUser()))
+            throw MakeStringException(ECLWATCH_SUPER_USER_ACCESS_DENIED, "Failed to get session information. Permission denied.");
+#endif
+
+        StringBuffer sessionID = req.getSessionID();
+        if (sessionID.trim().isEmpty())
+            throw MakeStringException(ECLWATCH_INVALID_INPUT, "SessionID not specified.");
+
+        StringBuffer authDomain = req.getAuthDomain();
+        if (authDomain.isEmpty())
+            authDomain.set("default");
+
+        VStringBuffer xpath("/%s/%s[@name='%s']/%s[@name='%s']/%s[%s='%s']", PathSessionRoot, PathSessionProcess, espProcess.get(),
+            PathSessionDomain, authDomain.str(), PathSessionSession, PropSessionID, sessionID.str());
+        Owned<IRemoteConnection> globalLock = querySDS().connect(xpath.str(), myProcessSession(), RTM_LOCK_READ, SESSION_SDS_LOCK_TIMEOUT);
+        if (!globalLock)
+            throw MakeStringException(ECLWATCH_INTERNAL_ERROR, "Unable to connect to ESP Session information in dali %s", xpath.str());
+
+        IPropertyTree* espSession = globalLock->queryRoot();
+        if (!espSession)
+            throw MakeStringException(ECLWATCH_INTERNAL_ERROR, "Unable to get ESP Session information in dali %s", xpath.str());
+
+        setSessionInfo(sessionID.str(), espSession, authDomain.str(), &resp.updateSession());
+    }
+    catch(IException* e)
+    {
+        FORWARDEXCEPTION(context, e, ECLWATCH_INTERNAL_ERROR);
+    }
+    return true;
+}
+
+bool CWSESPControlEx::onCleanSession(IEspContext& context, IEspCleanSessionRequest& req, IEspCleanSessionResponse& resp)
+{
+    try
+    {
+#ifdef _USE_OPENLDAP
+        CLdapSecManager* secmgr = dynamic_cast<CLdapSecManager*>(context.querySecManager());
+        if(secmgr && !secmgr->isSuperUser(context.queryUser()))
+            throw MakeStringException(ECLWATCH_SUPER_USER_ACCESS_DENIED, "Failed to clean session. Permission denied.");
+#endif
+
+        StringBuffer sessionID = req.getSessionID();
+        StringBuffer fromIP = req.getFromIP();
+        if ((sessionID.trim().isEmpty()) && (fromIP.trim().isEmpty()))
+            throw MakeStringException(ECLWATCH_INVALID_INPUT, "SessionID or FromIP has to be specified.");
+
+        StringBuffer authDomain = req.getAuthDomain();
+        if (authDomain.isEmpty())
+            authDomain.set("default");
+
+        VStringBuffer xpath("/%s/%s[@name='%s']/%s[@name='%s']", PathSessionRoot, PathSessionProcess, espProcess.get(), PathSessionDomain, authDomain.str());
+        Owned<IRemoteConnection> globalLock = querySDS().connect(xpath.str(), myProcessSession(), RTM_LOCK_WRITE, SESSION_SDS_LOCK_TIMEOUT);
+        if (!globalLock)
+            throw MakeStringException(ECLWATCH_INTERNAL_ERROR, "Unable to connect to ESP Session information in dali %s", xpath.str());
+
+        IPropertyTree* espAuthDomain = globalLock->queryRoot();
+        if (!espAuthDomain)
+            throw MakeStringException(ECLWATCH_INTERNAL_ERROR, "Unable to get ESP Authentication Domain from dali");
+
+        if (sessionID && *sessionID)
+            xpath.setf("%s[%s='%s']", PathSessionSession, PropSessionID, sessionID.str());
+        else
+            xpath.setf("%s[%s='%s']", PathSessionSession, PropSessionNetworkAddress, fromIP.str());
+        Owned<IPropertyTreeIterator> iter = espAuthDomain->getElements(xpath.str());
+        ForEach(*iter)
+        {
+            IPropertyTree& item = iter->query();
+            espAuthDomain->removeTree(&item);
+        }
+
+        resp.setStatus(0);
+        resp.setMessage("Session is cleaned.");
+    }
+    catch(IException* e)
+    {
+        FORWARDEXCEPTION(context, e, ECLWATCH_INTERNAL_ERROR);
+    }
+    return true;
+}
+
+bool CWSESPControlEx::onSetSessionTimeout(IEspContext& context, IEspSetSessionTimeoutRequest& req, IEspSetSessionTimeoutResponse& resp)
+{
+    try
+    {
+#ifdef _USE_OPENLDAP
+        CLdapSecManager* secmgr = dynamic_cast<CLdapSecManager*>(context.querySecManager());
+        if(secmgr && !secmgr->isSuperUser(context.queryUser()))
+            throw MakeStringException(ECLWATCH_SUPER_USER_ACCESS_DENIED, "Failed to set session timeout. Permission denied.");
+#endif
+
+        StringBuffer sessionID = req.getSessionID();
+        StringBuffer fromIP = req.getFromIP();
+        if (sessionID.trim().isEmpty() && fromIP.trim().isEmpty())
+            throw MakeStringException(ECLWATCH_INVALID_INPUT, "SessionID or FromIP has to be specified.");
+
+        StringBuffer authDomain = req.getAuthDomain();
+        if (authDomain.isEmpty())
+            authDomain.set("default");
+
+        VStringBuffer xpath("/%s/%s[@name='%s']/%s[@name='%s']", PathSessionRoot, PathSessionProcess, espProcess.get(), PathSessionDomain, authDomain.str());
+        Owned<IRemoteConnection> globalLock = querySDS().connect(xpath.str(), myProcessSession(), RTM_LOCK_WRITE, SESSION_SDS_LOCK_TIMEOUT);
+        if (!globalLock)
+            throw MakeStringException(ECLWATCH_INTERNAL_ERROR, "Unable to connect to ESP Session information in dali %s", xpath.str());
+
+        IPropertyTree* espAuthDomain = globalLock->queryRoot();
+        if (!espAuthDomain)
+            throw MakeStringException(ECLWATCH_INTERNAL_ERROR, "Unable to get ESP Authentication Domain from dali");
+
+        int* sessionTimeoutMinutes = sessionTimeoutMinutesMap.getValue(authDomain.str());
+        if (!sessionTimeoutMinutes)
+            throw MakeStringException(ECLWATCH_INVALID_INPUT, "AuthDomain %s not found.", authDomain.str());
+
+        int timeoutMinutes = req.getTimeoutMinutes_isNull() ? 0 : req.getTimeoutMinutes();
+        if (!sessionID.trim().isEmpty())
+            xpath.setf("%s[%s='%s']", PathSessionSession, PropSessionID, sessionID.str());
+        else
+            xpath.setf("%s[%s='%s']", PathSessionSession, PropSessionNetworkAddress, fromIP.str());
+        Owned<IPropertyTreeIterator> iter = espAuthDomain->getElements(xpath.str());
+        ForEach(*iter)
+        {
+            IPropertyTree& item = iter->query();
+            if (timeoutMinutes <= 0)
+                espAuthDomain->removeTree(&item);
+            else if (*sessionTimeoutMinutes >= 0)
+            {
+                CDateTime timeNow;
+                timeNow.setNow();
+                time_t simple = timeNow.getSimple() + timeoutMinutes*60 - (*sessionTimeoutMinutes > 0 ? *sessionTimeoutMinutes*60 : ESP_SESSION_TIMEOUT);
+                item.setPropInt64(PropSessionLastAccessed, simple);
+                item.setPropInt(PropSessionState, CSessionState_InTimeout);
+            }
+        }
+
+        resp.setStatus(0);
+        resp.setMessage("Session timeout is updated.");
     }
     catch(IException* e)
     {

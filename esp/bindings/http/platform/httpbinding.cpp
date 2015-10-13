@@ -36,8 +36,6 @@
 
 #include "bindutil.hpp"
 
-#include "espcontext.hpp"
-
 #include "httpbinding.hpp"
 #include "htmlpage.hpp"
 #include  "seclib.hpp"
@@ -47,6 +45,7 @@
 #include "xsdparser.hpp"
 #include "espsecurecontext.hpp"
 #include "jsonhelpers.hpp"
+#include "dasds.hpp"
 
 #define FILE_UPLOAD     "FileUploadAccess"
 
@@ -260,6 +259,68 @@ EspHttpBinding::EspHttpBinding(IPropertyTree* tree, const char *bindname, const 
     }
     if(m_challenge_realm.length() == 0)
         m_challenge_realm.append("ESP");
+
+    if(!m_secmgr.get())
+        return;
+
+    processName.set(procname);
+    const char* authDomain = bnd_cfg->queryProp("@authDomain");
+    if (!isEmptyString(authDomain))
+        domainName.set(authDomain);
+    else
+        domainName.set("default");
+    domainSessionSDSPath.setf("%s/%s[@name=\"%s\"]/%s[@name=\"%s\"]/", PathSessionRoot, PathSessionProcess,
+        procname, PathSessionDomain, domainName.str());
+
+    domainAuthType = AuthPerRequestOnly;
+    VStringBuffer xpath("AuthDomains/AuthDomain[@domainName=\"%s\"]", domainName.get());
+    IPropertyTree* authDomainTree = proc_cfg->queryPropTree(xpath);
+    if (!authDomainTree)
+        throw MakeStringException(-1, "Can't find AuthDomain %s", domainName.str());
+
+    const char* authType = authDomainTree->queryProp("@authType");
+    if (isEmptyString(authType) || strieq(authType, "AuthTypeMixed"))
+        domainAuthType = AuthTypeMixed;
+    else if (strieq(authType, "AuthPerSessionOnly"))
+        domainAuthType = AuthPerSessionOnly;
+    if (domainAuthType == AuthPerRequestOnly)
+        return;
+
+    unsigned sessionTimeoutMinutes = authDomainTree->getPropInt("@sessionTimeoutMinutes", 0);
+    sessionTimeoutSeconds = sessionTimeoutMinutes < 0 ? -1 : sessionTimeoutMinutes > 0 ? sessionTimeoutMinutes * 60 : ESP_SESSION_TIMEOUT;
+
+    //The @resourceURL contains URLs which may be used before a user is authenticated.
+    //For example, an icon file on the login page.
+    const char* resourceURLs = authDomainTree->queryProp("@resourceURL");
+    if (isEmptyString(resourceURLs))
+        return;
+
+    StringArray urlArray;
+    urlArray.appendListUniq(resourceURLs, ",");
+    ForEachItemIn(i, urlArray)
+    {
+        const char* url = urlArray.item(i);
+        if (isEmptyString(url))
+            continue;
+        const char* star = strchr(url, '*');
+        if (star == nullptr)
+            domainAuthResources.setValue(url, true);
+        else
+            domainAuthResourcesWildMatch.append(url);
+    }
+
+    const char* _loginURL = authDomainTree->queryProp("@logonURL");
+    if (!isEmptyString(_loginURL))
+        loginURL.set(_loginURL);
+    else
+        loginURL.set("/esp/files/eclwatch/templates/Login.html");
+
+    const char* _logoutURL = authDomainTree->queryProp("@logoutURL");
+    if (!isEmptyString(_logoutURL))
+    {
+        logoutURL.set(_logoutURL);
+        domainAuthResources.setValue(logoutURL.get(), true);
+    }
 }
 
 StringBuffer &EspHttpBinding::generateNamespace(IEspContext &context, CHttpRequest* request, const char *serv, const char *method, StringBuffer &ns)
@@ -957,7 +1018,7 @@ int EspHttpBinding::onGetSoapBuilder(IEspContext &context, CHttpRequest* request
     bool inhouse = user && (user->getStatus()==SecUserStatus_Inhouse);
     xform->setParameter("inhouseUser", inhouse ? "true()" : "false()");
 
-    VStringBuffer url("%s?%s", methodQName.str(), params.str()); 
+    VStringBuffer url("%s?%s", methodQName.str(), params.str());
     xform->setStringParameter("destination", url.str());
         
     StringBuffer page;
