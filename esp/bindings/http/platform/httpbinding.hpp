@@ -140,7 +140,19 @@ private:
     StringAttrMapping desc_map;
     StringAttrMapping help_map;
 
+    StringAttr              processName;
+    StringAttr              domainName;
+    StringBuffer            domainSessionSDSPath;
+    AuthType                domainAuthType;
+
+    StringAttr              logonURL;
+    StringAttr              logoutURL;
+    unsigned                sessionTimeoutSeconds = ESP_SESSION_TIMEOUT;
+    BoolHash                domainAuthResources;
+    StringArray             domainAuthResourcesWildMatch;
+
     void getXMLMessageTag(IEspContext& ctx, bool isRequest, const char *method, StringBuffer& tag);
+
 protected:
     MethodInfoArray m_methods;
     bool                    m_includeSoapTest;
@@ -286,6 +298,33 @@ public:
         return false;
     }
     ISecManager* querySecManager() {return m_secmgr.get(); }
+    IAuthMap* queryAuthMAP(){return m_authmap.get();}
+    const char* queryAuthMethod() {return m_authmethod.str(); }
+    void setProcessName(const char* name){ processName.set(name); }
+    const char* getProcessName(){ return processName.get(); }
+    void setDomainName(const char* name){ domainName.set(name ? name : "default"); }
+    const char* getDomainName(){ return domainName.get(); }
+    void setDomainSessionSDSPath(const char* path){ domainSessionSDSPath.set(path); }
+    const char* getDomainSessionSDSPath(){ return domainSessionSDSPath.str(); }
+    AuthType getDomainAuthType(){ return domainAuthType; }
+    const char* getLogonURL() { return logonURL.get(); }
+    const char* getLogoutURL() { return logoutURL.get(); }
+    const unsigned getSessionTimeoutSeconds() { return sessionTimeoutSeconds; }
+    bool isDomainAuthResources(const char* resource)
+    {
+        bool* found = domainAuthResources.getValue(resource);
+        if (found && *found)
+            return true;
+
+        ForEachItemIn(i, domainAuthResourcesWildMatch)
+        {
+            const char* resourcePtr = domainAuthResourcesWildMatch.item(i);
+            if (WildMatch(resource, resourcePtr, true))
+                return true;
+        }
+        return false;
+    }
+    void ensureSDSSessionDomain();
 
     static void escapeSingleQuote(StringBuffer& src, StringBuffer& escaped);
 
@@ -303,7 +342,6 @@ protected:
                             const char *serviceName, const char* methodName);
     void sortResponse(IEspContext& context, CHttpRequest* request,MemoryBuffer& contentconst,
                             const char *serviceName, const char* methodName);
-    const char* queryAuthMethod() {return m_authmethod.str(); }
 };
 
 inline bool isEclIdeRequest(CHttpRequest *request)

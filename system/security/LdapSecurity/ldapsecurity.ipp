@@ -67,6 +67,7 @@ private:
     StringAttr   m_sudoCommand;
     StringAttr   m_sudoOption;
     MemoryBuffer m_mbToken;
+    Owned<IProperties> m_parameters;
 
 public:
     IMPLEMENT_IINTERFACE
@@ -140,12 +141,33 @@ public:
    void setAuthenticateStatus(authStatus status){ m_authenticateStatus = status; }
 
    ISecUser * clone();
-    virtual void setProperty(const char* name, const char* value){}
-    virtual const char* getProperty(const char* name){ return "";}
+   void setProperty(const char* name, const char* value)
+   {
+       if (!m_parameters)
+           m_parameters.setown(createProperties(false));
+       m_parameters->setProp(name, value);
+   }
 
-    virtual void setPropertyInt(const char* name, int value){}
-    virtual int getPropertyInt(const char* name){ return 0;}
+   const char* getProperty(const char* name)
+   {
+       if (m_parameters)
+           return m_parameters->queryProp(name);
+       return NULL;
+   }
 
+   void setPropertyInt(const char* name, int value)
+   {
+       if (!m_parameters)
+           m_parameters.setown(createProperties(false));
+       m_parameters->setProp(name, value);
+   }
+
+   int getPropertyInt(const char* name)
+   {
+       if (m_parameters)
+           return m_parameters->getPropInt(name);
+       return 0;
+   }
 
 //interface ISecCredentials
     bool setPassword(const char * pw);

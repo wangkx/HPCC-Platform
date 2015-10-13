@@ -36,7 +36,9 @@ private:
     int        m_maxage;
     StringAttr m_path;
     bool       m_secure;
+    bool       m_httponly;
     bool       m_discard;
+    StringAttr expires;
 
 public:
     IMPLEMENT_IINTERFACE;
@@ -49,6 +51,7 @@ public:
         m_version = version;
 
         m_secure = false;
+        m_httponly = false; //For backward compatible
         m_discard = false;
         m_path.set("/");
     }
@@ -156,6 +159,15 @@ public:
         m_secure = flag;
     }
 
+    bool getHTTPOnly()
+    {
+        return m_httponly;
+    }
+    void setHTTPOnly(bool flag)
+    {
+        m_httponly = flag;
+    }
+
     bool getDiscard()
     {
         return m_discard;
@@ -172,6 +184,16 @@ public:
     void setVersion(int version)
     {
         m_version = version;
+    }
+
+    const char* getExpires()
+    {
+        return expires.get();
+    }
+
+    void setExpires(const char* _expires)
+    {
+        expires.set(_expires);
     }
 
     void appendToRequestHeader(StringBuffer& buf)
@@ -197,6 +219,10 @@ public:
             buf.append("; Domain=").append(m_domain.get());
         if(m_secure)
             buf.append("; Secure");
+        if(m_httponly)
+            buf.append("; HttpOnly");
+        if (expires.length() > 0)
+            buf.append("; Expires=").append(expires.get());
         if(m_version >= 1)
         {
             buf.append("; Version=").append(m_version);     

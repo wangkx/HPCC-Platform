@@ -36,8 +36,6 @@
 
 #include "bindutil.hpp"
 
-#include "espcontext.hpp"
-
 #include "httpbinding.hpp"
 #include "htmlpage.hpp"
 #include  "seclib.hpp"
@@ -46,6 +44,8 @@
 #include "xmlvalidator.hpp"
 #include "xsdparser.hpp"
 #include "espsecurecontext.hpp"
+#include "dasds.hpp"
+
 
 #define FILE_UPLOAD     "FileUploadAccess"
 
@@ -259,6 +259,82 @@ EspHttpBinding::EspHttpBinding(IPropertyTree* tree, const char *bindname, const 
     }
     if(m_challenge_realm.length() == 0)
         m_challenge_realm.append("ESP");
+
+    processName.set(procname);
+    const char* authDomain = bnd_cfg->queryProp("@authDomain");
+    if (!isEmptyString(authDomain))
+        domainName.set(authDomain);
+    else
+        domainName.set("default");
+    domainSessionSDSPath.setf("%s/%s[@name=\"%s\"]/%s[@name=\"%s\"]/", PathSessionRoot, PathSessionProcess,
+        procname, PathSessionDomain, domainName.str());
+    ensureSDSSessionDomain();
+
+    domainAuthType = AuthPerRequestOnly;
+    VStringBuffer xpath("AuthDomains/AuthDomain[@name=\"%s\"]", domainName.get());
+    IPropertyTree* authDomainTree = proc_cfg->queryPropTree(xpath);
+    if (authDomainTree)
+    {
+        domainAuthType = (AuthType) authDomainTree->getPropInt("@authType", AuthTypeMixed);
+        if (domainAuthType != AuthPerRequestOnly)
+        {
+            const char* _logonURL = authDomainTree->queryProp("@logonURL");
+            if (!isEmptyString(_logonURL))
+                logonURL.set(_logonURL);
+            else
+                logonURL.set("/esp/files/userlogon.html");
+
+            const char* _logoutURL = authDomainTree->queryProp("@logoutURL");
+            if (!isEmptyString(_logoutURL))
+                logoutURL.set(_logoutURL);
+            else
+                logoutURL.set("/esp/files/userlogon.html");
+
+            unsigned sessionTimeoutMinutes = authDomainTree->getPropInt("@sessionTimeoutMinutes", 0);
+            sessionTimeoutSeconds = sessionTimeoutMinutes > 0 ? sessionTimeoutMinutes * 60 : ESP_SESSION_TIMEOUT;
+            const char* resourceURLs = authDomainTree->queryProp("ResourceURL");
+            if (!isEmptyString(resourceURLs))
+            {
+                StringArray urlArray;
+                urlArray.appendListUniq(resourceURLs, ",");
+                ForEachItemIn(i, urlArray)
+                {
+                    const char* url = urlArray.item(i);
+                    if (isEmptyString(url))
+                        continue;
+                    const char* star = strchr(url, '*');
+                    if (star == nullptr)
+                        domainAuthResources.setValue(url, true);
+                    else
+                        domainAuthResourcesWildMatch.append(url);
+                }
+            }
+            domainAuthResources.setValue(logoutURL.get(), true);
+        }
+    }
+}
+
+void EspHttpBinding::ensureSDSSessionDomain()
+{
+    VStringBuffer xpath("%s/%s[@name=\"%s\"]", PathSessionRoot, PathSessionProcess, processName.str());
+    Owned<IRemoteConnection> conn = querySDS().connect(xpath.str(), myProcessSession(), RTM_LOCK_WRITE, SESSION_SDS_LOCK_TIMEOUT);
+    if (!conn)
+        throw MakeStringException(-1, "Failed to connect SDS DomainSession.");
+
+    IPropertyTree* root = conn->queryRoot();
+    if (!root)
+        throw MakeStringException(-1, "Failed to get SDS DomainSession.");
+
+    xpath.setf("%s[@name='%s']", PathSessionDomain, domainName.str());
+    IPropertyTree* branch = root->queryBranch(xpath.str());
+    if (branch)
+        return;
+
+    Owned<IPropertyTree> ptree = createPTree();
+    ptree->addProp("@name", domainName.str());
+    root->addPropTree(PathSessionDomain, LINK(ptree));
+    conn->commit();
+    conn->close();
 }
 
 StringBuffer &EspHttpBinding::generateNamespace(IEspContext &context, CHttpRequest* request, const char *serv, const char *method, StringBuffer &ns)
@@ -950,7 +1026,7 @@ int EspHttpBinding::onGetSoapBuilder(IEspContext &context, CHttpRequest* request
     bool inhouse = user && (user->getStatus()==SecUserStatus_Inhouse);
     xform->setParameter("inhouseUser", inhouse ? "true()" : "false()");
 
-    VStringBuffer url("%s?%s", methodQName.str(), params.str()); 
+    VStringBuffer url("%s?%s", methodQName.str(), params.str());
     xform->setStringParameter("destination", url.str());
         
     StringBuffer page;
