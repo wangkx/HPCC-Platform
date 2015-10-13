@@ -31,6 +31,28 @@
 #include "esp.hpp"
 #include "esphttp.hpp"
 
+#define SESSION_SDS_LOCK_TIMEOUT (30*1000) // 30 seconds
+#define ESP_SESSION_TIMEOUT (600) // 10 Mins
+
+static const char* const SESSION_ID_COOKIE = "ESPSessionID";
+static const char* const SESSION_AUTH_COOKIE = "ESPAuthSession";
+
+//xpath in dali
+static const char* const PathSessionRoot="Sessions";
+static const char* const PathSessionProcess="Process";
+static const char* const PathSessionDomain="Domain";
+static const char* const PathSessionSession="Session";
+static const char* const PropSessionID = "@id";
+static const char* const PropSessionUserID = "@userid";
+static const char* const PropSessionNetworkAddress = "@netaddr";
+static const char* const PropSessionState = "@state";
+static const char* const PropSessionCreateTime = "@createtime";
+static const char* const PropSessionLastAccessed = "@lastaccessed";
+static const char* const PropSessionLoginURL = "@loginurl";
+
+static unsigned NumOfSessionStates = 3;
+static const char *SessionStates[] = { "New", "Active", "Timeout", NULL };
+
 interface IEspSecureContext;
 
 ESPHTTP_API IEspContext* createEspContext(IEspSecureContext* secureContext = NULL);

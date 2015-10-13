@@ -30,9 +30,82 @@ ESPresponse [exceptions_inline, nil_remove, http_encode(0)] SetLoggingResponse
     string Message;
 };
 
-ESPservice [auth_feature("NONE"), version("1.00"), default_client_version("1.00"), exceptions_inline("./smc_xslt/exceptions.xslt")] WSESPControl
+ESPenum SessionState : string
+{
+    New("New"),
+    Active("Active"),
+    InTimeout("Timeout"),
+};
+
+ESPStruct [nil_remove] Session
+{
+    string AuthDomain;
+    string SessionID;
+    string UserID;
+    string NetworkAddress;
+    string State;
+    string CreateTime;
+    string LastAccessed;
+    int    TimeoutMinutes;
+};
+
+ESPrequest [nil_remove] SessionQueryRequest
+{
+    string AuthDomain;
+    string FromIP;
+    ESPenum SessionState State;
+};
+
+ESPresponse [exceptions_inline, nil_remove, http_encode(0)] SessionQueryResponse
+{
+    ESParray<ESPstruct Session> Sessions;
+};
+
+ESPrequest [nil_remove] SessionInfoRequest
+{
+    string AuthDomain;
+    string SessionID;
+};
+
+ESPresponse [exceptions_inline, nil_remove, http_encode(0)] SessionInfoResponse
+{
+    ESPstruct Session Session;
+};
+
+ESPrequest [nil_remove] CleanSessionRequest
+{
+    string AuthDomain;
+    string SessionID;
+    string FromIP;
+};
+
+ESPresponse [exceptions_inline, nil_remove, http_encode(0)] CleanSessionResponse
+{
+    int Status;
+    string Message;
+};
+
+ESPrequest [nil_remove] SetSessionTimeoutRequest
+{
+    string AuthDomain;
+    string SessionID;
+    string FromIP;
+    int    TimeoutMinutes;
+};
+
+ESPresponse [exceptions_inline, nil_remove, http_encode(0)] SetSessionTimeoutResponse
+{
+    int Status;
+    string Message;
+};
+
+ESPservice [auth_feature("NONE"), version("1.01"), default_client_version("1.01"), exceptions_inline("./smc_xslt/exceptions.xslt")] WSESPControl
 {
     ESPmethod SetLogging(SetLoggingRequest, SetLoggingResponse);
+    ESPmethod [min_ver("1.01")] SessionQuery(SessionQueryRequest, SessionQueryResponse);
+    ESPmethod [min_ver("1.01")] SessionInfo(SessionInfoRequest, SessionInfoResponse);
+    ESPmethod [min_ver("1.01")] CleanSession(CleanSessionRequest, CleanSessionResponse);
+    ESPmethod [min_ver("1.01")] SetSessionTimeout(SetSessionTimeoutRequest, SetSessionTimeoutResponse);
 };
 
 SCMexportdef(WSESPControl);
