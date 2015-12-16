@@ -86,6 +86,76 @@ static CriticalSection physicalChange;
 
 #define MDFS_GET_FILE_TREE_V2 ((unsigned)1)
 
+void safeChangeModeWrite1(IRemoteConnection *conn,const char *name,bool &reload, unsigned timeoutms, IRemoteConnection *connSOL)
+{
+    unsigned start = msTick();
+    unsigned count = 0;
+    // if the lock was lost (changed to NONE), means someone else changed it
+    // so the caller might want to refresh its cache (of sub-files, for ex.)
+    reload = false;
+#ifdef TEST_DEADLOCK_RELEASE
+    // release the lock so that other threads can try and lock it
+    conn->changeMode(RTM_NONE);
+    reload = true; // always reload
+#endif
+    unsigned steptime = 1000*60;
+    if ((timeoutms!=INFINITE)&&(steptime>timeoutms/2))
+        steptime = timeoutms/2;
+    loop {
+        try {
+            if ((timeoutms!=INFINITE)&&(steptime>timeoutms))
+                steptime = timeoutms;
+            PROGLOG("safeChangeModeWrite - call changeMode()");
+            conn->changeMode(RTM_LOCK_WRITE,steptime,true);
+            // lock was lost at least once, refresh connection
+            if (reload) {
+                conn->reload();
+                PROGLOG("safeChangeModeWrite - re-obtained lock for %s",name);
+            }
+            break;
+        }
+        catch (ISDSException *e)
+        {
+            if (SDSExcpt_LockTimeout == e->errorCode())
+            {
+                unsigned tt = msTick()-start;
+                if (count++>0) {// don't warn first time
+                    WARNLOG("safeChangeModeWrite on %s waiting for %ds",name,tt/1000);
+                    if (count==2)
+                        PrintStackReport();
+                }
+                if (timeoutms!=INFINITE) {
+                    timeoutms -= steptime;
+                    if (timeoutms==0)
+                        throw;
+                }
+                e->Release();
+            }
+            else
+                throw;
+        }
+        // temporarily release the lock, we don't need to warn twice, do we?
+        if (!reload) {
+            WARNLOG("safeChangeModeWrite - temporarily releasing lock on %s to avoid deadlock",name);
+            if (connSOL)
+            {
+                WARNLOG("safeChangeModeWrite - closing superOwnerLock");
+                connSOL->close();
+                WARNLOG("safeChangeModeWrite - superOwnerLock close done");
+            }
+            conn->changeMode(RTM_NONE);
+            reload = true;
+        }
+        unsigned pause = 1000*(30+getRandom()%60);
+        if (timeoutms!=INFINITE)
+            if (pause>timeoutms/2)
+                pause = timeoutms/2;
+        Sleep(pause);
+        if (timeoutms!=INFINITE)
+            timeoutms -= pause;
+    }
+}
+
 static int strcompare(const void * left, const void * right)
 {
     const char * l = (const char *)left; 
@@ -2831,7 +2901,7 @@ public:
                     if (0 == timeoutms)
                         conn->changeMode(RTM_LOCK_WRITE, 0, true); // 0 timeout, test and fail immediately if contention
                     else
-                        safeChangeModeWrite(conn,queryLogicalName(),reload,timeoutms);
+                        safeChangeModeWrite1(conn,queryLogicalName(),reload,timeoutms, superOwnerLock);
                 }
                 catch(IException *)
                 {

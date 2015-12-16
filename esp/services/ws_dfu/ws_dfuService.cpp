@@ -80,6 +80,33 @@ const unsigned MAX_KEY_ROWS = 20;
 
 short days[12] = {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
 
+void test_dfuinfo_deadlock(IEspContext &context, const char* name)
+{
+    DBGLOG("-----test()");
+
+    StringBuffer username;
+    context.getUserID(username);
+
+    Owned<IUserDescriptor> userdesc;
+    if(username.length() > 0)
+    {
+        const char* passwd = context.queryPassword();
+        userdesc.setown(createUserDescriptor());
+        userdesc->set(username.str(), passwd);
+    }
+    DBGLOG("calling lookup().");
+    Owned<IDistributedFile> df = queryDistributedFileDirectory().lookup(name, userdesc, false, false, true); // lock super-owners
+    if(!df)
+        throw MakeStringException(ECLWATCH_FILE_NOT_EXIST,"Cannot find file %s.",name);
+
+    sleep(30);
+    DBGLOG("calling lock().");
+    DistributedFilePropertyLock lock(df);
+    IPropertyTree& tree = lock.queryAttributes();
+    sleep(30);
+    DBGLOG("Read tree<%s>", tree.queryProp("@description"));
+}
+
 CThorNodeGroup* CThorNodeGroupCache::readNodeGroup(const char* _groupName)
 {
     Owned<IEnvironmentFactory> factory = getEnvironmentFactory();
@@ -334,6 +361,9 @@ bool CWsDfuEx::onDFUInfo(IEspContext &context, IEspDFUInfoRequest &req, IEspDFUI
 {
     try
     {
+        test_dfuinfo_deadlock(context, req.getFileName());
+        return true;
+
         if (!context.validateFeatureAccess(FEATURE_URL, SecAccess_Read, false))
             throw MakeStringException(ECLWATCH_DFU_ACCESS_DENIED, "Failed to access DFUInfo. Permission denied.");
 
@@ -1126,6 +1156,9 @@ bool CWsDfuEx::onAddtoSuperfile(IEspContext &context, IEspAddtoSuperfileRequest 
 {
     try
     {
+        test_dfuinfo_deadlock(context, req.getSuperfile());
+        return true;
+
         if (!context.validateFeatureAccess(FEATURE_URL, SecAccess_Write, false))
             throw MakeStringException(ECLWATCH_DFU_ACCESS_DENIED, "Failed to AddtoSuperfile. Permission denied.");
 
