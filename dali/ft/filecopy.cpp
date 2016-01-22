@@ -816,6 +816,13 @@ void FileSprayer::beforeTransfer()
         checker.For(targets.ordinality(), 25, true, true);
     }
 
+
+    StringBuffer umask;
+    if (options->hasProp("@umask"))
+    {
+        options->getProp("@umask", umask);
+        DBGLOG("Test UMask<%s>", umask.str());
+    }
     if (!isRecovering && !usePullOperation())
     {
         try {
@@ -828,7 +835,6 @@ void FileSprayer::beforeTransfer()
                     StringBuffer remoteFilename, remoteDirectory;
                     targets.item(idx2).filename.getRemotePath(remoteFilename);
                     splitUNCFilename(remoteFilename.str(), &remoteDirectory, &remoteDirectory, NULL, NULL);
-
                     Owned<IFile> dir = createIFile(remoteDirectory.str());
                     dir->createDirectory();
                 }
