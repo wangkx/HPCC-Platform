@@ -23,39 +23,103 @@
 #include <unistd.h>
 #endif
 
+bool readALine(OwnedIFileIOStream& ios, StringBuffer& line)
+{
+    line.clear();
+    loop
+    {
+        char c;
+        size32_t numRead = ios->read(1, &c);
+        if (!numRead)
+            return false;
+        line.append(c);
+        if (c=='\n')
+            break;
+    }
+    return true;
+}
+
+bool checkReqLine(StringBuffer& line, IFileIO* rIO)
+{
+    if (line.length() < 8)
+        return false;
+    const char* ptr = line.str();
+    ptr += (line.length() - 7);
+    if (strieq(ptr, "request"))
+        return true;
+    return false;
+}
+
+bool writeReqItem(StringBuffer& line, IFileIO* rIO)
+{
+    if (streq(line.str(), "}"))
+        return false;
+
+    const char* ptr = line.str();
+    while (ptr[0] == ' ')
+        ptr++;
+    if (ptr[0] == '[')
+    {
+        ptr++;
+        while (ptr[0] != ']')
+            ptr++;
+        ptr += 2;
+    }
+    StringArray words;
+    qlist.appendListUniq(ptr, " ");
+    if (!strieq(words.item(0), "string") && !strieq(words.item(0), "bool") &&
+        !strieq(words.item(0), "int") && !strieq(words.item(0), "int64") &&
+        !strieq(words.item(0), "nonNegativeInteger"))
+    return true;
+}
+
 int main(int argc, char* argv[])
 {
-    if(argc != 2)
-    {
-        printf("usage: addScopes daliconf.xml\n");
-        printf("\n\tCreates all user-specific LDAP private file scopes 'hpccinternal::<user>'\n\tand grants users access to their scope. The configuration file\n\tdaliconf.xml is the dali configuration file, typically\n\tfound in /var/lib/HPCCSystems/mydali\n\n");
-        return -1;
-    }
-
     InitModuleObjects();
 
     try
     {
-        Owned<IPropertyTree> cfg = createPTreeFromXMLFile(argv[1]);
-        Owned<IPropertyTree> seccfg = cfg->getPropTree(".//ldapSecurity");
-        if(seccfg == NULL)
+        Owned<IFile> outFile = createIFile(argv[2]));
+        OwnedIFileIO oIO = outFile->openShared(IFOwrite,IFSHfull);
+
+        Owned<IFile> inFile = createIFile(argv[1]));
+        Owned<IDirectoryIterator> di = inFile->directoryFiles(NULL, false, true);
+        ForEach(*di)
         {
-            printf("ldapSecurity not found\n");
-            return -1;
+            StringBuffer fname;
+            di->getName(fname);
+            if (!fname.length())
+                continue;
+            if (!strieq(fname, "ws_access.ecm") && !strieq(fname, "ws_account.ecm") &&
+                !strieq(fname, "ws_dfu.ecm") && !strieq(fname, "ws_dfuXref.ecm") &&
+                !strieq(fname, "ws_fs.ecm") && !strieq(fname, "ws_fileio.ecm") &&
+                !strieq(fname, "ws_machine.ecm") && !strieq(fname, "ws_packageprocess.ecm") &&
+                !strieq(fname, "ws_smc.ecm") && !strieq(fname, "ws_topology.ecm") &&
+                !strieq(fname, "ws_workunits.ecm"))
+            {
+                continue;
+            }
+            IFile& ecmFile = di->get();
+            OwnedIFileIO rIO = ecmFile.openShared(IFOread,IFSHfull);
+            if(rIO)
+            {
+                OwnedIFileIOStream ios = createBufferedIOStream(rIO);
+
+                bool inReq = false;
+                StringBuffer line;
+                while(1)
+                {
+                    if (!readALine(ios, line))
+                        break;
+                    if (!line.length())
+                        continue;
+                    if (!inReq)
+                        inReq = checkReqLine(line, oIO);
+                    else
+                        inReq = writeReqItem(line, oIO);
+                }
+            }
         }
-#ifdef _NO_LDAP
-        printf("System was built with _NO_LDAP\n");
-        return -1;
-#else
-        Owned<ISecManager> secmgr = newLdapSecManager("addScopes", *LINK(seccfg));
-        if(secmgr == NULL)
-        {
-            printf("Security manager can't be created\n");
-            return -1;
-        }
-        bool ok = secmgr->createUserScopes();
-        printf(ok ? "User scopes added\n" : "Some scopes not added\n");
-#endif
     }
     catch(IException* e)
     {
