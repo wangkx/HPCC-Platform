@@ -41,6 +41,7 @@ private:
     StringAttr      m_acceptLanguage;
 
     StringBuffer    m_servName;
+    StringBuffer    m_methodName;
     StringBuffer    m_servHost;
     short           m_servPort;
 
@@ -185,6 +186,15 @@ public:
     virtual const char * queryServiceName(const char *name)
     {
         return m_servName.str();
+    }
+    virtual void setMethodName(const char *name)
+    {
+        m_methodName.set(name).toLowerCase();
+    }
+
+    virtual const char * queryMethodName()
+    {
+        return m_methodName.str();
     }
 
     virtual void setCreationTime()

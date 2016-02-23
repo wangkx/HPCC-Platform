@@ -109,6 +109,8 @@ interface IEspContext : extends IInterface
 
     virtual void setServiceName(const char *name)=0;
     virtual const char * queryServiceName(const char *name)=0;
+    virtual void setMethodName(const char *name)=0;
+    virtual const char* queryMethodName()=0;
     virtual void setCreationTime()=0;
     virtual const unsigned queryCreationTime()=0;
     virtual void setProcessingTime()=0;

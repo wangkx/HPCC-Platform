@@ -260,6 +260,7 @@ public:
     bool qualifyServiceName(IEspContext &context, const char *servname, const char *methname, StringBuffer &servQName, StringBuffer *methQName){return false;}
     bool qualifySubServiceName(IEspContext &context, const char *servname, const char *methname, StringBuffer &servQName, StringBuffer *methQName);
     virtual bool qualifyMethodName(IEspContext &context, const char *methname, StringBuffer *methQName){return (!methname);}
+    virtual const char* getRpcName(IEspContext &context, const char *actualRequestName){return NULL;}
 
 //  MethodInfoArray &queryQualifiedNames(IEspContext& ctx) { m_methods.popAll(); getQualifiedNames(ctx,m_methods); return m_methods;};
 

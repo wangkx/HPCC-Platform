@@ -763,7 +763,7 @@ static void filterXmlBySchema(IPTree* in, IXmlType* type, const char* tag, Strin
     }
 }
 
-static void filterXmlBySchema(StringBuffer& in, StringBuffer& schema, StringBuffer& out)
+static void filterXmlBySchema(StringBuffer& in, const char* methodName, StringBuffer& schema, StringBuffer& out)
 {
     Owned<IXmlSchema> sp = createXmlSchema(schema);
     Owned<IPTree> tree = createPTreeFromXMLString(in);
@@ -775,6 +775,11 @@ static void filterXmlBySchema(StringBuffer& in, StringBuffer& schema, StringBuff
     {
         StringBuffer method(strlen(name)-7, name);
         type = sp->queryElementType(method);
+        //We may need to use method name to retrieve request schema.
+        //For Example, the request schema for WsWorkunits.WUCreateAndUpdate is named under WUCreateAndUpdate.
+        //But, the name here is WUUpdateRequest.
+        if (!type)
+            type = sp->queryElementType(methodName);
     }
 
     if (type)
@@ -801,7 +806,7 @@ void EspHttpBinding::getSoapMessage(StringBuffer& soapmsg, IEspContext& ctx, CHt
     msg->marshall(req, NULL);
 
     getSchema(schema,ctx,request,serv,method,false);
-    filterXmlBySchema(req,schema,filtered);
+    filterXmlBySchema(req, method, schema,filtered);
     
     StringBuffer ns;
     soapmsg.appendf(
@@ -941,7 +946,7 @@ int EspHttpBinding::onGetSoapBuilder(IEspContext &context, CHttpRequest* request
         throw createEspHttpException(HTTP_STATUS_BAD_REQUEST_CODE, "Bad Request", HTTP_STATUS_BAD_REQUEST);
 
     getSoapMessage(soapmsg,context,request,serviceQName,methodQName);
-    
+
     //put all URL parameters into dest
     
     StringBuffer params;    

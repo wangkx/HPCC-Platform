@@ -260,6 +260,8 @@ int CEspHttpServer::processRequest()
         m_request->updateContext();
         IEspContext* ctx = m_request->queryContext();
         ctx->setServiceName(serviceName.str());
+        if (!methodName.isEmpty())
+            ctx->setMethodName(methodName.str());
 
         bool isSoapPost=(stricmp(method.str(), POST_METHOD) == 0 && m_request->isSoapMessage());
         if (!isSoapPost)

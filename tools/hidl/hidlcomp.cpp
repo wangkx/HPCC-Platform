@@ -5407,6 +5407,9 @@ void EspServInfo::write_esp_binding_ipp()
     //method ==> qualifyMethodName
     outs("\tbool qualifyMethodName(IEspContext &context, const char *methname, StringBuffer *methQName);\n");
     
+    //method ==> getRpcName
+    outs("\tconst char* getRpcName(IEspContext& ctx, const char* actualRequestName);\n");
+
     //method ==> qualifyServiceName
     outs("\tbool qualifyServiceName(IEspContext &context, const char *servname, const char *methname, StringBuffer &servQName, StringBuffer *methQName);\n");
     
@@ -5517,6 +5520,9 @@ void EspServInfo::write_esp_binding()
     outs(1, "double clientVer=(ctx) ? ctx->getClientVersion() : 0.0;\n");
     outs(1, "qualifyServiceName(*ctx, ctx->queryServiceName(NULL), NULL, serviceName, NULL);\n");
     outs(1, "CRpcCall* thecall = dynamic_cast<CRpcCall *>(rpc_call);\n");
+    outs(1, "const char* rpcName=getRpcName(*ctx, thecall->get_name());\n");
+    outs(1, "if (rpcName && *rpcName)\n");
+    outs(1, "\tthecall->set_name(rpcName);\n");
     outs(1, "CRpcResponse* response = dynamic_cast<CRpcResponse*>(rpc_response);\n\n");
     
     outf("\tOwned<IEsp%s> iserv = (IEsp%s*)getService();\n", name_, name_);
@@ -5537,7 +5543,10 @@ void EspServInfo::write_esp_binding()
     outs("\n\tIEspContext& context = *rpc_call->queryContext();\n\n");
     for (mthi=methods;mthi!=NULL;mthi=mthi->next)
     {
-        outf("\tif(!stricmp(thecall->get_name(), \"%s\")||!stricmp(thecall->get_name(), \"%s\"))\n", mthi->getName(), mthi->getReq());
+        if (mthi->getMetaInt("use_method_name", 0))//WUCreateAndUpdateRequest is used by ECL SOAP call for WUCreateAndUpdate
+            outf("\tif(!stricmp(thecall->get_name(), \"%s\")||!stricmp(thecall->get_name(), \"%sRequest\"))\n", mthi->getName(), mthi->getName());
+        else
+            outf("\tif(!stricmp(thecall->get_name(), \"%s\")||!stricmp(thecall->get_name(), \"%s\"))\n", mthi->getName(), mthi->getReq());
         outs("\t{\n");
         //esp_request + esp_response can persist longer than the scope of this method
         outf("\t\tOwned<C%s> esp_request = new C%s(serviceName.str(), thecall);\n", mthi->getReq(), mthi->getReq());
@@ -5754,7 +5763,31 @@ void EspServInfo::write_esp_binding()
     outs("\treturn false;\n");
     outs("}\n");
     
-    
+
+    //method ==> getRpcName
+    outf("\nconst char* C%sSoapBinding::getRpcName(IEspContext& ctx, const char* actualRequestName)\n", name_);
+    outs("{\n");
+
+    outs("\tconst char* methname = ctx.queryMethodName();\n");
+    outs("\tif (!methname || !*methname)\n");
+    outs("\t{\n");
+    outs("\t\treturn NULL;\n");
+    outs("\t}\n");
+
+    for (mthi=methods;mthi!=NULL;mthi=mthi->next)
+    {
+        if (mthi->getMetaInt("use_method_name", 0))
+        {
+            outf("\tif (!Utils::strcasecmp(methname, \"%s\") && !Utils::strcasecmp(actualRequestName, \"%s\"))\n",
+                mthi->getName(), mthi->getReq());
+            outs("\t{\n");
+            outf("\t\treturn \"%s\";\n", mthi->getName());
+            outs("\t}\n");
+        }
+    }
+    outs("\treturn NULL;\n");
+    outs("}\n");
+
     //method ==> qualifyServiceName
     outf("\nbool C%sSoapBinding::qualifyServiceName(IEspContext &context, const char *servname, const char *methname, StringBuffer &servQName, StringBuffer *methQName)\n", name_);
     outs("{\n");

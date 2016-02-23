@@ -1778,7 +1778,7 @@ ESPservice [
     ESPmethod WUClusterJobSummaryXLS(WUClusterJobSummaryXLSRequest, WUClusterJobSummaryXLSResponse);
 
     ESPmethod WUCreate(WUCreateRequest, WUCreateResponse);
-    ESPmethod WUCreateAndUpdate(WUUpdateRequest, WUUpdateResponse);
+    ESPmethod [use_method_name] WUCreateAndUpdate(WUUpdateRequest, WUUpdateResponse);
     ESPmethod WUUpdate(WUUpdateRequest, WUUpdateResponse);
     ESPmethod WUDelete(WUDeleteRequest, WUDeleteResponse);
     ESPmethod WUSubmit(WUSubmitRequest, WUSubmitResponse);
