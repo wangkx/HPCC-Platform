@@ -600,7 +600,8 @@ bool CWsWorkunitsEx::onWUCreateAndUpdate(IEspContext &context, IEspWUUpdateReque
     {
         if (!context.validateFeatureAccess(OWN_WU_ACCESS, SecAccess_Write, false))
             throw MakeStringException(ECLWATCH_ECL_WU_ACCESS_DENIED, "Failed to create workunit. Permission denied.");
-
+        StringBuffer wuid = req.getWuid();
+        throw MakeStringException(ECLWATCH_CANNOT_UPDATE_WORKUNIT,"onWUCreateAndUpdate: %s.",wuid.str());
         NewWsWorkunit wu(context);
         req.setWuid(wu->queryWuid());
     }
