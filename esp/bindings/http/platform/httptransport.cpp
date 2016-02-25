@@ -33,6 +33,12 @@
 //ESP Binidings
 #include "http/platform/httptransport.ipp"
 #include "bindutil.hpp"
+#ifdef _USE_ZLIB
+#include "zcrypt.hpp"
+#endif
+
+//#define _DEBUG_GZIP
+//#define _DEBUG_GUNZIP
 
 bool httpContentFromFile(const char *filepath, StringBuffer &mimetype, MemoryBuffer &fileContents, bool &checkModifiedTime, StringBuffer &lastModified, StringBuffer &etag)
 {
@@ -331,6 +337,8 @@ CHttpMessage::CHttpMessage(ISocket& socket) : m_socket(socket)
     m_attachCount = 0;
     m_supportClientXslt=-1;
     m_isForm = false;
+    hasGZipContent = false;
+    minBytesGZipEncoding = -1; //No gzip encoding
 };
 
 
@@ -402,6 +410,8 @@ int CHttpMessage::parseOneHeader(char* oneline)
     {
         parseCookieHeader(value);
     }
+    else if(!stricmp(name, "Content-Encoding") && !stricmp(value, "gzip"))
+        hasGZipContent = true;
     else
     {
         addHeader(name, value); //Insert into headers hashtable
@@ -623,9 +633,86 @@ int CHttpMessage::receive(bool alwaysReadContent, IMultiException *me)
             DBGLOG("length of content read = %d", m_content.length());
     }
 
+    bool contentDecoded = decodeContent();
     if (getEspLogRequests() || getEspLogLevel()>LogNormal)
-        logMessage(LOGCONTENT, "HTTP content received:\n");
+    {
+        if (contentDecoded)
+            logMessage(LOGCONTENT, "Gzip HTTP content received and decompressed:\n");
+        else
+            logMessage(LOGCONTENT, "HTTP content received:\n");
+    }
     return 0;
+}
+
+#ifdef _DEBUG_GZIP
+void saveDebugGZIPFile(const char* content, __int64 contentLen, const char* ext)
+{
+    static Mutex s_mutex;
+    synchronized block(s_mutex);
+    StringBuffer fileName;
+    CDateTime dt, now;
+    now.setNow();
+    now.getTimeString(fileName, true);
+    fileName.insert(0, "test_").append(ext);
+    Owned<IFile> pFile = createIFile(fileName.str());
+    Owned<IFileIO> pFileIO = pFile->open(IFOcreate);
+    pFileIO->write(0, contentLen, content);
+    DBGLOG("Save Debug GZIP File: %s", fileName.str());
+}
+
+bool readDebugGZIPFile(MemoryBuffer& contentBuf)
+{
+    static Mutex s_mutex;
+    synchronized block(s_mutex);
+    Owned<IFile> pFile = createIFile("test.gz");
+    Owned<IFileIO> pFileIO = pFile->open(IFOread);
+    if (!pFileIO)
+        return false;
+    read(pFileIO, 0, (size32_t) pFile->size(), contentBuf);
+    DBGLOG("unzip test.gz:");
+    return true;
+}
+#endif
+
+bool CHttpMessage::decodeContent()
+{
+    bool contentDecoded = false;
+#ifdef _USE_ZLIB
+#ifdef _DEBUG_GUNZIP
+    hasGZipContent = true;
+#endif
+    const bool gzipContent = hasGZipContent;
+    if (hasGZipContent)
+    {
+        char* compressed = m_content.detach();
+#ifdef _DEBUG_GUNZIP
+        MemoryBuffer contentBuf;
+        if (readDebugGZIPFile(contentBuf))
+        {
+            free((void*) compressed);
+            m_content_length = contentBuf.length();
+            compressed = (char*) contentBuf.detach();
+        }
+#endif
+        try
+        {
+            gunzip((const byte*)compressed, m_content_length, m_content);
+            free((void*) compressed);
+            m_content_length = m_content.length();
+            hasGZipContent = false;
+            contentDecoded = true;
+#ifdef _DEBUG_GUNZIP
+            DBGLOG("unzip to: <%s>", m_content.str());
+#endif
+        }
+        catch(IException *e)
+        {
+            free((void*) compressed);
+            throw e;
+        }
+    }
+#endif
+    return contentDecoded;
 }
 
 StringBuffer& CHttpMessage::getContent(StringBuffer& content)
@@ -780,8 +867,61 @@ void CHttpMessage::logMessage(MessageLogFlag messageLogFlag, const char *prefix)
     return;
 }
 
+bool CHttpMessage::encodedContent()
+{
+    if (m_content_length == 0)
+        return false;
+
+#ifdef _USE_ZLIB
+#ifndef _DEBUG_GZIP
+    if ((minBytesGZipEncoding < 0) || (m_content_length < minBytesGZipEncoding))
+        return false;
+#endif
+
+    const char* gzipHeader;
+    if (!encodingHeaderInRequest || !*encodingHeaderInRequest
+        || !(gzipHeader = strstr(encodingHeaderInRequest, "gzip")))
+    {
+        return false;
+    }
+
+#ifdef _DEBUG_GZIP
+    saveDebugGZIPFile(m_content.str(), m_content_length, ".orig.txt");
+#endif
+    try
+    {
+        unsigned int outlen;
+        char* outbuf = gzip( m_content.str(), m_content_length, &outlen, GZ_BEST_SPEED);
+        if (getEspLogResponses() || getEspLogLevel(queryContext())>LogNormal)
+            logMessage(LOGCONTENT, "Sending out encoded HTTP content:\n");
+
+        setownContent(outlen, outbuf);
+        addHeader("Content-Encoding", "gzip");
+#ifdef _DEBUG_GZIP
+        saveDebugGZIPFile(outbuf, outlen, ".gz");
+#endif
+    }
+    catch(IException* e)
+    {
+        StringBuffer msg;
+        e->errorMessage(msg);
+        msg.insert(0, "gzip failed: ");
+        ERRLOG(1, "%s", msg.str());
+        return false;
+    }
+    catch(...)
+    {
+        ERRLOG(1, "gzip failed: unknown exception");
+        return false;
+    }
+#endif
+    return true;
+}
+
 int CHttpMessage::send()
 {
+    bool contentEncoded = encodedContent();//Also update headers if encoded
+
     StringBuffer headers;
     constructHeaderBuffer(headers, true);
     
@@ -791,7 +931,7 @@ int CHttpMessage::send()
     if (getEspLogResponses() || getEspLogLevel(queryContext())>LogNormal)
     {
         logMessage(headers.str(), "Sending out HTTP headers:\n", "Authorization:[~\r\n]*", "Authorization: (hidden)");
-        if(m_content_length > 0 && m_content.length() > 0)
+        if(!contentEncoded && m_content_length > 0 && m_content.length() > 0)
             logMessage(LOGCONTENT, "Sending out HTTP content:\n");
     }
 

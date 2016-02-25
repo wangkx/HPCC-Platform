@@ -51,6 +51,7 @@ include_directories (
          ./../../../../system/security/shared
          ./../../../../system/security/securesocket 
          ./../../../../system/security/LdapSecurity
+         ./../../../../system/security/zcrypt
          ./../../../../system/jlib 
          ./../../../bindings 
          ./../../../platform 
@@ -74,4 +75,9 @@ add_dependencies (soaplib
     jlib
     espscm
     )
-
+IF (USE_ZLIB)
+  target_link_libraries ( soaplib
+    ${ZLIB_LIBRARIES}
+    zcrypt
+    )
+ENDIF()

@@ -31,7 +31,6 @@
 
 #include "xslprocessor.hpp"
 
-
 #define POST_METHOD "POST"
 #define GET_METHOD "GET"
 #define HEAD_METHOD "HEAD"
@@ -64,6 +63,9 @@ protected:
     StringAttr   m_paramstr;
     int m_supportClientXslt;
     bool         m_isForm;
+    bool         hasGZipContent;
+    unsigned     minBytesGZipEncoding;
+    StringAttr   encodingHeaderInRequest;
 
     int m_paramCount;
     int m_attachCount;
@@ -122,6 +124,13 @@ public:
     //virtual void appendContent(const char* content);
     virtual StringBuffer& getContentType(StringBuffer& contenttype);
     virtual void setContentType(const char* contenttype);
+    virtual void setEncodingReq(const char* _encodingHeaderInRequest, unsigned _minBytesGZipEncoding)
+    {
+        encodingHeaderInRequest.set(_encodingHeaderInRequest);
+        minBytesGZipEncoding =  _minBytesGZipEncoding;
+    }
+    virtual bool encodedContent();
+    virtual bool decodeContent();
     virtual void setVersion(const char* version);
     virtual void setHost(const char* host) {m_host.set(host);};
     virtual StringBuffer& getHost(StringBuffer& host) {return host.append(m_host.get());};

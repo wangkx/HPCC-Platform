@@ -5948,8 +5948,9 @@ void EspServInfo::write_esp_binding()
     outs("\t{\n");
 
     outf("\t\tOwned<CSoapResponseBinding> esp_response;\n");
-    outf("\t\tStringBuffer source;\n");
+    outf("\t\tStringBuffer source, encodingHeader;\n");
     outf("\t\tIEspContext& context = *request->queryContext();\n");
+    outf("\t\tresponse->setEncodingReq(request->getHeader(\"Accept-Encoding\", encodingHeader).str(), minBytesGZipEncoding);\n");
 
     for (mthi=methods;mthi!=NULL;mthi=mthi->next)
     {

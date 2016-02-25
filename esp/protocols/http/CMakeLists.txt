@@ -60,6 +60,7 @@ include_directories (
          ./../../platform 
          ./../../../system/security/shared 
          ./../../../system/security/LdapSecurity
+         ./../../../system/security/zcrypt
     )
 
 ADD_DEFINITIONS( -DESPHTTP_EXPORTS -DESP_TIMING -D_USRDLL -DESP_PLUGIN )
@@ -75,5 +76,11 @@ target_link_libraries ( esphttp
 IF (USE_OPENLDAP)
 target_link_libraries ( esphttp LdapSecurity )
 ENDIF(USE_OPENLDAP)
+IF (USE_ZLIB)
+  target_link_libraries ( esphttp
+    ${ZLIB_LIBRARIES}
+    zcrypt
+    )
+ENDIF()
 
 

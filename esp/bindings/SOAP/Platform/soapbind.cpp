@@ -73,12 +73,17 @@ int CSoapBinding::processRequest(IRpcMessage* rpc_call, IRpcMessage* rpc_respons
 CHttpSoapBinding::CHttpSoapBinding():EspHttpBinding(NULL, NULL, NULL)
 {
     log_level_=hsl_none;
+    minBytesGZipEncoding = -1; //No gzip encoding
 }
 
 CHttpSoapBinding::CHttpSoapBinding(IPropertyTree* cfg, const char *bindname, const char *procname, http_soap_log_level level)
 : EspHttpBinding(cfg, bindname, procname)
 {
     log_level_=level;
+    StringBuffer xpath;
+    xpath.appendf("Software/EspProcess[@name=\"%s\"]/@enableGZipEncoding", procname);
+    //TODO should be configurable?: m_bEnableGZipEncoding = cfg->getPropBool(xpath.str(), false);
+    minBytesGZipEncoding = 0; //-1: no gzip
 }
 
 CHttpSoapBinding::~CHttpSoapBinding()
@@ -222,6 +227,9 @@ int CHttpSoapBinding::HandleSoapRequest(CHttpRequest* request, CHttpResponse* re
     }
     else
         response->setStatus(HTTP_STATUS_OK);
+
+    StringBuffer encodingHeader;
+    response->setEncodingReq(request->getHeader("Accept-Encoding", encodingHeader).str(), minBytesGZipEncoding);
 
     response->setContentType(soapresponse->get_content_type());
     response->setContent(soapresponse->get_text());

@@ -194,6 +194,8 @@ typedef enum http_soap_log_level_ {hsl_none, hsl_all} http_soap_log_level;
 
 class esp_http_decl CHttpSoapBinding : public CSoapBinding, public EspHttpBinding
 {
+protected:
+    unsigned minBytesGZipEncoding;
 public:
     CHttpSoapBinding();
     CHttpSoapBinding(IPropertyTree* cfg, const char *bindname=NULL, const char *procname=NULL, http_soap_log_level level=hsl_none);
