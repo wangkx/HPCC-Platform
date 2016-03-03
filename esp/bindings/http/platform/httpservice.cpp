@@ -205,6 +205,39 @@ EspHttpBinding* CEspHttpServer::getBinding()
     return thebinding;
 }
 
+//#define _DEBUG_LOGIN
+#ifdef _DEBUG_LOGIN
+static StringBuffer userId, pass;
+ bool debugLogin(const char* serviceName, const char* methodName, CHttpRequest* req, CHttpResponse* resp)
+ {
+     if (!strieq(serviceName, "LoginDebug"))
+         return false;
+     if (strieq(methodName, "check"))
+     {
+         StringBuffer userid, password, realm;
+         req->getBasicAuthorization(userid, password, realm);
+         DBGLOG("user<%s><%s>", userid.str(), password.str());
+     }
+     else if (strieq(methodName, "start"))
+     {
+         StringBuffer realm;
+         userId.clear();
+         pass.clear();
+         req->getBasicAuthorization(userId, pass, realm);
+     }
+     else if (strieq(methodName, "clean"))
+     {
+         StringBuffer userid, password, realm;
+         req->getBasicAuthorization(userid, password, realm);
+         if (strieq(pass.str(), password.str()))
+             resp->sendBasicChallenge("ESP", false);
+         else
+             resp->redirect(*req, "/esp/files/userlogout.html");
+     }
+     return true;
+ }
+#endif
+
 int CEspHttpServer::processRequest()
 {
     try
@@ -253,6 +286,11 @@ int CEspHttpServer::processRequest()
 
         bool isSoapPost=(stricmp(method.str(), POST_METHOD) == 0 && m_request->isSoapMessage());
 #ifdef _USE_OPENLDAP
+#ifdef _DEBUG_LOGIN
+        if (debugLogin(serviceName.str(), methodName.str(), m_request.get(), m_response.get()))
+            return 0;
+#endif
+
         authState = checkUserAuth();
         if ((authState == authUpdatePassword) || (authState == authFailed))
             return 0;
@@ -903,6 +941,11 @@ EspAuthState CEspHttpServer::checkUserAuth()
             StringBuffer userName, peer;
             DBGLOG("Authenticated for %s@%s", ctx->getUserID(userName).str(), m_request->getPeer(peer).str());
             return authSucceeded;
+        }
+        if(isSoapPost) //username/password may be in soap:Header which is not in HTTP header.
+        {              //doAuth() will check them inside CSoapService::processHeader().
+            ctx->setToBeAuthenticated(true);
+            return authPending;
         }
     }
 

@@ -763,6 +763,8 @@ void CHttpMessage::logMessage(MessageLogFlag messageLogFlag, const char *prefix)
                 DBGLOG("%s<non-text content or content type not specified>", prefix);
             else if ((m_content_type.length() > 0) && (strieq(m_content_type.get(), "text/css") || strieq(m_content_type.get(), "text/javascript")))
                 DBGLOG("%s<content_type: %s>", prefix, m_content_type.get());
+            else if (m_content.length() < 80)
+                logMessage(m_content.str(), prefix, "password=[~&LogOn=]", "password=(hidden)&LogOn=\0");
             else
                 logMessage(m_content.str(), prefix);
         }
