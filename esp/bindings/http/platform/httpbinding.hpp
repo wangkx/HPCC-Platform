@@ -147,6 +147,10 @@ private:
     StringAttr              domainName;
     StringBuffer            domainSessionSDSPath;
     AuthType                domainAuthType;
+    StringAttr              logonURL;
+    StringAttr              logoutURL;
+    BoolHash                domainAuthResources;
+
 protected:
     MethodInfoArray m_methods;
     bool                    m_includeSoapTest;
@@ -299,8 +303,14 @@ public:
     const char* getDomainName(){ return domainName.get(); }
     void setDomainSessionSDSPath(const char* path){ domainSessionSDSPath.set(path); }
     const char* getDomainSessionSDSPath(){ return domainSessionSDSPath.str(); }
-    void setDomainAuthType(AuthType type) { domainAuthType = type; }
     AuthType getDomainAuthType(){ return domainAuthType; }
+    const char* getLogonURL() { return logonURL.get(); }
+    const char* getLogoutURL() { return logoutURL.get(); }
+    bool isDomainAuthResources(const char* resource)
+    {
+        bool* found = domainAuthResources.getValue(resource);
+        return found && *found;
+    }
     void ensureSDSSessionDomain();
 
     static void escapeSingleQuote(StringBuffer& src, StringBuffer& escaped);

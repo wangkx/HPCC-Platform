@@ -279,8 +279,40 @@ EspHttpBinding::EspHttpBinding(IPropertyTree* tree, const char *bindname, const 
     domainSessionSDSPath.setf("%s/Process[@name=\"%s\"]/Domain[@name=\"%s\"]/", SESSION_ROOT_PATH, procname, domainName.str());
     ensureSDSSessionDomain();
 
-    VStringBuffer xpath("AuthDomains/AuthDomain[@name=\"%s\"]/@authType", domainName.get());
-    domainAuthType = (AuthType) proc_cfg->getPropInt(xpath.str(), AuthTypeMixed);
+    //TODO: add code to configMgr for the following settings
+    //TODO: add code to deploy the userlogon.html and userlogout.html
+    VStringBuffer xpath("AuthDomains/AuthDomain[@name=\"%s\"]", domainName.get());
+    IPropertyTree* authDomainTree = proc_cfg->queryPropTree(xpath);
+    if (authDomainTree)
+    {
+        domainAuthType = (AuthType) authDomainTree->getPropInt("@authType", AuthTypeMixed);
+        if (domainAuthType != AuthPerRequestOnly)
+        {
+            const char* _logonURL = authDomainTree->queryProp("@logonURL");
+            if (_logonURL && *_logonURL)
+                logonURL.set(_logonURL);
+            else
+                logonURL.set("/esp/files/userlogon.html");
+
+            const char* _logoutURL = authDomainTree->queryProp("@logoutURL");
+            if (_logoutURL && *_logoutURL)
+                logoutURL.set(_logoutURL);
+            else
+                logoutURL.set("/esp/files/userlogout.html");
+
+            Owned<IPropertyTreeIterator> resourceURLItr = proc_cfg->getElements("ResourceURL");
+            ForEach(*resourceURLItr)
+            {
+                const char* resourceURL = resourceURLItr->query().queryProp(NULL);
+                if (!resourceURL || !*resourceURL)
+                    continue;
+                bool* found = domainAuthResources.getValue(resourceURL);
+                if (!found || !*found)
+                    domainAuthResources.setValue(resourceURL, true);
+            }
+            domainAuthResources.setValue(logoutURL.get(), true);
+        }
+    }
 }
 
 void EspHttpBinding::ensureSDSSessionDomain()
@@ -986,7 +1018,7 @@ int EspHttpBinding::onGetSoapBuilder(IEspContext &context, CHttpRequest* request
     bool inhouse = user && (user->getStatus()==SecUserStatus_Inhouse);
     xform->setParameter("inhouseUser", inhouse ? "true()" : "false()");
 
-    VStringBuffer url("%s?%s", methodQName.str(), params.str()); 
+    VStringBuffer url("%s?%s", methodQName.str(), params.str());
     xform->setStringParameter("destination", url.str());
         
     StringBuffer page;

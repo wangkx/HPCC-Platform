@@ -205,39 +205,6 @@ EspHttpBinding* CEspHttpServer::getBinding()
     return thebinding;
 }
 
-//#define _DEBUG_LOGIN
-#ifdef _DEBUG_LOGIN
-static StringBuffer userId, pass;
- bool debugLogin(const char* serviceName, const char* methodName, CHttpRequest* req, CHttpResponse* resp)
- {
-     if (!strieq(serviceName, "LoginDebug"))
-         return false;
-     if (strieq(methodName, "check"))
-     {
-         StringBuffer userid, password, realm;
-         req->getBasicAuthorization(userid, password, realm);
-         DBGLOG("user<%s><%s>", userid.str(), password.str());
-     }
-     else if (strieq(methodName, "start"))
-     {
-         StringBuffer realm;
-         userId.clear();
-         pass.clear();
-         req->getBasicAuthorization(userId, pass, realm);
-     }
-     else if (strieq(methodName, "clean"))
-     {
-         StringBuffer userid, password, realm;
-         req->getBasicAuthorization(userid, password, realm);
-         if (strieq(pass.str(), password.str()))
-             resp->sendBasicChallenge("ESP", false);
-         else
-             resp->redirect(*req, "/esp/files/userlogout.html");
-     }
-     return true;
- }
-#endif
-
 int CEspHttpServer::processRequest()
 {
     try
@@ -286,11 +253,6 @@ int CEspHttpServer::processRequest()
 
         bool isSoapPost=(stricmp(method.str(), POST_METHOD) == 0 && m_request->isSoapMessage());
 #ifdef _USE_OPENLDAP
-#ifdef _DEBUG_LOGIN
-        if (debugLogin(serviceName.str(), methodName.str(), m_request.get(), m_response.get()))
-            return 0;
-#endif
-
         authState = checkUserAuth();
         if ((authState == authUpdatePassword) || (authState == authFailed))
             return 0;
@@ -875,18 +837,82 @@ int CEspHttpServer::onGet()
 
 #ifdef _USE_OPENLDAP
 #define SESSION_TIMEOUT (600) // 10 Mins
-const char* SESSION_COOKIE = "ESPSessionID";
+//#define SESSION_TIMEOUT (60) // 1 Mins
+const char* SESSION_ID_COOKIE = "ESPSessionID";
+const char* SESSION_AUTH_COOKIE = "ESPAuthSession";
+
+#define _DEBUG_LOGIN
+#ifdef _DEBUG_LOGIN
+static StringBuffer cached401Pass;
+bool clean401Cache(CHttpRequest* req, CHttpResponse* resp)
+{
+    if (cached401Pass.length())
+        return false;
+
+    StringBuffer userid, realm;
+    req->getBasicAuthorization(userid, cached401Pass, realm);
+    resp->sendBasicChallenge("ESP", false);
+    return true;
+}
+
+bool debugLogin(const char* serviceName, const char* methodName, CHttpRequest* req, CHttpResponse* resp)
+{
+     if (!strieq(serviceName, "LoginDebug"))
+         return false;
+     if (strieq(methodName, "check"))
+     {
+         StringBuffer userid, password, realm;
+         req->getBasicAuthorization(userid, password, realm);
+         DBGLOG("user<%s><%s>", userid.str(), password.str());
+     }
+     return true;
+}
+
+void createLogoutPage(StringBuffer& msg)
+{
+    msg.append(
+        "<html xmlns=\"http://www.w3.org/1999/xhtml\" xml:lang=\"en\" lang=\"en\">"
+            "<head>"
+                "<meta http-equiv=\"Content-Type\" content=\"text/html; charset=utf-8\"/>"
+                "<title>User Log Out</title>"
+                "<script>"
+                    "function onLoad()"
+                    "{"
+                        "//document.getElementById(\"username\").focus();"
+                    "}"
+                 "</script>"
+            "</head>"
+            "<body class=\"yui-skin-sam\" onload=\"onLoad()\">"
+                "<p align=\"left\" />"
+                "<h3>ESP log out</h3>"
+                "<h4><a href=\"userlogon.html\" target=\"_top\">Click here to login.</a> </h4>"
+            "</body>"
+        "</html>");
+}
+
+#endif
 
 EspAuthState CEspHttpServer::checkUserAuth()
 {
+    IProperties* params = m_request->queryParameters();
+#ifdef _DEBUG_LOGIN
+    if (params && params->hasProp("__clean401cache"))
+    {
+        if (clean401Cache(m_request.get(), m_response.get()))
+            return authFailed;
+        else
+            return authSucceeded;
+    }
+    cached401Pass.clear();
+#endif
+
     sub_service stype=sub_serv_unknown;
     StringBuffer httpPath, httpMethod, pathEx, serviceName, methodName;
     m_request->getEspPathInfo(stype, &pathEx, &serviceName, &methodName, false);
     m_request->getMethod(httpMethod);
-
-    EspAuthState authState = preCheckAuth(httpMethod.str(), serviceName.str(), stype, methodName.str());
-    if (authState != authUnknown)
-        return authState;
+    m_request->getPath(httpPath);//m_httpPath
+    if(!httpPath.length())
+        throw MakeStringException(-1, "URL query string cannot be empty.");
 
     IEspContext* ctx = m_request->queryContext();
     bool isSoapPost = (strieq(httpMethod.str(), POST_METHOD) && m_request->isSoapMessage());
@@ -894,22 +920,17 @@ EspAuthState CEspHttpServer::checkUserAuth()
     if (!authBinding)
         throw MakeStringException(-1, "Cannot find ESP HTTP Binding");
 
-    m_request->getPath(httpPath);//m_httpPath
-    if(!httpPath.length())
-        throw MakeStringException(-1, "URL query string cannot be empty.");
-
     if (!isAuthRequiredForBinding(ctx, authBinding, httpPath.str()))
         return authSucceeded;
 
-    if (strieq(httpPath.str(), "/esp/files/userlogon.html"))
-    {
-        if (readSessionIDFromCookie())
-            return authSucceeded;
+#ifdef _DEBUG_LOGIN
+    if (params && params->hasProp("__cleansession"))
+        deleteHTTPSession(authBinding, readCookie(SESSION_ID_COOKIE));
+#endif
 
-        DBGLOG("Authentication failed: no session ID found for userlogon.html.");
-        askUserLogOn(createHTTPSession(authBinding, NULL, "/"), NULL);
-        return authSucceeded;
-    }
+    EspAuthState authState = preCheckAuth(authBinding, httpPath.str(), httpMethod.str(), serviceName.str(), stype, methodName.str());
+    if (authState != authUnknown)
+        return authState;
 
     StringBuffer servName(ctx->queryServiceName(NULL));
     if (!servName.length())
@@ -924,10 +945,30 @@ EspAuthState CEspHttpServer::checkUserAuth()
     {
         if (getEspLogLevel()>LogNormal)
             DBGLOG("Check sessionAuth.");
-        unsigned sessionID = readSessionIDFromCookie();
+        unsigned sessionID = readCookie(SESSION_ID_COOKIE);
         if (sessionID > 0)
+        {
             return doSessionAuth(ctx, authBinding, sessionID, httpPath.str(), httpMethod.str(),
-                serviceName.str(), methodName.str(), stype);
+                serviceName.str(), methodName.str(), stype, isSoapPost);
+        }
+        if (params->hasProp("logonpage")) //from expired logon page.
+        {
+            return doSessionAuth(ctx, authBinding, createHTTPSession(authBinding, NULL, "/"), httpPath.str(), httpMethod.str(),
+                serviceName.str(), methodName.str(), stype, isSoapPost);
+        }
+
+        if(readCookie(SESSION_AUTH_COOKIE)) //from other expired page
+        {
+            if(isSoapPost) //from SOAP Test page
+                sendMessage("Session expired. Please close this page and login again.", "text/html; charset=UTF-8");
+            else
+            {
+                if (params && params->hasProp("__querystring"))
+                    httpPath.append("?").append(params->queryProp("__querystring"));
+                askUserLogOn(authBinding, createHTTPSession(authBinding, NULL, httpPath.str()), NULL);
+            }
+            return authFailed;
+        }
     }
     if (domainAuthType != AuthPerSessionOnly)// BasicAuthentication
     {
@@ -949,22 +990,24 @@ EspAuthState CEspHttpServer::checkUserAuth()
         }
     }
 
-    if ((domainAuthType == AuthPerRequestOnly) || ((domainAuthType == AuthTypeMixed) && (strieq(httpMethod.str(), POST_METHOD))))
-    {
-        handleAuthFailed(ctx, false, authBinding, NULL, 0, NULL);
-        return authFailed;
-    }
+    //authentication failed. Send out a login page or 401.
+    bool authSession =  false;
+    const char* redirectURL = NULL;
+    if ((domainAuthType == AuthPerSessionOnly) || ((domainAuthType == AuthTypeMixed) && strieq(httpMethod.str(), GET_METHOD)))
+    {   //If a user tries to start from browser, the browser will send a GET.
+        authSession = true;
 
-    //Store the original url for redirecting after login
-    StringBuffer redirectURL = httpPath;
-    IProperties* params = m_request->queryParameters();
-    if (params && params->hasProp("__querystring"))
-        redirectURL.append("?").append(params->queryProp("__querystring"));
-    handleAuthFailed(ctx, true, authBinding, NULL, 0, redirectURL.str());
+        //Store the original url for redirecting after login
+        if (params && params->hasProp("__querystring"))
+            httpPath.append("?").append(params->queryProp("__querystring"));
+        redirectURL = httpPath.str();
+    }
+    handleAuthFailed(ctx, authSession, authBinding, NULL, 0, redirectURL);
     return authFailed;
 }
 
-EspAuthState CEspHttpServer::preCheckAuth(const char* httpMethod, const char* serviceName, sub_service stype, const char* serviceMethod)
+EspAuthState CEspHttpServer::preCheckAuth(EspHttpBinding* authBinding, const char* httpPath, const char* httpMethod,
+    const char* serviceName, sub_service stype, const char* serviceMethod)
 {
     if (!m_apport->rootAuthRequired() && strieq(httpMethod, GET_METHOD) &&
         ((stype == sub_serv_root) || (serviceName && strieq(serviceName, "esp"))))
@@ -987,10 +1030,20 @@ EspAuthState CEspHttpServer::preCheckAuth(const char* httpMethod, const char* se
         }
     }
 
-    StringBuffer httpPath;
-    m_request->getPath(httpPath);//m_httpPath
-    if(httpPath.length() && (strieq(httpPath.str(), "/favicon.ico") || strieq(httpPath.str(), "/esp/files/userlogout.html")))
-        return authSucceeded;
+    if (authBinding->getDomainAuthType() == AuthPerRequestOnly)
+        return authUnknown;
+    if(authBinding->isDomainAuthResources(httpPath))
+        return authSucceeded;//Give the permission to send out some pages used for logon or logout.
+    if (strieq(httpPath, authBinding->getLogonURL()))
+    {
+        //If there is a valid session ID, give the permission to send out the logon page.
+        if (readCookie(SESSION_ID_COOKIE))
+            return authSucceeded;//If there is a valid session ID, give the permission to send out the logon page.
+
+        DBGLOG("Authentication failed: no session ID found for logon page.");
+        askUserLogOn(authBinding, createHTTPSession(authBinding, NULL, "/"), NULL);
+        return authSucceeded;//Create a new session and redirect to the logon page.
+    }
 
     return authUnknown;
 }
@@ -1057,8 +1110,16 @@ bool CEspHttpServer::isAuthRequiredForBinding(IEspContext* ctx, EspHttpBinding* 
     return true;
 }
 
+void CEspHttpServer::sendMessage(const char* msg, const char* msgType)
+{
+    m_response->setContent(msg);
+    m_response->setContentType(msgType);
+    m_response->setStatus(HTTP_STATUS_OK);
+    m_response->send();
+}
+
 EspAuthState CEspHttpServer::doSessionAuth(IEspContext* ctx, EspHttpBinding* authBinding, unsigned sessionID,
-    const char* httpPath, const char* httpMethod, const char* serviceName, const char* methodName, sub_service stype)
+    const char* httpPath, const char* httpMethod, const char* serviceName, const char* methodName, sub_service stype, bool isSoapPost)
 {
     if (getEspLogLevel()>LogNormal)
         DBGLOG("sessionID<%d>", sessionID);
@@ -1082,7 +1143,10 @@ EspAuthState CEspHttpServer::doSessionAuth(IEspContext* ctx, EspHttpBinding* aut
     {
         if (getEspLogLevel()>LogNormal)
             DBGLOG("Authentication failed: session:<%d> not found", sessionID);
-        askUserLogOn(createHTTPSession(authBinding, domainSessions, redirectURL), conn);
+        if(isSoapPost) //from SOAP Test page
+            sendMessage("Session expired. Please close this page and login again.", "text/html; charset=UTF-8");
+        else
+            askUserLogOn(authBinding, createHTTPSession(authBinding, domainSessions, redirectURL), conn);
         return authFailed;
     }
 
@@ -1096,7 +1160,13 @@ EspAuthState CEspHttpServer::doSessionAuth(IEspContext* ctx, EspHttpBinding* aut
         {
             if (getEspLogLevel()>LogNormal)
                 DBGLOG("Authentication failed: invalid credential for session:<%d>", sessionID);
-            handleAuthFailed(ctx, true, authBinding, conn, sessionID, redirectURL.str());
+            if(isSoapPost) //A request may come from SOAP Test page after the user is on the
+            {              //logon page (not click the "log on" butten yet.
+                sendMessage("Authentication failed: invalid credential for session. Please login first.",
+                    "text/html; charset=UTF-8");
+            }
+            else
+                handleAuthFailed(ctx, true, authBinding, conn, sessionID, redirectURL.str());
             return authFailed;
         }
 
@@ -1130,12 +1200,14 @@ EspAuthState CEspHttpServer::doSessionAuth(IEspContext* ctx, EspHttpBinding* aut
             m_response->redirect(*m_request, "/");
     }
     else if (methodName && strieq(methodName, "logout"))
-        handleUserLogOut(authBinding, sessionID); //What if the logout failed?
+    {
+        handleUserLogOut(authBinding, sessionID, authBinding->getLogoutURL()); //What if the logout failed?
+    }
 
     return authSucceeded;
 }
 
-void CEspHttpServer::askUserLogOn(unsigned sessionID, void* _conn)
+void CEspHttpServer::askUserLogOn(EspHttpBinding* authBinding, unsigned sessionID, void* _conn)
 {
     if (_conn)
     {
@@ -1145,8 +1217,9 @@ void CEspHttpServer::askUserLogOn(unsigned sessionID, void* _conn)
     }
 
     VStringBuffer sessionIDStr("%d", sessionID);
-    addCookie(SESSION_COOKIE, sessionIDStr.str(), SESSION_TIMEOUT);
-    m_response->redirect(*m_request, "/esp/files/userlogon.html");
+    addCookie(SESSION_ID_COOKIE, sessionIDStr.str(), SESSION_TIMEOUT);
+    addCookie(SESSION_AUTH_COOKIE, "1", 0); //time out when browser is closed
+    m_response->redirect(*m_request, authBinding->getLogonURL());
 }
 
 void CEspHttpServer::handleAuthFailed(IEspContext* ctx, bool sessionAuth, EspHttpBinding* authBinding,
@@ -1169,9 +1242,9 @@ void CEspHttpServer::handleAuthFailed(IEspContext* ctx, bool sessionAuth, EspHtt
 
     DBGLOG("Authentication failed: askUserLogOn.");
     if (conn)
-        askUserLogOn(sessionID, conn);
+        askUserLogOn(authBinding, sessionID, conn);
     else
-        askUserLogOn(createHTTPSession(authBinding, NULL, redirectURL), NULL);
+        askUserLogOn(authBinding, createHTTPSession(authBinding, NULL, redirectURL), NULL);
 }
 
 void CEspHttpServer::handlePasswordExpired(bool sessionAuth)
@@ -1203,15 +1276,15 @@ void CEspHttpServer::postSessionAuth(IEspContext* ctx, unsigned sessionID, time_
     ctx->setUserID(userName.str());
     ///ctx->setAuthorized(true);
     VStringBuffer sessionIDStr("%d", sessionID);
-    addCookie(SESSION_COOKIE, sessionIDStr.str(), SESSION_TIMEOUT);
+    addCookie(SESSION_ID_COOKIE, sessionIDStr.str(), SESSION_TIMEOUT);
     DBGLOG("Authenticated for %s@%s", userName.str(), netAddr.str());
 }
 
-bool CEspHttpServer::handleUserLogOut(EspHttpBinding* authBinding, unsigned sessionID)
+bool CEspHttpServer::handleUserLogOut(EspHttpBinding* authBinding, unsigned sessionID, const char* url)
 {
     deleteHTTPSession(authBinding, sessionID);
-    clearCookie(SESSION_COOKIE);
-    m_response->redirect(*m_request, "/esp/files/userlogout.html");
+    clearCookie(SESSION_ID_COOKIE);
+    m_response->redirect(*m_request, url);
     return true;
 }
 
@@ -1267,14 +1340,9 @@ bool CEspHttpServer::deleteHTTPSession(EspHttpBinding* authBinding, unsigned ses
         throw MakeStringException(-1, "Failed to get SDS DomainSession.");
 
     VStringBuffer path("Session[@id='%d']", sessionID);
-    IPropertyTree* ptree = root->getBranch(path.str());
-    if (!ptree)
-    {
-        DBGLOG("Failed to delete session:<%d> not found", sessionID);
-        return false;
-    }
-
-    root->removeTree(ptree);
+    Owned<IPropertyTreeIterator> it = root->getElements(path.str());
+    ForEach(*it)
+        root->removeTree(&it->query());
     conn->commit();
     conn->close();
     return true;
@@ -1334,9 +1402,9 @@ void CEspHttpServer::clearCookie(const char* cookieName)
     m_response->addHeader(cookieName,  "max-age=0");
 }
 
-unsigned CEspHttpServer::readSessionIDFromCookie()
+unsigned CEspHttpServer::readCookie(const char* cookieName)
 {
-    CEspCookie* sessionIDCookie = m_request->queryCookie(SESSION_COOKIE);
+    CEspCookie* sessionIDCookie = m_request->queryCookie(cookieName);
     if (sessionIDCookie)
     {
         StringBuffer sessionIDStr = sessionIDCookie->getValue();

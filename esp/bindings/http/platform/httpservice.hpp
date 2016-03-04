@@ -67,16 +67,16 @@ protected:
     int unsupported();
     EspHttpBinding* getBinding();
 #ifdef _USE_OPENLDAP
-    EspAuthState preCheckAuth(const char* reqMethod, const char* serviceName, sub_service stype, const char* serviceMethod);
+    EspAuthState preCheckAuth(EspHttpBinding* authBinding, const char* httpPath, const char* reqMethod, const char* serviceName, sub_service stype, const char* serviceMethod);
     EspAuthState checkUserAuth();
-    EspAuthState doSessionAuth(IEspContext* ctx, EspHttpBinding* authBinding, unsigned sessionID,
-        const char* httpPath, const char* httpMethod, const char* serviceName, const char* methodName, sub_service stype);
+    EspAuthState doSessionAuth(IEspContext* ctx, EspHttpBinding* authBinding, unsigned sessionID, const char* httpPath,
+        const char* httpMethod, const char* serviceName, const char* methodName, sub_service stype, bool isSoapPost);
     void postSessionAuth(IEspContext* ctx, unsigned sessionID, time_t accessTime, void* _conn, IPropertyTree* sessionTree);
-    void askUserLogOn(unsigned sessionID, void* conn);
+    void askUserLogOn(EspHttpBinding* authBinding, unsigned sessionID, void* conn);
     void handleAuthFailed(IEspContext* ctx, bool sessionAuth, EspHttpBinding* authBinding,
         void* conn, unsigned sessionID, const char* redirectURL);
     void handlePasswordExpired(bool sessionAuth);
-    bool handleUserLogOut(EspHttpBinding* authBinding, unsigned sessionID);
+    bool handleUserLogOut(EspHttpBinding* authBinding, unsigned sessionID, const char* url);
     EspHttpBinding* getEspHttpBinding(IEspContext* ctx, const char* httpMethod, const char* serviceName,
         sub_service stype, bool isSoapPost);
     bool isAuthRequiredForBinding(IEspContext* ctx, EspHttpBinding* authBinding, const char* httpPath);
@@ -86,7 +86,8 @@ protected:
     IPropertyTree* readAndCleanDomainSessions(void* conn, time_t accessTime);
     void addCookie(const char* cookieName, const char *cookieValue, unsigned maxAgeSec);
     void clearCookie(const char* cookieName);
-    unsigned readSessionIDFromCookie();
+    unsigned readCookie(const char* cookieName);
+    void sendMessage(const char* msg, const char* msgType);
 #endif
 
 public:
