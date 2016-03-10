@@ -318,7 +318,28 @@ static void import(const char *path,const char *src,bool add)
 }
 
 //=============================================================================
+static void getFileTreeToXMLFile(const char *path, const char *fileName)
+{
+    if (!path || *path)
+        path = "/Files";
+    Owned<IRemoteConnection> conn = querySDS().connect(path, myProcessSession(), 0, 1000000);
+    if (!conn) {
+        ERRLOG("Could not connect to %s",path);
+        return;
+    }
+    IPropertyTree* root = conn->queryRoot();
 
+    OwnedIFile file = createIFile(fileName);
+    if (!file)
+       return;
+    Owned<IFileIO> fileio = file->open(IFOcreate);
+    if (!fileio)
+       return;
+    Owned<IFileIOStream> fstream = createBufferedIOStream(fileio);
+    outln("Before toXML");
+    toXML(root, *fstream);
+    outln("Leave fileTreeXML");
+}
 
 static void _delete_(const char *path,bool backup)
 {
@@ -2760,6 +2781,10 @@ int main(int argc, char* argv[])
                     else if (stricmp(cmd,"delete")==0) {
                         CHECKPARAMS(1,1);
                         _delete_(params.item(1),true);
+                    }
+                    else if (stricmp(cmd,"fileTreeXML")==0) {
+                        CHECKPARAMS(1,2);
+                        getFileTreeToXMLFile((np>1)?params.item(2):NULL, params.item(1));
                     }
                     else if (stricmp(cmd,"set")==0) {
                         CHECKPARAMS(2,2);

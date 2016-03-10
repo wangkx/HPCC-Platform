@@ -8979,7 +8979,9 @@ public:
         StringBuffer name;
         topLevelScope.clear();
         currentScope = NULL;
-        processScopes(*sroot->queryPropTree(querySdsFilesRoot()),name);
+        //processScopes(*sroot->queryPropTree(querySdsFilesRoot()),name);
+        Owned<IPTree> pt = createPTreeFromXMLFile("dali_files.xml");
+        processScopes(*pt,name);
     }
     void _getResults(bool auth, IUserDescriptor *user, CScope &scope, CFileMatchArray &matchingFiles, StringArray &authScopes,
         unsigned &count, bool checkFileCount)
