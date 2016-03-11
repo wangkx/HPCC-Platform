@@ -38,6 +38,7 @@ extern Owned<IPropertyTree> serverConfig; //configuration properties
 
 // server initialization
 extern da_decl void  initCoven(IGroup *grp,IPropertyTree *covenstore,const char *clientVersion=NULL,const char *minServerVersion=NULL);
+extern da_decl void  initCoven1(IGroup *grp,IPropertyTree *covenstore,const char *clientVersion=NULL,const char *minServerVersion=NULL);
 extern da_decl void  covenMain();
 extern da_decl void  closeCoven();
 

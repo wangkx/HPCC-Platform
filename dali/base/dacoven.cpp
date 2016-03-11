@@ -1034,3 +1034,65 @@ DALI_UID getGlobalUniqueIds(unsigned num,SocketEndpoint *_foreignnode)
     }
     return uid;
 }
+
+/////////////////////////////New
+static StringAttr ClientVersion1("3.6");
+static StringAttr MinServerVersion1("3.1");      // when this upped check initClientProcess instances
+//static CDaliVersion _ServerVersion;
+
+static CCovenServer *covenServer1=NULL;
+static ICoven *coven1=NULL;
+
+ICoven &queryCoven1()
+{
+    if (coven1==NULL)
+    {
+        Owned<IException> e = MakeStringException(-1, "No access to Dali - this normally means a plugin call is being called from a thorslave");
+        EXCLOG(e, NULL);
+        throw e.getClear();
+    }
+    return *coven1;
+}
+/*
+bool isCovenActive()
+{
+    return coven != NULL;
+}*/
+
+void initCoven1(IGroup *grp,IPropertyTree *config,const char *clientVersion,const char *minServerVersion)
+{
+    assertex(!coven1);
+    if (clientVersion) ClientVersion1.set(clientVersion);
+    if (minServerVersion) MinServerVersion1.set(minServerVersion);
+    if (config&&(grp->rank()!=RANK_NULL) )
+    {
+        const char *s="dalicoven.xml";
+        IPropertyTree *covenstore = config->queryPropTree("Coven");
+        if (covenstore) {
+            const char *t = covenstore->queryProp("@store");
+            if (t&&*t)
+                s = t;
+        }
+        const char *backupPath = config->queryProp("SDS/@remoteBackupLocation");
+        StringBuffer b;
+        if (backupPath&&*backupPath) {
+            b.append(backupPath);
+            addPathSepChar(b);
+            b.append(s);
+        }
+        const char *dataPath = config->queryProp("@dataPath");
+        StringBuffer covenPath;
+        if (dataPath)
+        {
+            covenPath.append(dataPath).append(s);
+            s = covenPath.str();
+        }
+
+        covenServer1 = new CCovenServer(grp,s,b.str());
+        coven1 = covenServer1;
+    }
+    else {
+        covenServer1 = NULL;
+        coven1 = new CCovenClient(grp);
+    }
+}

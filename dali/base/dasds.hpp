@@ -118,6 +118,8 @@ interface ISDSManager
     virtual void setConfigOpt(const char *opt, const char *value) = 0;
     virtual unsigned queryCount(const char *xpath) = 0;
     virtual bool updateEnvironment(IPropertyTree *newEnv, bool forceGroupUpdate, StringBuffer &response) = 0;
+    virtual IRemoteConnection *connectRemoteDali(const char *xpath, SessionId id,
+        unsigned mode, unsigned timeout, const char* daliIP, unsigned short daliPort, DaliClientRole role) = 0;
 };
 
 extern da_decl const char *queryNotifyHandlerName(IPropertyTree *tree);

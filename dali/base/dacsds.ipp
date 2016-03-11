@@ -415,6 +415,8 @@ public:
     virtual void setConfigOpt(const char *opt, const char *value);
     virtual unsigned queryCount(const char *xpath);
     virtual bool updateEnvironment(IPropertyTree *newEnv, bool forceGroupUpdate, StringBuffer &response);
+    virtual IRemoteConnection *connectRemoteDali(const char *xpath, SessionId id,
+        unsigned mode, unsigned timeout, const char* daliIP, unsigned short daliPort, DaliClientRole role);
 
 private:
     void noteDisconnected(CRemoteConnection &connection);

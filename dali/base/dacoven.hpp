@@ -67,6 +67,7 @@ public:
 };
 
 extern da_decl ICoven &queryCoven();
+extern da_decl ICoven &queryCoven1();
 extern da_decl bool isCovenActive();
 extern da_decl const CDaliVersion &queryDaliServerVersion();
 extern da_decl bool verifyCovenConnection(unsigned timeout=5*60*1000);

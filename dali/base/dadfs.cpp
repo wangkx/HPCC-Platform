@@ -8990,8 +8990,25 @@ public:
         StringBuffer name;
         topLevelScope.clear();
         currentScope = NULL;
-        processScopes(*sroot->queryPropTree(querySdsFilesRoot()),name);
-        processScopes(*pt,name);
+        Owned<IRemoteConnection> connStatusServers = querySDS().connectRemoteDali("/",
+                myProcessSession(), 0, 100000, "10.194.10.1", DALI_SERVER_PORT, DCR_EspServer);
+        if (connStatusServers)
+        {
+            IPropertyTree* root = connStatusServers->queryRoot()->queryPropTree("Status/Servers");
+            OwnedIFile file = createIFile("DaliFileTest.xml");
+            if (!file)
+               return;
+            Owned<IFileIO> fileio = file->open(IFOcreate);
+            if (!fileio)
+               return;
+            Owned<IFileIOStream> fstream = createBufferedIOStream(fileio);
+            DBGLOG("Before toXML");
+            toXML(root, *fstream);
+            DBGLOG("Leave fileTreeXML");
+            processScopes(*connStatusServers->queryRoot()->queryPropTree(querySdsFilesRoot()),name);
+        }
+        else
+            processScopes(*sroot->queryPropTree(querySdsFilesRoot()),name);
     }
     void _getResults(bool auth, IUserDescriptor *user, CScope &scope, CFileMatchArray &matchingFiles, StringArray &authScopes,
         unsigned &count, bool checkFileCount)

@@ -1276,6 +1276,7 @@ CClientSDSManager::CClientSDSManager()
     if (queryDaliServerVersion().compare(serverVersionNeeded4) >= 0)
         props.setPropBool("Client/@serverGetIdsAvailable", true);
     concurrentRequests.signal(clientThrottleLimit);
+    DBGLOG("CClientSDSManager::CClientSDSManager()");
 }
 
 CClientSDSManager::~CClientSDSManager()
@@ -1795,6 +1796,74 @@ IRemoteConnection *CClientSDSManager::connect(const char *xpath, SessionId id, u
     }
 
     return conn;
+}
+/*
+extern bool registerClientProcess(ICommunicator *comm, IGroup *& retcoven,unsigned timeout,DaliClientRole role);
+
+IRemoteConnection* getConnectionFromRemoteDali(ISDSConnectionManager& sdsMgr, const char* daliIP, unsigned short daliPort,
+    SessionId id, unsigned mode, unsigned timeout, DaliClientRole role, const char* xpath)
+{
+    const char* clientVersion = NULL;
+    const char* minServerVersion = NULL;
+    unsigned lazyExtFlag = 0;
+
+    Owned<IGroup> servergrp = createIGroup(daliIP, daliPort);
+    if (!servergrp)
+        throw MakeStringException(0, "Could not instantiate dali IGroup");
+
+    startMPServer(0);
+    Owned<ICommunicator> comm(createCommunicator(servergrp,true));
+    IGroup * covengrp;
+    if (!registerClientProcess(comm.get(),covengrp,timeout,role))
+        return NULL;
+
+    initCoven1(covengrp,NULL,clientVersion, minServerVersion);
+    covengrp->Release();
+    queryLogMsgManager()->setSession(id);
+
+    CMessageBuffer mb;
+    mb.append((int)DAMP_SDSCMD_CONNECT | lazyExtFlag);
+    mb.append(id).append(0).append(timeout);
+    mb.append(xpath);
+    bool res = queryCoven1().sendRecv(mb, RANK_RANDOM, MPTAG_DALI_SDS_REQUEST);
+
+    SdsReply replyMsg;
+    mb.read((int &)replyMsg);
+
+    CRemoteConnection *conn = NULL;
+    switch (replyMsg)
+    {
+        case DAMP_SDSREPLY_OK:
+        {
+            ConnectionId connId;
+            mb.read(connId);
+            conn = new CRemoteConnection(sdsMgr, connId, xpath, id, mode & ~RTM_CREATE_MASK, timeout);
+            assertex(conn);
+
+            CClientRemoteTree *tree;
+            { CDisableFetchChangeBlock block(*conn);
+                tree = new CClientRemoteTree(*conn);
+                tree->deserializeRT(mb);
+            }
+            conn->setRoot(tree);
+            //connections1.replace(*conn);
+            break;
+        }
+        case DAMP_SDSREPLY_EMPTY:
+            break;
+        case DAMP_SDSREPLY_ERROR:
+            throwMbException("SDS Reply Error ", mb);
+        default:
+            assertex(false);
+    }
+    return conn;
+}*/
+
+IRemoteConnection *CClientSDSManager::connectRemoteDali(const char *xpath, SessionId id,
+    unsigned mode, unsigned timeout, const char* daliIP, unsigned short daliPort, DaliClientRole role)
+{
+    //return getConnectionFromRemoteDali(*this, daliIP, daliPort, id, mode, timeout, role, xpath);
+    return NULL;
 }
 
 SubscriptionId CClientSDSManager::subscribe(const char *xpath, ISDSSubscription &notify, bool sub, bool sendValue)
