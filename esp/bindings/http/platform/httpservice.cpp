@@ -907,7 +907,7 @@ EspAuthState CEspHttpServer::checkUserAuth()
 #endif
 
     sub_service stype=sub_serv_unknown;
-    StringBuffer httpPath, httpMethod, pathEx, serviceName, methodName;
+    StringBuffer httpPath, httpMethod, pathEx, serviceName, methodName, userName;
     m_request->getEspPathInfo(stype, &pathEx, &serviceName, &methodName, false);
     m_request->getMethod(httpMethod);
     m_request->getPath(httpPath);//m_httpPath
@@ -951,17 +951,21 @@ EspAuthState CEspHttpServer::checkUserAuth()
             return doSessionAuth(ctx, authBinding, sessionID, httpPath.str(), httpMethod.str(),
                 serviceName.str(), methodName.str(), stype, isSoapPost);
         }
-        if (params->hasProp("logonpage")) //from expired logon page.
-        {
-            return doSessionAuth(ctx, authBinding, createHTTPSession(authBinding, NULL, "/"), httpPath.str(), httpMethod.str(),
-                serviceName.str(), methodName.str(), stype, isSoapPost);
-        }
 
-        if(readCookie(SESSION_AUTH_COOKIE)) //from other expired page
-        {
+        if(readCookie(SESSION_AUTH_COOKIE))
+        { //session expired
+            StringBuffer userName, password;
+            userName = (params) ? params->queryProp("username") : NULL;
+            password = (params) ? params->queryProp("password") : NULL;
+            if (userName.length() && password.length()) //from logon page.
+            {
+                return doSessionAuth(ctx, authBinding, createHTTPSession(authBinding, NULL, "/"), httpPath.str(), httpMethod.str(),
+                    serviceName.str(), methodName.str(), stype, isSoapPost);
+            }
+
             if(isSoapPost) //from SOAP Test page
                 sendMessage("Session expired. Please close this page and login again.", "text/html; charset=UTF-8");
-            else
+            else //from other page
             {
                 if (params && params->hasProp("__querystring"))
                     httpPath.append("?").append(params->queryProp("__querystring"));
@@ -993,8 +997,9 @@ EspAuthState CEspHttpServer::checkUserAuth()
     //authentication failed. Send out a login page or 401.
     bool authSession =  false;
     const char* redirectURL = NULL;
-    if ((domainAuthType == AuthPerSessionOnly) || ((domainAuthType == AuthTypeMixed) && strieq(httpMethod.str(), GET_METHOD)))
-    {   //If a user tries to start from browser, the browser will send a GET.
+    if ((domainAuthType == AuthPerSessionOnly) || ((domainAuthType == AuthTypeMixed)
+        && !ctx->getUserID(userName).length() && strieq(httpMethod.str(), GET_METHOD)))
+    { //If session based, the first request comes from a browser using GET with no userID.
         authSession = true;
 
         //Store the original url for redirecting after login
@@ -1391,6 +1396,7 @@ void CEspHttpServer::addCookie(const char* cookieName, const char *cookieValue, 
 
         cookie->setExpires(expiresTime);
     }
+    cookie->setHTTPOnly(true);
     m_response->addCookie(cookie);
 }
 

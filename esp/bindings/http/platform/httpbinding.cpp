@@ -279,8 +279,7 @@ EspHttpBinding::EspHttpBinding(IPropertyTree* tree, const char *bindname, const 
     domainSessionSDSPath.setf("%s/Process[@name=\"%s\"]/Domain[@name=\"%s\"]/", SESSION_ROOT_PATH, procname, domainName.str());
     ensureSDSSessionDomain();
 
-    //TODO: add code to configMgr for the following settings
-    //TODO: add code to deploy the userlogon.html and userlogout.html
+    domainAuthType = AuthPerRequestOnly;
     VStringBuffer xpath("AuthDomains/AuthDomain[@name=\"%s\"]", domainName.get());
     IPropertyTree* authDomainTree = proc_cfg->queryPropTree(xpath);
     if (authDomainTree)
@@ -300,15 +299,20 @@ EspHttpBinding::EspHttpBinding(IPropertyTree* tree, const char *bindname, const 
             else
                 logoutURL.set("/esp/files/userlogout.html");
 
-            Owned<IPropertyTreeIterator> resourceURLItr = proc_cfg->getElements("ResourceURL");
-            ForEach(*resourceURLItr)
+            const char* resourceURLs = authDomainTree->queryProp("ResourceURL");
+            if (resourceURLs && *resourceURLs)
             {
-                const char* resourceURL = resourceURLItr->query().queryProp(NULL);
-                if (!resourceURL || !*resourceURL)
-                    continue;
-                bool* found = domainAuthResources.getValue(resourceURL);
-                if (!found || !*found)
-                    domainAuthResources.setValue(resourceURL, true);
+                StringArray urlArray;
+                urlArray.appendList(resourceURLs, ",");
+                ForEachItemIn(i, urlArray)
+                {
+                    const char* url = urlArray.item(i);
+                    if (!url || !*url)
+                        continue;
+                    bool* found = domainAuthResources.getValue(url);
+                    if (!found || !*found)
+                        domainAuthResources.setValue(url, true);
+                }
             }
             domainAuthResources.setValue(logoutURL.get(), true);
         }
