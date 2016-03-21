@@ -12249,8 +12249,26 @@ IDFAttributesIterator* CDistributedFileDirectory::getLogicalFilesSorted(
         {
             Owned<IPropertyTreeIterator> fi = queryDistributedFileDirectory().getDFAttributesTreeIterator(filters.get(),
                 localFilters, localFilterBuf.get(), udesc, allMatchingFilesReceived);
-            StringArray unknownAttributes;
-            sortElements(fi, sortOrder.get(), NULL, NULL, unknownAttributes, elements);
+            try
+            {
+                StringArray unknownAttributes;
+                sortElements(fi, sortOrder.get(), NULL, NULL, unknownAttributes, elements);
+            }
+            catch(IException* e)
+            {
+                StringBuffer msg;
+                int code = e->errorCode();
+                e->errorMessage(msg).str();
+                e->Release();
+                if (!strstr(msg.str(), "Out of Memory"))
+                    throw MakeStringException(code, "%s", msg.str());
+
+                ERRLOG("Exception %d:%s when CDFUPager calls sortElements().", code, msg.str());
+                unsigned long count = 0;
+                ForEach(*fi)
+                    count++;
+                throw MakeStringException(code, "No enough memory to sort %ld files. Please select a filter.", count);
+            }
             return NULL;
         }
         virtual bool allMatchingElementsReceived() { return allMatchingFilesReceived; }
