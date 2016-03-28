@@ -111,6 +111,12 @@ ESPStruct ServerJobQueue
     [min_ver("1.19")] int Port;
 };
 
+ESPStruct WUsOnJobQueue
+{
+    string QueueName;
+    ESParray<ESPstruct ActiveWorkunit> Workunits;
+};
+
 ESPstruct [nil_remove] StatusServerInfo
 {
     ESPstruct TargetCluster TargetClusterInfo;
@@ -155,6 +161,7 @@ ESPresponse [exceptions_inline] ActivityResponse
     [min_ver("1.12")] bool SuperUser(false);
     [min_ver("1.12")] string AccessRight;
     [min_ver("1.14")] ESParray<ESPstruct ServerJobQueue> ServerJobQueues;
+    [min_ver("1.20")] ESParray<ESPstruct WUsOnJobQueue> WUsOnJobQueues;
 };
 
 ESPrequest SMCIndexRequest
@@ -397,7 +404,7 @@ ESPresponse [exceptions_inline] LockQueryResponse
     int NumLocks;
 };
 
-ESPservice [auth_feature("DEFERRED"), noforms, version("1.19"), exceptions_inline("./smc_xslt/exceptions.xslt"), use_method_name] WsSMC
+ESPservice [auth_feature("DEFERRED"), noforms, version("1.20"), exceptions_inline("./smc_xslt/exceptions.xslt"), use_method_name] WsSMC
 {
     ESPmethod Index(SMCIndexRequest, SMCIndexResponse);
     ESPmethod [resp_xsl_default("/esp/xslt/index.xslt")] Activity(ActivityRequest, ActivityResponse);

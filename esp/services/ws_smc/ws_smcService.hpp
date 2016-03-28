@@ -221,6 +221,7 @@ private:
     CActivityInfo* getActivityInfo(IEspContext &context);
     void setActivityResponse(IEspContext &context, CActivityInfo* activityInfo, IEspActivityRequest &req, IEspActivityResponse& resp);
     void addWUsToResponse(IEspContext &context, const IArrayOf<IEspActiveWorkunit>& aws, IEspActivityResponse& resp);
+    void addWUsToJobQueue(IEspContext &context, IEspActiveWorkunit& wu, IArrayOf<IEspWUsOnJobQueue>& awsOnJobQueues);
 
     void getStatusServerInfo(IEspContext &context, const char *serverType, const char *serverName, const char *networkAddress, unsigned port, IEspStatusServerInfo& statusServerInfo);
     void setTargetClusterInfo(IEspContext &context, const char *serverType, const char *serverName, const CIArrayOf<CWsSMCTargetCluster>& targetClusters,

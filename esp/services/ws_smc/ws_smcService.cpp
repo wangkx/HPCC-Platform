@@ -1137,11 +1137,16 @@ CActivityInfo* CWsSMCEx::getActivityInfo(IEspContext &context)
 
 void CWsSMCEx::addWUsToResponse(IEspContext &context, const IArrayOf<IEspActiveWorkunit>& aws, IEspActivityResponse& resp)
 {
+    double version = context.getClientVersion();
     const char* user = context.queryUserId();
     IArrayOf<IEspActiveWorkunit> awsReturned;
+    IArrayOf<IEspWUsOnJobQueue> awsOnJobQueues;
     ForEachItemIn(i, aws)
     {
         IEspActiveWorkunit& wu = aws.item(i);
+        if (version >= 1.20)
+            addWUsToJobQueue(context, wu, awsOnJobQueues);
+
         const char* wuid = wu.getWuid();
         if (wuid[0] == 'D')//DFU WU
         {
@@ -1178,7 +1183,63 @@ void CWsSMCEx::addWUsToResponse(IEspContext &context, const IArrayOf<IEspActiveW
         }
     }
     resp.setRunning(awsReturned);
+    resp.setWUsOnJobQueues(awsOnJobQueues);
     return;
+}
+
+void CWsSMCEx::addWUsToJobQueue(IEspContext &context, IEspActiveWorkunit& wu, IArrayOf<IEspWUsOnJobQueue>& awsOnJobQueues)
+{
+    const char* wuid = wu.getWuid();
+    const char* queueNameStored = wu.getQueueName();
+    if (!queueNameStored || !*queueNameStored)
+    {
+        DBGLOG("No queue name found for <%s>", wuid);
+        return;
+    }
+
+    StringArray queues;
+    queues.appendListUniq(queueNameStored, ",");
+    const char* queueName = NULL;
+    if (queues.length() == 1)
+        queueName = queueNameStored;
+    else
+    {
+        StringBuffer cluster = wu.getClusterName();
+        cluster.append(".");
+
+        ForEachItemIn(q, queues)
+        {
+            const char *queue = queues.item(q);
+            if ((strlen(queue) > cluster.length()) && strnicmp(queue, cluster.str(), cluster.length()))
+            {
+                queueName = queue;
+                break;
+            }
+        }
+
+        if (!queueName || !*queueName)
+        {
+            DBGLOG("Invalid queue name <%s> found for <%s>", queueNameStored, wuid);
+            return;
+        }
+    }
+
+    ForEachItemIn(q, awsOnJobQueues)
+    {
+        IEspWUsOnJobQueue& queue = awsOnJobQueues.item(q);
+        if (strieq(queueName, queue.getQueueName()))
+        {
+            IArrayOf<IConstActiveWorkunit>& aws = queue.getWorkunits();
+            aws.append(*LINK(&wu));
+            return;
+        }
+    }
+
+    Owned<IEspWUsOnJobQueue> queue = createWUsOnJobQueue();
+    queue->setQueueName(queueName);
+    IArrayOf<IConstActiveWorkunit>& aws = queue->getWorkunits();
+    aws.append(*LINK(&wu));
+    awsOnJobQueues.append(*queue.getClear());
 }
 
 void CWsSMCEx::setActivityResponse(IEspContext &context, CActivityInfo* activityInfo, IEspActivityRequest &req, IEspActivityResponse& resp)
