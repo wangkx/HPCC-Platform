@@ -2901,7 +2901,8 @@ public:
                     if (0 == timeoutms)
                         conn->changeMode(RTM_LOCK_WRITE, 0, true); // 0 timeout, test and fail immediately if contention
                     else
-                        safeChangeModeWrite1(conn,queryLogicalName(),reload,timeoutms, superOwnerLock);
+                        safeChangeModeWrite(conn,queryLogicalName(),reload,timeoutms);
+                        //safeChangeModeWrite1(conn,queryLogicalName(),reload,timeoutms, superOwnerLock);
                 }
                 catch(IException *)
                 {
