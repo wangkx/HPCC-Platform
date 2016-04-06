@@ -551,7 +551,7 @@ int CHttpMessage::readContent()
             if(buflen > totallen)
                 buflen = (int)totallen;
         }
-        
+
         return 0;
     }
     return 0;
