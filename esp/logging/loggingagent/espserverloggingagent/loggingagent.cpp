@@ -354,7 +354,12 @@ void CESPServerLoggingAgent::filterLogContent(IEspUpdateLogRequestWrap* req)
                 if (group == ESPLCGESPContext)
                     originalContentTree.setown(req->getESPContext());
                 else if (group == ESPLCGUserContext)
-                    originalContentTree.setown(req->getUserContext());
+                {
+                    //originalContentTree.setown(req->getUserContext());
+                    originalContentTree.setown(createPTree("UserContext"));
+                    originalContentTree->addPropTree(req->getUserContext()->queryName(), createPTreeFromIPT(req->getUserContext()));
+
+                }
                 else if (group == ESPLCGUserReq)
                     originalContentTree.setown(req->getUserRequest());
                 else //group = ESPLCGUserResp
@@ -374,7 +379,8 @@ void CESPServerLoggingAgent::filterLogContent(IEspUpdateLogRequestWrap* req)
                     CESPLogContentGroupFilters& filtersGroup = groupFilters.item(i);
                     if (filtersGroup.getGroup() == group)
                     {
-                        if (group != ESPLCGESPContext)//For non ESPLCGESPContext, we want to keep the root of original tree.
+//                        if (group != ESPLCGESPContext)//For non ESPLCGESPContext, we want to keep the root of original tree.
+                        if ((group != ESPLCGESPContext) && (group != ESPLCGUserContext))
                             newContentTree = ensurePTree(newContentTree, originalContentTree->queryName());
                         filterLogContentTree(filtersGroup.getFilters(), originalContentTree, newContentTree, logContentEmpty);
                         hasFilters =  true;
