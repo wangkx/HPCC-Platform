@@ -910,7 +910,7 @@ const char* ParamInfo::getArrayImplType()
     if (m_arrayImplType)
         return m_arrayImplType->str();
 
-    if (isPrimitiveArray())
+    if (isPrimitiveArray() || isPrimitiveList())
     {
         char metatype[256];
         metatype[0] = 0;        
@@ -963,9 +963,11 @@ const char* ParamInfo::getArrayItemTag()
     const char *item_tag = getMetaString("item_tag", NULL);
     if (item_tag)
         return item_tag;
-    if (!(flags & PF_TEMPLATE) || !streq(templ, "ESParray"))
+    if (!(flags & PF_TEMPLATE) || (!streq(templ, "ESParray") && !streq(templ, "ESPlist")))
         return NULL;
     if (isEspStringArray())
+        return "Item";
+    if (isEspStringList())
         return "Item";
     return typname;
 }
@@ -1013,7 +1015,7 @@ void ParamInfo::write_esp_declaration()
     {
         if (getMetaInt("attach", 0))
             outf("\tSoapAttachString m_%s;\n", name);
-        else if (flags & PF_TEMPLATE && templ && !strcmp(templ, "ESParray"))
+        else if (flags & PF_TEMPLATE && templ && streq(templ, "ESParray"))
         {
             if (isEspStringArray())
                 //outf("\tSoapArrayParam<StringArray> m_%s;\n", name);
@@ -1022,6 +1024,15 @@ void ParamInfo::write_esp_declaration()
                 outf("\tSoapEnumArrayParam<C%s, CX%s, %sArray> m_%s;\n", typname, typname, typname, name);
             else
                 outf("\tSoapStructArrayParam<IConst%s, C%s> m_%s;\n", typname, typname, name);
+        }
+        else if (flags & PF_TEMPLATE && templ && streq(templ, "ESPlist"))
+        {
+            if (isEspStringList())
+                outf("\tSoapStringList m_%s;\n", name);
+            else if (kind==TK_ESPENUM)
+                outf("\tSoapEnumArrayParam<C%s, CX%s, %sArray> m_%s;\n", typname, typname, typname, name);
+            else
+                outf("\tSoapStructListParam<IConst%s, C%s> m_%s;\n", typname, typname, name);
         }
         else if (kind==TK_ESPSTRUCT)
             outf("\tSoapStruct<C%s, IConst%s> m_%s;\n", typname, typname, name);
@@ -1225,7 +1236,8 @@ void ParamInfo::write_esp_attr_method(const char *msgname, bool isSet, bool parN
         if (flags & PF_TEMPLATE)
         {
             // setXXX(IArrayOf<IEspXXX>);
-            if (templ && !strcmp(templ, "ESParray") && typname && !isEspStringArray() && kind!=TK_ESPENUM)
+            if (templ && (streq(templ, "ESParray") || streq(templ, "ESPlist")) && typname &&
+                !isEspStringArray() && !isEspStringList() && kind!=TK_ESPENUM)
             {
                 outs("void ");
                 if (!isDecl && msgname)
@@ -1279,7 +1291,7 @@ void ParamInfo::write_esp_attr_method(const char *msgname, bool isSet, bool parN
                 outf("C%s::", msgname);
             outf("set%s", methName);
             
-            if (templ && !strcmp(templ, "ESParray"))
+            if (templ && (streq(templ, "ESParray") || streq(templ, "ESPlist")))
             {
                 //if (isEspStringArray())
                 //  outf("(%s &val)", "StringArray");
@@ -1311,10 +1323,10 @@ void ParamInfo::write_esp_attr_method(const char *msgname, bool isSet, bool parN
             }
             else
             {
-                if (isPrimitiveArray())
+                if (isPrimitiveArray() || isPrimitiveList())
                 {
                     outf("{ ");
-                    if (isEspStringArray())
+                    if (isEspStringArray() || isEspStringList())
                         outf("m_%s->kill(); ",name); 
                     outf(" CloneArray(m_%s.getValue(), val); }\n", name); 
                 }
@@ -1672,7 +1684,7 @@ void ParamInfo::write_esp_param()
     {
         if (flags & PF_TEMPLATE)
         {
-            if (templ && !strcmp(templ, "ESParray"))
+            if (templ && (streq(templ, "ESParray") || streq(templ, "ESPlist")))
             {
                 /*if (isEspStringArray())
                     outf("StringArray &%s_", name);
@@ -1923,7 +1935,7 @@ void ParamInfo::write_esp_marshall(bool isRpc, bool encodeXml, bool checkVer, in
             indents++;
     }
 
-    if (!isEspArrayOf() && getMetaInt("encode_newlines", -1)!=-1)
+    if (!isEspArrayOf() && !isEspListOf() && getMetaInt("encode_newlines", -1)!=-1)
     {
         indent(indents);
         outf("m_%s.setEncodeNewlines(true);\n", name);
@@ -1935,7 +1947,7 @@ void ParamInfo::write_esp_marshall(bool isRpc, bool encodeXml, bool checkVer, in
     else
         outf("m_%s.toStr(ctx, buffer, ", name);
 
-    if (isEspArrayOf())
+    if (isEspArrayOf() || isEspListOf())
     {
         if (path)
             outf("\"%s\", \"%s\", \"%s\");\n", tagname, getArrayItemTag(), path);
@@ -3524,9 +3536,9 @@ void EspMessageInfo::write_esp()
                 }
                 else if (pi->flags & PF_TEMPLATE)
                 {
-                    if (!strcmp(pi->templ, "ESParray"))
+                    if (streq(pi->templ, "ESParray") || streq(pi->templ, "ESPlist"))
                     {
-                        if (pi->isPrimitiveArray())
+                        if (pi->isPrimitiveArray() || pi->isPrimitiveList())
                         {
                             if (pi->getMetaString("item_tag",  NULL))
                                 complexity=inline_primitive_array;
@@ -3544,7 +3556,10 @@ void EspMessageInfo::write_esp()
                                 complexity=inline_array;
                             else {
                                 structArrays.insert(pi->typname);
-                                buffer.append("ArrayOf");                           
+                                //if (streq(pi->templ, "ESPlist"))
+                                //    buffer.append("ListOf");
+                                //else
+                                    buffer.append("ArrayOf");
                             }
                             buffer.append(pi->typname);
                         }
@@ -3853,7 +3868,7 @@ void EspMessageInfo::write_esp()
         
         else if (pi->flags & PF_TEMPLATE)
         {
-            if (strcmp(pi->templ, "ESParray")==0)
+            if (streq(pi->templ, "ESParray") || streq(pi->templ, "ESPlist"))
             {
                 if (pi->typname && strcmp(pi->typname, "string")!=0 && strcmp(pi->typname, "EspTextFile")!=0)
                     thisType = pi->typname;
@@ -4042,7 +4057,7 @@ void EspMessageInfo::write_esp()
                 indentOuts1(1,"extfix.append(prefix).append(\".\");\n");
                 indentOutf("extfix.append(\"%s\");\n", pi->name);
                 indentOutf("form.appendf(\"<tr><td><b>%s: </b></td><td>\");\n", label.str());
-                if (!pi->isEspStringArray())
+                if (!pi->isEspStringArray() && !pi->isEspStringList())
                 {
                     // handle default value
                     StrBuffer tmp;
@@ -4456,7 +4471,7 @@ void EspMessageInfo::write_esp()
         if (pi->flags & PF_TEMPLATE) // array
         {
             outf("\t{\n");
-            if (pi->isPrimitiveArray())
+            if (pi->isPrimitiveArray() || pi->isPrimitiveList())
             {
                 const char *item_tag = pi->getMetaString("item_tag", "Item");
                 const char *type = pi->getArrayImplType();
@@ -4655,7 +4670,7 @@ void EspMessageInfo::write_esp()
         {
             indentOutf("{\n");
             indentInc(1);
-            if (pi->isPrimitiveArray())
+            if (pi->isPrimitiveArray() || pi->isPrimitiveList())
             {
                 const char *item_tag = pi->getMetaString("item_tag", "Item");
                 const char *type = pi->getArrayImplType();

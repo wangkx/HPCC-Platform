@@ -739,6 +739,83 @@ SoapValueArray* CSoapValue::get_valuearray(const char* path)
     return NULL;
 }
 
+void CSoapValue::get_valuearray(const char* path, SoapValueArray& sva)
+{
+    if(!path || !*path || *path=='.')
+    {
+        Owned<CSoapValue> newSV = new CSoapValue(this);
+        sva.append(*newSV.getClear());
+        return;
+    }
+    if(m_children.ordinality() == 0)
+        return;
+
+    const char* slash = strchr(path, '/');
+    StringBuffer childname;
+    const char* nextname = NULL;
+
+    int childind = -1;
+
+    if(slash == NULL)
+    {
+        const char* lbracket = strchr(path, '[');
+        if(lbracket == NULL)
+        {
+            childname.append(path);
+        }
+        else
+        {
+            const char* rbracket = strchr(path, ']');
+            char* indexbuf = new char[rbracket - lbracket];
+            int i = 0;
+            for(i = 0; i < rbracket - lbracket - 1; i++)
+                indexbuf[i] = lbracket[i + 1];
+            indexbuf[i] = 0;
+            childind = atoi(indexbuf);
+            delete[] indexbuf;
+            childname.append(path, 0, lbracket - path);
+        }
+    }
+    else
+    {
+        const char* lbracket = strchr(path, '[');
+        if(lbracket != NULL && lbracket < slash)
+        {
+            const char* rbracket = strchr(path, ']');
+            char* indexbuf = new char[rbracket - lbracket];
+            int len = rbracket - lbracket - 1;
+            for(int i = 0; i < len; i++)
+                indexbuf[i] = lbracket[i+1];
+            indexbuf[len] = 0;
+            childind = atoi(indexbuf);
+            delete[] indexbuf;
+            childname.append(path, 0, lbracket - path);
+        }
+        else
+        {
+            childname.append(path, 0, slash - path);
+        }
+        nextname = slash + 1;
+    }
+
+    ForEachItemIn(x, m_children)
+    {
+        CSoapValue& onechild = m_children.item(x);
+        if (!nextname)
+        {
+            if(!strcmp(onechild.m_name.get(), childname.str()))
+            {
+                Owned<CSoapValue> newSV = new CSoapValue(&onechild);
+                sva.append(*newSV.getClear());
+            }
+        }
+        else
+        {
+            if(!strcmp(onechild.m_name.get(), childname.str()))
+                return onechild.get_valuearray(nextname, sva);
+        }
+    }
+}
 
 bool CSoapValue::get_value(const char* path, StringAttr& value)
 {

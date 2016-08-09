@@ -631,6 +631,9 @@ Esdl2Array::Esdl2Array(Esdl2Transformer *xformer, IEsdlDefObject *def) : Esdl2Ba
     type_unknown=false;
     inited=false;
 
+    IEsdlDefArray* defArray = dynamic_cast<IEsdlDefArray*>(def);
+    isList = defArray->checkIsList();
+
     const char *atype = def->queryProp("type");
     if (atype)
     {
@@ -696,6 +699,18 @@ void Esdl2Array::process(Esdl2TransformerContext &ctx, IPropertyTree *pt, const 
             esdl_type->process(ctx, item_tag.get(), local, count_output);
         else
             output_content(ctx, item_tag.get());
+
+        if (ctx.writer->length() != curlen && count)
+            ctx.counter++;
+    }
+    else if (isList)
+    {
+        int curlen = ctx.writer->length();
+        const char *tagname = queryOutputName(ctx);
+        if (esdl_type)
+            esdl_type->process(ctx, pt, tagname, NULL, count_output);
+        else
+            output_content(ctx, pt, tagname);
 
         if (ctx.writer->length() != curlen && count)
             ctx.counter++;
@@ -769,6 +784,18 @@ void Esdl2Array::process(Esdl2TransformerContext &ctx, const char *out_name, Esd
             esdl_type->process(ctx, item_tag.get(), local, count_output);
         else
             output_content(ctx, item_tag.get());
+
+        if (ctx.writer->length() != curlen && count)
+            ctx.counter++;
+    }
+    else if (isList)
+    {
+        int curlen = ctx.writer->length();
+        const char *tagname = queryOutputName(ctx);
+        if (esdl_type)
+            esdl_type->process(ctx, tagname, NULL, count_output);
+        else
+            output_content(ctx, tagname);
 
         if (ctx.writer->length() != curlen && count)
             ctx.counter++;
@@ -895,7 +922,17 @@ void Esdl2Struct::process(Esdl2TransformerContext &ctx, IPropertyTree *pt, const
             {
                 const char *tagname = child.queryInputName(ctx);
                 if (pt->hasProp(tagname)||child.hasDefaults())
-                    child.process(ctx, pt->queryPropTree(tagname), child.queryOutputName(ctx), &local, count);
+                {
+                    unsigned numChildren = pt->getCount(tagname);
+                    if (numChildren < 2)
+                        child.process(ctx, pt->queryPropTree(tagname), child.queryOutputName(ctx), &local, count);
+                    else
+                    {
+                        Owned<IPropertyTreeIterator> iter = pt->getElements(tagname);
+                        ForEach(*iter)
+                            child.process(ctx, &iter->query(), child.queryOutputName(ctx), &local, count);
+                    }
+                }
             }
         }
 

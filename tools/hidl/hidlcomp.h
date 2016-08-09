@@ -478,6 +478,31 @@ public:
         return false;
     }
 
+    bool isEspListOf(const char *elem_type=NULL, bool def=true)
+    {
+        if (flags & PF_TEMPLATE && !strcmp(templ, "ESPlist"))
+        {
+            if (!elem_type || !typname)
+                return def;
+            return (!strcmp(typname, elem_type));
+        }
+        return false;
+    }
+
+    bool isEspStringList()
+    {
+        if (flags & PF_TEMPLATE && !strcmp(templ, "ESPlist"))
+            return (!typname||!strcmp(typname, "string")||!strcmp(typname, "EspTextFile"));
+        return false;
+    }
+
+    bool isPrimitiveList()
+    {
+        if (flags & PF_TEMPLATE && !strcmp(templ, "ESPlist"))
+            return (kind != TK_STRUCT && kind != TK_null && kind != TK_ESPENUM && kind != TK_ESPSTRUCT) || !typname;
+        return false;
+    }
+
     type_kind getArrayItemType() 
     {
         assert(isPrimitiveArray());

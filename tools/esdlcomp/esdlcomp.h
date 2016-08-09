@@ -562,6 +562,15 @@ public:
                 mtag->toStringXmlAttr(out);
             }
         }
+        else if (flags & PF_TEMPLATE && !strcmp(templ, "ESPlist"))
+        {
+            out.appendf("\t\t<EsdlList name='%s' ", name);
+            toStringXmlAttr(out);
+            for (MetaTagInfo *mtag=tags; mtag; mtag=mtag->next)
+            {
+                mtag->toStringXmlAttr(out);
+            }
+        }
         else if (kind==TK_ENUM)
         {
             out.appendf("\t\t<EsdlEnumItem name='%s'", name);

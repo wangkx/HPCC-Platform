@@ -310,6 +310,7 @@ class Esdl2Array : public Esdl2Base
 
     bool inited;
     bool type_unknown;
+    bool isList;
 public:
     Esdl2Array(Esdl2Transformer *xformer, IEsdlDefObject *def);
     virtual ~Esdl2Array(){}

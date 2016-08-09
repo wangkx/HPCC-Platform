@@ -536,6 +536,8 @@
                     <xsl:with-param name="fieldId" select="$fieldId"/>
                     <xsl:with-param name="value" select="$node/@default"/>
                     <xsl:with-param name="annot" select="$node/xsd:annotation/xsd:appinfo/form"/>
+                    <xsl:with-param name="name" select="$node/@name"/>
+                    <xsl:with-param name="maxOccurs" select="$node/@maxOccurs"/>
                 </xsl:call-template>
             </xsl:when>
             <xsl:when test="starts-with($type, 'tns:ArrayOf')">
@@ -545,7 +547,7 @@
                 <xsl:text disable-output-escaping="yes"><![CDATA[","]]></xsl:text>
                 <xsl:value-of select="$stype"/>
                 <xsl:text disable-output-escaping="yes"><![CDATA[","]]></xsl:text>
-                <xsl:value-of select="$stype"/>
+                <xsl:value-of select="$node/@name"/>
                 <xsl:text disable-output-escaping="yes"><![CDATA[")+"]]></xsl:text>
             </xsl:when>
             <xsl:when test=" starts-with($type, 'tns:Esp') and substring($type, string-length($type)-4) = 'Array' and $useTextareaForStringArray">
@@ -594,6 +596,9 @@
             <xsl:when test="starts-with($type, 'tns:')">
                   <xsl:variable name="bareType" select="substring($type,5)"/>
                   <xsl:choose>
+<xsl:when test="$node/@maxOccurs='unbounded'">
+<xsl:value-of select="concat('&quot;+get_Array_Input(&quot;',$fieldId,'&quot;,&quot;',$bareType,'&quot;,&quot;',$node/@name,'&quot;)+&quot;')"/>
+</xsl:when>
                     <xsl:when test="$schemaRoot/xsd:complexType[@name=$bareType]/xsd:all/xsd:element">
                         <xsl:call-template name="GenEspStructHtmlTable">
                             <xsl:with-param name="nodes" select="($schemaRoot/xsd:complexType[@name=$bareType]/xsd:all/xsd:element) | ($schemaRoot/xsd:complexType[@name=$bareType]/xsd:attribute)"/>
@@ -982,9 +987,62 @@
         <xsl:param name="fieldId"/>
         <xsl:param name="value"/>
         <xsl:param name="annot"/>
+        <xsl:param name="name"/>
+        <xsl:param name="maxOccurs"/>
         <xsl:choose>
             <!-- string -->
             <xsl:when test="$typeName='string'">
+                <xsl:choose>
+                    <xsl:when test="$maxOccurs='unbounded'">
+                        <xsl:if test="$useTextareaForStringArray">
+	                    <xsl:variable name="inputCols">
+                		<xsl:choose>
+                                    <xsl:when test="$annot/@formCols">
+                			<xsl:value-of select="$annot/@formCols"/>
+                	            </xsl:when>
+                      		    <xsl:when test="$typeName='string'">50</xsl:when>
+			<xsl:otherwise>10</xsl:otherwise>
+		</xsl:choose>
+	</xsl:variable>
+	<xsl:variable name="inputRows">
+		<xsl:choose>
+			<xsl:when test="$annot/@formRows">
+				<xsl:value-of select="$annot/@formRows"/>
+			</xsl:when>
+			<xsl:otherwise>5</xsl:otherwise>
+		</xsl:choose>
+	</xsl:variable>
+	<xsl:text disable-output-escaping="yes"><![CDATA[<textarea name=']]></xsl:text>
+	<xsl:value-of select="$fieldId"/>
+	<xsl:text disable-output-escaping="yes"><![CDATA[' id=']]></xsl:text>
+	<xsl:value-of select="$fieldId"/>
+	<xsl:text disable-output-escaping="yes"><![CDATA[' cols=']]></xsl:text>
+	<xsl:value-of select="$inputCols"/>
+	<xsl:text disable-output-escaping="yes"><![CDATA[' rows=']]></xsl:text>
+	<xsl:value-of select="$inputRows"/>
+	<xsl:text disable-output-escaping="yes"><![CDATA[' >]]></xsl:text>
+	<xsl:if test="$set_ctrl_value">
+		<xsl:choose>
+			<xsl:when test="$typeName='string'">
+				<xsl:text disable-output-escaping="yes">esp string array value 1\nesp string array value 2</xsl:text>
+			</xsl:when>
+			<xsl:otherwise>1234\n5678</xsl:otherwise>
+		</xsl:choose>
+	</xsl:if>
+	<xsl:text disable-output-escaping="yes"><![CDATA[</textarea>]]></xsl:text>
+</xsl:if>
+<xsl:if test="not($useTextareaForStringArray)">
+	<!-- new way  -->
+	<xsl:text disable-output-escaping="yes"><![CDATA["+get_Array_Input("]]></xsl:text>
+	<xsl:value-of select="$fieldId"/>
+	<xsl:text disable-output-escaping="yes"><![CDATA[","]]></xsl:text>
+	<xsl:value-of select="'XsdArray'"/>
+	<xsl:text disable-output-escaping="yes"><![CDATA[","]]></xsl:text>
+	<xsl:value-of select="$name"/>
+	<xsl:text disable-output-escaping="yes"><![CDATA[")+"]]></xsl:text>
+</xsl:if>
+</xsl:when>
+<xsl:otherwise>
                 <xsl:variable name="inputRows">
                     <xsl:choose>
                         <xsl:when test="$annot/@formRows">
@@ -1054,6 +1112,8 @@
                     </xsl:otherwise>
                     <!-- -->
                 </xsl:choose>
+</xsl:otherwise>
+</xsl:choose>
             </xsl:when>
             <!-- numbers -->
             <xsl:when test="$typeName='int' or $typeName='integer' or $typeName='short' or $typeName = 'long' or $typeName='unsignedInt' or $typeName='nonPositiveInteger' or $typeName='negative' or  $typeName='nonNegativeInteger' or $typeName='positiveInteger' or $typeName='imsignedShort' or $typeName='unsignedLong' or $typeName = 'long' or $typeName='byte' or $typeName='unsignedByte' or $typeName='double' or $typeName='float' ">
