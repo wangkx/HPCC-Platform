@@ -32,6 +32,255 @@
 #define UFO_RELOAD_MAPPED_QUERIES                0x04
 #define UFO_REMOVE_QUERIES_NOT_IN_QUERYSET       0x08
 
+//-------------------------------------------------------------
+#if 0
+struct CSVOptions
+{
+    StringAttr delimiter, terminator, quote, escape;
+};
+
+class CCSVRow;
+class CCSVItem : public CInterface
+{
+    StringAttr value;
+    CIArrayOf<CCSVRow> nestedItem;
+    bool isNestedItem;
+public:
+    CCSVItem() { };
+
+    IMPLEMENT_IINTERFACE;
+    const char* getValue() { return value.get(); };
+    void setValue(const char* _value) { value.set(_value); isNestedItem = false; };
+    CIArrayOf<CCSVRow>& getNestedItem() { return nestedItem; };
+    void appendNestedItem(Owned<CCSVRow> row)
+    {
+        nestedItem.append(*row.getClear());
+        isNestedItem = true;
+    };
+    bool getIsNestedItem() { return isNestedItem; };
+};
+
+class CCSVRow : public CInterface
+{
+    CSVOptions& csvOptions;
+    StringBuffer buf;
+    StringArray  columns;
+    unsigned rowID, parentRowID, columnCount;
+    CIArrayOf<CCSVItem> items;
+public:
+    CCSVRow(unsigned _rowID, CSVOptions& _options)
+        : rowID(_rowID), csvOptions(_options), columnCount(0) { };
+
+    IMPLEMENT_IINTERFACE;
+
+    unsigned getColumnCount() { return columnCount; };
+    unsigned getRowID() { return rowID; };
+    unsigned getParentRowID() { return parentRowID; };
+    const char* getColumn(unsigned column)
+    {
+        return column < columns.length() ? columns.item(column) : "";
+    }
+
+    const char* getRow() { return buf.str(); };
+    void appendNDelimiter(unsigned n)
+    {
+        for (unsigned i = 0; i < n; i++)
+            buf.append(csvOptions.delimiter.get());
+    };
+    void addColumn(const char* value)
+    {
+        if (columnCount > 0)
+            buf.append(csvOptions.delimiter.get());
+        if (value && *value)
+            buf.append(value);
+        columnCount++;
+    };
+    void addColumnToArray(__int64 value)
+    {
+        StringBuffer s;
+        s.append(value);
+        columns.append(s.str());
+        columnCount++;
+    };
+    void addColumnToArray(unsigned __int64 value)
+    {
+        StringBuffer s;
+        s.append(value);
+        columns.append(s.str());
+        columnCount++;
+    };
+    void addColumnToArray(const char* value)
+    {
+        StringBuffer s;
+        if (value && *value)
+            s.append(value);
+        columns.append(s.str());
+        columnCount++;
+    };
+    void addColumnToArray(unsigned len, const char* value)
+    {
+        StringBuffer s;
+        if (len > 0)
+            s.append(len, value);
+        columns.append(s.str());
+        columnCount++;
+    };
+    void copyColumnToArray(const char* value)
+    {
+        StringBuffer s;
+        if (value && *value)
+            s.append(value);
+        columns.append(s.str());
+        columnCount++;
+    };
+    void appendCSV(StringBuffer& out)
+    {
+        for (unsigned i = 0; i < columnCount; i++)
+        {
+            if (i > 0)
+                out.append(csvOptions.delimiter.get());
+            out.append(columns.item(i));
+        }
+    };
+};
+
+class CommonCSVWriter: implements IXmlWriterExt, public CInterface
+{
+public:
+    CommonCSVWriter(unsigned _flags, CSVOptions& _options, IXmlStreamFlusher *_flusher = NULL);
+    ~CommonCSVWriter();
+
+    IMPLEMENT_IINTERFACE;
+
+    //IXmlWriter
+    virtual void outputQuoted(const char *text)
+    {
+        //Unimplemented;
+    };
+    virtual void outputString(unsigned len, const char *field, const char *fieldname)
+    {
+        //Unimplemented;
+    };
+    virtual void outputBool(bool field, const char *fieldname)
+    {
+        //Unimplemented;
+    };
+    virtual void outputData(unsigned len, const void *field, const char *fieldname)
+    {
+        //Unimplemented;
+    };
+    virtual void outputInt(__int64 field, unsigned size, const char *fieldname)
+    {
+        //Unimplemented;
+    };
+    virtual void outputUInt(unsigned __int64 field, unsigned size, const char *fieldname)
+    {
+        //Unimplemented;
+    };
+    virtual void outputReal(double field, const char *fieldname)
+    {
+        //Unimplemented;
+    };
+    virtual void outputDecimal(const void *field, unsigned size, unsigned precision, const char *fieldname)
+    {
+        //Unimplemented;
+    };
+    virtual void outputUDecimal(const void *field, unsigned size, unsigned precision, const char *fieldname)
+    {
+        //Unimplemented;
+    };
+    virtual void outputUnicode(unsigned len, const UChar *field, const char *fieldname)
+    {
+        //Unimplemented;
+    };
+    virtual void outputQString(unsigned len, const char *field, const char *fieldname)
+    {
+        //Unimplemented;
+    };
+    virtual void outputBeginDataset(const char *dsname, bool nestChildren)
+    {
+        //Unimplemented;
+    };
+    virtual void outputEndDataset(const char *dsname)
+    {
+        //Unimplemented;
+    };
+    virtual void outputBeginNested(const char *fieldname, bool nestChildren)
+    {
+        //Unimplemented;
+    };
+    virtual void outputEndNested(const char *fieldname)
+    {
+        //Unimplemented;
+    };
+    virtual void outputSetAll()
+    {
+        //Unimplemented;
+    };
+    virtual void outputUtf8(unsigned len, const char *field, const char *fieldname)
+    {
+        //Unimplemented;
+    };
+    virtual void outputBeginArray(const char *fieldname)
+    {
+        //Unimplemented;
+    };
+    virtual void outputEndArray(const char *fieldname)
+    {
+        //Unimplemented;
+    };
+    virtual void outputInlineXml(const char *text)//for appending raw xml content
+    {
+        //Unimplemented;
+    };
+    virtual void outputXmlns(const char *name, const char *uri)
+    {
+        //Unimplemented;
+    };
+    inline void outputCString(const char *field, const char *fieldname)
+    { outputString((size32_t)strlen(field), field, fieldname); }
+
+    //IXmlWriterExt
+    virtual IXmlWriterExt& clear()
+    {
+        out.clear();
+        return *this;
+    };
+    virtual unsigned length() const                                 { return out.length(); }
+    virtual const char * str() const                                { return out.str(); }
+/*    virtual size32_t length()
+    {
+        //Unimplemented;
+        return 0;
+    };
+    virtual const char *str()
+    {
+        //Unimplemented;
+        return NULL;
+    };*/
+    virtual void rewindTo(IInterface *location)
+    {
+        //Unimplemented;
+    };
+    virtual IInterface *saveLocation() const
+    {
+        if (flusher)
+            throwUnexpected();
+        //Unimplemented;
+        return NULL;
+    };
+    virtual void outputNumericString(const char *field, const char *fieldname)
+    {
+        //Unimplemented;
+    };
+
+protected:
+    IXmlStreamFlusher *flusher;
+    StringBuffer out;
+    unsigned flags, currentRow, currentColumn;
+};
+#endif
+//-------------------------------------------------------------
 class QueryFilesInUse : public CInterface, implements ISDSSubscription
 {
     mutable CriticalSection crit;

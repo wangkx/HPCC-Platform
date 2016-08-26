@@ -24,6 +24,119 @@
 #include "deftype.hpp"
 #include "rtlbcd.hpp"
 
+CommonCSVWriter::CommonCSVWriter(unsigned _flags, CSVOptions& _options, IXmlStreamFlusher *_flusher)
+{
+    flusher = _flusher;
+    flags = _flags;
+
+    options.terminator.set(_options.terminator.get());
+    options.delimiter.set(_options.delimiter.get());
+
+    recordCount = rowCount = columnID = 0;
+    nestedHeaderLayerID = nestedContentLayerID = 0;
+    headerDone = false;
+    addingSimpleNested = false;
+}
+
+CommonCSVWriter::~CommonCSVWriter()
+{
+    flush(true);
+}
+
+void CommonCSVWriter::outputDecimal(const void* field, unsigned size, unsigned precision, const char* fieldName)
+{
+#ifdef ONE_RECORD_TEST
+    if (recordCount > 1)
+        return;
+#endif
+    if (!foundHeader(fieldName))
+        return;
+
+    StringBuffer v;
+    char dec[50];
+    BcdCriticalBlock bcdBlock;
+    if (DecValid(true, size*2-1, field))
+    {
+        DecPushDecimal(field, size, precision);
+        DecPopCString(sizeof(dec), dec);
+        const char *finger = dec;
+        while(isspace(*finger)) finger++;
+        v.append(finger);
+    }
+    addContentField(v.str(), fieldName);
+}
+
+void CommonCSVWriter::outputUDecimal(const void* field, unsigned size, unsigned precision, const char* fieldName)
+{
+#ifdef ONE_RECORD_TEST
+    if (recordCount > 1)
+        return;
+#endif
+    if (!foundHeader(fieldName))
+        return;
+
+    StringBuffer v;
+    char dec[50];
+    BcdCriticalBlock bcdBlock;
+    if (DecValid(false, size*2, field))
+    {
+        DecPushUDecimal(field, size, precision);
+        DecPopCString(sizeof(dec), dec);
+        const char *finger = dec;
+        while(isspace(*finger)) finger++;
+        v.append(finger);
+    }
+    addContentField(v.str(), fieldName);
+}
+
+void CommonCSVWriter::outputUnicode(unsigned len, const UChar* field, const char* fieldName)
+{
+#ifdef ONE_RECORD_TEST
+    if (recordCount > 1)
+        return;
+#endif
+    if (!foundHeader(fieldName))
+        return;
+
+    StringBuffer v;
+    char * buff = 0;
+    unsigned bufflen = 0;
+    rtlUnicodeToCodepageX(bufflen, buff, len, field, "utf-8");
+    addStringField(bufflen, buff, fieldName);
+    rtlFree(buff);
+}
+
+void CommonCSVWriter::outputQString(unsigned len, const char* field, const char* fieldName)
+{
+#ifdef ONE_RECORD_TEST
+    if (recordCount > 1)
+        return;
+#endif
+    if (!foundHeader(fieldName))
+        return;
+
+    MemoryAttr tempBuffer;
+    char * temp;
+    if (len <= 100)
+        temp = (char *)alloca(len);
+    else
+        temp = (char *)tempBuffer.allocate(len);
+    rtlQStrToStr(len, temp, len, field);
+    addStringField(len, temp, fieldName);
+}
+
+void CommonCSVWriter::outputUtf8(unsigned len, const char* field, const char* fieldName)
+{
+#ifdef ONE_RECORD_TEST
+    if (recordCount > 1)
+        return;
+#endif
+    if (!foundHeader(fieldName))
+        return;
+
+    addStringField(rtlUtf8Size(len, field), field, fieldName);
+}
+
 CommonXmlWriter::CommonXmlWriter(unsigned _flags, unsigned initialIndent, IXmlStreamFlusher *_flusher) 
 {
     flusher = _flusher;

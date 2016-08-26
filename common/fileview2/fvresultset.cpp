@@ -1532,6 +1532,7 @@ void CResultSetCursor::writeXmlText(IXmlWriter &writer, int columnIndex, const c
     switch (flags)
     {
     case FVFFblob:
+        DBGLOG("writeXmlText: -> outputCString <%s>", name);
         writer.outputCString("[blob]", name);
         return;
     case FVFFbeginif:
@@ -1541,6 +1542,7 @@ void CResultSetCursor::writeXmlText(IXmlWriter &writer, int columnIndex, const c
         {
             if (name && *name)
             {
+                DBGLOG("writeXmlText: -> outputBeginNested <%s>", name);
                 writer.outputBeginNested(name, false);
                 const IntArray &attributes = meta.meta->queryAttrList(columnIndex);
                 ForEachItemIn(ac, attributes)
@@ -1550,7 +1552,10 @@ void CResultSetCursor::writeXmlText(IXmlWriter &writer, int columnIndex, const c
         return;
     case FVFFendrecord:
         if (name && *name)
+        {
+            DBGLOG("writeXmlText: -> outputEndNested <%s>", name);
             writer.outputEndNested(name);
+        }
         return;
     }
 
@@ -1569,6 +1574,7 @@ void CResultSetCursor::writeXmlText(IXmlWriter &writer, int columnIndex, const c
     case type_int:
         {
             __int64 value = getIntFromInt(type, cur, isMappedIndexField(columnIndex));
+            DBGLOG("writeXmlText: -> type_int <%s><%" I64F "d>", name, value);
             if (type.isSigned())
                 writer.outputInt((__int64) value, type.getSize(), name);
             else
@@ -1619,15 +1625,24 @@ void CResultSetCursor::writeXmlText(IXmlWriter &writer, int columnIndex, const c
         {
             rtlEStrToStrX(resultLen, resultStr, len, (const char *)cur);
             writer.outputString(resultLen, resultStr, name);
+            StringBuffer value0;
+            value0.append(resultLen, resultStr);
+            DBGLOG("writeXmlText: -> type_string <%s><%s>", name, value0.str());
         }
         else
+        {
             writer.outputString(len, (const char *)cur, name);
+            StringBuffer value0;
+            value0.append(len, (const char *)cur);
+            DBGLOG("writeXmlText: -> type_string <%s><%s>", name, value0.str());
+        }
         break;
     case type_unicode:
         len = getLength(type, cur);
         writer.outputUnicode(len, (UChar const *)cur, name);
         break;
     case type_varstring:
+        DBGLOG("writeXmlText: -> type_varstring <%s>", name);
         if (meta.isEBCDIC(columnIndex))
         {
             rtlStrToEStrX(resultLen, resultStr, strlen((const char *)cur), (const char *)cur);
@@ -1646,6 +1661,7 @@ void CResultSetCursor::writeXmlText(IXmlWriter &writer, int columnIndex, const c
     case type_table:
     case type_groupedtable:
         {
+            DBGLOG("writeXmlText: -> outputBeginNested <%s>", name);
             writer.outputBeginNested(name, false);
             Owned<IResultSetCursor> childCursor = getChildren(columnIndex);
             childCursor->beginWriteXmlRows(writer);
@@ -1653,10 +1669,12 @@ void CResultSetCursor::writeXmlText(IXmlWriter &writer, int columnIndex, const c
                 childCursor->writeXmlRow(writer);
             childCursor->endWriteXmlRows(writer);
             writer.outputEndNested(name);
+            DBGLOG("writeXmlText: -> outputEndNested <%s>", name);
         }
         break;
     case type_set:
         {
+            DBGLOG("writeXmlText: -> type_set <%s>", name);
             writer.outputBeginNested(name, false);
             if (getIsAll(columnIndex))
                 writer.outputSetAll();
@@ -1710,14 +1728,20 @@ void CResultSetCursor::beginWriteXmlRows(IXmlWriter & writer)
 {
     const char *rowtag = meta.meta->queryXmlTag();
     if (rowtag && *rowtag)
+    {
+        DBGLOG("beginWriteXmlRows:<%s> -> outputBeginArray", rowtag);
         writer.outputBeginArray(rowtag);
+    }
 }
 
 void CResultSetCursor::endWriteXmlRows(IXmlWriter & writer)
 {
     const char *rowtag = meta.meta->queryXmlTag();
     if (rowtag && *rowtag)
+    {
+        DBGLOG("endWriteXmlRows:<%s> -> outputEndArray", rowtag);
         writer.outputEndArray(rowtag);
+    }
 }
 
 void CResultSetCursor::writeXmlRow(IXmlWriter &writer)
@@ -1726,10 +1750,14 @@ void CResultSetCursor::writeXmlRow(IXmlWriter &writer)
     const char *rowtag = meta.meta->queryXmlTag();
     if (rowtag && *rowtag)
     {
+        DBGLOG("writeXmlRow:<%s> -> outputBeginNested", rowtag);
         writer.outputBeginNested(rowtag, false);
         const IntArray &attributes = meta.meta->queryAttrList();
         ForEachItemIn(ac, attributes)
+        {
+                DBGLOG("writeXmlRow: attributes -> writeXmlText");
             writeXmlText(writer, attributes.item(ac), NULL);
+        }
     }
     unsigned numColumns = meta.getColumnCount();
     unsigned ignoreNesting = 0;
@@ -1753,13 +1781,19 @@ void CResultSetCursor::writeXmlRow(IXmlWriter &writer)
             if (ignoreNesting)
                 ignoreNesting++;
             else
+            {
+                DBGLOG("writeXmlRow: FVFFbeginrecord -> writeXmlText");
                 writeXmlText(writer, col);
+            }
             break;
         case FVFFendrecord:
             if (ignoreNesting)
                 ignoreNesting--;
             else
+            {
+                DBGLOG("writeXmlRow: FVFFendrecord -> writeXmlText");
                 writeXmlText(writer, col);
+            }
             break;
         case FVFFnone:
         case FVFFvirtual:
@@ -1767,12 +1801,16 @@ void CResultSetCursor::writeXmlRow(IXmlWriter &writer)
         case FVFFset:
         case FVFFblob:
             if (ignoreNesting == 0)
+            {
                 writeXmlText(writer, col);
+                DBGLOG("writeXmlRow: -> writeXmlText");
+            }
             break;
         }
     }
     assertex(ignoreNesting == 0);
     writer.outputEndNested(rowtag);
+    DBGLOG("writeXmlRow:<%s> -> outputEndNested", rowtag);
 }
 
 bool CResultSetCursor::isAfterLast() const

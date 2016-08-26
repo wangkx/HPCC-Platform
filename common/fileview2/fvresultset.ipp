@@ -97,6 +97,7 @@ public:
     virtual bool hasGetTranslation(int column) const;
     virtual IStringVal & getNaturalColumnLabel(IStringVal &s, int column) const;
     virtual bool isVirtual(int column) const;
+    //virtual byte getFlag(int column) const;
 
     void calcFieldOffsets(const byte * data, unsigned * offsets) const;
 
@@ -108,6 +109,8 @@ public:
 
     void getXmlSchema(ISchemaBuilder & builder, bool useXPath) const;
     unsigned queryColumnIndex(unsigned firstField, const char * fieldName) const;
+    inline CResultSetColumnInfo& getColumn(int column) const { return columns.item(column); };
+    inline IFvDataSourceMetaData* getMeta() const { return meta; };
 
 protected:
     IFvDataSourceMetaData * meta;

@@ -40,6 +40,11 @@
 #include "thorplugin.hpp"
 #include "roxiecontrol.hpp"
 
+#include "deftype.hpp"
+#include "thorxmlwrite.hpp"
+#include "fvdatasource.hpp"
+#include "fvresultset.ipp"
+
 #include "package.h"
 
 #ifdef _USE_ZLIB
@@ -2470,6 +2475,367 @@ bool CWsWorkunitsEx::onWULightWeightQuery(IEspContext &context, IEspWULightWeigh
     return true;
 }
 
+//------------------------------------------------------------------------------
+
+ITypeInfo * containsSingleSimpleFieldBlankXPath(IResultSetMetaData * meta)
+{
+    if (meta->getColumnCount() != 1)
+        return NULL;
+
+    CResultSetMetaData * castMeta = static_cast<CResultSetMetaData *>(meta);
+    const char * xpath = castMeta->queryXPath(0);
+    if (xpath && (*xpath == 0))
+    {
+        return castMeta->queryType(0);
+    }
+    return NULL;
+}
+
+void csvSplitXPath(const char *xpath, StringBuffer &s, const char *&name, const char **childname=NULL)
+{
+    if (!xpath)
+        return;
+    const char * slash = strchr(xpath, '/');
+    if (!slash)
+    {
+        name = xpath;
+        if (childname)
+            *childname = NULL;
+    }
+    else
+    {
+        if (!childname || strchr(slash+1, '/')) //output ignores xpaths that are too deep
+            return;
+        name = s.clear().append(slash-xpath, xpath).str();
+        *childname = slash+1;
+    }
+}
+
+//#define CSVHEADERBUILDER
+#ifdef CSVHEADERBUILDER
+//class CCSVHeaderBuilder : implements ISchemaBuilder
+class CCSVHeaderBuilder : public CInterface
+{
+public:
+    IMPLEMENT_IINTERFACE;
+
+    CCSVHeaderBuilder(CommonCSVWriter& _writer) : writer(_writer) { };
+
+    virtual void addField(const char * name, ITypeInfo & type, bool keyed);
+    virtual void addSetField(const char * name, const char * itemname, ITypeInfo & type);
+    virtual void beginIfBlock()                                     { optionalNesting++; }
+    virtual bool beginDataset(const char * name, const char * childname, bool hasMixedContent, unsigned *updateMixed);
+    virtual void beginRecord(const char * name, bool hasMixedContent, unsigned *updateMixed);
+    virtual void updateMixedRecord(unsigned updateToken, bool hasMixedContent);
+    virtual void endIfBlock()                                       { optionalNesting--; }
+    virtual void endDataset(const char * name, const char * childname);
+    virtual void endRecord(const char * name);
+    virtual bool addSingleFieldDataset(const char * name, const char * childname, ITypeInfo & type);
+
+private:
+    void clear();
+
+protected:
+    CommonCSVWriter& writer;
+    StringBufferArray  headers;
+    StringBufferArray attributes;
+    StringBuffer typesXml;
+    IntArray dataSizes;
+    IntArray stringSizes;
+    IntArray decimalSizes;
+    UnsignedArray nesting;
+    ICopyArray setTypes;
+    unsigned optionalNesting;  //TODO? remove
+    unsigned currectRow, currectColumn, headerRowCount, headerColumnCount;
+};
+
+void CCSVHeaderBuilder::clear()
+{
+    headers.kill();
+    dataSizes.kill();
+    stringSizes.kill();
+    decimalSizes.kill();
+    nesting.kill();
+    optionalNesting = 0;
+    currectRow = currectColumn = headerRowCount = headerColumnCount = 0;
+}
+
+void CCSVHeaderBuilder::beginRecord(const char * name, bool hasMixedContent, unsigned *updatePos)
+{
+    DBGLOG("beginRecord row:<%d>, name:<%s>", currectRow, name);
+    writer.outputBeginNested(name, false);
+}
+
+void CCSVHeaderBuilder::updateMixedRecord(unsigned updatePos, bool hasMixedContent)
+{
+    DBGLOG("updateMixedRecord???");
+}
+
+void CCSVHeaderBuilder::endRecord(const char * name)
+{
+    DBGLOG("endRecord row:<%d>, name:<%s>", currectRow, name);
+    writer.outputEndNested(name);
+}
+
+bool CCSVHeaderBuilder::beginDataset(const char * name, const char * childname, bool hasMixedContent, unsigned *updatePos)
+{
+    DBGLOG("beginDataset row:<%d>, name:<%s> childname<%s>", currectRow, name, childname);
+    writer.outputBeginNested(name, false);
+    currectRow++;
+    return true;
+}
+
+void CCSVHeaderBuilder::endDataset(const char * name, const char * childname)
+{
+    DBGLOG("endDataset row:<%d>, name:<%s> childname:<%s>", currectRow, name, childname);
+    currectRow--;
+    writer.outputEndNested(name);
+}
+
+bool CCSVHeaderBuilder::addSingleFieldDataset(const char * name, const char * childname, ITypeInfo & type)
+{
+    StringBuffer eclTypeName;
+    type.getECLType(eclTypeName);
+    DBGLOG("addSingleFieldDataset row:<%d>, name:<%s> childname:<%s> type<%s>", currectRow, name, childname, eclTypeName.str());
+    return true;
+}
+
+void CCSVHeaderBuilder::addField(const char * name, ITypeInfo & type, bool keyed)
+{
+    StringBuffer eclTypeName;
+    type.getECLType(eclTypeName);
+    DBGLOG("addField row:<%d>, name:<%s> type<%s>", currectRow, name, eclTypeName.str());
+    writer.outputCSVHeader(name, eclTypeName.str());
+}
+
+void CCSVHeaderBuilder::addSetField(const char * name, const char * itemname, ITypeInfo & type)
+{
+    StringBuffer eclTypeName;
+    type.getECLType(eclTypeName);
+    DBGLOG("addSetField row:<%d>, name:<%s> itemname:<%s> type<%s>", currectRow, name, itemname, eclTypeName.str());
+}
+
+void getCSVHeaders(const IResultSetMetaData& metaIn, CCSVHeaderBuilder& builder, bool useXPath)
+{
+    StringBuffer xname;
+    unsigned keyedCount = metaIn.getNumKeyedColumns();
+    const CResultSetMetaData& cMeta = static_cast<const CResultSetMetaData &>(metaIn);
+    IFvDataSourceMetaData* meta = cMeta.getMeta();
+
+    int columnCount = metaIn.getColumnCount();
+    for (unsigned idx = 0; idx < columnCount; idx++)
+    {
+        const CResultSetColumnInfo& column = cMeta.getColumn(idx);
+        unsigned flag = column.flag;
+        const char * name = meta->queryName(idx);
+        const char * childname = NULL;
+
+        switch (flag)
+        {
+        case FVFFbeginif:
+            builder.beginIfBlock();
+            break;
+        case FVFFendif:
+            builder.endIfBlock();
+            break;
+        case FVFFbeginrecord:
+            if (useXPath)
+                csvSplitXPath(meta->queryXPath(idx), xname, name);
+            builder.beginRecord(name, meta->mixedContent(idx), NULL);
+            break;
+        case FVFFendrecord:
+            if (useXPath)
+                csvSplitXPath(meta->queryXPath(idx), xname, name);
+            builder.endRecord(name);
+            break;
+        case FVFFdataset:
+            {
+                childname = "Row";
+                if (useXPath)
+                    csvSplitXPath(meta->queryXPath(idx), xname, name, &childname);
+                ITypeInfo * singleFieldType = (useXPath && name && *name && childname && *childname)
+                    ? containsSingleSimpleFieldBlankXPath(column.childMeta.get()) : NULL;
+                if (!singleFieldType || !builder.addSingleFieldDataset(name, childname, *singleFieldType))
+                {
+                    const CResultSetMetaData *childMeta = static_cast<const CResultSetMetaData *>(column.childMeta.get());
+                    if (builder.beginDataset(name, childname, childMeta->getMeta()->mixedContent(), NULL))
+                    {
+                        getCSVHeaders(*childMeta, builder, useXPath);
+                    }
+                    builder.endDataset(name, childname);
+                }
+                break;
+            }
+        case FVFFblob: //for now FileViewer will output the string "[blob]"
+            {
+                Owned<ITypeInfo> stringType = makeStringType(UNKNOWN_LENGTH, NULL, NULL);
+                if (useXPath)
+                    csvSplitXPath(meta->queryXPath(idx), xname, name);
+                builder.addField(name, *stringType, idx < keyedCount);
+            }
+            break;
+        default:
+            {
+                ITypeInfo & type = *column.type;
+                if (type.getTypeCode() == type_set)
+                {
+                    childname = "Item";
+                    if (useXPath)
+                        csvSplitXPath(meta->queryXPath(idx), xname, name, &childname);
+                    builder.addSetField(name, childname, type);
+                }
+                else
+                {
+                    if (useXPath)
+                        csvSplitXPath(meta->queryXPath(idx), xname, name);
+                    builder.addField(name, type, idx < keyedCount);
+                }
+                break;
+            }
+        }
+    }
+}
+
+unsigned getResultCSV(IStringVal& ret, INewResultSet* result, const char* name, __int64 start, unsigned& count)
+{
+    CSVOptions csvOptions;
+    csvOptions.delimiter.set(",");
+    csvOptions.terminator.set("\n");
+    csvOptions.includeHeader = true;
+    Owned<CommonCSVWriter> writer = new CommonCSVWriter(XWFtrim, csvOptions);
+    CCSVHeaderBuilder builder(*writer);
+
+    Owned<IResultSetCursor> cursor = result->createCursor();
+    const IResultSetMetaData & meta = cursor->queryResultSet()->getMetaData();
+    getCSVHeaders(meta, builder, true);
+    if (csvOptions.includeHeader)
+        writer->outputHeadersToBuffer();
+    writer->finishCSVHeaders();
+    count = writeResultCursorXml(*writer, cursor, name, start, count, NULL);
+    DBGLOG("debugStr<%s>", writer->debugStr());
+    DBGLOG("READ_CSV<%s>", writer->str());
+    ret.set(writer->str());
+    return count;
+}
+
+#else
+void getCSVHeaders(const IResultSetMetaData& metaIn, CommonCSVWriter* writer, unsigned& layer)
+{
+    StringBuffer xname;
+    unsigned keyedCount = metaIn.getNumKeyedColumns();
+    const CResultSetMetaData& cMeta = static_cast<const CResultSetMetaData &>(metaIn);
+    IFvDataSourceMetaData* meta = cMeta.getMeta();
+
+    int columnCount = metaIn.getColumnCount();
+    for (unsigned idx = 0; idx < columnCount; idx++)
+    {
+        const CResultSetColumnInfo& column = cMeta.getColumn(idx);
+        unsigned flag = column.flag;
+        const char * name = meta->queryName(idx);
+        const char * childname = NULL;
+
+        switch (flag)
+        {
+        case FVFFbeginif:
+        case FVFFendif:
+            break;
+        case FVFFbeginrecord:
+            csvSplitXPath(meta->queryXPath(idx), xname, name);
+            DBGLOG("FVFFbeginrecord: header layer<%d> name:<%s>", layer, name);
+            writer->outputBeginNested(name, false);
+            break;
+        case FVFFendrecord:
+            csvSplitXPath(meta->queryXPath(idx), xname, name);
+            DBGLOG("FVFFendrecord: header layer<%d> name:<%s>", layer, name);
+            writer->outputEndNested(name);
+            break;
+        case FVFFdataset:
+            {
+                childname = "Row";
+                csvSplitXPath(meta->queryXPath(idx), xname, name, &childname);
+                ITypeInfo* singleFieldType = (name && *name && childname && *childname)
+                    ? containsSingleSimpleFieldBlankXPath(column.childMeta.get()) : NULL;
+                if (!singleFieldType)
+                {
+                    DBGLOG("outputBeginNested: header layer<%d> name:<%s>", layer, name);
+                    writer->outputBeginNested(name, false);
+
+                    const CResultSetMetaData *childMeta = static_cast<const CResultSetMetaData *>(column.childMeta.get());
+                    getCSVHeaders(*childMeta, writer, ++layer);
+                    layer--;
+
+                    DBGLOG("outputEndNested: header layer<%d> name:<%s>", layer, name);
+                    writer->outputEndNested(name);
+                }
+                break;
+            }
+        case FVFFblob: //for now FileViewer will output the string "[blob]"
+            {
+                Owned<ITypeInfo> stringType = makeStringType(UNKNOWN_LENGTH, NULL, NULL);
+                csvSplitXPath(meta->queryXPath(idx), xname, name);
+
+                StringBuffer eclTypeName;
+                stringType->getECLType(eclTypeName);
+                DBGLOG("outputCSVHeader: header layer<%d> name:<%s>", layer, name);
+                writer->outputCSVHeader(name, eclTypeName.str());
+            }
+            break;
+        default:
+            {
+                ITypeInfo & type = *column.type;
+                StringBuffer eclTypeName;
+                type.getECLType(eclTypeName);
+
+                if (type.getTypeCode() == type_set)
+                {
+                    childname = "Item";
+                    csvSplitXPath(meta->queryXPath(idx), xname, name, &childname);
+
+                    DBGLOG("outputBeginNested: header layer<%d> name:<%s>", layer, name);
+                    writer->outputBeginNested(name, true);
+
+                    //writer->outputCSVHeader(childname, eclTypeName.str());
+                    //DBGLOG("outputCSVHeader: header layer<%d> name:<%s>", layer, childname);
+
+                    DBGLOG("outputEndNested: header layer<%d> name:<%s>", layer, name);
+                    writer->outputEndNested(name);
+                }
+                else
+                {
+                    csvSplitXPath(meta->queryXPath(idx), xname, name);
+
+                    DBGLOG("outputCSVHeader: header layer<%d> name:<%s>", layer, name);
+                    writer->outputCSVHeader(name, eclTypeName.str());
+                }
+                break;
+            }
+        }
+    }
+}
+
+unsigned getResultCSV(IStringVal& ret, INewResultSet* result, const char* name, __int64 start, unsigned& count)
+{
+    unsigned headerLayer = 0;
+    CSVOptions csvOptions;
+    csvOptions.delimiter.set(",");
+    csvOptions.terminator.set("\n");
+    csvOptions.includeHeader = true;
+    Owned<CommonCSVWriter> writer = new CommonCSVWriter(XWFtrim, csvOptions);
+    Owned<IResultSetCursor> cursor = result->createCursor();
+    const IResultSetMetaData & meta = cursor->queryResultSet()->getMetaData();
+    getCSVHeaders(meta, writer, headerLayer);
+    if (csvOptions.includeHeader)
+        writer->outputHeadersToBuffer();
+    writer->finishCSVHeaders();
+
+    count = writeResultCursorXml(*writer, cursor, name, start, count, NULL);
+    DBGLOG("debugStr<%s>", writer->debugStr());
+    DBGLOG("READ_CSV<%s>", writer->str());
+    ret.set(writer->str());
+    return count;
+}
+#endif
+
 void appendResultSet(MemoryBuffer& mb, INewResultSet* result, const char *name, __int64 start, unsigned& count, __int64& total, bool bin, bool xsd, ESPSerializationFormat fmt, const IProperties *xmlns)
 {
     if (!result)
@@ -2495,7 +2861,9 @@ void appendResultSet(MemoryBuffer& mb, INewResultSet* result, const char *name, 
             MemoryBuffer & buffer;
         } adaptor(mb);
 
-        if (fmt==ESPSerializationJSON)
+        if (fmt==ESPSerializationCSV)
+            count = getResultCSV(adaptor, result, name, (unsigned) start, count);
+        else if (fmt==ESPSerializationJSON)
             count = getResultJSON(adaptor, result, name, (unsigned) start, count, (xsd) ? "myschema" : NULL);
         else
             count = getResultXml(adaptor, result, name, (unsigned) start, count, (xsd) ? "myschema" : NULL, xmlns);
@@ -2840,6 +3208,14 @@ bool CWsWorkunitsEx::onWUResultBin(IEspContext &context,IEspWUResultBinRequest &
         IArrayOf<IConstNamedValue>* filterBy = &req.getFilterBy();
         SCMStringBuffer name;
 
+        if(strieq(req.getFormat(),"cvs"))
+            context.setResponseFormat(ESPSerializationCSV);
+#define TESTCSV
+#ifdef TESTCSV
+        if(strieq(req.getFormat(),"xls"))
+            context.setResponseFormat(ESPSerializationCSV);
+#endif
+
         WUState wuState = WUStateUnknown;
         bool bin = (req.getFormat() && strieq(req.getFormat(),"raw"));
         if (notEmpty(wuidIn) && notEmpty(req.getResultName()))
@@ -2867,6 +3243,11 @@ bool CWsWorkunitsEx::onWUResultBin(IEspContext &context,IEspWUResultBinRequest &
 
         if(stricmp(req.getFormat(),"xls")==0)
         {
+#ifdef TESTCSV
+            resp.setResult(mb);
+            resp.setResult_mimetype("text/csv");
+            context.addCustomerHeader("Content-disposition", "attachment;filename=WUResult.csv");
+#else
             Owned<IProperties> params(createProperties());
             params->setProp("showCount",0);
             StringBuffer xml;
@@ -2881,6 +3262,7 @@ bool CWsWorkunitsEx::onWUResultBin(IEspContext &context,IEspWUResultBinRequest &
             out.setBuffer(xls.length(), (void*)xls.str());
             resp.setResult(out);
             resp.setResult_mimetype("application/vnd.ms-excel");
+#endif
         }
 #ifdef _USE_ZLIB
         else if(strieq(req.getFormat(),"zip") || strieq(req.getFormat(),"gzip"))
