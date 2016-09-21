@@ -148,6 +148,7 @@ static const char * EclDefinition =
 "  dataset(WsTiming) WorkunitTimings(const varstring wuid) : context,entrypoint='wsWorkunitTimings'; \n"
 "  streamed dataset(WsStatistic) WorkunitStatistics(const varstring wuid, boolean includeActivities = false, const varstring _filter = '') : context,entrypoint='wsWorkunitStatistics'; \n"
 "  boolean setWorkunitAppValue(const varstring app, const varstring key, const varstring value, boolean overwrite=true) : context,entrypoint='wsSetWorkunitAppValue'; \n"
+"  boolean protectWorkunit(const varstring wuid, boolean protect=true) : context,entrypoint='wsProtectWorkunit'; \n"
 "END;";
 
 #define WAIT_SECONDS 30
@@ -750,6 +751,15 @@ WORKUNITSERVICES_API bool wsSetWorkunitAppValue( ICodeContext *ctx, const char *
         return true;
     }
     return false;
+}
+
+WORKUNITSERVICES_API bool wsProtectWorkunit( ICodeContext *ctx, const char *wuid, bool protect)
+{
+    Owned<IConstWorkUnit> wu = getWorkunit(ctx, wuid);
+    if (!wu)
+        return false;
+    wu->protect(protect);
+    return true;
 }
 
 
