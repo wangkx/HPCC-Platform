@@ -22,6 +22,8 @@ ESPenum DFUArrayActions : string
 {
     Delete("Delete"),
     AddToSuperfile("Add To Superfile"),
+    Protect("Protect"),
+    Unprotect("Unprotect"),
 };
 
 ESPStruct SpaceItem

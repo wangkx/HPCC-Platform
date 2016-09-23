@@ -1376,6 +1376,51 @@ bool CWsDfuEx::DFUDeleteFiles(IEspContext &context, IEspDFUArrayActionRequest &r
     return true;
 }
 
+void CWsDfuEx::protectLogicalFiles(IEspContext &context, StringArray &files, bool protect, IArrayOf<IEspDFUActionInfo>& actionResults)
+{
+    Owned<IUserDescriptor> userdesc;
+    const char *username = context.queryUserId();
+    if(username && *username)
+    {
+        userdesc.setown(createUserDescriptor());
+        userdesc->set(username, context.queryPassword());
+    }
+
+    ForEachItemIn(i, files)
+    {
+        const char* fn = files.item(i);
+        if(!fn || !*fn)
+            continue;
+
+        StringBuffer message;
+        bool failed = true;
+        Owned<IEspDFUActionInfo> resultObj = createDFUActionInfo();
+        resultObj->setFileName(fn);
+        try
+        {
+            Owned<IDistributedFile> file = queryDistributedFileDirectory().lookup(fn, userdesc);
+            if (!file)
+                throw MakeStringException(ECLWATCH_QUERYSET_NOT_FOUND, "File %s not found", fn);
+            file->setProtect(username,protect);
+            failed = false;
+        }
+        catch(IException* e)
+        {
+            StringBuffer emsg;
+            message.appendf("Failed in DFUProtectFiles %s: %s", fn, e->errorMessage(emsg).str());
+            e->Release();
+        }
+        catch(...)
+        {
+            message.appendf("Failed in DFUProtectFiles %s", fn);
+        }
+        resultObj->setFailed(failed);
+        if (!message.isEmpty())
+            resultObj->setActionResult(message.str());
+        actionResults.append(*resultObj.getClear());
+    }
+}
+
 bool CWsDfuEx::onDFUArrayAction(IEspContext &context, IEspDFUArrayActionRequest &req, IEspDFUArrayActionResponse &resp)
 {
     try
@@ -1402,6 +1447,13 @@ bool CWsDfuEx::onDFUArrayAction(IEspContext &context, IEspDFUArrayActionRequest 
 
         if (action == CDFUArrayActions_Delete)
             return  DFUDeleteFiles(context, req, resp);
+        else if ((action == CDFUArrayActions_Protect) || (action == CDFUArrayActions_Unprotect))
+        {
+            IArrayOf<IEspDFUActionInfo> actionResults;
+            protectLogicalFiles(context, req.getLogicalFiles(), action == CDFUArrayActions_Protect, actionResults);
+            resp.setActionResults(actionResults);
+            return true;
+        }
 
         //the code below is only for legacy ECLWatch. Other application should use AddtoSuperfile.
         StringBuffer username;

@@ -161,6 +161,7 @@ private:
     bool doLogicalFileSearch(IEspContext &context, IUserDescriptor* udesc, IEspDFUQueryRequest & req, IEspDFUQueryResponse & resp);
     void doGetFileDetails(IEspContext &context, IUserDescriptor* udesc, const char *name,const char *cluster,
         const char *description,IEspDFUFileDetail& FileDetails);
+    void protectLogicalFiles(IEspContext &context, StringArray &files, bool protect, IArrayOf<IEspDFUActionInfo>& actionResults);
     bool createSpaceItemsByDate(IArrayOf<IEspSpaceItem>& SpaceItems, StringBuffer interval, unsigned& yearFrom, 
         unsigned& monthFrom, unsigned& dayFrom, unsigned& yearTo, unsigned& monthTo, unsigned& dayTo);
     bool setSpaceItemByScope(IArrayOf<IEspSpaceItem>& SpaceItems64, const char*scopeName, const char*logicalName, __int64 size);
