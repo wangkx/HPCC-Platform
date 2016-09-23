@@ -42,6 +42,7 @@ include_directories (
          ./../../system/include 
          ./../../system/jlib 
          ./../../common/environment 
+         ./../../system/security/shared
     )
 
 HPCC_ADD_LIBRARY( dalift SHARED ${SRCS} )

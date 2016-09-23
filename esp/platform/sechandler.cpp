@@ -166,7 +166,8 @@ bool SecHandler::authorizeSecFeatures(StringArray & features, IEspStringIntMap &
 bool SecHandler::validateSecFeaturesAccess(MapStringTo<SecAccessFlags> & accessmap, bool throwExcpt)
 {
     StringArray features;
-    unsigned reqarray[accessmap.ordinality()];
+    const unsigned size = accessmap.ordinality();
+    unsigned reqarray[size];
 
     HashIterator iter(accessmap);
     int index = 0;

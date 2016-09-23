@@ -1372,7 +1372,7 @@ CSecurityDescriptor* PermissionProcessor::changePermission(CSecurityDescriptor* 
     if(stricmp(action.m_action.str(), "delete") != 0 && action.m_denies != 0)
     {
         uaccess_denies.grfAccessMode = DENY_ACCESS;
-        uaccess_denies.grfAccessPermissions = newsec2ldap(action.m_denies);
+        uaccess_denies.grfAccessPermissions = newsec2ldap((SecAccessFlags)action.m_denies);
         uaccess_denies.grfInheritance = NO_INHERITANCE ;
         uaccess_denies.Trustee.MultipleTrusteeOperation = NO_MULTIPLE_TRUSTEE;
         uaccess_denies.Trustee.pMultipleTrustee = NULL;
