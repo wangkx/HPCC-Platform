@@ -659,8 +659,9 @@ static void filterXmlBySchema(IPTree* in, IXmlType* type, const char* tag, Strin
         for (int i=0; i<flds; i++)
         {
             const char* fldName = type->queryFieldName(i);
-            IPTree* fld = in ? in->queryBranch(fldName) : NULL;
-            filterXmlBySchema(fld,type->queryFieldType(i),fldName,out);
+            Owned<IPropertyTreeIterator> iter = in->getElements(fldName);
+            ForEach(*iter)
+                filterXmlBySchema(&iter->query(),type->queryFieldType(i),fldName,out);
         }
         if (flds==0)
         {
@@ -1269,7 +1270,6 @@ static void genSampleXml(StringStack& parent, IXmlType* type, StringBuffer& out,
     assertex(type!=NULL);
 
     const char* typeName = type->queryName();
-
     if (type->isComplexType())
     {
         if (typeName && std::find(parent.begin(),parent.end(),typeName) != parent.end())
@@ -1325,14 +1325,23 @@ static void genSampleXml(StringStack& parent, IXmlType* type, StringBuffer& out,
         if (typeName)
             parent.pop_back();      
 
-        // gen two items
-        out.appendf("<%s>%s%s</%s>", tag,item.str(),item.str(),tag);
+        // gen two items only for ArrayOf...
+        if (!typeName || (strlen(typeName) < 7) || (strnicmp(typeName, "ArrayOf", 7) != 0))
+            out.appendf("<%s>%s</%s>", tag,item.str(),tag);
+        else
+            out.appendf("<%s>%s%s</%s>", tag,item.str(),item.str(),tag);
     }
     else // simple type
     {
         out.appendf("<%s>", tag);
         type->getSampleValue(out,NULL);
         out.appendf("</%s>", tag);
+        if (type->getMaxOccurs() != 1)
+        {// gen two items
+            out.appendf("<%s>", tag);
+            type->getSampleValue(out,NULL);
+            out.appendf("</%s>", tag);
+        }
     }
 }
 

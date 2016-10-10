@@ -47,6 +47,7 @@ inline bool streq(const char* s, const char* t) {  return strcmp(s,t)==0; }
 #define PF_STRING       0x200
 #define PF_TEMPLATE     0x400
 #define PF_ESPSTRUCT    0x800
+#define PF_TEMPLATELIST 0x1000
 #define PF_MASK        0x7fff
 
 
@@ -489,6 +490,42 @@ public:
     const char* getArrayItemXsdType();
     const char* getArrayImplType();
 
+    bool isEspListOf(const char *elem_type=NULL, bool def=true)
+    {
+        if (flags & PF_TEMPLATELIST && !strcmp(templ, "ESPlist"))
+        {
+            if (!elem_type || !typname)
+                return def;
+            return (!strcmp(typname, elem_type));
+        }
+        return false;
+    }
+
+    bool isEspStringList()
+    {
+        if (flags & PF_TEMPLATELIST && !strcmp(templ, "ESPlist"))
+            return (!typname||!strcmp(typname, "string")||!strcmp(typname, "EspTextFile"));
+        return false;
+    }
+
+    bool isPrimitiveList()
+    {
+        if (flags & PF_TEMPLATELIST && !strcmp(templ, "ESPlist"))
+            return (kind != TK_STRUCT && kind != TK_null && kind != TK_ESPENUM && kind != TK_ESPSTRUCT) || !typname;
+        return false;
+    }
+
+
+    type_kind getListItemType()
+    {
+        assert(isPrimitiveList());
+        return kind;
+    }
+
+    const char* getListItemTag();
+    const char* getListItemXsdType();
+    const char* getListImplType();
+
     bool hasNameTag(){return (typname && !stricmp(typname, "EspTextFile"));}
 
     void write_clarion_attr_method(bool isSet);
@@ -570,6 +607,7 @@ public:
 private:
     char      *xsdtype;
     StrBuffer *m_arrayImplType;
+    StrBuffer *m_listImplType;
 };  
 
 class ProcInfo

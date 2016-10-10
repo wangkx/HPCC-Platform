@@ -673,3 +673,47 @@ bool EspBaseArrayParam::unmarshallRawArray(IProperties &params, const char *tagn
 
     return false;
 }
+
+void EspBaseListParam::toJSON(IEspContext* ctx, StringBuffer &s, const char *tagname, const char *itemname)
+{
+    unsigned count = getLength();
+    if (!count)
+    {
+        if (nilBH!=nilRemove)
+        {
+            delimitJSON(s);
+            if (tagname && *tagname)
+                s.append('\"').append(tagname).append("\": ");
+            s.append("[]");
+        }
+        return;
+    }
+
+    if (ctx && ctx->getResponseFormat()==ESPSerializationJSON)
+    {
+        appendJSONName(s, tagname);
+        s.append('[');
+        for (unsigned  i=0; i<count; i++)
+            toStrItem(ctx, s, i, itemname);
+        s.append(']');
+    }
+}
+
+void EspBaseListParam::toXML(IEspContext *ctx, StringBuffer &s, const char *tagname, const char *itemname, const char *prefix, bool encode)
+{
+    itemname = getItemTag(itemname);
+    unsigned count = getLength();
+    if (!count)
+    {
+        if (nilBH != nilRemove)
+            appendXMLOpenTag(s, tagname, prefix, true, true);
+        return;
+    }
+
+    for (unsigned  i=0; i<count; i++)
+    {
+        appendXMLOpenTag(s, tagname, prefix);
+        toStrItem(ctx, s, i, itemname);
+        appendXMLCloseTag(s, tagname, prefix);
+    }
+}

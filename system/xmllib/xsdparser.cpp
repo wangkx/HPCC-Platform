@@ -68,12 +68,13 @@ class CSimpleType : extends CInterface, implements IXmlType
     StringAttr m_name, m_defValue;
     CXmlAttribute** m_attrs;
     size_t m_nAttrs;
+    unsigned maxOccurs;
 
 public:
     IMPLEMENT_IINTERFACE;
 
     CSimpleType(const char* name, size_t nAttrs=0, CXmlAttribute** attrs=NULL) 
-        : m_name(name), m_nAttrs(nAttrs), m_attrs(attrs) { }
+        : m_name(name), m_nAttrs(nAttrs), m_attrs(attrs), maxOccurs(1) { }
 
     virtual ~CSimpleType() 
     { 
@@ -87,6 +88,8 @@ public:
     
     XmlSubType getSubType() { return SubType_Default; }
     bool isArray() {  return false; }
+    unsigned getMaxOccurs() {  return maxOccurs; }
+    void setMaxOccurs(unsigned _maxOccurs) {  maxOccurs = _maxOccurs; }
 
     bool isComplexType() { return false; }
     size_t getFieldCount() { return 0; }
@@ -458,13 +461,14 @@ protected:
     size_t     m_nAttrs;
     IXmlAttribute** m_attrs;
     XmlSubType m_subType;
+    unsigned   maxOccurs;
 
 public: 
     IMPLEMENT_IINTERFACE;
 
     CComplexType(const char* name, XmlSubType subType, size_t count, IXmlType** els, char** names, size_t nAttrs, IXmlAttribute** attrs=NULL) 
         : m_name(name), m_subType(subType), m_fldCount(count), m_fldNames(names), 
-        m_fldTypes(els), m_nAttrs(nAttrs), m_attrs(attrs) { }
+        m_fldTypes(els), m_nAttrs(nAttrs), m_attrs(attrs), maxOccurs(1) { }
     
     virtual ~CComplexType() 
     { 
@@ -495,6 +499,8 @@ public:
     size_t getFieldCount() { return m_fldCount; }
     IXmlType* queryFieldType(int idx) { return m_fldTypes[idx]; }
     const char* queryFieldName(int idx) {  return m_fldNames[idx]; }
+    unsigned getMaxOccurs() {  return maxOccurs; }
+    void setMaxOccurs(unsigned _maxOccurs) {  maxOccurs = _maxOccurs; }
 
     size_t getAttrCount() { return m_nAttrs; }
     IXmlAttribute* queryAttr(int idx) { return m_attrs[idx]; }
@@ -515,12 +521,13 @@ protected:
     StringAttr m_name;
     StringAttr m_itemName;
     IXmlType* m_itemType;
+    unsigned   maxOccurs;
 
 public: 
     IMPLEMENT_IINTERFACE;
 
     CArrayType(const char* name, const char* itemName, IXmlType* itemType) 
-        : m_name(name), m_itemName(itemName), m_itemType(itemType) { }
+        : m_name(name), m_itemName(itemName), m_itemType(itemType), maxOccurs(1) { }
 
     const char* queryName() {  return m_name.get(); }
 
@@ -531,6 +538,8 @@ public:
     size_t getFieldCount() { return 1; }
     IXmlType* queryFieldType(int idx) { return m_itemType; }
     const char* queryFieldName(int idx) { return m_itemName.get(); }
+    unsigned getMaxOccurs() {  return maxOccurs; }
+    void setMaxOccurs(unsigned _maxOccurs) {  maxOccurs = _maxOccurs; }
 
     size_t getAttrCount() { return 0; }  // removed assert false to account for arrays
     const char* queryAttrName(int idx) { assert(false); return NULL; }
@@ -555,7 +564,7 @@ protected:
     const char* xsdNs() { return m_xsdNs.get(); }
     IXmlType* parseComplexType(IPTree* complexDef);
     IXmlType* parseSimpleType(IPTree* simpleDef);
-    IXmlType* getNativeSchemaType(const char* type, const char* defValue);
+    IXmlType* getNativeSchemaType(const char* type, const char* defValue, unsigned maxOccurs);
     IXmlType* parseTypeDef(IPTree* el, const char* name=NULL);
     size_t parseAttributes(IPTree* typeDef, IXmlAttribute** &attrs);
 
@@ -575,7 +584,8 @@ protected:
         }
     }
 
-    IXmlType* queryTypeByName(const char* typeName,const char* defValue);
+    IXmlType* queryTypeByName(const char* typeName,const char* defValue, unsigned maxOccurs);
+    unsigned getMaxOccurs(IPTree* el);
 
 public:
     IMPLEMENT_IINTERFACE;
@@ -586,7 +596,7 @@ public:
     virtual ~CXmlSchema();
 
     IXmlType* queryElementType(const char* name);
-    IXmlType* queryTypeByName(const char* typeName) { return queryTypeByName(typeName, nullptr); }
+    IXmlType* queryTypeByName(const char* typeName) { return queryTypeByName(typeName, nullptr, 1); }
 };
 
 XMLLIB_API IXmlSchema* createXmlSchemaFromFile(const char* file)
@@ -712,16 +722,18 @@ void CXmlSchema::setSchemaNamespace()
         m_xsdNs.set("xsd:");
 }
 
-IXmlType* CXmlSchema::getNativeSchemaType(const char* typeName, const char* defValue)
+IXmlType* CXmlSchema::getNativeSchemaType(const char* typeName, const char* defValue, unsigned maxOccurs)
 {
     StringBuffer key(typeName);
     if (defValue) 
         key.append(':').append(defValue);
+    key.append("::").append(maxOccurs);
     TypeMap::const_iterator it = m_types.find(key.str());
     if (it != m_types.end())
         return it->second;
     //TODO: Need validataion?
     CSimpleType* typ = new CSimpleType(typeName);
+    typ->setMaxOccurs(maxOccurs);
     if (defValue)
         typ->setDefaultValue(defValue);
     addCache(key,typ);
@@ -744,6 +756,18 @@ size_t CXmlSchema::parseAttributes(IPTree* typeDef, IXmlAttribute** &attrs)
     }
     return nAttrs;
 }   
+
+unsigned CXmlSchema::getMaxOccurs(IPTree* el)
+{
+    const char* setting = el->queryProp("@maxOccurs");
+    if (!setting ||  !*setting)
+        return 1;
+    if (isdigit(*setting))
+        return (unsigned) atoi(setting);
+    if (strieq(setting, "unbounded"))
+        return 0;
+    return 1;
+}
 
 IXmlType* CXmlSchema::parseComplexType(IPTree* complexDef)
 {
@@ -818,7 +842,7 @@ IXmlType* CXmlSchema::parseComplexType(IPTree* complexDef)
             {
                 const char* itemName = el.queryProp("@name");
                 const char* typeName = el.queryProp("@type");
-                IXmlType* type = typeName ? queryTypeByName(typeName,el.queryProp("@default")) : parseTypeDef(&el);
+                IXmlType* type = typeName ? queryTypeByName(typeName,el.queryProp("@default"),getMaxOccurs(&el)) : parseTypeDef(&el);
 
                 CArrayType* typ = new CArrayType(name, itemName, type);
                 addCache(name,typ);
@@ -842,7 +866,7 @@ IXmlType* CXmlSchema::parseComplexType(IPTree* complexDef)
                 const char* base = sub->queryProp(VStringBuffer("%sextension/@base",xsdNs()));              
                 assert(base);
                 if (startsWith(base,xsdNs()))
-                    types[0] = getNativeSchemaType(base+strlen(xsdNs()),NULL);
+                    types[0] = getNativeSchemaType(base+strlen(xsdNs()),NULL,1);
                 else
                 {
                     StringBuffer schema;
@@ -885,10 +909,10 @@ IXmlType* CXmlSchema::parseComplexType(IPTree* complexDef)
                 
                 const char* itemName = el.queryProp("@name");
                 const char* typeName = el.queryProp("@type");
-                IXmlType* type = typeName ? queryTypeByName(typeName,el.queryProp("@default")) : parseTypeDef(&el);
+                IXmlType* type = typeName ? queryTypeByName(typeName,el.queryProp("@default"),getMaxOccurs(&el)) : parseTypeDef(&el);
                 if (!type)
-                    type = getNativeSchemaType("none", el.queryProp("@default")); //really should be tag only, no content?
-                
+                    type = getNativeSchemaType("none", el.queryProp("@default"),getMaxOccurs(&el)); //really should be tag only, no content?
+
                 types[fldIdx] = type;
                 names[fldIdx] = strdup(itemName);
                 fldIdx++;
@@ -923,7 +947,7 @@ IXmlType* CXmlSchema::parseSimpleType(IPTree* simpleDef)
         if (!base || !*base)
             throw MakeStringException(-1, "Invalid schema: missing base type for simple restriction type: %s", name);
 
-        IXmlType* baseType = getNativeSchemaType(base, sub->queryProp("@default"));
+        IXmlType* baseType = getNativeSchemaType(base, sub->queryProp("@default"), getMaxOccurs(sub));
         CRestrictionType* type = new CRestrictionType(name,baseType);
         addCache(name,type);
         RestrictionFacetValue fv;
@@ -971,7 +995,7 @@ IXmlType* CXmlSchema::queryElementType(const char* name)
     {
         const char* type = el->queryProp("@type");
         if (type)
-            return queryTypeByName(type,el->queryProp("@default"));
+            return queryTypeByName(type,el->queryProp("@default"),getMaxOccurs(el));
         else
             return parseTypeDef(el);
     }
@@ -1004,10 +1028,10 @@ IXmlType* CXmlSchema::parseTypeDef(IPTree* el, const char* name)
     return NULL;
 }
 
-IXmlType* CXmlSchema::queryTypeByName(const char* name, const char* defValue)
+IXmlType* CXmlSchema::queryTypeByName(const char* name, const char* defValue, unsigned maxOccurs)
 {
     if (startsWith(name, xsdNs()))
-        return getNativeSchemaType(name+m_xsdNs.length(),defValue);
+        return getNativeSchemaType(name+m_xsdNs.length(),defValue,maxOccurs);
 
     const char* colon = strchr(name, ':');
     if (colon) 

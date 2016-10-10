@@ -234,6 +234,7 @@ public:
     virtual CSoapValue* get_value(const char* path);
     virtual CSoapValue* get_element(const char* path, StringBuffer *attrname);
     virtual SoapValueArray* get_valuearray(const char* path);
+    virtual void get_valuearray(const char* path, SoapValueArray& values);
     virtual SoapValueArray* query_children(){return &m_children;}
 
     virtual bool get_value_str(const char* path, StringBuffer& value);
@@ -375,6 +376,7 @@ public:
 
     virtual CSoapValue* get_value(const char* path) {return m_params->get_value(path); };
     virtual SoapValueArray* get_valuearray(const char* path) {return m_params->get_valuearray(path); };
+    virtual void get_valuearray(const char* path, SoapValueArray& values) {return m_params->get_valuearray(path, values); };
     
     virtual bool get_value(const char* path, StringAttr& value){return m_params->get_value(path, value); };
     virtual bool get_value(const char* path, StringBuffer& value){return m_params->get_value(path, value); };

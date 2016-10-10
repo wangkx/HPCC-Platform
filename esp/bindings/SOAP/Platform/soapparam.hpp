@@ -561,6 +561,19 @@ public:
     virtual bool unmarshallRawArray(IProperties &params, const char *tagname, const char *basepath);
 };
 
+class ESPHTTP_API EspBaseListParam : public EspBaseArrayParam
+{
+protected:
+    nilBehavior nilBH;
+
+public:
+    EspBaseListParam(nilBehavior nb=nilIgnore) : EspBaseArrayParam(nb) { }
+    virtual ~EspBaseListParam() { }
+
+    virtual void toXML(IEspContext* ctx, StringBuffer &s, const char *tagname, const char *itemname, const char *prefix, bool encode);
+    virtual void toJSON(IEspContext* ctx, StringBuffer &s, const char *tagname, const char *itemname);
+};
+
 // generic version: works for string or other types, such as string enum
 template <class arraytype>
 inline void append_to_array(arraytype& array, const char* item) {  array.append(item); }
@@ -832,6 +845,317 @@ public:
     inline bool unmarshall(IRpcMessage &rpc_call, const char *tagname, const char *basepath="", const char* optGroup=NULL, const char *prefix="")
     {
         return EspBaseArrayParam::unmarshall(rpc_call, tagname, basepath, optGroup, prefix);
+    }
+
+    bool unmarshall(IEspContext* ctx, IProperties &params, MapStrToBuf *attachments, const char *tagname, const char *basepath=NULL, const char *xsdtype="", const char *prefix="")
+    {
+        StringBuffer path;
+        buildVarPath(path, tagname, basepath, cltype::queryXsdElementName(), "itemlist", NULL);
+        bool hasValue = false;
+        if (params.hasProp(path.str()))
+        {
+            //sparse array encoding
+            char *itemlist = strdup(params.queryProp(path.str()));
+            char *delim=NULL;
+            if (itemlist)
+            {
+                for(char *finger=itemlist; finger; finger=(delim) ? delim+1 : NULL)
+                {
+                    if ((delim=strchr(finger, '+')))
+                        *delim=0;
+                    if (*finger)
+                    {
+                        buildVarPath(path, tagname, basepath, cltype::queryXsdElementName(), finger, NULL);
+                        cltype *bt = new cltype("unknown");
+                        bt->unserialize(ctx,params, attachments, path.str());
+                        arr.append(*static_cast<basetype*>(bt));
+                        hasValue = true;
+                    }
+                }
+                free(itemlist);
+            }
+        }
+        else
+        {
+            buildVarPath(path, tagname, basepath, cltype::queryXsdElementName(), "itemcount", NULL);
+            int count=params.getPropInt(path.str(), -1);
+            if (count>0)
+            {
+                for (int idx=0; idx<count; idx++)
+                {
+                    buildVarPath(path, tagname, basepath, cltype::queryXsdElementName(), NULL, &idx);
+                    cltype *bt = new cltype("unknown");
+                    bt->unserialize(ctx,params, attachments, path.str());
+                    arr.append(*static_cast<basetype*>(bt));
+                    hasValue = true;
+                }
+            }
+        }
+        return hasValue;
+    }
+
+    void setEncodeNewlines(bool encodenl)
+    {
+        UNIMPLEMENTED;
+    }
+
+private:
+    IArrayOf<basetype> arr;
+};
+
+//--------------------------------------------
+// string list
+
+template <class arraytype, class itemtype>
+class SoapListParam : public EspBaseListParam
+{
+protected:
+    arraytype arr;
+    nilBehavior nilBH;
+
+public:
+    SoapListParam(nilBehavior nb=nilIgnore) : EspBaseListParam(nb) { }
+    virtual ~SoapListParam() { }
+
+    arraytype &getValue() {return arr;}
+
+    operator arraytype () {return  arr;}
+    operator arraytype &() {return  arr;}
+    arraytype * operator ->() {return &arr;}
+
+    void copy(SoapListParam<arraytype,itemtype> &from)
+    {
+        arr.kill();
+        arraytype fromArray = from.getValue();
+        ForEachItemIn(idx, fromArray)
+          arr.append(fromArray.item(idx));
+    }
+
+    virtual unsigned getLength()
+    {
+        return arr.ordinality();
+    }
+
+    virtual const char *getItemTag(const char *in)
+    {
+        return in;
+    }
+
+    virtual void append(IEspContext *ctx, CSoapValue& sv)
+    {
+        itemtype itemval;
+        sv.get_value("", itemval);
+        arr.append(itemval);
+    }
+
+    virtual void append(const char *s)
+    {
+        if (s && *s)
+            append_to_array(arr, s);
+    }
+
+    virtual void toStrItem(IEspContext *ctx, StringBuffer &s, unsigned index, const char *name)
+    {
+        s.append(arr.item(index));
+    }
+
+    inline void toStr(IEspContext* ctx, StringBuffer &str, const char *tagname, const char *itemname, const char *elementtype="", const char *basepath="", const char *prefix="")
+    {
+        EspBaseListParam::toStr(ctx, str, tagname, itemname, elementtype, basepath, prefix);
+    }
+
+    inline void marshall(IRpcMessage &rpc_call, const char *tagname, const char *itemname, const char *elementtype, const char *basepath, const char *prefix)
+    {
+        rpc_call.add_value(basepath, prefix, tagname, prefix, itemname, elementtype, arr);
+    }
+
+    inline bool unmarshall(IRpcMessage &rpc_call, const char *tagname, const char *basepath="", const char* optGroup=NULL, const char *prefix="")
+    {
+        StringBuffer path(basepath);
+        if (basepath!=NULL && basepath[0]!=0)
+            path.append("/");
+        path.append(tagname);
+
+        bool hasValue = false;
+        SoapValueArray values;
+        dynamic_cast<CRpcMessage *>(&rpc_call)->get_valuearray(path.str(), values);
+        ForEachItemIn(i, values)
+        {
+            CSoapValue& sv = values.item(i);
+            sv.setEncodeXml(false);
+            append(rpc_call.queryContext(), sv);
+            hasValue = true;
+        }
+        return hasValue;
+    }
+
+    inline bool unmarshall(IEspContext* ctx, IProperties &params, MapStrToBuf *attachments, const char *tagname, const char *basepath=NULL, const char* optGroup=NULL,const char *xsdtype="", const char *prefix="")
+    {  return EspBaseListParam::unmarshall(ctx, params, attachments, tagname, basepath, optGroup, xsdtype, prefix); }
+
+    inline bool unmarshall(IEspContext* ctx, CSoapValue &soapval, const char *tagname, const char* optGroup=NULL, const char *itemname="Item")
+    {  return EspBaseListParam::unmarshall(ctx, soapval, tagname, optGroup, itemname); }
+
+    void setEncodeNewlines(bool encodenl) { UNIMPLEMENTED; }
+};
+
+class SoapStringList : public SoapListParam<StringArray, const char*>
+{
+    typedef SoapListParam<StringArray,const char*> BASE;
+
+public:
+    SoapStringList(nilBehavior nb) : SoapListParam<StringArray,const char*>(nb) { }
+
+    virtual void toStr(IEspContext* ctx, StringBuffer &str, const char *tagname, const char *itemname, const char *elementtype="", const char *basepath="", const char *prefix="")
+    {
+        BASE::toStr(ctx, str, tagname, itemname, elementtype, basepath, prefix);
+    }
+
+    void toStrItemJSON(StringBuffer &s, unsigned index)
+    {
+        const char *val = arr.item(index);
+        if (!val)
+            return;
+        appendJSONValue(s, NULL, val);
+    }
+
+    virtual void toStrItem(IEspContext *ctx, StringBuffer &s, unsigned index, const char *name)
+    {
+        if (ctx && ctx->getResponseFormat()==ESPSerializationJSON)
+            toStrItemJSON(s, index);
+        else
+            s.append(arr.item(index));
+    }
+
+    virtual void append(IEspContext *ctx, CSoapValue& v)
+    {
+        StringBuffer s;
+        v.get_value("", s);
+        append_to_array(arr, s.str());
+    }
+
+    virtual void marshall(IRpcMessage &rpc_call, const char *tagname, const char *itemname="Item", const char *elementtype="", const char *basepath="", const char *prefix="")
+    {
+        if (!arr.ordinality())
+            return;
+
+        IEspContext* ctx = rpc_call.queryContext();
+        unsigned count = getLength();
+        for (unsigned  i=0; i<count; i++)
+        {
+            StringBuffer s;
+            toStrItem(ctx, s, i, NULL);
+            rpc_call.add_value(basepath, prefix, tagname, elementtype, s.str(), false);
+        }
+    }
+
+    inline bool unmarshall(IRpcMessage &rpc_call, const char *tagname, const char *basepath="", const char* optGroup=NULL, const char *prefix="")
+    {  return BASE::unmarshall(rpc_call,tagname,basepath,optGroup,prefix); }
+
+    inline bool unmarshall(IEspContext* ctx, IProperties &params, MapStrToBuf *attachments, const char *tagname, const char *basepath=NULL, const char* optGroup=NULL,const char *xsdtype="", const char *prefix="")
+    {  return BASE::unmarshall(ctx, params, attachments, tagname, basepath, optGroup, xsdtype, prefix); }
+
+    inline bool unmarshall(IEspContext* ctx, CSoapValue &soapval, const char *tagname, const char* optGroup=NULL, const char *itemname="Item")
+    {  return BASE::unmarshall(ctx, soapval, tagname, optGroup, itemname); }
+};
+
+template <class basetype, class cltype>
+class SoapStructListParam : public EspBaseListParam
+{
+public:
+    SoapStructListParam(nilBehavior nb=nilRemove) : EspBaseListParam(nilRemove /*Backward compatabiltiy*/){}
+    virtual ~SoapStructListParam() { }
+    IArrayOf<basetype>  &getValue(){return arr;}
+
+    operator IArrayOf<basetype>  & () {return  arr;}
+    IArrayOf<basetype>  * operator ->() {return &arr;}
+
+    void copy(SoapStructListParam<basetype, cltype> &from)
+    {
+        arr.kill();
+        int count= from.arr.ordinality();
+        for (int index = 0; index<count; index++)
+        {
+            from.arr.item(index).Link();
+            arr.append(from.arr.item(index));
+        }
+    }
+
+    virtual void toStr(IEspContext* ctx, StringBuffer &str, const char *tagname, const char *itemname, const char *elementtype="Item", const char *basepath="", const char *prefix="")
+    {
+        return EspBaseListParam::toStr(ctx, str, tagname, itemname, elementtype, basepath, prefix);
+    }
+
+    virtual void toStrItem(IEspContext *ctx, StringBuffer &str, unsigned index, const char *name)
+    {
+        basetype &b = arr.item(index);
+        cltype *cl = dynamic_cast<cltype *>(&b);
+        if (cl)
+        {
+            if (ctx && ctx->getResponseFormat()==ESPSerializationJSON)
+            {
+                delimitJSON(str);
+                str.append('{');
+                cl->serializeContent(ctx, str);
+                str.append('}');
+            }
+            else
+                cl->serializeContent(ctx, str);
+        }
+    }
+
+    void marshall(IRpcMessage &rpc_call, const char *tagname, const char *itemname="", const char *elementtype="", const char *basepath="", const char *prefix="")
+    {
+        if (!arr.ordinality())
+            return;
+
+        IEspContext* ctx = rpc_call.queryContext();
+        unsigned count = getLength();
+        for (unsigned  i=0; i<count; i++)
+        {
+            StringBuffer s;
+            toStrItem(ctx, s, i, NULL);
+            rpc_call.add_value(basepath, prefix, tagname, elementtype, s.str(), false);
+        }
+    }
+
+    virtual unsigned getLength(){return arr.ordinality();}
+    virtual const char *getItemTag(const char *in)
+    {
+        return in;
+    }
+
+    virtual void append(const char *){ UNIMPLEMENTED; }
+
+    virtual void append(IEspContext *ctx, CSoapValue& v)
+    {
+        cltype *cl = new cltype("unknown");
+        cl->unserialize(ctx, v);
+        arr.append(*static_cast<basetype*>(cl));
+    }
+
+    inline bool unmarshall(IEspContext* ctx, CSoapValue &soapval, const char *tagname, const char* optGroup=NULL, const char *itemname="Item")
+    {
+        return EspBaseListParam::unmarshall(ctx, soapval, tagname, optGroup, itemname);
+    }
+
+    inline bool unmarshall(IRpcMessage &rpc_call, const char *tagname, const char *basepath="", const char* optGroup=NULL, const char *prefix="")
+    {
+        StringBuffer path(basepath);
+        if (basepath!=NULL && basepath[0]!=0)
+            path.append("/");
+        path.append(tagname);
+
+        bool hasValue = false;
+        SoapValueArray values;
+        dynamic_cast<CRpcMessage *>(&rpc_call)->get_valuearray(path.str(), values);
+        ForEachItemIn(i, values)
+        {
+            CSoapValue& sv = values.item(i);
+            sv.setEncodeXml(false);
+            append(rpc_call.queryContext(), sv);
+            hasValue = true;
+        }
+        return hasValue;
     }
 
     bool unmarshall(IEspContext* ctx, IProperties &params, MapStrToBuf *attachments, const char *tagname, const char *basepath=NULL, const char *xsdtype="", const char *prefix="")

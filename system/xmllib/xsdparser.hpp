@@ -78,6 +78,8 @@ interface XMLLIB_API IXmlType : implements IInterface
 
     virtual bool isArray() = 0; 
     virtual XmlSubType getSubType() = 0;
+    virtual unsigned getMaxOccurs() = 0;
+    virtual void setMaxOccurs(unsigned _maxOccurs) = 0;
 
     virtual bool hasDefaultValue() = 0;
     virtual const char* getDefaultValue() = 0;

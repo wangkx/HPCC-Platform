@@ -420,6 +420,7 @@ ParamInfo::ParamInfo()
     tags = NULL;
     xsdtype = NULL;
     m_arrayImplType = NULL;
+    m_listImplType = NULL;
 }
 
 ParamInfo::~ParamInfo()
@@ -438,7 +439,9 @@ ParamInfo::~ParamInfo()
         free(xsdtype);
     if (m_arrayImplType)
         delete m_arrayImplType;
-    
+    if (m_listImplType)
+        delete m_listImplType;
+
     delete tags;
     delete layouts;
     delete next;
@@ -699,14 +702,14 @@ static esp_xlate_info esp_xlate_table[]=
 {
     //meta type                 xsd type                implementation      array impl      access type             type_kind           flags               method
     //------------------        ---------------         --------------      --------------  --------------          -----------         ------------        ----------
-    
+
 //  {"string",                  "string",               "StringBuffer",     "StringArray",  "const char *",         TK_CHAR,            (PF_PTR|PF_CONST),  EAM_jsbuf},
     {"string",                  "string",               "StringBuffer",     "StringArray",  "const char *",         TK_CHAR,            (PF_PTR|PF_CONST),  EAM_jsbuf},
     {"StringBuffer",            "string",               "StringBuffer",     "StringArray",  "const char *",         TK_CHAR,            (PF_PTR|PF_CONST),  EAM_jsbuf},
 //  {"hexBinary",               "base64Binary",         "MemoryBuffer",     "???",          "unsigned char *",      TK_UNSIGNEDCHAR,    (PF_PTR),           EAM_jmbuf},
     {"binary",                  "base64Binary",         "MemoryBuffer",     "???",          "const MemoryBuffer &", TK_STRUCT,          (PF_REF),           EAM_jmbin},
-    {"bool",                    "boolean",              "bool",             "BoolArray",    "bool",                 TK_BOOL,            0,                  EAM_basic}, 
-    {"boolean",                 "boolean",              "bool",             "BoolArray",    "bool",                 TK_BOOL,            0,                  EAM_basic}, 
+    {"bool",                    "boolean",              "bool",             "BoolArray",    "bool",                 TK_BOOL,            0,                  EAM_basic},
+    {"boolean",                 "boolean",              "bool",             "BoolArray",    "bool",                 TK_BOOL,            0,                  EAM_basic},
     {"decimal",                 "decimal",              "float",            "???",          "float",                TK_FLOAT,           0,                  EAM_basic},
     {"float",                   "float",                "float",            "FloatArray",   "float",                TK_FLOAT,           0,                  EAM_basic},
     {"double",                  "double",               "double",           "DoubleArray",  "double",               TK_DOUBLE,          0,                  EAM_basic},
@@ -728,7 +731,7 @@ static esp_xlate_info esp_xlate_table[]=
     {"normalizedString",        "normalizedString",     "StringBuffer",     "StringArray",  "const char *",         TK_CHAR,            (PF_PTR|PF_CONST),  EAM_jsbuf},
     {"xsdString",               "string",               "StringBuffer",     "StringArray",  "const char *",         TK_CHAR,            (PF_PTR|PF_CONST),  EAM_jsbuf},
     {"xsdBinary",               "binary",               "MemoryBuffer",     "???",          "const MemoryBuffer &", TK_STRUCT,          (PF_REF),           EAM_jmbin},
-    {"xsdBoolean",              "boolean",              "bool",             "???",          "bool",                 TK_BOOL,            0,                  EAM_basic}, 
+    {"xsdBoolean",              "boolean",              "bool",             "???",          "bool",                 TK_BOOL,            0,                  EAM_basic},
     {"xsdDecimal",              "decimal",              "float",            "???",          "float",                TK_FLOAT,           0,                  EAM_basic},
     {"xsdInteger",              "integer",              "int",              "???",          "int",                  TK_INT,             0,                  EAM_basic},
     {"xsdByte",                 "byte",                 "unsigned char",    "???",          "unsigned char",        TK_UNSIGNEDCHAR,    0,                  EAM_basic},
@@ -815,6 +818,8 @@ static char* getToBeDefinedType(const char* type)
 
     if (strncmp(bareType, "ArrayOf", sizeof("ArrayOf")-1)==0)
         return strdup(bareType+sizeof("ArrayOf")-1);
+    else if (strncmp(bareType, "ListOf", sizeof("ListOf")-1)==0)
+        return strdup(bareType+sizeof("ListOf")-1);
     else
         return strdup(bareType);
 }
@@ -971,6 +976,71 @@ const char* ParamInfo::getArrayItemTag()
     return typname;
 }
 
+const char* ParamInfo::getListImplType()
+{
+    if (m_listImplType)
+        return m_listImplType->str();
+
+    if (isPrimitiveList())
+    {
+        char metatype[256];
+        metatype[0] = 0;
+        cat_type(metatype);
+        esp_xlate_info *xlation=esp_xlat(metatype, false);
+        m_listImplType = new StrBuffer(xlation->array_type);
+    }
+    else
+    {
+        if (kind == TK_ESPENUM)
+            m_listImplType = new VStrBuffer("%sList", typname);
+        else
+            m_listImplType = new VStrBuffer("IArrayOf<IConst%s>", typname);
+    }
+
+    return m_listImplType->str();
+}
+
+const char* ParamInfo::getListItemXsdType()
+{
+    switch (kind)
+    {
+    case TK_CHAR: return "string";
+    case TK_UNSIGNEDCHAR: return "string"; //?
+    case TK_BYTE: return "byte";
+    case TK_BOOL: return "boolean";
+    case TK_SHORT: return "short";
+    case TK_UNSIGNEDSHORT: return "unsignedShort";
+    case TK_INT: return "int";
+    case TK_UNSIGNED: return "unsignedInt";
+    case TK_LONG: return "long";
+    case TK_UNSIGNEDLONG: return "unsignedLong";
+    case TK_LONGLONG: return "long";
+    case TK_UNSIGNEDLONGLONG: return "unsignedLong";
+    case TK_DOUBLE: return "double";
+    case TK_FLOAT: return "float";
+
+    case TK_null: return "string";
+
+    case TK_STRUCT:
+    case TK_VOID:
+    case TK_ESPSTRUCT:
+    case TK_ESPENUM:
+    default: throw "Unimplemented";
+    }
+}
+
+const char* ParamInfo::getListItemTag()
+{
+    const char *item_tag = getMetaString("item_tag", NULL);
+    if (item_tag)
+        return item_tag;
+    if (!(flags & PF_TEMPLATELIST) || !streq(templ, "ESPlist"))
+        return NULL;
+    if (isEspStringList())
+        return "Item";
+    return typname;
+}
+
 void ParamInfo::write_esp_declaration()
 {
     char metatype[256];
@@ -1004,6 +1074,8 @@ void ParamInfo::write_esp_declaration()
             else if (flags & PF_TEMPLATE)
             //  outf("\tSoapArrayParam<%s> m_%s;\n", xlation->array_type, name);
                 outf("\tSoap%s m_%s;\n", xlation->array_type, name);
+            else if (flags & PF_TEMPLATELIST)
+                outf("\tSoapStringList m_%s;\n", name);//For now, only support string
             else if (!stricmp(xlation->store_type, "StringBuffer"))
                 outf("\tSoapStringParam m_%s;\n", name);
             else
@@ -1023,6 +1095,15 @@ void ParamInfo::write_esp_declaration()
                 outf("\tSoapEnumArrayParam<C%s, CX%s, %sArray> m_%s;\n", typname, typname, typname, name);
             else
                 outf("\tSoapStructArrayParam<IConst%s, C%s> m_%s;\n", typname, typname, name);
+        }
+        else if (flags & PF_TEMPLATELIST && templ && !strcmp(templ, "ESPlist"))
+        {
+            if (isEspStringList())
+                outf("\tSoapStringList m_%s;\n", name);
+            else if (kind==TK_ESPENUM)
+                outf("\tSoapEnumListParam<C%s, CX%s, %sList> m_%s;\n", typname, typname, typname, name);
+            else
+                outf("\tSoapStructListParam<IConst%s, C%s> m_%s;\n", typname, typname, name);
         }
         else if (kind==TK_ESPSTRUCT)
             outf("\tSoapStruct<C%s, IConst%s> m_%s;\n", typname, typname, name);
@@ -1064,7 +1145,7 @@ void ParamInfo::write_esp_init(bool &isFirst, bool msgRemoveNil)
         else
             outf("m_%s(%s)", name, nilStr);
     }
-    else if ((flags & PF_TEMPLATE) || kind==TK_STRUCT || getMetaInt("attach", 0))
+    else if ((flags & PF_TEMPLATE) || (flags & PF_TEMPLATELIST) || kind==TK_STRUCT || getMetaInt("attach", 0))
     {
         outf("m_%s(%s)", name, nilStr);
     }
@@ -1201,7 +1282,7 @@ void ParamInfo::write_esp_attr_method(const char *msgname, bool isSet, bool parN
     
     if (isSet)
     {
-        if (hasNilRemove && xlation->eam_type == EAM_basic && (flags & PF_TEMPLATE)==0 )
+        if (hasNilRemove && xlation->eam_type == EAM_basic && ((flags & PF_TEMPLATE)==0 || (flags & PF_TEMPLATELIST)==0))
         {
             if (isDecl)
                 outs("\t");
@@ -1346,6 +1427,111 @@ void ParamInfo::write_esp_attr_method(const char *msgname, bool isSet, bool parN
                 }
             }
         } // flags & PF_TEMPLATE
+
+        else if (flags & PF_TEMPLATELIST)
+        {
+            if (templ && !strcmp(templ, "ESPlist") && typname && !isEspStringList() && kind!=TK_ESPENUM)
+            {
+                outs("void ");
+                if (!isDecl && msgname)
+                    outf("C%s::", msgname);
+                outf("set%s", methName);
+                if (kind != TK_ESPENUM)
+                    outf("(IArrayOf<IEsp%s> &val)", typname);
+                if (isDecl)
+                {
+                    if (isPure)
+                        outs("=0;\n\tvirtual ");
+                    else
+                        outs(";\n ");
+                }
+                else
+                {
+                    outs("\n{\n");
+
+                    if (kind != TK_ESPENUM)
+                    {
+                        outf("\tm_%s->kill();\n", name);
+                        outf("\tIArrayOf<IConst%s> &target = m_%s.getValue();\n", typname, name);
+                        outs("\tForEachItemIn(idx, val)\n");
+                        outs("\t{\n");
+                        outf("\t\tIEsp%s &item = (val).item(idx);\n", typname);
+                        outs("\t\titem.Link();\n");
+                        outs("\t\ttarget.append(item);\n");
+                        outs("\t}\n");
+                    }
+
+                    outs("}\n");
+                }
+            }
+
+            outs("void ");
+            if (!isDecl && msgname)
+                outf("C%s::", msgname);
+            outf("set%s", methName);
+
+            if (templ && !strcmp(templ, "ESPlist"))
+            {
+                outf("(%s &val)", getListImplType());
+            }
+            else
+            {
+                switch (xlation->eam_type)
+                {
+                case EAM_jmbuf:
+                    outf("(%s val, unsigned int len)", xlation->access_type);
+                    break;
+                case EAM_jmbin:
+                case EAM_basic:
+                case EAM_jsbuf:
+                default:
+                    outf("(%s val)", xlation->access_type);
+                    break;
+                }
+            }
+
+            if (isDecl)
+            {
+                if (isPure)
+                    outs("=0");
+                outs(";\n");
+            }
+            else
+            {
+                if (isPrimitiveList())
+                {
+                    outf("{ ");
+                    if (isEspStringList())
+                        outf("m_%s->kill(); ",name);
+                    outf(" CloneArray(m_%s.getValue(), val); }\n", name);
+                }
+                else if (kind == TK_ESPENUM)
+                {
+                    outs("\n{\n");
+                    outf("\tm_%s->kill();\n", name);
+                    outf("\t%sList &target = m_%s.getValue();\n", typname, name);
+                    outs("\tForEachItemIn(idx, val)\n");
+                    outs("\t{\n");
+                    outf("\t\tC%s item = val.item(idx);\n", typname);
+                    outs("\t\ttarget.append(item);\n");
+                    outs("\t}\n");
+                    outs("}\n");
+                }
+                else
+                {
+                    outs("\n{\n");
+                    outf("\tm_%s->kill();\n", name);
+                    outf("\tIArrayOf<IConst%s> &target = m_%s.getValue();\n", typname, name);
+                    outs("\tForEachItemIn(idx, val)\n");
+                    outs("\t{\n");
+                    outf("\t\tIConst%s &item = val.item(idx);\n", typname);
+                    outs("\t\titem.Link();\n");
+                    outs("\t\ttarget.append(item);\n");
+                    outs("\t}\n");
+                    outs("}\n");
+                }
+            }
+        } // flags & PF_TEMPLATELIST
 
         else if (kind==TK_ESPSTRUCT)
         {
@@ -1501,7 +1687,7 @@ void ParamInfo::write_esp_attr_method(const char *msgname, bool isSet, bool parN
     }
     else // get function
     {
-        if (hasNilRemove && xlation->eam_type == EAM_basic && (flags & PF_TEMPLATE)==0 )
+        if (hasNilRemove && xlation->eam_type == EAM_basic && ((flags & PF_TEMPLATE)==0 || (flags & PF_TEMPLATELIST)==0))
         {
             if (isDecl && isPure)
                 outs("\tvirtual ");
@@ -1524,6 +1710,13 @@ void ParamInfo::write_esp_attr_method(const char *msgname, bool isSet, bool parN
         if (flags & PF_TEMPLATE)
         {
             outf("%s & ",getArrayImplType());
+            if (!isDecl && msgname)
+                outf("C%s::",msgname);
+            outf("get%s()", methName);
+        }
+        else if (flags & PF_TEMPLATELIST)
+        {
+            outf("%s & ",getListImplType());
             if (!isDecl && msgname)
                 outf("C%s::",msgname);
             outf("get%s()", methName);
@@ -1584,6 +1777,10 @@ void ParamInfo::write_esp_attr_method(const char *msgname, bool isSet, bool parN
             {               
                 outf(" { return (%s &) m_%s; }\n", getArrayImplType(), name);
             }
+            else if (flags & PF_TEMPLATELIST)
+            {
+                outf(" { return (%s &) m_%s; }\n", getListImplType(), name);
+            }
             else
             {
                 switch (xlation->eam_type)
@@ -1610,7 +1807,7 @@ void ParamInfo::write_esp_attr_method(const char *msgname, bool isSet, bool parN
         {
         case TK_ESPENUM:
             // getXXAsString
-            if (!(flags & PF_TEMPLATE))
+            if (!(flags & PF_TEMPLATE) && !(flags & PF_TEMPLATELIST))
             {
                 if (isDecl)
                     outs("\t");
@@ -1698,6 +1895,29 @@ void ParamInfo::write_esp_param()
                 }
             }
                 
+        }
+        else if (flags & PF_TEMPLATELIST)
+        {
+            if (templ && !strcmp(templ, "ESPlist"))
+            {
+                outf("%s &%s_", getListImplType(), name);
+            }
+            else
+            {
+                switch (xlation->eam_type)
+                {
+                case EAM_jmbuf:
+                    outf("%s %s_, unsigned int %s_len)", xlation->access_type, name, name);
+                    break;
+                case EAM_jmbin:
+                case EAM_basic:
+                case EAM_jsbuf:
+                default:
+                    outf("%s %s_", xlation->access_type, name);
+                    break;
+                }
+            }
+
         }
         else
         {
@@ -1924,7 +2144,7 @@ void ParamInfo::write_esp_marshall(bool isRpc, bool encodeXml, bool checkVer, in
             indents++;
     }
 
-    if (!isEspArrayOf() && getMetaInt("encode_newlines", -1)!=-1)
+    if (!isEspArrayOf() && !isEspListOf() && getMetaInt("encode_newlines", -1)!=-1)
     {
         indent(indents);
         outf("m_%s.setEncodeNewlines(true);\n", name);
@@ -1942,6 +2162,13 @@ void ParamInfo::write_esp_marshall(bool isRpc, bool encodeXml, bool checkVer, in
             outf("\"%s\", \"%s\", \"%s\");\n", tagname, getArrayItemTag(), path);
         else
             outf("\"%s\", \"%s\");\n", getXmlTag(), getArrayItemTag());
+    }
+    else if (isEspListOf())
+    {
+        if (path)
+            outf("\"%s\", \"%s\", \"%s\");\n", tagname, getListItemTag(), path);
+        else
+            outf("\"%s\", \"%s\");\n", getXmlTag(), getListItemTag());
     }
     else
     {
@@ -3517,6 +3744,7 @@ void EspMessageInfo::write_esp()
             {
                 enum {definedtype, inline_primitive_array, inline_array, complextype} complexity=definedtype;
                 StrBuffer buffer;
+                bool isList = false;
                 
                 const char *xsd_type = pi->getMetaXsdType();
                 if (xsd_type)
@@ -3549,6 +3777,19 @@ void EspMessageInfo::write_esp()
                             }
                             buffer.append(pi->typname);
                         }
+                    }
+                    else
+                        buffer.append("xsd:string");
+                }
+                else if (pi->flags & PF_TEMPLATELIST)
+                {
+                    isList = true;
+                    if (!strcmp(pi->templ, "ESPlist"))
+                    {
+                        if (pi->isPrimitiveList())
+                            buffer.append(pi->getListItemXsdType());
+                        else
+                            buffer.append("tns:").append(pi->typname);
                     }
                     else
                         buffer.append("xsd:string");
@@ -3642,6 +3883,8 @@ void EspMessageInfo::write_esp()
                         int minOccurs = (pi->getMetaInt("required", 0)) ? 1 : 0;
                         if (minOccurs==0)
                             outs(" minOccurs=\\\"0\\\"");
+                        if (isList)
+                            outs(" maxOccurs=\\\"unbounded\\\"");
 
                         // default value
                         if (pi->hasMetaTag("default"))
@@ -3862,6 +4105,16 @@ void EspMessageInfo::write_esp()
             else
                 outf("\t\t// *** skip field: name=%s, type=%s\n", pi->name, pi->typname);
         }
+        else if (pi->flags & PF_TEMPLATELIST)
+        {
+            if (strcmp(pi->templ, "ESPlist")==0)
+            {
+                if (pi->typname && strcmp(pi->typname, "string")!=0 && strcmp(pi->typname, "EspTextFile")!=0)
+                    thisType = pi->typname;
+            }
+            else
+                outf("\t\t// *** skip field: name=%s, type=%s\n", pi->name, pi->typname);
+        }
 
         if (thisType.length() && strcmp(thisType.c_str(),name_)!=0)         
         {
@@ -4034,7 +4287,7 @@ void EspMessageInfo::write_esp()
                 if (!pi->getMetaStringValue(label,"xml_tag"))
                     label = pi->name;
             
-            if (pi->getMetaInt("rows") || (pi->flags & PF_TEMPLATE))
+            if (pi->getMetaInt("rows") || (pi->flags & PF_TEMPLATE) || (pi->flags & PF_TEMPLATELIST))
             {
                 int cols = pi->getMetaInt("cols", 50);
                 
@@ -4043,7 +4296,7 @@ void EspMessageInfo::write_esp()
                 indentOuts1(1,"extfix.append(prefix).append(\".\");\n");
                 indentOutf("extfix.append(\"%s\");\n", pi->name);
                 indentOutf("form.appendf(\"<tr><td><b>%s: </b></td><td>\");\n", label.str());
-                if (!pi->isEspStringArray())
+                if (!pi->isEspStringArray() && !pi->isEspStringList())
                 {
                     // handle default value
                     StrBuffer tmp;
@@ -4155,7 +4408,7 @@ void EspMessageInfo::write_esp()
         
         if (contentVar)
         {
-            if (!(contentVar->flags & PF_TEMPLATE))
+            if (!(contentVar->flags & PF_TEMPLATE) && !(contentVar->flags & PF_TEMPLATELIST))
             {
                 if (contentVar->typname!=NULL && strcmp(contentVar->typname, "EspResultSet")==0)
                 {
@@ -4534,6 +4787,86 @@ void EspMessageInfo::write_esp()
             }
             outf("\t}\n");
         }
+        else if (pi->flags & PF_TEMPLATELIST) // list
+        {
+            outf("\t{\n");
+            if (pi->isPrimitiveList())
+            {
+                const char *item_tag = pi->getMetaString("item_tag", "Item");
+                const char *type = pi->getListImplType();
+                outf("\t\t%s& v = src.get%s();\n",type,uname);
+                outf("\t\tif (v.length()>0)\n");
+                outf("\t\t\tbuffer.append(\"<%s>\");\n", pi->getXmlTag());
+                outf("\t\tfor (size32_t i=0;i<v.length();i++)\n");
+
+                const char* fmt = "%"; // print %% when undefined
+                switch(pi->kind)
+                {
+                case TK_BOOL:
+                case TK_SHORT:
+                case TK_INT: fmt = "d"; break;
+                case TK_UNSIGNED: fmt = "u"; break;
+                case TK_LONG: fmt = "ld"; break;
+                case TK_UNSIGNEDLONG: fmt = "lu"; break;
+                case TK_FLOAT:
+                case TK_DOUBLE: fmt = "g"; break;
+                case TK_null:
+                case TK_CHAR: fmt = "s"; break;
+                default:
+                    {
+                        char buf[128];
+                        sprintf(buf,"Unhandled list type: %s (%s)", getTypeKindName(pi->kind), name_);
+                        yyerror(buf);
+                    }
+                }
+
+                outf("\t\t\tbuffer.appendf(\"<%s>%%%s</%s>\",v.item(i));\n",item_tag,fmt,item_tag);
+                outf("\t\tif (v.length()>0)\n");
+                outf("\t\t\tbuffer.append(\"</%s>\");\n", pi->getXmlTag());
+            }
+            else if (pi->typname)
+            {
+                if (pi->kind == TK_ESPENUM)
+                {
+                    outf("\t\t%sList& v = src.get%s();\n",pi->typname,uname);
+                    outf("\t\tint size = v.length();\n");
+                    const char *item_tag = pi->getMetaString("item_tag", "Item");
+                    outf("\t\tif (size>0)\n");
+                    outf("\t\t\tbuffer.append(\"<%s>\");\n", pi->getXmlTag());
+                    outf("\t\tfor (int i=0;i<size;i++)\n");
+                    //outf("\t\t{\n");
+                    outf("\t\t\tbuffer.appendf(\"<%s>%%s</%s>\", CX%s::stringOf(v.item(i)));\n",item_tag, item_tag, pi->typname);
+                    //outf("\t\t\tC%s::serializer(ctx,v.item(i),buffer,false);\n",pi->typname);
+                    //outf("\t\t\tbuffer.append(\"</%s>\");\n",item_tag);
+                    //outf("\t\t}\n");
+                    outf("\t\tif (size>0)\n");
+                    outf("\t\t\tbuffer.append(\"</%s>\");\n", pi->getXmlTag());
+                }
+                else if (pi->kind == TK_ESPSTRUCT || pi->kind == TK_null) // should be fixed at lex/yacc
+                {
+                    outf("\t\tIArrayOf<IConst%s>& v = src.get%s();\n",pi->typname,uname);
+                    outf("\t\tint size = v.length();\n");
+                    const char *item_tag = pi->getMetaString("item_tag", "Item");
+                    outf("\t\tif (size>0)\n");
+                    outf("\t\t\tbuffer.append(\"<%s>\");\n", pi->getXmlTag());
+                    outf("\t\tfor (int i=0;i<size;i++)\n");
+                    outf("\t\t{\n");
+                    outf("\t\t\tbuffer.append(\"<%s>\");\n",item_tag);
+                    outf("\t\t\tC%s::serializer(ctx,v.item(i),buffer,false);\n",pi->typname);
+                    outf("\t\t\tbuffer.append(\"</%s>\");\n",item_tag);
+                    outf("\t\t}\n");
+                    outf("\t\tif (size>0)\n");
+                    outf("\t\t\tbuffer.append(\"</%s>\");\n", pi->getXmlTag());
+                }
+                else
+                    outf("\t\t**** TODO: unhandled list: kind=%s, type=%s, name=%s, xsd-type=%s\n", getTypeKindName(pi->kind), pi->typname, uname, pi->getXsdType());
+            }
+            else
+            {
+                outf("\t\t**** TODO: unhandled list: type=<NULL>, name=%s, xsd-type=%s\n", uname, pi->getXsdType());
+            }
+            outf("\t}\n");
+        }
         else if (pi->kind == TK_ESPSTRUCT)
         {
             outf("\t{\n");
@@ -4730,6 +5063,87 @@ void EspMessageInfo::write_esp()
             else 
             {
                 indentOutf("**** TODO: unhandled array: type=%s, name=%s, xsd-type=%s\n", pi->typname, uname, pi->getXsdType());
+            }
+            indentOutf(-1,"}\n");
+        }
+        else if (pi->flags & PF_TEMPLATELIST) // list
+        {
+            indentOutf("{\n");
+            indentInc(1);
+            if (pi->isPrimitiveList())
+            {
+                const char *item_tag = pi->getMetaString("item_tag", "Item");
+                const char *type = pi->getListImplType();
+                indentOutf("%s& v = src.get%s();\n",type,uname);
+                indentOutf("int size = v.length();\n");
+                if (nilRemove)
+                {
+                    indentOutf("if (size>0)\n");
+                    indentOutf1(1,"buffer.append(\"<%s>\");\n", pi->getXmlTag());
+                }
+                else
+                    indentOutf("buffer.append(\"<%s>\");\n", pi->getXmlTag());
+                indentOuts("for (int i=0;i<size;i++)\n");
+
+                const char* fmt;
+                switch(pi->kind)
+                {
+                case TK_BOOL:
+                case TK_SHORT:
+                case TK_INT: fmt = "d"; break;
+                case TK_UNSIGNED: fmt = "u"; break;
+                case TK_LONG: fmt = "ld"; break;
+                case TK_UNSIGNEDLONG: fmt = "lu"; break;
+                case TK_FLOAT:
+                case TK_DOUBLE: fmt = "g"; break;
+                case TK_null:
+                case TK_CHAR: fmt = "s"; break;
+                default:
+                    {
+                        char buf[128];
+                        sprintf(buf,"Unhandled list type: %s (%s)", getTypeKindName(pi->kind), name_);
+                        yyerror(buf);
+                    }
+                }
+
+                indentOutf1(1,"buffer.appendf(\"<%s>%%%s</%s>\",v.item(i));\n",item_tag,fmt,item_tag);
+                if (nilRemove)
+                {
+                    indentOutf("if (size>0)\n");
+                    indentOutf1(1,"buffer.append(\"</%s>\");\n", pi->getXmlTag());
+                }
+                else
+                    indentOutf("buffer.append(\"</%s>\");\n", pi->getXmlTag());
+            }
+            else if (pi->typname)
+            {
+                indentOutf("IArrayOf<IConst%s>& v = src.get%s();\n",pi->typname,uname);
+                indentOuts("int size = v.length();\n");
+                const char *item_tag = pi->getMetaString("item_tag", pi->typname);
+                if (nilRemove)
+                {
+                    indentOutf("if (size>0)\n");
+                    indentOutf1(1,"buffer.append(\"<%s>\");\n", pi->getXmlTag());
+                }
+                else
+                    indentOutf("buffer.append(\"<%s>\");\n", pi->getXmlTag());
+                indentOutf("for (int i=0;i<size;i++)\n");
+                indentOutf("{\n");
+                indentOutf(1,"buffer.append(\"<%s>\");\n",item_tag);
+                indentOutf("C%s::serializer(ctx,v.item(i),buffer,false);\n",pi->typname);
+                indentOutf("buffer.append(\"</%s>\");\n",item_tag);
+                indentOutf(-1,"}\n");
+                if (nilRemove)
+                {
+                    indentOutf("if (size>0)\n");
+                    indentOutf1(1,"buffer.append(\"</%s>\");\n", pi->getXmlTag());
+                }
+                else
+                    indentOutf("buffer.append(\"</%s>\");\n", pi->getXmlTag());
+            }
+            else
+            {
+                indentOutf("**** TODO: unhandled list: type=%s, name=%s, xsd-type=%s\n", pi->typname, uname, pi->getXsdType());
             }
             indentOutf(-1,"}\n");
         }
