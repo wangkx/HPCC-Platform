@@ -58,6 +58,8 @@ include_directories (
          ./../../../system/security/LdapSecurity
          ${CMAKE_BINARY_DIR}
          ${CMAKE_BINARY_DIR}/oss
+         ${HPCC_SOURCE_DIR}/esp/logging/logginglib
+         ${HPCC_SOURCE_DIR}/esp/logging/loggingmanager
     )
 
 # NOTE - this should not be needed, it's the result of poor encapsulation and using CLdapSecManager directly 

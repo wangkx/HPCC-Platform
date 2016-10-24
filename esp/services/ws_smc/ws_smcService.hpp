@@ -24,6 +24,11 @@
 #include "TpWrapper.hpp"
 #include "WUXMLInfo.hpp"
 
+#define TEST_LOGGING
+#ifdef TEST_LOGGING
+#include "loggingmanager.h"
+#endif
+
 enum BulletType
 {
     bulletNONE = 0,
@@ -169,6 +174,9 @@ class CWsSMCEx : public CWsSMC
     int m_BannerAction;
     bool m_EnableChatURL;
     CriticalSection crit;
+#ifdef TEST_LOGGING
+    Owned<ILoggingManager> loggingManager;
+#endif
 
 public:
     IMPLEMENT_IINTERFACE;

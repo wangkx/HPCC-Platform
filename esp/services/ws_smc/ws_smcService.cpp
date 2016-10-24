@@ -55,6 +55,68 @@ static const char* OTHERS_WU_ACCESS = "OthersWorkunitsAccess";
 const char* PERMISSIONS_FILENAME = "espsmc_permissions.xml";
 const unsigned DEFAULTACTIVITYINFOCACHETIMEOUTSECOND = 10;
 
+#ifdef TEST_LOGGING
+
+ILoggingManager* loadLogggingManager()
+{
+    StringBuffer realName;
+    realName.append(SharedObjectPrefix).append(LOGGINGMANAGERLIB).append(SharedObjectExtension);
+    HINSTANCE loggingManagerLib = LoadSharedObject(realName.str(), true, false);
+    if(loggingManagerLib == NULL)
+    {
+        ESPLOG(LogNormal,"Cannot load logging manager library(%s)", realName.str());
+        return NULL;
+    }
+
+    newLoggingManager_t_ xproc = (newLoggingManager_t_)GetSharedProcedure(loggingManagerLib, "newLoggingManager");
+    if (!xproc)
+    {
+        ESPLOG(LogNormal,"Procedure newLogggingManager of %s can't be loaded\n", realName.str());
+        return NULL;
+    }
+
+    return (ILoggingManager*) xproc();
+}
+
+bool testUpdateLogging(ILoggingManager* loggingManager, IEspContext &espcontext,
+        IPropertyTree *reqcontext, IPropertyTree * request,  const char * rawresp, const char * finalresp, const char * logdata)
+{
+    bool success = true;
+    if (loggingManager)
+    {
+        StringBuffer logresp;
+        success = loggingManager->updateLog(LOGGINGDBSINGLEINSERT, espcontext, reqcontext, request, rawresp, finalresp, logdata, logresp);
+        ESPLOG(LogMin,"Attempted to log ESP transaction: %s", logresp.str());
+    }
+
+    return success;
+}
+
+bool testGetTransactionID(ILoggingManager* loggingManager, StringAttrMapping* transFields, StringBuffer& transactionID, StringBuffer& status)
+{
+    bool success = true;
+    if (loggingManager)
+    {
+        success = loggingManager->getTransactionID(transFields, transactionID, status);
+        ESPLOG(LogMin,"Attempted to getTransactionID: %s <%s>", transactionID.str(), status.str());
+    }
+
+    return success;
+}
+
+bool testGetTransactionSeed(ILoggingManager* loggingManager, const char* appName, StringBuffer& transactionSeed, StringBuffer& status)
+{
+    bool success = true;
+    if (loggingManager)
+    {
+        success = loggingManager->getTransactionSeed(transactionSeed, status);
+        ESPLOG(LogMin,"Attempted to getTransactionSeed: %s <%s>", transactionSeed.str(), status.str());
+    }
+
+    return success;
+}
+#endif
+
 void AccessSuccess(IEspContext& context, char const * msg,...) __attribute__((format(printf, 2, 3)));
 void AccessSuccess(IEspContext& context, char const * msg,...)
 {
@@ -144,6 +206,24 @@ void CWsSMCEx::init(IPropertyTree *cfg, const char *process, const char *service
     xpath.setf("Software/EspProcess[@name=\"%s\"]/EspService[@name=\"%s\"]/LogDaliConnection", process, service);
     if (cfg->getPropBool(xpath.str()))
         querySDS().setConfigOpt("Client/@LogConnection", "true");
+
+#ifdef TEST_LOGGING
+    xpath.setf("Software/EspProcess[@name=\"%s\"]/EspService[@name=\"%s\"]", process, service);
+    IPropertyTree * srvcfg = cfg->queryPropTree(xpath.str());
+    IPropertyTree* loggingConfig = srvcfg->queryPropTree("LoggingManager");
+    if (loggingConfig)
+    {
+        ESPLOG(LogNormal, "ESP Service %s attempting to load configured logging manager.", service);
+        //Add './../../logging' to CMakeFile
+        loggingManager.setown(loadLogggingManager());
+        if (loggingManager)
+            loggingManager->init(loggingConfig, service);
+        else
+            throw MakeStringException(-1, "ESDL Service %s could not load logging manager", service);
+    }
+    else
+        ESPLOG(LogNormal, "ESP Service %s is not attached to any logging manager.", service);
+#endif
 }
 
 struct CActiveWorkunitWrapper: public CActiveWorkunit
@@ -1471,7 +1551,7 @@ bool CWsSMCEx::onRemoveJob(IEspContext &context, IEspSMCJobRequest &req, IEspSMC
     {
         checkAccess(context,THORQUEUE_FEATURE,SecAccess_Full);
 
-        abortWorkUnit(req.getWuid(), context.querySecManager(), context.queryUser());
+        secAbortWorkUnit(req.getWuid(), *context.querySecManager(), *context.queryUser());
 
         {
             Owned<IJobQueue> queue = createJobQueue(req.getQueueName());
@@ -1601,7 +1681,7 @@ bool CWsSMCEx::onClearQueue(IEspContext &context, IEspSMCQueueRequest &req, IEsp
             for(unsigned i=0;i<queue->ordinality();i++)
             {
                 Owned<IJobQueueItem> item = queue->getItem(i);
-                abortWorkUnit(item->queryWUID(), context.querySecManager(), context.queryUser());
+                secAbortWorkUnit(item->queryWUID(), *context.querySecManager(), *context.queryUser());
             }
             queue->clear();
         }
@@ -2120,6 +2200,104 @@ inline const char *controlCmdMessage(int cmd)
 
 bool CWsSMCEx::onRoxieControlCmd(IEspContext &context, IEspRoxieControlCmdRequest &req, IEspRoxieControlCmdResponse &resp)
 {
+#ifdef TEST_LOGGING
+    if (loggingManager)
+    {
+        Owned<IEspRoxieControlEndpointInfo> respEndpoint = createRoxieControlEndpointInfo();
+
+//#define TEST_GetTransactionID
+#ifdef TEST_GetTransactionID
+        const char* transactionDateTime = "TransactionDateTime";
+        const char* transactionMethod = "TransactionMethod";
+        const char* transactionIdentifier = "TransactionIdentifier";
+
+        StringAttrMapping transFields;
+        StringBuffer creationTime;
+        creationTime.setf("%u", context.queryCreationTime());
+
+        transFields.setValue(transactionDateTime, creationTime.str());
+        transFields.setValue(transactionMethod, "RoxieControlCmd");
+        transFields.setValue(transactionIdentifier, req.getProcessCluster());
+
+        StringBuffer transactionID, status;
+        testGetTransactionID(loggingManager, &transFields, transactionID, status);
+
+        respEndpoint->setAddress(transactionID.str());
+        respEndpoint->setStatus(status.str());
+#endif
+
+#ifdef TEST_GetTransactionSeed
+        StringBuffer transactionSeed, status;
+        testGetTransactionSeed(loggingManager, req.getProcessCluster(), transactionSeed, status);
+
+        respEndpoint->setAddress(transactionSeed.str());
+        respEndpoint->setStatus(status.str());
+#endif
+
+#define TEST_UpdateLog
+#ifdef TEST_UpdateLog
+#define LOGDATASETTAG "LogDatasets"
+        StringBuffer reqXML, reqcontextXML, rawResp, finalResp, logdata;
+
+        reqXML.append("<RoxieControlCmdRequest>");
+        reqXML.append("<Address>101 1st Ave., LA, CA 12345</Address>");
+        reqXML.append("</RoxieControlCmdRequest>");
+        Owned<IPropertyTree> request = createPTreeFromXMLString(reqXML.length(), reqXML.str(), false);
+
+        reqcontextXML.append("<MyUserContext>");
+        reqcontextXML.append("<Target username='kw' url='10.10.10.11' />");
+        reqcontextXML.append("<Row>");
+        reqcontextXML.append("<Common>");
+        reqcontextXML.append("<TransactionId>T1234567</TransactionId>");
+        reqcontextXML.append("</Common>");
+        reqcontextXML.append("<ESP>");
+        reqcontextXML.append("<ID>TestID123</ID>");
+        reqcontextXML.append("<MethodName>TestLogging</MethodName>");
+        reqcontextXML.append("</ESP>");
+        reqcontextXML.append("</Row>");
+        reqcontextXML.append("</MyUserContext>");
+        Owned<IPropertyTree> reqcontext = createPTreeFromXMLString(reqcontextXML.length(), reqcontextXML.str(), false);
+
+        rawResp.append("<?xml version=\"1.0\" encoding=\"UTF-8\"?><soap:Envelope xmlns:soap=\"http://schemas.xmlsoap.org/soap/envelope/\"><soap:Body><ExchangeNumbersResponse xmlns=\"urn:hpccsystems:ecl:exchangenumbers\" sequence=\"0\"><Results><Result>\n");
+
+        finalResp.append("<Dataset xmlns='urn:hpccsystems:ecl:exchangenumbers:result:exchangenumbersresponse' name='ExchangeNumbersResponse'>\n");
+        finalResp.append(" <Row><Description>[&#xe01a;] back</Description><NumberListOut><number1>2</number1><number2>1</number2></NumberListOut><NumberListOut><number1>2</number1><number2>1</number2></NumberListOut><StringListOut>back</StringListOut><StringListOut> back</StringListOut><NumberArrayOut><TwoNumbers><number1>2</number1><number2>1</number2></TwoNumbers><TwoNumbers><number1>2</number1><number2>1</number2></TwoNumbers></NumberArrayOut><StringArrayOut><MyString> back</MyString><MyString>&#xe01a;&#xe01a; back</MyString></StringArrayOut></Row>\n");
+        finalResp.append("</Dataset>\n");
+        rawResp.append(finalResp.str());
+        finalResp.insert(0, "<RoxieControlCmdResponse>");
+        finalResp.append("</RoxieControlCmdResponse>");
+
+        logdata.append("<Dataset xmlns=\"urn:hpccsystems:ecl:vin_services.servicevinstandard:result:log_log__vin_intermediate__log\" name=\"LOG_log__vin_intermediate__log\">\n");
+        logdata.append(" <Row><Records><Rec><Content_Type>InsuranceContext</Content_Type><Version>1</Version><Fields/><product_id>1</product_id></Rec></Records></Row>\n");
+        logdata.append("</Dataset>\n");
+        logdata.append("<Dataset xmlns=\"urn:hpccsystems:ecl:vin_services.servicevinstandard:result:log_log__vin_transaction__log\" name=\"LOG_log__vin_transaction__log\">\n");
+        logdata.append(" <Row><Records><Rec><price>-1</price><free>0</free><order_status_code>402</order_status_code><country_address>USA</country_address><response_time>0</response_time></Rec></Records></Row>\n");
+        logdata.append("</Dataset>\n");
+        rawResp.append(logdata.str());
+
+        logdata.insert(0, "<>");
+        logdata.insert(1, LOGDATASETTAG);
+        logdata.appendf("</%s>",LOGDATASETTAG);
+        bool ret = testUpdateLogging(loggingManager, context, reqcontext, request, rawResp.str(), finalResp.str(), logdata.str());
+        if (ret)
+        {
+            respEndpoint->setAddress("Success");
+            respEndpoint->setStatus("Success");
+        }
+        else
+        {
+            respEndpoint->setAddress("Failed");
+            respEndpoint->setStatus("Failed");
+        }
+#endif
+
+        IArrayOf<IEspRoxieControlEndpointInfo> respEndpoints;
+        respEndpoints.append(*respEndpoint.getClear());
+        resp.setEndpoints(respEndpoints);
+        return true;
+    }
+#endif
+
     if (!context.validateFeatureAccess(ROXIE_CONTROL_URL, SecAccess_Full, false))
        throw MakeStringException(ECLWATCH_SMC_ACCESS_DENIED, "Cannot Access Roxie Control. Permission denied.");
 
