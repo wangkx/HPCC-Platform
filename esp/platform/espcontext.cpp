@@ -459,8 +459,8 @@ public:
     {
         if (m_txSummary)
         {
-            if (!m_hasException && (getEspLogLevel() <= LogNormal))
-                m_txSummary->clear();
+            //if (!m_hasException && (getEspLogLevel() <= LogNormal))
+            //    m_txSummary->clear();
 
             updateTraceSummaryHeader();
             m_txSummary->append("total", m_processingTime, "ms");
