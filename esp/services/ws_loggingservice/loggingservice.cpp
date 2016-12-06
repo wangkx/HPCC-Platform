@@ -80,6 +80,7 @@ IEspLogAgent* CWsLoggingServiceEx::loadLoggingAgent(const char* name, const char
 
 bool CWsLoggingServiceEx::onUpdateLog(IEspContext& context, IEspUpdateLogRequest& req, IEspUpdateLogResponse& resp)
 {
+    context.addTraceSummaryTimeStamp("LServ:startUpdateLog");
     try
     {
         if (!context.validateFeatureAccess(WSLOGGING_ACCESS, SecAccess_Write, false))
@@ -104,6 +105,7 @@ bool CWsLoggingServiceEx::onUpdateLog(IEspContext& context, IEspUpdateLogRequest
         resp.setStatusMessage(errorStr.str());
         e->Release();
     }
+    context.addTraceSummaryTimeStamp("LServ:endUpdateLog");
     return true;
 }
 

@@ -128,6 +128,7 @@ void CLogThread::stop()
     try
     {
         CriticalBlock b(logQueueCrit);
+        DBGLOG("LThread:stopGetQueue\n");
         if (!logQueue.ordinality() && logFailSafe.get())
             logFailSafe->RollCurrentLog();
         //If logQueue is not empty, the log files are rolled over so that queued jobs can be read
@@ -153,23 +154,30 @@ bool CLogThread::queueLog(IEspUpdateLogRequest* logRequest)
 
 bool CLogThread::queueLog(IEspUpdateLogRequestWrap* logRequest)
 {
+    unsigned startTime = msTick();
     logAgent->filterLogContent(logRequest);
+    DBGLOG("LThreadQueue:filterLog: %dms\n", msTick() -  startTime);
     return enqueue(logRequest);
 }
 
 bool CLogThread::enqueue(IEspUpdateLogRequestWrap* logRequest)
 {
+    VStringBuffer logSummary("LThreadQueue:");
     if (logFailSafe.get())
     {
         StringBuffer GUID, reqBuf;
+        unsigned startTime = msTick();
         logFailSafe->GenerateGUID(GUID, NULL);
         logRequest->setGUID(GUID.str());
         if (serializeLogRequestContent(logRequest, reqBuf))
             logFailSafe->Add(GUID, reqBuf.str());
+        logSummary.appendf("addToFailSafe: %dms;", msTick() -  startTime);
     }
 
     {
+        unsigned startTime = msTick();
         CriticalBlock b(logQueueCrit);
+        logSummary.appendf("waitForEnqueue: %dms;", msTick() -  startTime);
         int QueueSize = logQueue.ordinality();
         if(QueueSize > maxLogQueueLength)
             ERRLOG("LOGGING QUEUE SIZE %d EXECEEDED MaxLogQueueLength %d, check the logging server.",QueueSize, maxLogQueueLength);
@@ -177,7 +185,10 @@ bool CLogThread::enqueue(IEspUpdateLogRequestWrap* logRequest)
         if(QueueSize!=0 && QueueSize % signalGrowingQueueAt == 0)
             ERRLOG("Logging Queue at %d records. Check the logging server.",QueueSize);
 
+        unsigned startTime1 = msTick();
         logQueue.enqueue(LINK(logRequest));
+        logSummary.appendf("enqueued: %dms", msTick() -  startTime1);
+        DBGLOG("%s", logSummary.str());
     }
 
     m_sem.signal();
@@ -192,13 +203,17 @@ void CLogThread::sendLog()
         if(stopping)
             return;
 
-        int recSend = 0;
+        StringBuffer logSummary;
+        int itemSent = 0;
+        unsigned startTime = msTick();
         IEspUpdateLogRequestWrap* logRequest  = 0;
 
         CriticalBlock b(logQueueCrit);
+        logSummary.appendf("LThreadSend:waitForQueue %dms;", msTick() -  startTime);
 
         ForEachQueueItemIn(i,logQueue)
         {
+            itemSent++;
             logRequest  = (IEspUpdateLogRequestWrap*)logQueue.dequeue();
             if (!logRequest)
                 continue;
@@ -211,6 +226,7 @@ void CLogThread::sendLog()
             {
                 Owned<IEspUpdateLogResponse> logResponse = createUpdateLogResponse();
                 logAgent->updateLog(*logRequest, *logResponse);
+                logSummary.appendf("agent did item %d: %dms;", itemSent, msTick() -  startTime);
                 if (!logResponse)
                     throw MakeStringException(EspLoggingErrors::UpdateLogFailed, "no response");
                 if (logResponse->getStatusCode())
@@ -225,6 +241,7 @@ void CLogThread::sendLog()
                 if(failSafeLogging && logFailSafe.get())
                     logFailSafe->AddACK(GUID);
                 logRequest->Release();//Make sure that no data (such as GUID) is needed before releasing the logRequest.
+                logSummary.appendf("item %d done: %dms;", itemSent, msTick() -  startTime);
             }
             catch(IException* e)
             {
@@ -254,6 +271,7 @@ void CLogThread::sendLog()
                 ERRLOG("%s", errorMessage.str());
             }
         }
+        DBGLOG("%s", logSummary.str());
     }
     catch(IException* e)
     {
@@ -266,7 +284,6 @@ void CLogThread::sendLog()
     {
         ERRLOG("Unknown exception thrown within update log thread");
     }
-
     return;
 }
 
@@ -293,6 +310,7 @@ void CLogThread::checkRollOver()
         logFailSafe->SafeRollover();
 
         CriticalBlock b(logQueueCrit);
+        DBGLOG("***LThread:checkRollOverGetQueue\n");
 
         //Check and add queued requests to tank(.log) files
         unsigned numNewArrivals = logQueue.ordinality();

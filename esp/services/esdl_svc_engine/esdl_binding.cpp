@@ -592,12 +592,17 @@ void EsdlServiceImpl::handleServiceRequest(IEspContext &context,
             unsigned xflags = (isPublishedQuery(implType)) ? ROXIEREQ_FLAGS : ESDLREQ_FLAGS;
             m_pEsdlTransformer->process(context, EsdlRequestMode, srvdef.queryName(), mthdef.queryName(), *req, reqWriter.get(), xflags, NULL);
 
+
             if(isPublishedQuery(implType))
+            {
                 tgtctx.setown(createTargetContext(context, tgtcfg.get(), srvdef, mthdef, req));
+                context.addTraceSummaryTimeStamp("createdTargetContext");
+            }
 
             reqcontent.set(reqWriter->str());
+            context.addTraceSummaryTimeStamp("processedReq");
             handleFinalRequest(context, tgtcfg, tgtctx, srvdef, mthdef, ns, reqcontent, origResp, isPublishedQuery(implType), implType==EsdlMethodImplProxy);
-
+            context.addTraceSummaryTimeStamp("handledFinalRequest");
             if (isPublishedQuery(implType))
             {
                 Owned<IXmlWriterExt> respWriter = createIXmlWriterExt(0, 0, NULL, (flags & ESDL_BINDING_RESPONSE_JSON) ? WTJSON : WTStandard);
@@ -609,10 +614,13 @@ void EsdlServiceImpl::handleServiceRequest(IEspContext &context,
                 getSoapBody(out, origResp);
             else
                 m_pEsdlTransformer->process(context, EsdlResponseMode, srvdef.queryName(), mthdef.queryName(), out, origResp.str(), ESDL_TRANS_OUTPUT_ROOT, ns, schema_location);
+            context.addTraceSummaryTimeStamp("processedRoxResp");
         }
     }
 
+    context.addTraceSummaryTimeStamp("startResultLogging");
     handleResultLogging(context, tgtcfg.get(), req,  origResp.str(), out.str());
+    context.addTraceSummaryTimeStamp("endLogging");
     ESPLOG(LogMax,"Customer Response: %s", out.str());
 }
 
@@ -800,8 +808,9 @@ void EsdlServiceImpl::handleFinalRequest(IEspContext &context,
         throw makeWsException( ERR_ESDL_BINDING_BADREQUEST, WSERR_CLIENT, "ESP",
                    "No target URL configured for %s!", mthdef.queryMethodName());
     }
+    context.addTraceSummaryTimeStamp("startProcFinalResp");
     processResponse(context,srvdef,mthdef,ns,out);
-
+    context.addTraceSummaryTimeStamp("endProcFinalResp");
 }
 
 void EsdlServiceImpl::handleEchoTest(const char *mthName,
@@ -914,7 +923,7 @@ void EsdlServiceImpl::sendTargetSOAP(IEspContext & context,
     ESPLOG(LogMax,"OUTGOING Request target: %s", url.str());
     ESPLOG(LogMax,"OUTGOING Request: %s", clreq.str());
     {
-        EspTimeSection timing("Calling out to query");
+        //EspTimeSection timing("Calling out to query");
         context.addTraceSummaryTimeStamp("startcall");
         httpclient->sendRequest("POST", "text/xml", clreq, resp, status,true);
         context.addTraceSummaryTimeStamp("endcall");

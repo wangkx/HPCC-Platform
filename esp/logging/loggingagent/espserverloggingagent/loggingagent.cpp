@@ -407,7 +407,8 @@ void CESPServerLoggingAgent::filterLogContent(IEspUpdateLogRequestWrap* req)
 
     StringBuffer updateLogRequestXML;
     toXML(updateLogRequestTree, updateLogRequestXML);
-    DBGLOG("filtered content and option: <%s>", updateLogRequestXML.str());
+    if (getEspLogLevel() >= LogMax)
+        DBGLOG("filtered content and option: <%s>", updateLogRequestXML.str());
     req->clearOriginalContent();
     req->setUpdateLogRequest(updateLogRequestXML.str());
 }

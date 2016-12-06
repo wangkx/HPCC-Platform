@@ -105,6 +105,8 @@ bool CLoggingManager::updateLog(const char* option, const char* logContent, Stri
 bool CLoggingManager::updateLog(const char* option, IEspContext& espContext, IPropertyTree* userContext, IPropertyTree* userRequest,
         const char* backEndResp, const char* userResp, StringBuffer& status)
 {
+    espContext.addTraceSummaryTimeStamp("LMgr:startUpdateLog");
+
     bool bRet = false;
     try
     {
@@ -129,6 +131,7 @@ bool CLoggingManager::updateLog(const char* option, IEspContext& espContext, IPr
         ERRLOG("%s", status.str());
         e->Release();
     }
+    espContext.addTraceSummaryTimeStamp("LMgr:endUpdateLog");
     return bRet;
 }
 
@@ -158,7 +161,9 @@ bool CLoggingManager::updateLog(IEspUpdateLogRequestWrap& req, IEspUpdateLogResp
             IUpdateLogThread* loggingThread = loggingAgentThreads[x];
             if (loggingThread->hasService(LGSTUpdateLOG))
             {
+                unsigned startTime = msTick();
                 loggingThread->queueLog(&req);
+                DBGLOG("LMgr:threadQueueLog: %d ms\n", msTick() -  startTime);
                 bRet = true;
             }
         }
