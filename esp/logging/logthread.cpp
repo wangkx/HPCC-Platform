@@ -168,17 +168,7 @@ bool CLogThread::enqueue(IEspUpdateLogRequestWrap* logRequest)
             logFailSafe->Add(GUID, reqBuf.str());
     }
 
-    {
-        CriticalBlock b(logQueueCrit);
-        int QueueSize = logQueue.ordinality();
-        if(QueueSize > maxLogQueueLength)
-            ERRLOG("LOGGING QUEUE SIZE %d EXECEEDED MaxLogQueueLength %d, check the logging server.",QueueSize, maxLogQueueLength);
-
-        if(QueueSize!=0 && QueueSize % signalGrowingQueueAt == 0)
-            ERRLOG("Logging Queue at %d records. Check the logging server.",QueueSize);
-
-        logQueue.enqueue(LINK(logRequest));
-    }
+    readWriteJobQueue(logRequest);
 
     m_sem.signal();
 
@@ -193,15 +183,11 @@ void CLogThread::sendLog()
             return;
 
         int recSend = 0;
-        IEspUpdateLogRequestWrap* logRequest  = 0;
-
-        CriticalBlock b(logQueueCrit);
-
-        ForEachQueueItemIn(i,logQueue)
+        while(true)
         {
-            logRequest  = (IEspUpdateLogRequestWrap*)logQueue.dequeue();
+            IEspUpdateLogRequestWrap* logRequest  = readWriteJobQueue(NULL);
             if (!logRequest)
-                continue;
+                break;
 
             const char* GUID= logRequest->getGUID();
             if ((!GUID || !*GUID) && failSafeLogging && logFailSafe.get())
@@ -241,7 +227,7 @@ void CLogThread::sendLog()
                     else
                     {
                         willRetry = true;
-                        logQueue.enqueue(logRequest);
+                        readWriteJobQueue(logRequest);
                         errorMessage.appendf(" Adding back to logging queue for retrying %d.", retry);
                     }
                 }
@@ -412,3 +398,24 @@ IEspUpdateLogRequestWrap* CLogThread::unserializeLogRequestContent(const char* l
 
     return new CUpdateLogRequestWrap(guid, opt, buffer.str());
 };
+
+IEspUpdateLogRequestWrap* CLogThread::readWriteJobQueue(IEspUpdateLogRequestWrap* jobToWrite)
+{
+    CriticalBlock b(logQueueCrit);
+    if (jobToWrite)
+    {
+        int QueueSize = logQueue.ordinality();
+        if(QueueSize > maxLogQueueLength)
+            ERRLOG("LOGGING QUEUE SIZE %d EXECEEDED MaxLogQueueLength %d, check the logging server.",QueueSize, maxLogQueueLength);
+
+        if(QueueSize!=0 && QueueSize % signalGrowingQueueAt == 0)
+            ERRLOG("Logging Queue at %d records. Check the logging server.",QueueSize);
+
+        logQueue.enqueue(LINK(jobToWrite));
+    }
+    else if (logQueue.ordinality() > 0)
+    {
+        return (IEspUpdateLogRequestWrap*)logQueue.dequeue();
+    }
+    return NULL;
+}
