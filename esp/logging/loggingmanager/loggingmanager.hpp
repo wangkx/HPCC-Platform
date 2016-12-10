@@ -40,6 +40,7 @@ class CLoggingManager : public CInterface, implements ILoggingManager
 {
     typedef std::vector<IUpdateLogThread*> LOGGING_AGENTTHREADS;
     LOGGING_AGENTTHREADS  loggingAgentThreads;
+    unsigned jobCount, msCount;
 
     IEspLogAgent* loadLoggingAgent(const char* name, const char* dll, const char* type, IPropertyTree* cfg);
     bool updateLog(IEspUpdateLogRequestWrap& req, IEspUpdateLogResponse& resp, StringBuffer& status);

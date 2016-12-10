@@ -61,7 +61,7 @@ bool CLoggingManager::init(IPropertyTree* cfg, const char* service)
             throw MakeStringException(-1, "Failed to create update log thread for %s", agentName);
         loggingAgentThreads.push_back(logThread);
     }
-
+    msCount = jobCount = 0;
     return !loggingAgentThreads.empty();
 }
 
@@ -106,6 +106,7 @@ bool CLoggingManager::updateLog(const char* option, IEspContext& espContext, IPr
         const char* backEndResp, const char* userResp, StringBuffer& status)
 {
     espContext.addTraceSummaryTimeStamp("LMgr:startUpdateLog");
+    unsigned startTime = msTick();
 
     bool bRet = false;
     try
@@ -131,6 +132,9 @@ bool CLoggingManager::updateLog(const char* option, IEspContext& espContext, IPr
         ERRLOG("%s", status.str());
         e->Release();
     }
+    jobCount++;
+    msCount += (msTick() -  startTime);
+    DBGLOG("%d jobs: time <%d>ms", jobCount, msCount);
     espContext.addTraceSummaryTimeStamp("LMgr:endUpdateLog");
     return bRet;
 }

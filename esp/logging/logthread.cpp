@@ -162,35 +162,19 @@ bool CLogThread::queueLog(IEspUpdateLogRequestWrap* logRequest)
 
 bool CLogThread::enqueue(IEspUpdateLogRequestWrap* logRequest)
 {
-    VStringBuffer logSummary("LThreadQueue:");
     if (logFailSafe.get())
     {
-        StringBuffer GUID, reqBuf;
         unsigned startTime = msTick();
+        StringBuffer GUID, reqBuf;
         logFailSafe->GenerateGUID(GUID, NULL);
         logRequest->setGUID(GUID.str());
         if (serializeLogRequestContent(logRequest, reqBuf))
             logFailSafe->Add(GUID, reqBuf.str());
-        logSummary.appendf("addToFailSafe: %dms;", msTick() -  startTime);
-    }
-
-    {
-        unsigned startTime = msTick();
-        CriticalBlock b(logQueueCrit);
-        logSummary.appendf("waitForEnqueue: %dms;", msTick() -  startTime);
-        int QueueSize = logQueue.ordinality();
-        if(QueueSize > maxLogQueueLength)
-            ERRLOG("LOGGING QUEUE SIZE %d EXECEEDED MaxLogQueueLength %d, check the logging server.",QueueSize, maxLogQueueLength);
-
-        if(QueueSize!=0 && QueueSize % signalGrowingQueueAt == 0)
-            ERRLOG("Logging Queue at %d records. Check the logging server.",QueueSize);
-
-        unsigned startTime1 = msTick();
-        logQueue.enqueue(LINK(logRequest));
-        logSummary.appendf("enqueued: %dms", msTick() -  startTime1);
+        VStringBuffer logSummary("LThreadAddToFailSafe: %dms;", msTick() -  startTime);
         DBGLOG("%s", logSummary.str());
     }
 
+    readWriteJobQueue(logRequest);
     m_sem.signal();
 
     return true;
@@ -203,20 +187,11 @@ void CLogThread::sendLog()
         if(stopping)
             return;
 
-        StringBuffer logSummary;
-        int itemSent = 0;
-        unsigned startTime = msTick();
-        IEspUpdateLogRequestWrap* logRequest  = 0;
-
-        CriticalBlock b(logQueueCrit);
-        logSummary.appendf("LThreadSend:waitForQueue %dms;", msTick() -  startTime);
-
-        ForEachQueueItemIn(i,logQueue)
+        while(true)
         {
-            itemSent++;
-            logRequest  = (IEspUpdateLogRequestWrap*)logQueue.dequeue();
+            IEspUpdateLogRequestWrap* logRequest  = readWriteJobQueue(NULL);
             if (!logRequest)
-                continue;
+                break;
 
             const char* GUID= logRequest->getGUID();
             if ((!GUID || !*GUID) && failSafeLogging && logFailSafe.get())
@@ -224,9 +199,12 @@ void CLogThread::sendLog()
 
             try
             {
+                StringBuffer logSummary;
+                unsigned startTime = msTick();
+
                 Owned<IEspUpdateLogResponse> logResponse = createUpdateLogResponse();
                 logAgent->updateLog(*logRequest, *logResponse);
-                logSummary.appendf("agent did item %d: %dms;", itemSent, msTick() -  startTime);
+                logSummary.appendf("AgentUpdateLog: %dms;", msTick() -  startTime);
                 if (!logResponse)
                     throw MakeStringException(EspLoggingErrors::UpdateLogFailed, "no response");
                 if (logResponse->getStatusCode())
@@ -241,7 +219,8 @@ void CLogThread::sendLog()
                 if(failSafeLogging && logFailSafe.get())
                     logFailSafe->AddACK(GUID);
                 logRequest->Release();//Make sure that no data (such as GUID) is needed before releasing the logRequest.
-                logSummary.appendf("item %d done: %dms;", itemSent, msTick() -  startTime);
+                logSummary.appendf("AgentUpdateLog+Clean: %dms", msTick() -  startTime);
+                DBGLOG("%s", logSummary.str());
             }
             catch(IException* e)
             {
@@ -258,7 +237,7 @@ void CLogThread::sendLog()
                     else
                     {
                         willRetry = true;
-                        logQueue.enqueue(logRequest);
+                        readWriteJobQueue(logRequest);
                         errorMessage.appendf(" Adding back to logging queue for retrying %d.", retry);
                     }
                 }
@@ -271,7 +250,6 @@ void CLogThread::sendLog()
                 ERRLOG("%s", errorMessage.str());
             }
         }
-        DBGLOG("%s", logSummary.str());
     }
     catch(IException* e)
     {
@@ -430,3 +408,43 @@ IEspUpdateLogRequestWrap* CLogThread::unserializeLogRequestContent(const char* l
 
     return new CUpdateLogRequestWrap(guid, opt, buffer.str());
 };
+
+IEspUpdateLogRequestWrap* CLogThread::readWriteJobQueue(IEspUpdateLogRequestWrap* jobToWrite)
+{
+    //Debug code will be removed before creating PR.
+    StringBuffer logBuffer;
+    unsigned startTime = msTick();
+
+    CriticalBlock b(logQueueCrit);
+
+    if (jobToWrite)
+    {
+        //Debug code will be removed before creating PR.
+        logBuffer.appendf("LThreadQueue:waitForWrite: %dms;", msTick() -  startTime);
+
+        int QueueSize = logQueue.ordinality();
+        if(QueueSize > maxLogQueueLength)
+            ERRLOG("LOGGING QUEUE SIZE %d EXECEEDED MaxLogQueueLength %d, check the logging server.",QueueSize, maxLogQueueLength);
+
+        if(QueueSize!=0 && QueueSize % signalGrowingQueueAt == 0)
+            ERRLOG("Logging Queue at %d records. Check the logging server.",QueueSize);
+
+        //Debug code will be removed before creating PR.
+        unsigned startTime1 = msTick();
+
+        logQueue.enqueue(LINK(jobToWrite));
+
+        //Debug code will be removed before creating PR.
+        logBuffer.appendf("enqueue: %dms", msTick() -  startTime1);
+        DBGLOG("%s", logBuffer.str());
+    }
+    else if (logQueue.ordinality() > 0)
+    {
+        //Debug code will be removed before creating PR.
+        logBuffer.appendf("LThreadQueue:waitForRead: %dms", msTick() -  startTime);
+        DBGLOG("%s", logBuffer.str());
+
+        return (IEspUpdateLogRequestWrap*)logQueue.dequeue();
+    }
+    return NULL;
+}
