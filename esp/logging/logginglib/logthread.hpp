@@ -50,6 +50,7 @@ class CLogThread : public Thread , implements IUpdateLogThread
     SafeQueueOf<IInterface, false> logQueue;
     CriticalSection logQueueCrit;
     Semaphore       m_sem;
+    Owned<IThreadPool> workerThreadPool;
 
     bool failSafeLogging;
     Owned<ILogFailSafe> logFailSafe;
@@ -95,9 +96,77 @@ public:
     bool queueLog(IEspUpdateLogRequest* logRequest);
     bool queueLog(IEspUpdateLogRequestWrap* logRequest);
     void sendLog();
+    void sendJobQueueItem(const char* GUID, IEspUpdateLogRequestWrap* logRequest);
 
     void checkPendingLogs(bool oneRecordOnly=false);
     void checkRollOver();
+};
+
+//the following class implements a worker thread
+class CUpdateLogParam : public CInterface
+{
+    StringAttr GUID;
+    CLogThread* parent;
+    IEspUpdateLogRequestWrap* logRequest;
+
+public:
+    IMPLEMENT_IINTERFACE;
+
+    CUpdateLogParam(CLogThread* _parent, const char* _GUID, IEspUpdateLogRequestWrap* _logRequest)
+        : GUID(_GUID), logRequest(_logRequest), parent(_parent) { };
+
+    virtual ~CUpdateLogParam() {}
+
+    virtual void doWork()
+    {
+        parent->sendJobQueueItem(GUID, logRequest);
+    }
+};
+
+class CUpdateLogWorker : public CInterface, implements IPooledThread
+{
+public:
+    IMPLEMENT_IINTERFACE;
+
+    CUpdateLogWorker()
+    {
+    }
+    virtual ~CUpdateLogWorker()
+    {
+    }
+
+    void init(void *_param)
+    {
+        param.setown((CUpdateLogParam*) _param);
+    }
+    void main()
+    {
+        param->doWork();
+    }
+
+    bool canReuse()
+    {
+        return true;
+    }
+    bool stop()
+    {
+        return true;
+    }
+
+private:
+    Owned<CUpdateLogParam> param;
+};
+
+//---------------------------------------------------------------------------------------------
+
+class CUpdateLogWorkerFactory : public CInterface, public IThreadFactory
+{
+public:
+    IMPLEMENT_IINTERFACE;
+    IPooledThread *createNew()
+    {
+        return new CUpdateLogWorker();
+    }
 };
 
 extern LOGGINGCOMMON_API IUpdateLogThread* createUpdateLogThread(IPropertyTree* _cfg, const char* _service, const char* _agentName, IEspLogAgent* _logAgent);

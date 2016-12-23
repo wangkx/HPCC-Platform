@@ -92,6 +92,14 @@ CLogThread::CLogThread(IPropertyTree* _cfg , const char* _service, const char* _
 
         logFailSafe.setown(createFailSafeLogger(_service, _agentName, logsDir));
     }
+
+    unsigned workerThreadPoolSize = 0;//10;
+    if (workerThreadPoolSize > 0)
+    {
+        Owned<IThreadFactory> threadFactory = new CUpdateLogWorkerFactory();
+        workerThreadPool.setown(createThreadPool("UpdateLog Thread Pool", threadFactory,
+            NULL, workerThreadPoolSize, 0));
+    }
 }
 
 CLogThread::~CLogThread()
@@ -130,6 +138,9 @@ void CLogThread::stop()
     try
     {
         CriticalBlock b(logQueueCrit);
+        if (workerThreadPool)
+            workerThreadPool->joinAll(false, INFINITE);
+
         if (!logQueue.ordinality() && logFailSafe.get())
             logFailSafe->RollCurrentLog();
         //If logQueue is not empty, the log files are rolled over so that queued jobs can be read
@@ -183,6 +194,64 @@ bool CLogThread::enqueue(IEspUpdateLogRequestWrap* logRequest)
     return true;
 }
 
+void CLogThread::sendJobQueueItem(const char* GUID, IEspUpdateLogRequestWrap* logRequest)
+{
+    try
+    {
+        unsigned startTime = (getEspLogLevel()>=LogNormal) ? msTick() : 0;
+        Owned<IEspUpdateLogResponse> logResponse = createUpdateLogResponse();
+        logAgent->updateLog(*logRequest, *logResponse);
+        if (!logResponse)
+            throw MakeStringException(EspLoggingErrors::UpdateLogFailed, "no response");
+        if (logResponse->getStatusCode())
+        {
+            const char* statusMessage = logResponse->getStatusMessage();
+            if(statusMessage && *statusMessage)
+                throw MakeStringException(EspLoggingErrors::UpdateLogFailed, "%s", statusMessage);
+            else
+                throw MakeStringException(EspLoggingErrors::UpdateLogFailed, "Unknown error");
+        }
+        if (getEspLogLevel()>=LogNormal)
+            DBGLOG("LThread:updateLog: %dms\n", msTick() -  startTime);
+
+        if(failSafeLogging && logFailSafe.get())
+        {
+            unsigned startTime1 = (getEspLogLevel()>=LogNormal) ? msTick() : 0;
+            logFailSafe->AddACK(GUID);
+            if (getEspLogLevel()>=LogNormal)
+                DBGLOG("LThread:AddACK: %dms\n", msTick() -  startTime1);
+        }
+        logRequest->Release();//Make sure that no data (such as GUID) is needed before releasing the logRequest.
+    }
+    catch(IException* e)
+    {
+        StringBuffer errorStr, errorMessage;
+        errorMessage.appendf("Failed to update log for %s: error code %d, error message %s", GUID, e->errorCode(), e->errorMessage(errorStr).str());
+        e->Release();
+
+        bool willRetry = false;
+        if (maxLogRetries != 0)
+        {
+            unsigned retry = logRequest->incrementRetryCount();
+            if (retry > maxLogRetries)
+                errorMessage.append(" Max logging retries exceeded.");
+            else
+            {
+                willRetry = true;
+                writeJobQueue(logRequest);
+                errorMessage.appendf(" Adding back to logging queue for retrying %d.", retry);
+            }
+        }
+        if (!willRetry)
+        {
+            if(failSafeLogging && logFailSafe.get())
+                logFailSafe->AddACK(GUID);
+            logRequest->Release();
+        }
+        ERRLOG("%s", errorMessage.str());
+    }
+}
+
 void CLogThread::sendLog()
 {
     try
@@ -201,7 +270,14 @@ void CLogThread::sendLog()
             if ((!GUID || !*GUID) && failSafeLogging && logFailSafe.get())
                 continue;
 
-            try
+            if (!workerThreadPool)
+                sendJobQueueItem(GUID, logRequest);
+            else
+            {
+                Owned<CUpdateLogParam> pThreadReq = new CUpdateLogParam(this, GUID, logRequest);
+                workerThreadPool->start( pThreadReq.getClear());
+            }
+/*            try
             {
                 unsigned startTime = (getEspLogLevel()>=LogNormal) ? msTick() : 0;
                 Owned<IEspUpdateLogResponse> logResponse = createUpdateLogResponse();
@@ -254,7 +330,7 @@ void CLogThread::sendLog()
                     logRequest->Release();
                 }
                 ERRLOG("%s", errorMessage.str());
-            }
+            }*/
         }
     }
     catch(IException* e)
