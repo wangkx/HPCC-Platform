@@ -93,7 +93,7 @@ CLogThread::CLogThread(IPropertyTree* _cfg , const char* _service, const char* _
         logFailSafe.setown(createFailSafeLogger(_service, _agentName, logsDir));
     }
 
-    unsigned workerThreadPoolSize = 0;//10;
+    unsigned workerThreadPoolSize = 20;
     if (workerThreadPoolSize > 0)
     {
         Owned<IThreadFactory> threadFactory = new CUpdateLogWorkerFactory();
@@ -178,12 +178,12 @@ bool CLogThread::enqueue(IEspUpdateLogRequestWrap* logRequest)
     if (logFailSafe.get())
     {
         StringBuffer GUID, reqBuf;
-        unsigned startTime = (getEspLogLevel()>=LogNormal) ? msTick() : 0;
+        unsigned startTime = (getEspLogLevel()>=LogMax) ? msTick() : 0;
         logFailSafe->GenerateGUID(GUID, NULL);
         logRequest->setGUID(GUID.str());
         if (serializeLogRequestContent(logRequest, reqBuf))
             logFailSafe->Add(GUID, reqBuf.str());
-        if (getEspLogLevel()>=LogNormal)
+        if (getEspLogLevel()>=LogMax)
             DBGLOG("LThread:addToFailSafe: %dms\n", msTick() -  startTime);
     }
 
@@ -198,7 +198,6 @@ void CLogThread::sendJobQueueItem(const char* GUID, IEspUpdateLogRequestWrap* lo
 {
     try
     {
-        unsigned startTime = (getEspLogLevel()>=LogNormal) ? msTick() : 0;
         Owned<IEspUpdateLogResponse> logResponse = createUpdateLogResponse();
         logAgent->updateLog(*logRequest, *logResponse);
         if (!logResponse)
@@ -211,15 +210,13 @@ void CLogThread::sendJobQueueItem(const char* GUID, IEspUpdateLogRequestWrap* lo
             else
                 throw MakeStringException(EspLoggingErrors::UpdateLogFailed, "Unknown error");
         }
-        if (getEspLogLevel()>=LogNormal)
-            DBGLOG("LThread:updateLog: %dms\n", msTick() -  startTime);
 
         if(failSafeLogging && logFailSafe.get())
         {
-            unsigned startTime1 = (getEspLogLevel()>=LogNormal) ? msTick() : 0;
+            unsigned startTime = (getEspLogLevel()>=LogMax) ? msTick() : 0;
             logFailSafe->AddACK(GUID);
-            if (getEspLogLevel()>=LogNormal)
-                DBGLOG("LThread:AddACK: %dms\n", msTick() -  startTime1);
+            if (getEspLogLevel()>=LogMax)
+                DBGLOG("LThread:AddACK: %dms\n", msTick() -  startTime);
         }
         logRequest->Release();//Make sure that no data (such as GUID) is needed before releasing the logRequest.
     }
@@ -275,7 +272,7 @@ void CLogThread::sendLog()
             else
             {
                 Owned<CUpdateLogParam> pThreadReq = new CUpdateLogParam(this, GUID, logRequest);
-                workerThreadPool->start( pThreadReq.getClear());
+                workerThreadPool->start( pThreadReq.getClear()); //call sendJobQueueItem() inside the thread
             }
 /*            try
             {

@@ -171,6 +171,8 @@ bool CLoggingManager::updateLog(IEspContext& espContext, IEspUpdateLogRequestWra
             IUpdateLogThread* loggingThread = loggingAgentThreads[x];
             if (loggingThread->hasService(LGSTUpdateLOG))
             {
+                if (getEspLogLevel()>=LogMax)
+                    DBGLOG("Before loggingThread->queueLog");
                 loggingThread->queueLog(&req);
                 bRet = true;
             }

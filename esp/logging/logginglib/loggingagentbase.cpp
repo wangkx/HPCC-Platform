@@ -91,7 +91,7 @@ bool CDBLogAgentBase::getTransactionSeed(IEspGetTransactionSeedRequest& req, IEs
 
 bool CDBLogAgentBase::updateLog(IEspUpdateLogRequestWrap& req, IEspUpdateLogResponse& resp)
 {
-    unsigned startTime = (getEspLogLevel()>=LogNormal) ? msTick() : 0;
+    unsigned startTime = (getEspLogLevel()>=LogMax) ? msTick() : 0;
     bool ret = false;
     try
     {
@@ -120,14 +120,14 @@ bool CDBLogAgentBase::updateLog(IEspUpdateLogRequestWrap& req, IEspUpdateLogResp
             StringBuffer updateDBStatement;
             if(!buildUpdateLogStatement(logRequestTree, logDB.str(), table, logID, updateDBStatement))
                 throw MakeStringException(EspLoggingErrors::UpdateLogFailed, "Failed in creating SQL statement.");
-            if (getEspLogLevel()>=LogNormal)
+            if (getEspLogLevel()>=LogMax)
                 DBGLOG("LAgent UpdateLog BuildStat %d done: %dms\n", i, msTick() -  startTime);
 
             if (getEspLogLevel() >= LogMax)
                 DBGLOG("UpdateLog: %s\n", updateDBStatement.str());
 
             executeUpdateLogStatement(updateDBStatement);
-            if (getEspLogLevel()>=LogNormal)
+            if (getEspLogLevel()>=LogMax)
                 DBGLOG("LAgent UpdateLog ExecStat %d done: %dms\n", i, msTick() -  startTime);
         }
         resp.setStatusCode(0);
@@ -142,7 +142,7 @@ bool CDBLogAgentBase::updateLog(IEspUpdateLogRequestWrap& req, IEspUpdateLogResp
         resp.setStatusCode(-1);
         resp.setStatusMessage(errorMessage.str());
     }
-    if (getEspLogLevel()>=LogNormal)
+    if (getEspLogLevel()>=LogMax)
         DBGLOG("LAgent UpdateLog total=%dms\n", msTick() -  startTime);
     return ret;
 }

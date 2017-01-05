@@ -510,6 +510,13 @@ bool CESPServerLoggingAgent::sendHTTPRequest(StringBuffer& req, StringBuffer &re
         httpclient->setPassword(serverPassword.str());
     }
     httpclient->setTimeOut(maxServerWaitingSeconds);
+    if (getEspLogLevel()>=LogNormal)
+    {
+        unsigned startTime = msTick();
+        bool ret = !httpclient->sendRequest("POST", "text/xml", req, resp, status);
+        DBGLOG("httpclient->sendRequest: %dms\n", msTick() -  startTime);
+        return ret;
+    }
 
     return !httpclient->sendRequest("POST", "text/xml", req, resp, status);
 }
