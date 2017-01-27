@@ -53,6 +53,7 @@ public:
         const char* backEndResp, const char* userResp, const char* logDatasets, StringBuffer& status);
     virtual bool updateLog(IEspContext& espContext, const char* option, const char* logContent, StringBuffer& status);
     virtual bool updateLog(IEspContext& espContext, IEspUpdateLogRequestWrap& req, IEspUpdateLogResponse& resp);
+    virtual bool updateLog(const char* option, IPropertyTree* logInfo, IInterface* extraLog, StringBuffer& status);
     virtual bool getTransactionSeed(StringBuffer& transactionSeed, StringBuffer& status);
     virtual bool getTransactionSeed(IEspGetTransactionSeedRequest& req, IEspGetTransactionSeedResponse& resp);
     virtual bool getTransactionID(StringAttrMapping* transFields, StringBuffer& transactionID, StringBuffer& status);

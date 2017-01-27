@@ -106,6 +106,29 @@ bool CLoggingManager::updateLog(IEspContext& espContext, const char* option, con
     return bRet;
 }
 
+bool CLoggingManager::updateLog(const char* option, IPropertyTree* logInfo, IInterface* extraLog, StringBuffer& status)
+{
+    if (!initialized)
+        throw MakeStringException(-1,"LoggingManager not initialized");
+
+    bool bRet = false;
+    try
+    {
+        Owned<IEspUpdateLogRequestWrap> req =  new CUpdateLogRequestWrap(NULL, option, LINK(logInfo), LINK(extraLog));
+        Owned<IEspUpdateLogResponse> resp =  createUpdateLogResponse();
+        bRet = updateLog(*req, *resp, status);
+    }
+    catch (IException* e)
+    {
+        e->errorMessage(status);
+        status.insert(0, "Failed to update log: ");
+        ERRLOG("%s", status.str());
+        e->Release();
+    }
+
+    return bRet;
+}
+
 bool CLoggingManager::updateLog(const char* option, IEspContext& espContext, IPropertyTree* userContext, IPropertyTree* userRequest,
         const char* backEndResp, const char* userResp, const char* logDatasets, StringBuffer& status)
 {
