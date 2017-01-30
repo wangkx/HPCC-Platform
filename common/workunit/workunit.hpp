@@ -1002,6 +1002,11 @@ interface IConstWorkUnitInfo : extends IInterface
 
     virtual unsigned getTotalThorTime() const = 0;
     virtual IConstWUAppValueIterator & getApplicationValues() const = 0;
+
+	//virtual bool isBilled() const = 0;
+	//virtual IStringVal&	getTimeStamp(const char *name, const char *instance, IStringVal&str) const = 0;
+	virtual bool isBilled() const { return true;  }
+	virtual IStringVal&	getTimeStamp(const char *name, const char *instance, IStringVal&str) { return str; }
 };
 
 interface IConstWorkUnit : extends IConstWorkUnitInfo
@@ -1111,6 +1116,9 @@ interface IDistributedFile;
 
 interface IWorkUnit : extends IConstWorkUnit
 {
+	//virtual void setBilled(bool value) = 0;
+	virtual void setBilled(bool value) { }
+
     virtual void clearExceptions() = 0;
     virtual void commit() = 0;
     virtual IWUException * createException() = 0;

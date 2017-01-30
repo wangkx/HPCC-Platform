@@ -13,8 +13,6 @@
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
 ################################################################################
-
-
 # Component: esphttp 
 
 #####################################################
@@ -23,8 +21,9 @@
 #    Cmake Input File for esphttp
 #####################################################
 
-
 project( esphttp ) 
+
+include(${HPCC_SOURCE_DIR}/cmake_modules/share.cmake)
 
 set (    SRCS 
          ../../bindings/bindutil.cpp 
@@ -66,16 +65,30 @@ include_directories (
 
 ADD_DEFINITIONS( -DESPHTTP_EXPORTS -DESP_TIMING -D_USRDLL -DESP_PLUGIN )
 
-HPCC_ADD_LIBRARY( esphttp SHARED ${SRCS} )
+file (GLOB HEADERS RELATIVE "${CMAKE_CURRENT_SOURCE_DIR}" 
+	${HPCC_SOURCE_DIR}/esp/bindings/http/platform/*.hpp 
+	${HPCC_SOURCE_DIR}/esp/bindings/http/platform/*.ipp
+	${HPCC_SOURCE_DIR}/esp/bindings/http/client/*.hpp 
+	${HPCC_SOURCE_DIR}/esp/bindings/http/client/*.ipp
+	${HPCC_SOURCE_DIR}/esp/bindings/SOAP/Platform/*.hpp 
+	${HPCC_SOURCE_DIR}/esp/bindings/SOAP/client/*.hpp
+	${HPCC_SOURCE_DIR}/esp/platform/*.hpp 
+	${HPCC_SOURCE_DIR}/esp/platform/*.ipp
+	${HPCC_SOURCE_DIR}/system/include/*.hpp)
+
+HPCC_ADD_LIBRARY( esphttp SHARED ${SRCS} ${HEADERS} )
+
 add_dependencies (esphttp  espscm )
+
 install ( TARGETS esphttp RUNTIME DESTINATION ${EXEC_DIR} LIBRARY DESTINATION ${LIB_DIR} )
+
 target_link_libraries ( esphttp 
-         ${XALAN_LIBRARIES} ${XERCES_LIBRARIES}
-         jlib
-         xmllib 
-    )
+	${XALAN_LIBRARIES}
+	${XERCES_LIBRARIES}
+	jlib
+	xmllib 
+)
+
 IF (USE_OPENLDAP)
-target_link_libraries ( esphttp LdapSecurity )
+	target_link_libraries ( esphttp LdapSecurity )
 ENDIF(USE_OPENLDAP)
-
-

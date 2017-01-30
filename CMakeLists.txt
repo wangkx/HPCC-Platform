@@ -181,6 +181,8 @@ elseif ( NOT MAKE_DOCS_ONLY )
     endif()
     if ( NOT WIN32 )
         HPCC_ADD_SUBDIRECTORY (clienttools "CLIENTTOOLS_ONLY")
+    else()
+        HPCC_ADD_SUBDIRECTORY(workspaces)
     endif()
 endif()
 

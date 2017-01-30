@@ -27,11 +27,16 @@ project (scm)
 
 set (SCM_BUILD ON)
 include ( ${CMAKE_CURRENT_SOURCE_DIR}/espscm.cmake)
+list(APPEND SCM_SRCS "${ESPSCM_SRCS}")
 include ( ${CMAKE_CURRENT_SOURCE_DIR}/smcscm.cmake)
+list(APPEND "${SCM_SRCS} ${ESPSCM_SRCS}")
 include ( ${CMAKE_CURRENT_SOURCE_DIR}/additional.cmake)
+list(APPEND "${SCM_SRCS} ${ESPSCM_SRCS}")
+
 set (SCM_BUILD OFF)
 
 ADD_CUSTOM_TARGET( 
   espscm ALL
   DEPENDS ${ESP_GENERATED_INCLUDES}
+  SOURCES ${SCM_SRCS}
 )

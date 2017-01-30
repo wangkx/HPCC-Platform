@@ -18,6 +18,12 @@
 #ifndef _ESPPROTOCOL_HPP__
 #define _ESPPROTOCOL_HPP__
 
+#ifdef ESPHTTP_EXPORTS
+#define esp_http_decl DECL_EXPORT
+#else
+#define esp_http_decl DECL_IMPORT
+#endif
+
 //Jlib
 #include "jliball.hpp"
 
@@ -136,7 +142,7 @@ typedef map<int, CEspApplicationPort*> CApplicationPortMap;
 
 #define DEFAULT_MAX_REQUEST_ENTITY_LENGTH 8000000
 
-class CEspProtocol : public CInterface,
+class esp_http_decl CEspProtocol : public CInterface,
     implements IEspProtocol,
     implements ISocketSelectNotify
 {

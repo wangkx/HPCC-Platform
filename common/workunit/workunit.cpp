@@ -830,6 +830,7 @@ public:
         appvalues.loadBranch(&p,"Application");
         totalThorTime = (unsigned)nanoToMilli(extractTimeCollatable(p.queryProp("@totalThorTime"), false));
         _isProtected = p.getPropBool("@protected", false);
+		billed = p.getPropBool("@billed", false);
     }
     virtual const char *queryWuid() const { return wuid.str(); }
     virtual const char *queryUser() const { return user.str(); }
@@ -844,6 +845,7 @@ public:
     virtual const char *queryPriorityDesc() const { return getEnumText(priority, priorityClasses); }
     virtual int getPriorityLevel() const { return priorityLevel; }
     virtual bool isProtected() const { return _isProtected; }
+	virtual bool isBilled() const {	return billed; }
     virtual IJlibDateTime & getTimeScheduled(IJlibDateTime & val) const
     {
         if (timeScheduled.length())
@@ -862,6 +864,7 @@ protected:
     WUPriorityClass priority;
     int priorityLevel;
     bool _isProtected;
+	bool billed;
 };
 
 extern IConstWorkUnitInfo *createConstWorkUnitInfo(IPropertyTree &p)
