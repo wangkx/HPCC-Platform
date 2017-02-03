@@ -287,6 +287,7 @@ cycle_t nanosec_to_cycle(__int64 ns)
     return (__int64)((double)ns / cycleToNanoScale);
 }
 
+#if !(defined(INLINE_GET_CYCLES_NOW) && defined(HAS_GOOD_CYCLE_COUNTER))
 cycle_t jlib_decl get_cycles_now()
 {
     if (useRDTSC)
@@ -295,6 +296,7 @@ cycle_t jlib_decl get_cycles_now()
     QueryPerformanceCounter(&temp);
     return temp.QuadPart;
 }
+#endif
 
 double getCycleToNanoScale()
 {
