@@ -18,7 +18,6 @@
 #include "ws_fsService.hpp"
 #include "ws_fsBinding.hpp"
 #include "TpWrapper.hpp"
-#include "environment.hpp"
 #include "jwrapper.hpp"
 #include "dfuwu.hpp"
 #include "dadfs.hpp"
@@ -175,7 +174,7 @@ int CFileSpraySoapBindingEx::onGetInstantQuery(IEspContext &context, CHttpReques
 
             StringBuffer wuid;
             request->getParameter("wuid", wuid);
-            Owned<IPropertyTree> pTree = createPTreeForXslt(method, wuid.str());
+            Owned<IPropertyTree> pTree = createPTreeForXslt(context.getClientVersion(), method, wuid.str());
             toXML(pTree, xml, false);
         }
     
@@ -199,7 +198,7 @@ int CFileSpraySoapBindingEx::onGetInstantQuery(IEspContext &context, CHttpReques
         return CFileSpraySoapBinding::onGetInstantQuery(context, request, response, service, method);
 }
 
-IPropertyTree* CFileSpraySoapBindingEx::createPTreeForXslt(const char* method, const char* dfuwuid)
+IPropertyTree* CFileSpraySoapBindingEx::createPTreeForXslt(double clientVersion, const char* method, const char* dfuwuid)
 {
     Owned<IEnvironmentFactory> factory = getEnvironmentFactory();
     Owned<IConstEnvironment> m_constEnv = factory->openEnvironment();
@@ -230,80 +229,11 @@ IPropertyTree* CFileSpraySoapBindingEx::createPTreeForXslt(const char* method, c
             }
         }
 
-        Owned<IPropertyTreeIterator> it = pEnvSoftware->getElements("DropZone");
-        ForEach(*it)
-        {
-            if (!it->query().getPropBool("@ECLWatchVisible", true))
-                continue;
-            IPropertyTree* pDropZone = pSoftware->addPropTree("DropZone", &it->get());
-            //get IP Address of the computer associated with this drop zone
-            const char* pszComputer = it->query().queryProp("@computer");
-            if (!strcmp(pszComputer, "."))
-                pszComputer = "localhost";
-
-            StringBuffer xpath;
-            xpath.appendf("Hardware/Computer[@name='%s']/@netAddress", pszComputer);
-
-            StringBuffer sNetAddr;
-            const char* pszNetAddr = pEnvRoot->queryProp(xpath.str());
-            if (strcmp(pszNetAddr, "."))
-            {       
-                sNetAddr.append(pszNetAddr);
-            }
-            else
-            {
-                StringBuffer ipStr;
-                IpAddress ipaddr = queryHostIP();
-                ipaddr.getIpText(ipStr);
-                if (ipStr.length() > 0)
-                {
-#ifdef MACHINE_IP
-                    sNetAddr.append(MACHINE_IP);
-#else
-                    sNetAddr.append(ipStr.str());
-#endif
-                }
-            }
-            pDropZone->addProp("@netAddress", sNetAddr.str());
-            if ((dfuwuidSourcePartIP.length() > 0) && (sNetAddr.length() > 0))
-            {
-                IpAddress ip1(dfuwuidSourcePartIP.str()), ip2(sNetAddr.str());
-                if (ip1.ipequals(ip2))              
-                    pDropZone->addProp("@sourceNode", "1");
-            }
-
-            Owned<IConstMachineInfo> machine;
-            if (strcmp(pszNetAddr, "."))
-                machine.setown(m_constEnv->getMachineByAddress(sNetAddr.str()));
-            else
-            {
-                machine.setown(m_constEnv->getMachineByAddress(pszNetAddr));
-                if (!machine)
-                    machine.setown(m_constEnv->getMachineByAddress(sNetAddr.str()));
-            }
-
-            if (machine)
-            {
-                //int os = machine->getOS();
-                StringBuffer dir;
-                pDropZone->getProp("@directory", dir);
-                if (machine->getOS() == MachineOsLinux || machine->getOS() == MachineOsSolaris)
-                {         
-                    dir.replace('\\', '/');//replace all '\\' by '/'
-                    pDropZone->setProp("@linux", "true");
-                }
-                else
-                {       
-                    dir.replace('/', '\\');
-                    dir.replace('$', ':');
-                }
-                pDropZone->setProp("@directory", dir);
-            }
-        }
+        appendDropZones(clientVersion, m_constEnv, dfuwuidSourcePartIP.str(), pSoftware);
 
         //For Spray files on Thor Cluster, fetch all the group names for all the thor instances (and dedup them)
         BoolHash uniqueThorClusterGroupNames;
-        it.setown(pEnvSoftware->getElements("ThorCluster"));
+        Owned<IPropertyTreeIterator> it =pEnvSoftware->getElements("ThorCluster");
         ForEach(*it)
         {
             StringBuffer thorClusterGroupName;
@@ -368,6 +298,54 @@ IPropertyTree* CFileSpraySoapBindingEx::createPTreeForXslt(const char* method, c
             pSoftware->addPropTree("DfuWorkunit", createPTreeFromXMLString(wuxml.str()));
     }
     return pRoot.getClear();
+}
+
+//For every ECLWatchVisible dropzones, read: dropZoneName, directory, and, if available, computer.
+//For every Servers/Server in ECLWatchVisible dropzones, read: directory,
+// server name, and hostname(or IP). Create dropzone("@name", "@directory", "@computer",
+// "@netAddress", "@linux", "@sourceNode") tree into pSoftware.
+void CFileSpraySoapBindingEx::appendDropZones(double clientVersion, IConstEnvironment* env, const char* dfuwuidSourcePartIP, IPropertyTree* softwareTree)
+{
+    IArrayOf<IConstTpDropZone> list;
+    CTpWrapper dummy;
+    dummy.getTpDropZones(clientVersion, nullptr, true, list);
+    ForEachItemIn(currentDZIndex, list)
+    {
+        IConstTpDropZone& dropZone = list.item(currentDZIndex);
+
+        const char* dropZoneName = dropZone.getName();
+        IArrayOf<IConstTpMachine>& tpMachines = dropZone.getTpMachines();
+        ForEachItemIn(currentMachineIndex, tpMachines)
+        {
+            IConstTpMachine& tpMachine = tpMachines.item(currentMachineIndex);
+            const char* name = tpMachine.getName();
+            const char* networkAddress = tpMachine.getNetaddress();
+            const char* machineDirectory = tpMachine.getDirectory();
+
+            IPropertyTree* dropZone = softwareTree->addPropTree("DropZone", createPTree());
+            if (!isEmptyString(dropZoneName))
+                dropZone->setProp("@name", dropZoneName);
+            if (!isEmptyString(machineDirectory))
+                dropZone->setProp("@directory", machineDirectory);
+            if (tpMachine.getOS() == MachineOsLinux || tpMachine.getOS() == MachineOsSolaris)
+                dropZone->setProp("@linux", "true");
+
+            if (!isEmptyString(name))
+                dropZone->setProp("@computer", name);
+            if (!isEmptyString(networkAddress))
+            {
+                dropZone->addProp("@netAddress", networkAddress);
+
+                if (!isEmptyString(dfuwuidSourcePartIP))
+                {
+                    IpAddress ipAddr(networkAddress);
+                    IpAddress ip(dfuwuidSourcePartIP);
+                    if (ip.ipequals(ipAddr))
+                        dropZone->addProp("@sourceNode", "1");
+                }
+            }
+        }
+    }
 }
 
 
