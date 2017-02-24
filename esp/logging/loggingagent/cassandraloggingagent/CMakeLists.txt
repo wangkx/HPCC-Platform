@@ -43,6 +43,7 @@ if(USE_CASSANDRA)
   ADD_DEFINITIONS( -D_USRDLL -DCASSANDRALOGAGENT_EXPORTS )
 
   set ( SRCS
+    ${HPCC_SOURCE_DIR}/plugins/cassandra/cassandraembed.cpp
     cassandralogagent.cpp
   )
 
@@ -51,7 +52,7 @@ if(USE_CASSANDRA)
   install ( TARGETS cassandralogagent RUNTIME DESTINATION ${EXEC_DIR} LIBRARY DESTINATION ${LIB_DIR} )
   add_dependencies (cassandralogagent espscm)
   target_link_libraries ( cassandralogagent
-    cassandraembed
+    cassandra
     eclrtl
     esphttp
     jlib
