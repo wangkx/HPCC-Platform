@@ -990,13 +990,35 @@ void Cws_machineEx::getRoxieStateInfo(CRoxieStateInfoThreadParam* param)
     if (!servers.length())
         throw MakeStringException(ECLWATCH_CANNOT_GET_ENV_INFO, "Roxie Process server not found.");
 
-    Owned<IRoxieCommunicationClient> roxieClient = createRoxieCommunicationClient(servers.item(0), ROXIECONTROLSTATETIMEOUT);
-    Owned<IPropertyTree> controlResp = roxieClient->sendRoxieControlAllNodes("<control:state/>", true);
-    if (!controlResp)
-        throw MakeStringException(ECLWATCH_INTERNAL_ERROR, "Failed to get control response from roxie %s.", clusterName);
-
     CIArrayOf<CRoxieStateData> roxieStates;
-    readRoxieStatus(controlResp, roxieStates);
+    Owned<IPropertyTree> controlResp;
+    try
+    {
+        Owned<IRoxieCommunicationClient> roxieClient = createRoxieCommunicationClient(servers.item(0), ROXIECONTROLSTATETIMEOUT);
+        controlResp.setown(roxieClient->sendRoxieControlAllNodes("<control:state/>", true));
+        if (!controlResp)
+            throw MakeStringException(ECLWATCH_INTERNAL_ERROR, "Failed to get control response from roxie %s.", clusterName);
+    }
+    catch (IException *e)
+    {
+        EXCLOG(e, "Failed to get Roxie state.");
+        e->Release();
+    }
+
+    if (controlResp)
+        readRoxieStatus(controlResp, roxieStates);
+    if (roxieStates.empty())
+    {
+        ForEachItemIn(ii, param->machineInfoTable)
+        {
+            IEspMachineInfoEx& machineInfo = param->machineInfoTable.item(ii);
+            if (!streq(machineInfo.getProcessType(), eqRoxieServerProcess) || !streq(machineInfo.getComponentName(), clusterName))
+                continue;
+            machineInfo.setRoxieState("??");
+            machineInfo.setRoxieStateDetails("Roxie state not found");
+        }
+        return;
+    }
 
     ForEachItemIn(i, param->machineInfoTable)
     {
