@@ -86,6 +86,13 @@ bool CESPServerLoggingAgent::init(const char * name, const char * type, IPropert
     Owned<CTransIDBuilder> localTransactionEntry = new CTransIDBuilder(localTransactionSeed.str(), true);
     transIDMap.setValue(appESPServerLoggingAgent, localTransactionEntry);
 
+    Owned<IPropertyTreeIterator> itr = cfg->getElements("XSL/*");
+    ForEach(*itr)
+    {
+        IPropertyTree& curVal = itr->query();
+        toXML(&curVal, xslSource);
+        break;
+    }
     readAllLogFilters(cfg);
     return true;
 }
@@ -277,6 +284,8 @@ bool CESPServerLoggingAgent::updateLog(IEspUpdateLogRequestWrap& req, IEspUpdate
             );
         soapreq.append(req.getUpdateLogRequest());
         soapreq.append("</soap:Body></soap:Envelope>");
+        DBGLOG("SEND<%s>", soapreq.str());
+        //return true;
 
         StringBuffer status, respStr;
         if (sendHTTPRequest(soapreq, respStr, status) && status.length() && strieq(status, "200 OK"))
@@ -357,6 +366,20 @@ void CESPServerLoggingAgent::filterLogContentTree(StringArray& filters, IPropert
 void CESPServerLoggingAgent::filterLogContent(IEspUpdateLogRequestWrap* req)
 {
     const char* logContent = req->getUpdateLogRequest();
+    if (!xslSource.isEmpty() && !isEmptyString(logContent))
+    {
+        StringBuffer logContentToSend;
+        Owned<IXslProcessor> proc  = getXslProcessor();
+        Owned<IXslTransform> trans = proc->createXslTransform();
+        trans->setXmlSource(logContent, strlen(logContent));
+        trans->setXslNoCache(xslSource.str(), xslSource.length());
+        trans->transform(logContentToSend);
+        ESPLOG(LogMax, "XSL generated content: <%s>", logContentToSend.str());
+        req->clearOriginalContent();
+        req->setUpdateLogRequest(logContentToSend.str());
+        return;
+    }
+
     Owned<IPropertyTree> updateLogRequestTree = createPTree("UpdateLogRequest");
 
     StringBuffer source;

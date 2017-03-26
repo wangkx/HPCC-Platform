@@ -106,7 +106,7 @@ public:
 class CESPServerLoggingAgent : public CInterface, implements IEspLogAgent
 {
     StringBuffer serviceName, loggingAgentName, defaultGroup;
-    StringBuffer serverUrl, serverUserID, serverPassword;
+    StringBuffer serverUrl, serverUserID, serverPassword, xslSource;
     unsigned maxServerWaitingSeconds; //time out value for HTTP connection to logging server
     unsigned maxGTSRetries;
     StringArray     logContentFilters;
