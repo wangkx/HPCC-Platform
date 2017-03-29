@@ -75,6 +75,7 @@ protected:
     Owned<CLocalEnvironment> constEnv;
     Owned<IPropertyTreeIterator> serverListIt;
     unsigned maxIndex = 0;
+    Owned<IPropertyTree> legacyServerList;
 };
 
 class CConstDropZoneInfoIterator : public CSimpleInterfaceOf<IConstDropZoneInfoIterator>
@@ -1646,61 +1647,30 @@ IConstDropZoneInfo * CLocalEnvironment::getDropZoneByAddressPath(const char * ne
         {
             candidateDropZone = &zoneIt->query();
 
-            // For backward compatibility
-            SCMStringBuffer dropZoneMachineName;
-            // Returns dropzone '@computer' value if it is exists
-            candidateDropZone->getComputerName(dropZoneMachineName);
-            if (0 != dropZoneMachineName.length())
+            // The backward compatibility built in IConstDropZoneServerInfoIterator
+            Owned<IConstDropZoneServerInfoIterator> dropzoneServerListIt = candidateDropZone->getServers();
+            ForEach(*dropzoneServerListIt)
             {
-                Owned<IConstMachineInfo> machineInfo = getMachine(dropZoneMachineName.str());
-                if (machineInfo)
-                {
-                    SCMStringBuffer dropZoneMachineNetAddress;
-                    machineInfo->getNetAddress(dropZoneMachineNetAddress);
-                    IpAddress dropZoneMachineIp(dropZoneMachineNetAddress.str());
-#ifdef _DEBUG
-                    StringBuffer dropZoneMachineNetAddressIpString;
-                    dropZoneMachineIp.getIpText(dropZoneMachineNetAddressIpString);
-                    LOG(MCdebugInfo, unknownJob, "Drop zone computer: '%s', IP: '%s'", dropZoneMachineName.str(), dropZoneMachineNetAddressIpString.str());
-#endif
-                    if (targetIp.ipequals(dropZoneMachineIp))
-                    {
-                        // Keep this drop zone
-                        if (dropzonePathLen > fullDropZoneDir.length())
-                        {
-                            dropzonePathLen = fullDropZoneDir.length();
-                            dropZone = candidateDropZone;
-                        }
-                    }
-                }
-            }
-            else
-            {
-                // It has not '@server' attrib. Check the ServerList
-                Owned<IConstDropZoneServerInfoIterator> dropzoneServerListIt = candidateDropZone->getServers();
-                ForEach(*dropzoneServerListIt)
-                {
-                    StringBuffer dropzoneServer;
-                    dropzoneServerListIt->query().getServer(dropzoneServer);
-                    // It can be a hostname or an IP -> get the IP
-                    IpAddress serverIP(dropzoneServer.str());
+                StringBuffer dropzoneServer;
+                dropzoneServerListIt->query().getServer(dropzoneServer);
+                // It can be a hostname or an IP -> get the IP
+                IpAddress serverIP(dropzoneServer.str());
 
 #ifdef _DEBUG
-                    StringBuffer serverIpString;
-                    serverIP.getIpText(serverIpString);
-                    LOG(MCdebugInfo, unknownJob, "Listed server: '%s', IP: '%s'", dropzoneServer.str(), serverIpString.str());
+                StringBuffer serverIpString;
+                serverIP.getIpText(serverIpString);
+                LOG(MCdebugInfo, unknownJob, "Listed server: '%s', IP: '%s'", dropzoneServer.str(), serverIpString.str());
 #endif
-                    if (targetIp.ipequals(serverIP))
+                if (targetIp.ipequals(serverIP))
+                {
+                    // OK the target is a valid machine in the server list we have a right drop zone candidate
+                    // Keep this candidate drop zone if its directory path is shorter than we already have
+                    if (dropzonePathLen > fullDropZoneDir.length())
                     {
-                        // OK the target is a valid machine in the server list we have a right drop zone candidate
-                        // Keep this candidate drop zone if its directory path is shorter than we already have
-                        if (dropzonePathLen > fullDropZoneDir.length())
-                        {
-                           dropzonePathLen = fullDropZoneDir.length();
-                           dropZone = candidateDropZone;
-                        }
-                        break;
+                       dropzonePathLen = fullDropZoneDir.length();
+                       dropZone = candidateDropZone;
                     }
+                    break;
                 }
             }
         }
@@ -1821,9 +1791,45 @@ CConstDropZoneServerInfoIterator::CConstDropZoneServerInfoIterator(const IConstD
 {
     Owned<IEnvironmentFactory> factory = getEnvironmentFactory();
     constEnv.setown((CLocalEnvironment *)factory->openEnvironment());
-    Owned<IPropertyTree> pSrc = &dropZone->getPTree();
-    serverListIt.setown(pSrc->getElements("ServerList"));
-    maxIndex = pSrc->getCount("ServerList");
+
+    // For backward compatibility
+    SCMStringBuffer dropZoneMachineName;
+    // Returns dropzone '@computer' value if it is exists
+    dropZone->getComputerName(dropZoneMachineName);
+
+    if (0 != dropZoneMachineName.length())
+    {
+        // Create a ServerList for legacy element.
+        legacyServerList.setown(createPTree());
+
+        Owned<IConstMachineInfo> machineInfo = constEnv->getMachine(dropZoneMachineName.str());
+        if (machineInfo)
+        {
+            SCMStringBuffer dropZoneMachineNetAddress;
+            machineInfo->getNetAddress(dropZoneMachineNetAddress);
+
+            // Create a single ServerList record related to @computer
+            //<ServerList name="ServerList" server="<IP_of_@computer>"/>
+            Owned<IPropertyTree> newRecord = createPTree();
+            newRecord->setProp("@name", "ServerList");
+            newRecord->setProp("@server", dropZoneMachineNetAddress.str());
+            legacyServerList->addPropTree("ServerList",newRecord.getClear());
+
+            maxIndex = 1;
+        }
+        else
+        {
+            // Something is terrible wrong because there is no matching machine for DropZone @computer
+            maxIndex = 0;
+        }
+        serverListIt.setown(legacyServerList->getElements("ServerList"));
+    }
+    else
+    {
+        Owned<IPropertyTree> pSrc = &dropZone->getPTree();
+        serverListIt.setown(pSrc->getElements("ServerList"));
+        maxIndex = pSrc->getCount("ServerList");
+    }
 }
 
 bool CConstDropZoneServerInfoIterator::first()
