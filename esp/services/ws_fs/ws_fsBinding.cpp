@@ -306,32 +306,60 @@ IPropertyTree* CFileSpraySoapBindingEx::createPTreeForXslt(double clientVersion,
 // "@netAddress", "@linux", "@sourceNode") tree into pSoftware.
 void CFileSpraySoapBindingEx::appendDropZones(double clientVersion, IConstEnvironment* env, const char* dfuwuidSourcePartIP, IPropertyTree* softwareTree)
 {
-    IArrayOf<IConstTpDropZone> list;
-    CTpWrapper dummy;
-    dummy.getTpDropZones(clientVersion, nullptr, true, list);
-    ForEachItemIn(currentDZIndex, list)
+    Owned<IConstDropZoneInfoIterator> dropZoneItr = env->getDropZoneIterator();
+    ForEach(*dropZoneItr)
     {
-        IConstTpDropZone& dropZone = list.item(currentDZIndex);
+        IConstDropZoneInfo& dropZoneInfo = dropZoneItr->query();
+        if (!dropZoneInfo.isECLWatchVisible()) //This code is used by ECLWatch. So, skip the DZs not for ECLWatch.
+            continue;
 
-        const char* dropZoneName = dropZone.getName();
-        IArrayOf<IConstTpMachine>& tpMachines = dropZone.getTpMachines();
-        ForEachItemIn(currentMachineIndex, tpMachines)
+        SCMStringBuffer dropZoneName, directory, computerName;
+        dropZoneInfo.getName(dropZoneName);
+        dropZoneInfo.getDirectory(directory);
+        dropZoneInfo.getComputerName(computerName); //legacy env
+        if (!dropZoneName.length() || !directory.length())
+            continue;
+
+        bool isLinux = false;
+        if (computerName.length() > 0)
+        { //legacy env
+            StringBuffer dir = directory.str();
+            Owned<IConstMachineInfo> machine = env->getMachine(computerName.str());
+            if (machine->getOS() == MachineOsLinux || machine->getOS() == MachineOsSolaris)
+            {
+                dir.replace('\\', '/');//replace all '\\' by '/'
+            }
+            else
+            {
+                dir.replace('/', '\\');
+                dir.replace('$', ':');
+            }
+            directory.set(dir.str());
+        }
+        if (getPathSepChar(directory.str()) == '/')
+            isLinux = true;
+
+        Owned<IConstDropZoneServerInfoIterator> machineItr = dropZoneInfo.getServers();
+        ForEach(*machineItr)
         {
-            IConstTpMachine& tpMachine = tpMachines.item(currentMachineIndex);
-            const char* name = tpMachine.getName();
-            const char* networkAddress = tpMachine.getNetaddress();
-            const char* machineDirectory = tpMachine.getDirectory();
+            IConstDropZoneServerInfo& dropZoneServer = machineItr->query();
+
+            StringBuffer name, server, networkAddress;
+            dropZoneServer.getName(name);
+            dropZoneServer.getServer(server);
+            if (name.isEmpty() || server.isEmpty())
+                continue;
 
             IPropertyTree* dropZone = softwareTree->addPropTree("DropZone", createPTree());
-            if (!isEmptyString(dropZoneName))
-                dropZone->setProp("@name", dropZoneName);
-            if (!isEmptyString(machineDirectory))
-                dropZone->setProp("@directory", machineDirectory);
-            if (tpMachine.getOS() == MachineOsLinux || tpMachine.getOS() == MachineOsSolaris)
+            dropZone->setProp("@name", dropZoneName.str());
+            dropZone->setProp("@computer", name.str());
+            dropZone->setProp("@directory", directory.str());
+            if (isLinux)
                 dropZone->setProp("@linux", "true");
 
-            if (!isEmptyString(name))
-                dropZone->setProp("@computer", name);
+            IpAddress ipAddr;
+            ipAddr.ipset(server.str());
+            ipAddr.getIpText(networkAddress);
             if (!isEmptyString(networkAddress))
             {
                 dropZone->addProp("@netAddress", networkAddress);

@@ -1656,22 +1656,17 @@ void CTpWrapper::getTpDropZones(double clientVersion, const char* name, bool ECL
     Owned<IConstEnvironment> constEnv = envFactory->openEnvironment();
     if (!isEmptyString(name))
     {
-        IConstDropZoneInfo* pDropZoneInfo = constEnv->getDropZone(name);
-        if (pDropZoneInfo)
-        {
-            bool isECLWatchVisible = pDropZoneInfo->isECLWatchVisible();
-            if (!ECLWatchVisibleOnly || isECLWatchVisible)
-                appendTpDropZone(clientVersion, constEnv, *pDropZoneInfo, list);
-        }
+        Owned<IConstDropZoneInfo> pDropZoneInfo = constEnv->getDropZone(name);
+        if (pDropZoneInfo && (!ECLWatchVisibleOnly || pDropZoneInfo->isECLWatchVisible()))
+            appendTpDropZone(clientVersion, constEnv, *pDropZoneInfo, list);
     }
     else
     {
-        IConstDropZoneInfoIterator* it = constEnv->getDropZoneIterator();
+        Owned<IConstDropZoneInfoIterator> it = constEnv->getDropZoneIterator();
         ForEach(*it)
         {
             IConstDropZoneInfo& dropZoneInfo = it->query();
-            bool isECLWatchVisible = dropZoneInfo.isECLWatchVisible();
-            if (!ECLWatchVisibleOnly || isECLWatchVisible)
+            if (!ECLWatchVisibleOnly || dropZoneInfo.isECLWatchVisible())
                 appendTpDropZone(clientVersion, constEnv, dropZoneInfo, list);
         }
     }
@@ -1699,57 +1694,33 @@ void CTpWrapper::appendTpDropZone(double clientVersion, IConstEnvironment* const
     dropZone->setECLWatchVisible(dropZoneInfo.isECLWatchVisible());
 
     IArrayOf<IEspTpMachine> tpMachines;
-    if (computer.length() == 0)
+    Owned<IConstDropZoneServerInfoIterator> itr = dropZoneInfo.getServers();
+    ForEach(*itr)
     {
-        IConstDropZoneServerInfoIterator* itr = dropZoneInfo.getServers();
-        ForEach(*itr)
+        IConstDropZoneServerInfo& dropZoneServer = itr->query();
+
+        StringBuffer name, server, networkAddress;
+        dropZoneServer.getName(name);
+        dropZoneServer.getServer(server);
+        if (name.isEmpty() && server.isEmpty())
+            continue;
+
+        Owned<IEspTpMachine> machine = createTpMachine();
+        if (!name.isEmpty())
+            machine->setName(name.str());
+        if (!server.isEmpty())
         {
-            IConstDropZoneServerInfo& dropZoneServer = itr->query();
-
-            StringBuffer name, server, networkAddress;
-            dropZoneServer.getName(name);
-            dropZoneServer.getServer(server);
-            if (name.isEmpty() && server.isEmpty())
-                continue;
-
-            Owned<IEspTpMachine> machine = createTpMachine();
-            if (!name.isEmpty())
-                machine->setName(name.str());
-            if (!server.isEmpty())
-            {
-                IpAddress ipAddr;
-                ipAddr.ipset(server.str());
-                ipAddr.getIpText(networkAddress);
-                machine->setNetaddress(networkAddress.str());
-            }
-            if (directory.length() > 0)
-            {
-                machine->setDirectory(directory.str());
-                machine->setOS(getPathSepChar(directory.str()) == '/' ? MachineOsLinux : MachineOsW2K);
-            }
-            tpMachines.append(*machine.getLink());
+            IpAddress ipAddr;
+            ipAddr.ipset(server.str());
+            ipAddr.getIpText(networkAddress);
+            machine->setNetaddress(networkAddress.str());
         }
-    }
-    else //legacy DZ settings in environment.xml
-    {
-        if (streq(computer.str(), "."))
-            computer.set("localhost");
-
-        IConstMachineInfo* machineInfo = constEnv->getMachine(computer.str());
-        if (machineInfo)
+        if (directory.length() > 0)
         {
-            Owned<IEspTpMachine> machine = createTpMachineEx(computer.str(), "DropZone", machineInfo);
-            if (directory.length() > 0)
-            {
-                StringBuffer dir = directory.str();
-                if (machine->getOS() == MachineOsLinux || machine->getOS() == MachineOsSolaris)
-                    dir.replace('\\', '/');//replace all '\\' by '/'
-                else
-                    dir.replace('/', '\\');
-                machine->setDirectory(dir.str());
-            }
-            tpMachines.append(*machine.getLink());
+            machine->setDirectory(directory.str());
+            machine->setOS(getPathSepChar(directory.str()) == '/' ? MachineOsLinux : MachineOsW2K);
         }
+        tpMachines.append(*machine.getLink());
     }
     dropZone->setTpMachines(tpMachines);
 
