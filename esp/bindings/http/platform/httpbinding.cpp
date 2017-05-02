@@ -507,9 +507,253 @@ bool EspHttpBinding::basicAuth(IEspContext* ctx)
     ctx->addTraceSummaryTimeStamp(LogMin, "basicAuth");
     return authorized;
 }
-    
+
+#include <libmemcached/memcached.hpp>
+#include <libmemcached/util.h>
+
+#define MEMCACHED_VERSION "memcached plugin 1.0.0"
+
 void EspHttpBinding::handleHttpPost(CHttpRequest *request, CHttpResponse *response)
 {
+    class ESPMemCached : public CInterface
+    {
+        memcached_st * connection = nullptr;
+        memcached_pool_st * pool = nullptr;
+        StringAttr options;
+
+    public :
+        ESPMemCached(const char * _options)
+        {
+#if (LIBMEMCACHED_VERSION_HEX < 0x01000010)
+            VStringBuffer msg("Memcached Plugin: libmemcached version '%s' incompatible with min version>=1.0.10", LIBMEMCACHED_VERSION_STRING);
+            ESPLOG(LogNormal, "%s", msg.str());
+#endif
+
+            options.set(_options);
+            pool = memcached_pool(_options, strlen(_options));
+            assertPool();
+
+            setPoolSettings();
+            connect();
+            if (connection)
+            {
+                DBGLOG("ESPMemCached connection<%d>", memcached_server_count(connection));
+                /*const char * msg = "'Set' request failed - ";
+                DBGLOG("20");
+                char key[1024];
+                int length= snprintf(key, sizeof(key), "%s%u", "n", 1);
+                memcached_set(connection, key, length,
+                                                   NULL, 0, // Zero length values
+                                                   time_t(0), uint32_t(0));
+                DBGLOG("21");*/
+                checkServersUp();
+            }
+        }
+
+        ~ESPMemCached()
+        {
+            if (pool)
+            {
+                memcached_pool_release(pool, connection);
+                connection = nullptr;//For safety (from changing this destructor) as not implicit in either the above or below.
+                memcached_st *memc = memcached_pool_destroy(pool);
+                if (memc)
+                    memcached_free(memc);
+            }
+            else if (connection)//This should never be needed but just in case.
+            {
+                memcached_free(connection);
+            }
+        };
+
+        void setPoolSettings()
+        {
+            assertPool();
+            const char * msg = "memcached_pool_behavior_set failed - ";
+            assertOnError(memcached_pool_behavior_set(pool, MEMCACHED_BEHAVIOR_KETAMA, 1), msg);//NOTE: alias of MEMCACHED_DISTRIBUTION_CONSISTENT_KETAMA amongst others.
+            memcached_pool_behavior_set(pool, MEMCACHED_BEHAVIOR_USE_UDP, 0);  // Note that this fails on early versions of libmemcached, so ignore result
+            assertOnError(memcached_pool_behavior_set(pool, MEMCACHED_BEHAVIOR_NO_BLOCK, 0), msg);
+            assertOnError(memcached_pool_behavior_set(pool, MEMCACHED_BEHAVIOR_CONNECT_TIMEOUT, 1000), msg);//units of ms.
+            assertOnError(memcached_pool_behavior_set(pool, MEMCACHED_BEHAVIOR_SND_TIMEOUT, 1000000), msg);//units of mu-s.
+            assertOnError(memcached_pool_behavior_set(pool, MEMCACHED_BEHAVIOR_RCV_TIMEOUT, 1000000), msg);//units of mu-s.
+            assertOnError(memcached_pool_behavior_set(pool, MEMCACHED_BEHAVIOR_BUFFER_REQUESTS, 0), msg);
+            assertOnError(memcached_pool_behavior_set(pool, MEMCACHED_BEHAVIOR_BINARY_PROTOCOL, 1), "memcached_pool_behavior_set failed - ");
+        }
+
+        void connect()
+        {
+            assertPool();
+            if (connection)
+        #if (LIBMEMCACHED_VERSION_HEX<0x53000)
+                memcached_pool_push(pool, connection);
+        #else
+                memcached_pool_release(pool, connection);
+        #endif
+            memcached_return_t rc;
+        #if (LIBMEMCACHED_VERSION_HEX<0x53000)
+            connection = memcached_pool_pop(pool, (struct timespec *)0 , &rc);
+        #else
+            connection = memcached_pool_fetch(pool, (struct timespec *)0 , &rc);
+        #endif
+            assertOnError(rc, "memcached_pool_pop failed - ");
+        }
+
+        //This call does not work here.
+        void checkServersUp()
+        {
+            memcached_return_t rc;
+            char * args = NULL;
+            OwnedMalloc<memcached_stat_st> stats;
+            DBGLOG("Before memcached_stat");
+            stats.setown(memcached_stat(connection, args, &rc));
+            DBGLOG("After memcached_stat");
+
+            unsigned int numberOfServers = memcached_server_count(connection);
+            unsigned int numberOfServersDown = 0;
+            for (unsigned i = 0; i < numberOfServers; ++i)
+            {
+                if (stats[i].pid == -1)//perhaps not the best test?
+                {
+                    numberOfServersDown++;
+                    VStringBuffer msg("Memcached Plugin: Failed connecting to entry %u\nwithin the server list: %s", i+1, options.str());
+                    DBGLOG("%s", msg.str());
+                }
+            }
+            if (numberOfServersDown == numberOfServers)
+                ESPLOG(LogNormal,"Memcached Plugin: Failed connecting to ALL servers. Check memcached on all servers and \"memcached -B ascii\" not used.");
+
+            //check memcached version homogeneity
+            for (unsigned i = 0; i < numberOfServers-1; ++i)
+            {
+                if (!streq(stats[i].version, stats[i+1].version))
+                    DBGLOG("Memcached Plugin: Inhomogeneous versions of memcached across servers.");
+            }
+        };
+
+        void clear(unsigned when)
+        {
+            //NOTE: memcached_flush is the actual cache flush/clear/delete and not an io buffer flush.
+            assertOnError(memcached_flush(connection, (time_t)(when)), "'Clear' request failed - ");
+        };
+
+        bool exists(const char * key, const char * partitionKey)
+        {
+        #if (LIBMEMCACHED_VERSION_HEX<0x53000)
+            throw makeStringException(0, "memcached_exist not supported in this version of libmemcached");
+        #else
+            memcached_return_t rc;
+            size_t partitionKeyLength = strlen(partitionKey);
+            if (partitionKeyLength)
+                rc = memcached_exist_by_key(connection, partitionKey, partitionKeyLength, key, strlen(key));
+            else
+                rc = memcached_exist(connection, key, strlen(key));
+
+            if (rc == MEMCACHED_NOTFOUND)
+                return false;
+            else
+            {
+                assertOnError(rc, "'Exists' request failed - ");
+                return true;
+            }
+        #endif
+        };
+
+        char* get(const char * partitionKey, const char * key, size_t & returnLength)
+        {
+            uint32_t flag = 0;
+            memcached_return_t rc;
+
+            OwnedMalloc<char> value;
+            size_t partitionKeyLength = strlen(partitionKey);
+            if (partitionKeyLength)
+                value.setown(memcached_get_by_key(connection, partitionKey, partitionKeyLength, key, strlen(key), &returnLength, &flag, &rc));
+            else
+                value.setown(memcached_get(connection, key, strlen(key), &returnLength, &flag, &rc));
+
+            StringBuffer keyMsg = "'Get<type>' request failed - ";
+            assertOnError(rc, appendIfKeyNotFoundMsg(rc, key, keyMsg));
+
+            //returnValue = reinterpret_cast<type*>(cpy(value, returnLength));
+            return value;
+        };
+
+        /*void * cpy(const char * src, size_t length)
+        {
+            void * value = rtlMalloc(length);
+            return memcpy(value, src, length);
+        };*/
+
+        void set(const char * partitionKey, const char * key, const char * value, unsigned __int64 expireSec)
+        {
+            size_t partitionKeyLength = strlen(partitionKey);
+            const char * msg = "'Set' request failed - ";
+            DBGLOG("1");
+            if (connection)
+                DBGLOG("2");
+            if (partitionKeyLength)
+                assertOnError(memcached_set_by_key(connection, partitionKey, partitionKeyLength, key, strlen(key), value, strlen(value), (time_t)expireSec, 0), msg);
+            else
+                assertOnError(memcached_set(connection, key, strlen(key), value, strlen(value), (time_t)expireSec, 0), msg);
+            DBGLOG("3");
+        };
+
+        void deleteKey(const char * key, const char * partitionKey)
+        {
+            memcached_return_t rc;
+            size_t partitionKeyLength = strlen(partitionKey);
+            if (partitionKeyLength)
+                rc = memcached_delete_by_key(connection, partitionKey, partitionKeyLength, key, strlen(key), (time_t)0);
+            else
+                rc = memcached_delete(connection, key, strlen(key), (time_t)0);
+            assertOnError(rc, "'Delete' request failed - ");
+        };
+
+        void assertOnError(memcached_return_t rc, const char * _msg)
+        {
+            DBGLOG("assertOnError:1");
+            if (rc != MEMCACHED_SUCCESS)
+            {
+                VStringBuffer msg("Memcached Plugin: %s%s", _msg, memcached_strerror(connection, rc));
+                ESPLOG(LogNormal, "%s", msg.str());
+            }
+            DBGLOG("assertOnError:2");
+        };
+
+        const char * appendIfKeyNotFoundMsg(memcached_return_t rc, const char * key, StringBuffer & target) const
+        {
+            if (rc == MEMCACHED_NOTFOUND)
+                target.append("(key: '").append(key).append("') ");
+            return target.str();
+        };
+
+        void assertPool()
+        {
+            if (!pool)
+            {
+                StringBuffer msg = "Memcached Plugin: Failed to instantiate server pool with:";
+                msg.newline().append(options);
+                ESPLOG(LogNormal, "%s", msg.str());
+            }
+        }
+    };
+    StringBuffer testOpt;
+//    testOpt.set("--SERVER=10.176.152.33 --POOL-MIN=1 --POOL-MAX=32");
+    //testOpt.set("--SERVER=host10.example.com");
+    testOpt.set("--SERVER=10.176.152.33");
+    //testOpt.set("-POOL-MIN=10");
+    ESPMemCached testCache(testOpt.str());
+    DBGLOG("Before set");
+    testCache.set("ESPResponse", "AKey", "AValue", 300);
+    size_t returnLength1, returnLength2;
+    char* retV1 = testCache.get("ESPResponse", "AKey", returnLength1);
+    if (retV1 && *retV1 && (returnLength1 > 0))
+        DBGLOG("retV1<%s>", retV1);
+    testCache.clear(0);
+    char* retV2 = testCache.get("ESPResponse", "AKey", returnLength2);
+    if (retV2 && *retV2 && (returnLength2 > 0))
+        DBGLOG("retV2<%s>", retV2);
+    DBGLOG("Done");
+
     if(request->isSoapMessage()) 
     {
         request->queryParameters()->setProp("__wsdl_address", m_wsdlAddress.str());

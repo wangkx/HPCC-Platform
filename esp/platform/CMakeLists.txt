@@ -49,6 +49,19 @@ include_directories (
 ADD_DEFINITIONS( -D_CONSOLE )
 
 HPCC_ADD_EXECUTABLE ( esp ${SRCS} )
+
+#if(NOT DEFINED LIBMEMCACHED_MINVERSION)
+#    set(LIBMEMCACHED_MINVERSION "1.0.10")
+#endif()
+
+# ADD_PLUGIN(memcached PACKAGES LIBMEMCACHED MINVERSION ${LIBMEMCACHED_MINVERSION})
+# find_package(LIBMEMCACHED "1.0.10")
+#set(findvar LIBMEMCACHED_VERSION_STRING)
+#                string(TOUPPER ${findvar} LIBMEMCACHED_VERSION_STRING)
+#                find_package(LIBMEMCACHED ${PLUGIN_MINVERSION} )
+
+install(CODE "set(ENV{LD_LIBRARY_PATH} \"\$ENV{LD_LIBRARY_PATH}:${PROJECT_BINARY_DIR}:${PROJECT_BINARY_DIR}/libmemcached-${LIBMEMCACHED_VERSION}/libmemcached/.libs\")")
+
 install ( TARGETS esp RUNTIME DESTINATION ${EXEC_DIR} )
 target_link_libraries ( esp 
          jlib
@@ -59,5 +72,6 @@ target_link_libraries ( esp
          hrpc 
          remote 
          dalibase 
-         environment 
+         environment
+#         ${LIBMEMCACHED_LIBRARIES}
     ) 

@@ -63,12 +63,38 @@ include_directories (
          ./../../services/common
          ./../../../system/security/shared 
          ./../../../system/security/LdapSecurity
+         ${LIBMEMCACHED_INCLUDE_DIR}
     )
 
 ADD_DEFINITIONS( -DESPHTTP_EXPORTS -DESP_TIMING -D_USRDLL -DESP_PLUGIN )
 
 HPCC_ADD_LIBRARY( esphttp SHARED ${SRCS} )
-add_dependencies (esphttp  espscm )
+
+
+if(NOT DEFINED LIBMEMCACHED_MINVERSION)
+    set(LIBMEMCACHED_MINVERSION "1.0.10")
+endif()
+find_package(LIBMEMCACHED ${LIBMEMCACHED_MINVERSION})
+
+IF (WIN32)
+    SET (libmemcached_lib "libmemcached")
+    SET (libmemcachedUtil_lib "libmemcachedutil")
+ELSE()
+    SET (libmemcached_lib "memcached")
+    SET (libmemcachedUtil_lib "memcachedutil")
+ENDIF()
+
+FIND_PATH(LIBMEMCACHED_INCLUDE_DIR libmemcached/memcached.hpp PATHS /usr/include /usr/share/include /usr/local/include PATH_SUFFIXES libmemcached)
+FIND_LIBRARY (LIBMEMCACHEDCORE_LIBRARY NAMES ${libmemcached_lib} PATHS /usr/lib usr/lib/libmemcached /usr/share /usr/lib64 /usr/local/lib /usr/local/lib64)
+FIND_LIBRARY (LIBMEMCACHEDUTIL_LIBRARY NAMES ${libmemcachedUtil_lib} PATHS /usr/lib /usr/share /usr/lib64 /usr/local/lib /usr/local/lib64)
+
+SET (LIBMEMCACHED_LIBRARIES ${LIBMEMCACHEDCORE_LIBRARY} ${LIBMEMCACHEDUTIL_LIBRARY})
+target_link_libraries ( esphttp ${LIBMEMCACHED_LIBRARIES} )
+
+install(CODE "set(ENV{LD_LIBRARY_PATH} \"\$ENV{LD_LIBRARY_PATH}:${PROJECT_BINARY_DIR}:${PROJECT_BINARY_DIR}/libmemcached-${LIBMEMCACHED_VERSION}/libmemcached/.libs\")")
+
+
+add_dependencies(esphttp espscm)
 install ( TARGETS esphttp RUNTIME DESTINATION ${EXEC_DIR} LIBRARY DESTINATION ${LIB_DIR} )
 target_link_libraries ( esphttp 
          ${XALAN_LIBRARIES} ${XERCES_LIBRARIES}
