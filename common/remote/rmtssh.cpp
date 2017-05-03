@@ -416,6 +416,7 @@ public:
                 expandCmd(cmdline,i,treefrom);
                 cmdline.append('"');
             }
+            printf("%s\n",cmdline.str());
             if (dryrun) 
                 printf("%s\n",cmdline.str());
             else {

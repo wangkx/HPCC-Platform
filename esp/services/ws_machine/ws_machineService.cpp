@@ -1749,7 +1749,12 @@ void Cws_machineEx::setProcessInfo(IEspContext& context, CMachineInfoThreadParam
 void Cws_machineEx::setProcessComponent(IEspContext& context, CMachineInfoThreadParam* pParam, CProcessData& process,
      bool firstProcess, IArrayOf<IEspSWRunInfo>& processArray, IEspComponentInfo* pComponentInfo)
 {
-    if (pParam->m_options.getApplyProcessFilter() && (!process.getPID() || !*process.getPID()))
+    const char* procType = process.getType();
+    const char* procPID = process.getPID();
+    //Some component (ex. dropzone) has no process type since it has not a process and does not have a PID.
+    //FTSlaveProcess may not have a PID since it is launched dynamically during a spray.
+    if (pParam->m_options.getApplyProcessFilter() && (isEmptyString(procPID) &&
+        !isEmptyString(procType) && !strieq(procType, "FTSlaveProcess")))
     {
         Owned<IEspSWRunInfo> info = static_cast<IEspSWRunInfo*>(new CSWRunInfo(""));
         info->setName(process.getName());
@@ -1809,13 +1814,18 @@ void Cws_machineEx::setProcessComponent(IEspContext& context, CMachineInfoThread
         }
     }
 
-    if (!dependencyDown && process.getPID() && *process.getPID())
+    if (!dependencyDown && (!isEmptyString(procPID) || isEmptyString(procType)))
     {
         //conditions: unknown, normal, warning, minor, major, critical, fatal
         pComponentInfo->setCondition( 1 );
         pComponentInfo->setState(5);
         if (process.getUpTime() && *process.getUpTime())
             pComponentInfo->setUpTime( process.getUpTime() );
+    }
+    else if (strieq(procType, "FTSlaveProcess"))
+    {
+        pComponentInfo->setCondition( 1 );
+        pComponentInfo->setState(5);
     }
     else
     {
