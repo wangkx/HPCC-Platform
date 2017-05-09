@@ -3479,328 +3479,361 @@ void EspMessageInfo::write_esp()
     indentOuts(-1,"}\n");
         
     indentOuts("if (flags & 0x01) {\n");
-    if (espm_type_==espm_struct)
-        indentOuts(1,"schema.appendf(\"<xsd:complexType name=\\\"%s\\\">\\n\", msgTypeName);\n");
+    bool forceSimpleElement = true;
+    if (isExtSimpleType || getParentName() || hasNonAttributeChild() || (espm_type_==espm_response && getMetaInt("exceptions_inline", 0)))
+        forceSimpleElement = false;
     else
-        indentOuts(1,"schema.appendf(\"<xsd:element name=\\\"%s\\\"><xsd:complexType>\\n\", msgTypeName);\n");  
-    if (isExtSimpleType)
-        indentOuts("schema.append(\"<xsd:simpleContent><xsd:extension base=\\\"xsd:string\\\">\\n\");\n");
-    indentOuts(-1, "}\n");
-    
-    // native arrays
-    typedef std::map<std::string,std::string> EspNativeArrays;
-    EspNativeArrays nativeArrays; 
-    // esp struct arrays
-    typedef std::set<std::string> EspStructArrays;
-    EspStructArrays structArrays; 
-
-    //no element children for extended simple type
-    if (!isExtSimpleType)
     {
-        const char *xsdGroupType = getXsdGroupType();
-
-        bool hasChild = hasNonAttributeChild();
-        bool exceptions = espm_type_==espm_response && getMetaInt("exceptions_inline", 0);
-        bool needGroupType = exceptions || hasChild || parent;
-        if (needGroupType)
-        {
-            indentOuts("if (!(flags & 0x10)) {\n");
-            indentOutf1(1,"schema.append(\"<xsd:%s>\");\n", xsdGroupType);
-            if (exceptions)
-                indentOuts("schema.append(\"<xsd:element name=\\\"Exceptions\\\" type=\\\"tns:ArrayOfEspException\\\" minOccurs=\\\"0\\\" maxOccurs=\\\"1\\\"/>\");\n");
-            indentOuts("}\n");
-        }
-        
-        if (parent)
-            indentOutf("C%s::getXsdDefinition(context, request, NULL, schema, added, xns, wsns, 0x10);\n", parent);
-
         for (pi=getParams();pi!=NULL;pi=pi->next)
         {
             if (!pi->getMetaInt("attribute", 0) && !pi->getMetaInt("hidden", 0) && !pi->getMetaInt("hidden_soap", 0))
+                forceSimpleElement = false;
+        }
+    }
+    //forceSimpleElement = false;
+
+    if (espm_type_==espm_struct)
+        indentOuts(1,"schema.appendf(\"<xsd:complexType name=\\\"%s\\\">\\n\", msgTypeName);\n");
+    else if (forceSimpleElement)
+    {
+//   good
+//        indentOuts(1,"schema.appendf(\"<xsd:element name=\\\"%s\\\"><xsd:complexType><xsd:all/></xsd:complexType></xsd:element>\\n\", msgTypeName);\n");
+//good
+        indentOuts(1,"schema.appendf(\"<xsd:element name=\\\"%s\\\">\\n\", msgTypeName);\n");
+        indentOuts("schema.append(\"<xsd:simpleType name=\\\"emptystring\\\">\\n\");\n");
+        indentOuts("schema.append(\"<xsd:restriction base=\\\"xsd:string\\\">\\n\");\n");
+        indentOuts("schema.append(\"<xsd:enumeration value=\\\"\\\"/>\\n\");\n");
+        indentOuts("schema.append(\"</xsd:restriction>\\n\");\n");
+        indentOuts("schema.append(\"</xsd:simpleType>\\n\");\n");
+        indentOuts("schema.append(\"</xsd:element>\\n\");\n");
+//Not work
+        //indentOuts(1,"schema.appendf(\"<xsd:element name=\\\"%s\\\" />\\n\", msgTypeName);\n");
+//Not work
+//        indentOuts(1,"schema.appendf(\"<xsd:element name=\\\"%s\\\"></xsd:element>\\n\", msgTypeName);\n");
+    }
+    else
+        indentOuts(1,"schema.appendf(\"<xsd:element name=\\\"%s\\\"><xsd:complexType>\\n\", msgTypeName);\n");
+    if (isExtSimpleType)
+        indentOuts("schema.append(\"<xsd:simpleContent><xsd:extension base=\\\"xsd:string\\\">\\n\");\n");
+    indentOuts(-1, "}\n");
+
+    // native arrays
+    typedef std::map<std::string,std::string> EspNativeArrays;
+    EspNativeArrays nativeArrays;
+    // esp struct arrays
+    typedef std::set<std::string> EspStructArrays;
+    EspStructArrays structArrays;
+
+    if (!forceSimpleElement)
+    {
+        //no element children for extended simple type
+        if (!isExtSimpleType)
+        {
+            const char *xsdGroupType = getXsdGroupType();
+
+            bool hasChild = hasNonAttributeChild();
+            bool exceptions = espm_type_==espm_response && getMetaInt("exceptions_inline", 0);
+            bool needGroupType = exceptions || hasChild || parent;
+            if (needGroupType)
             {
-                enum {definedtype, inline_primitive_array, inline_array, complextype} complexity=definedtype;
-                StrBuffer buffer;
-                
-                const char *xsd_type = pi->getMetaXsdType();
-                if (xsd_type)
+                indentOuts("if (!(flags & 0x10)) {\n");
+                indentOutf1(1,"schema.append(\"<xsd:%s>\");\n", xsdGroupType);
+                if (exceptions)
+                    indentOuts("schema.append(\"<xsd:element name=\\\"Exceptions\\\" type=\\\"tns:ArrayOfEspException\\\" minOccurs=\\\"0\\\" maxOccurs=\\\"1\\\"/>\");\n");
+                indentOuts("}\n");
+            }
+
+            if (parent)
+                indentOutf("C%s::getXsdDefinition(context, request, NULL, schema, added, xns, wsns, 0x10);\n", parent);
+
+            for (pi=getParams();pi!=NULL;pi=pi->next)
+            {
+                if (!pi->getMetaInt("attribute", 0) && !pi->getMetaInt("hidden", 0) && !pi->getMetaInt("hidden_soap", 0))
                 {
-                    buffer.append(xsd_type);
-                }
-                else if (pi->flags & PF_TEMPLATE)
-                {
-                    if (!strcmp(pi->templ, "ESParray"))
+                    enum {definedtype, inline_primitive_array, inline_array, complextype} complexity=definedtype;
+                    StrBuffer buffer;
+
+                    const char *xsd_type = pi->getMetaXsdType();
+                    if (xsd_type)
                     {
-                        if (pi->isPrimitiveArray())
+                        buffer.append(xsd_type);
+                    }
+                    else if (pi->flags & PF_TEMPLATE)
+                    {
+                        if (!strcmp(pi->templ, "ESParray"))
                         {
-                            if (pi->getMetaString("item_tag",  NULL))
-                                complexity=inline_primitive_array;
-                            else {
-                                const char* type = pi->getArrayImplType();
-                                nativeArrays[pi->getArrayItemXsdType()] = VStrBuffer("Esp%s", type).str();
-                                buffer.appendf("tns:Esp%s", type);
-                            }                       
+                            if (pi->isPrimitiveArray())
+                            {
+                                if (pi->getMetaString("item_tag",  NULL))
+                                    complexity=inline_primitive_array;
+                                else {
+                                    const char* type = pi->getArrayImplType();
+                                    nativeArrays[pi->getArrayItemXsdType()] = VStrBuffer("Esp%s", type).str();
+                                    buffer.appendf("tns:Esp%s", type);
+                                }
+                            }
+                            else
+                            {
+                                buffer.append("tns:");
+
+                                if (pi->getMetaString("item_tag",  NULL))
+                                    complexity=inline_array;
+                                else {
+                                    structArrays.insert(pi->typname);
+                                    buffer.append("ArrayOf");
+                                }
+                                buffer.append(pi->typname);
+                            }
                         }
                         else
-                        {
-                            buffer.append("tns:");
-                            
-                            if (pi->getMetaString("item_tag",  NULL))
-                                complexity=inline_array;
-                            else {
-                                structArrays.insert(pi->typname);
-                                buffer.append("ArrayOf");                           
-                            }
-                            buffer.append(pi->typname);
-                        }
+                            buffer.append("xsd:string");
+                    }
+                    else if (pi->kind==TK_ESPSTRUCT || pi->kind==TK_ESPENUM)
+                    {
+                        buffer.appendf("tns:%s",pi->typname);
                     }
                     else
-                        buffer.append("xsd:string");
-                }
-                else if (pi->kind==TK_ESPSTRUCT || pi->kind==TK_ESPENUM)
-                {
-                    buffer.appendf("tns:%s",pi->typname);
-                }
-                else
-                {
-                    buffer.append(pi->getXsdType());
-                }
-                
-                
-                const char *xsdtype = buffer.str();
-                const char *xsdns = "";
-                
-                if (xsdtype)
-                {
-                    int count= buffer.length();
-                    if (count>0 && buffer.charAt(count-1)=='\"')
-                        buffer.setCharAt(count-1,0);
-                    if (*xsdtype=='\"')
-                        xsdtype++;
-                    if (strchr(xsdtype, ':')==NULL)
-                        xsdns="xsd:";
-                }
-                
-                bool hasMapInfo = pi->hasMapInfo();
-                if (hasMapInfo)
-                {
-                    indentOutf("if (!context.suppressed(\"%s\",\"%s\")) {\n", this->name_, pi->name); 
-                    indentInc(1);
-                }
-
-                const char *access=pi->getMetaString("access", NULL);
-                if (access)
-                {
-                    indentOuts("SecAccessFlags acc;\n");
-                    indentOutf("if (context.authorizeFeature(%s, acc) && acc>=SecAccess_Read) {\n", access);
-                    indentInc(1);
-                }
-        
-                StrBuffer xmlTag;
-                const char* tagName = pi->getMetaStringValue(xmlTag,"xml_tag") ? xmlTag.str() : pi->name;
-
-                switch (complexity)
-                {
-                case inline_array:
                     {
-                        indentOutf("schema.append(\"<xsd:element minOccurs=\\\"0\\\" name=\\\"%s\\\">\\n\");\n", tagName);
-                        indentOuts("schema.append(\"<xsd:complexType><xsd:sequence>\\n\");\n");
-                        indentOutf("schema.append(\"<xsd:element minOccurs=\\\"0\\\" maxOccurs=\\\"unbounded\\\" name=\\\"%s\\\" type=\\\"%s\\\"/>\");\n", pi->getMetaString("item_tag",  "Item"), xsdtype);
-                        indentOuts("schema.append(\"</xsd:sequence></xsd:complexType>\");\n");
-                        indentOutf("schema.append(\"</xsd:element>\");\n");
-                        break;
+                        buffer.append(pi->getXsdType());
                     }
-                case inline_primitive_array:
+
+
+                    const char *xsdtype = buffer.str();
+                    const char *xsdns = "";
+
+                    if (xsdtype)
                     {
-                        indentOutf("schema.append(\"<xsd:element minOccurs=\\\"0\\\" name=\\\"%s\\\">\");\n", tagName);
-                        indentOuts("schema.append(\"<xsd:complexType><xsd:sequence>\");\n");
-                        indentOutf("schema.append(\"<xsd:element name=\\\"%s\\\" type=\\\"xsd:%s\\\" minOccurs=\\\"0\\\" maxOccurs=\\\"unbounded\\\"", pi->getMetaString("item_tag",  "Item"), pi->getArrayItemXsdType());
-                        
-                        int cols = pi->getMetaInt("cols",0);
-                        int rows = pi->getMetaInt("rows",0);
-                        if (cols>0 || rows>0)
+                        int count= buffer.length();
+                        if (count>0 && buffer.charAt(count-1)=='\"')
+                            buffer.setCharAt(count-1,0);
+                        if (*xsdtype=='\"')
+                            xsdtype++;
+                        if (strchr(xsdtype, ':')==NULL)
+                            xsdns="xsd:";
+                    }
+
+                    bool hasMapInfo = pi->hasMapInfo();
+                    if (hasMapInfo)
+                    {
+                        indentOutf("if (!context.suppressed(\"%s\",\"%s\")) {\n", this->name_, pi->name);
+                        indentInc(1);
+                    }
+
+                    const char *access=pi->getMetaString("access", NULL);
+                    if (access)
+                    {
+                        indentOuts("SecAccessFlags acc;\n");
+                        indentOutf("if (context.authorizeFeature(%s, acc) && acc>=SecAccess_Read) {\n", access);
+                        indentInc(1);
+                    }
+
+                    StrBuffer xmlTag;
+                    const char* tagName = pi->getMetaStringValue(xmlTag,"xml_tag") ? xmlTag.str() : pi->name;
+
+                    switch (complexity)
+                    {
+                    case inline_array:
                         {
-                            outs("\");\n");
-                            indentOuts("if (context.queryOptions()&ESPCTX_ALL_ANNOTATION)\n");
-                            indentOuts(1,"schema.append(\"> <xsd:annotation><xsd:appinfo><form");
-                            if (cols>0)
-                                outf(" formCols=\\\"%d\\\"", cols);
-                            if (rows>0)
-                                outf(" formRows=\\\"%d\\\"", rows);
-                            outs("/></xsd:appinfo></xsd:annotation></xsd:element>\\n\");\n");
-                            indentOuts(-1,"else\n");
-                            indentOuts("\tschema.append(\"/>\\n\");\n");
+                            indentOutf("schema.append(\"<xsd:element minOccurs=\\\"0\\\" name=\\\"%s\\\">\\n\");\n", tagName);
+                            indentOuts("schema.append(\"<xsd:complexType><xsd:sequence>\\n\");\n");
+                            indentOutf("schema.append(\"<xsd:element minOccurs=\\\"0\\\" maxOccurs=\\\"unbounded\\\" name=\\\"%s\\\" type=\\\"%s\\\"/>\");\n", pi->getMetaString("item_tag",  "Item"), xsdtype);
+                            indentOuts("schema.append(\"</xsd:sequence></xsd:complexType>\");\n");
+                            indentOutf("schema.append(\"</xsd:element>\");\n");
+                            break;
                         }
-                        else
-                            outs("/>\\n\");\n");
-
-                        indentOuts("schema.append(\"</xsd:sequence></xsd:complexType>\\n\");\n");
-                        indentOutf("schema.append(\"</xsd:element>\\n\");\n");
-                        break;
-                    }
-                case definedtype:
-                    {
-                        indentOutf("schema.append(\"<xsd:element");                 
-
-                        // min occurs
-                        int minOccurs = (pi->getMetaInt("required", 0)) ? 1 : 0;
-                        if (minOccurs==0)
-                            outs(" minOccurs=\\\"0\\\"");
-
-                        // default value
-                        if (pi->hasMetaTag("default"))
+                    case inline_primitive_array:
                         {
-                            if (pi->kind==TK_CHAR || pi->kind==TK_UNSIGNEDCHAR || strcmp(xsdtype,"string")==0)
-                            { 
-                                const char* val = pi->getMetaString("default",NULL);
-                                if (val && *val)
+                            indentOutf("schema.append(\"<xsd:element minOccurs=\\\"0\\\" name=\\\"%s\\\">\");\n", tagName);
+                            indentOuts("schema.append(\"<xsd:complexType><xsd:sequence>\");\n");
+                            indentOutf("schema.append(\"<xsd:element name=\\\"%s\\\" type=\\\"xsd:%s\\\" minOccurs=\\\"0\\\" maxOccurs=\\\"unbounded\\\"", pi->getMetaString("item_tag",  "Item"), pi->getArrayItemXsdType());
+
+                            int cols = pi->getMetaInt("cols",0);
+                            int rows = pi->getMetaInt("rows",0);
+                            if (cols>0 || rows>0)
+                            {
+                                outs("\");\n");
+                                indentOuts("if (context.queryOptions()&ESPCTX_ALL_ANNOTATION)\n");
+                                indentOuts(1,"schema.append(\"> <xsd:annotation><xsd:appinfo><form");
+                                if (cols>0)
+                                    outf(" formCols=\\\"%d\\\"", cols);
+                                if (rows>0)
+                                    outf(" formRows=\\\"%d\\\"", rows);
+                                outs("/></xsd:appinfo></xsd:annotation></xsd:element>\\n\");\n");
+                                indentOuts(-1,"else\n");
+                                indentOuts("\tschema.append(\"/>\\n\");\n");
+                            }
+                            else
+                                outs("/>\\n\");\n");
+
+                            indentOuts("schema.append(\"</xsd:sequence></xsd:complexType>\\n\");\n");
+                            indentOutf("schema.append(\"</xsd:element>\\n\");\n");
+                            break;
+                        }
+                    case definedtype:
+                        {
+                            indentOutf("schema.append(\"<xsd:element");
+
+                            // min occurs
+                            int minOccurs = (pi->getMetaInt("required", 0)) ? 1 : 0;
+                            if (minOccurs==0)
+                                outs(" minOccurs=\\\"0\\\"");
+
+                            // default value
+                            if (pi->hasMetaTag("default"))
+                            {
+                                if (pi->kind==TK_CHAR || pi->kind==TK_UNSIGNEDCHAR || strcmp(xsdtype,"string")==0)
                                 {
-                                    // remove quotes
-                                    if (*val=='"' || *val=='\'')
+                                    const char* val = pi->getMetaString("default",NULL);
+                                    if (val && *val)
                                     {
-                                        char* s = strdup(val);
-                                        *(s+strlen(s)-1) = 0;
-                                        outf(" default=\\\"%s\\\"", s+1);
-                                        free(s);
+                                        // remove quotes
+                                        if (*val=='"' || *val=='\'')
+                                        {
+                                            char* s = strdup(val);
+                                            *(s+strlen(s)-1) = 0;
+                                            outf(" default=\\\"%s\\\"", s+1);
+                                            free(s);
+                                        }
+                                        else
+                                            outf(" default=\\\"%s\\\"", val);
+                                    }
+                                }
+                                else if (pi->kind==TK_DOUBLE || pi->kind==TK_FLOAT || strcmp(xsdtype,"double")==0)
+                                {
+                                    double val = pi->getMetaDouble("default");
+                                    if (val==0)
+                                        val = pi->getMetaInt("default"); // auto conversion
+                                    if (val!=0)
+                                        outf(" default=\\\"%g\\\"", val);
+                                }
+                                else if (pi->kind==TK_BOOL || strcmp(xsdtype,"bool")==0)
+                                {
+                                    outf(" default=\\\"%s\\\"", pi->getMetaInt("default") ? "true" : "false");
+                                }
+                                else if (pi->kind==TK_ESPENUM)
+                                {
+                                    const char* val = pi->getMetaString("default",NULL);
+                                    if (val && *val)
+                                    {
+                                        // remove quotes
+                                        if (*val=='"' || *val=='\'')
+                                        {
+                                            char* s = strdup(val);
+                                            *(s+strlen(s)-1) = 0;
+                                            outf(" default=\\\"%s\\\"", s+1);
+                                            free(s);
+                                        }
+                                        else
+                                            outf(" default=\\\"%s\\\"", val);
                                     }
                                     else
-                                        outf(" default=\\\"%s\\\"", val);
-                                }
-                            }                       
-                            else if (pi->kind==TK_DOUBLE || pi->kind==TK_FLOAT || strcmp(xsdtype,"double")==0)
-                            {
-                                double val = pi->getMetaDouble("default");
-                                if (val==0)
-                                    val = pi->getMetaInt("default"); // auto conversion
-                                if (val!=0)
-                                    outf(" default=\\\"%g\\\"", val);
-                            }
-                            else if (pi->kind==TK_BOOL || strcmp(xsdtype,"bool")==0)
-                            {
-                                outf(" default=\\\"%s\\\"", pi->getMetaInt("default") ? "true" : "false");
-                            }
-                            else if (pi->kind==TK_ESPENUM)
-                            {
-                                const char* val = pi->getMetaString("default",NULL);
-                                if (val && *val)
-                                {
-                                    // remove quotes
-                                    if (*val=='"' || *val=='\'')
                                     {
-                                        char* s = strdup(val);
-                                        *(s+strlen(s)-1) = 0;
-                                        outf(" default=\\\"%s\\\"", s+1);
-                                        free(s);
+                                        int val = pi->getMetaInt("default", -1);
+                                        if (val != -1)
+                                            outf(" default=\\\"%d\\\"", val);
                                     }
-                                    else
-                                        outf(" default=\\\"%s\\\"", val);
                                 }
-                                else 
+                                else// assume it is integer
                                 {
-                                    int val = pi->getMetaInt("default", -1);
-                                    if (val != -1)
+                                    int val = pi->getMetaInt("default");
+                                    if (val)
                                         outf(" default=\\\"%d\\\"", val);
                                 }
                             }
-                            else// assume it is integer
-                            {
-                                int val = pi->getMetaInt("default");
-                                if (val)
-                                    outf(" default=\\\"%d\\\"", val);
+
+                            // name & type
+                            outf(" name=\\\"%s\\\" type=\\\"%s%s\\\"", tagName, xsdns, xsdtype);
+
+                            // check for annotations
+                            StrBuffer annot;
+
+                            const char* formType = pi->getMetaInt("password") ? "password" : NULL;
+                            if (formType)
+                                annot.appendf(" formType=\\\"%s\\\"",formType);
+
+                            bool collapsed = pi->getMetaInt("collapsed")?true:false;;
+                            if (collapsed)
+                                annot.append(" collapsed=\\\"true\\\"");
+
+                            int cols = pi->getMetaInt("cols",0);
+                            if (cols>0)
+                                annot.appendf(" formCols=\\\"%d\\\"", cols);
+
+                            int rows = pi->getMetaInt("rows",0);
+                            if (rows>0)
+                                annot.appendf(" formRows=\\\"%d\\\"", rows);
+
+                            StrBuffer tmp;
+                            pi->getMetaStringValue(tmp,"form_ui");
+                            if (tmp.length()) {
+                                StrBuffer encoded;
+                                encodeXML(tmp.str(),encoded);
+                                annot.appendf(" ui=\\\"%s\\\"", printfEncode(encoded.str(), tmp.clear()).str());
                             }
+
+                            pi->getMetaStringValue(tmp.clear(), "html_head");
+                            if (tmp.length()) {
+                                StrBuffer encoded;
+                                encodeXML(tmp.str(),encoded);
+                                annot.appendf(" html_head=\\\"%s\\\"", printfEncode(encoded.str(), tmp.clear()).str());
+                            }
+
+                            if (annot.length())
+                            {
+                                outs("\");\n");
+                                indentOuts("if (context.queryOptions()&ESPCTX_ALL_ANNOTATION)\n");
+                                indentOuts(1,"schema.append(\"> <xsd:annotation><xsd:appinfo><form");
+                                outf("%s", annot.str());
+                                outs("/></xsd:appinfo></xsd:annotation></xsd:element>\\n\");\n");
+                                indentOuts(-1,"else\n");
+                                indentOuts("\tschema.append(\"/>\\n\");\n");
+                            }
+                            else
+                                outs("/>\\n\");\n");
+
+                            break;
                         }
-                        
-                        // name & type
-                        outf(" name=\\\"%s\\\" type=\\\"%s%s\\\"", tagName, xsdns, xsdtype);
-
-                        // check for annotations
-                        StrBuffer annot;
-
-                        const char* formType = pi->getMetaInt("password") ? "password" : NULL;
-                        if (formType) 
-                            annot.appendf(" formType=\\\"%s\\\"",formType);
-
-                        bool collapsed = pi->getMetaInt("collapsed")?true:false;;
-                        if (collapsed)
-                            annot.append(" collapsed=\\\"true\\\"");
-
-                        int cols = pi->getMetaInt("cols",0);
-                        if (cols>0)
-                            annot.appendf(" formCols=\\\"%d\\\"", cols);
-
-                        int rows = pi->getMetaInt("rows",0);
-                        if (rows>0)
-                            annot.appendf(" formRows=\\\"%d\\\"", rows);
-
-                        StrBuffer tmp;
-                        pi->getMetaStringValue(tmp,"form_ui");
-                        if (tmp.length()) {
-                            StrBuffer encoded;
-                            encodeXML(tmp.str(),encoded);
-                            annot.appendf(" ui=\\\"%s\\\"", printfEncode(encoded.str(), tmp.clear()).str());
-                        }
-
-                        pi->getMetaStringValue(tmp.clear(), "html_head");
-                        if (tmp.length()) {
-                            StrBuffer encoded;
-                            encodeXML(tmp.str(),encoded);
-                            annot.appendf(" html_head=\\\"%s\\\"", printfEncode(encoded.str(), tmp.clear()).str());
-                        }
-
-                        if (annot.length())
-                        {
-                            outs("\");\n");
-                            indentOuts("if (context.queryOptions()&ESPCTX_ALL_ANNOTATION)\n");
-                            indentOuts(1,"schema.append(\"> <xsd:annotation><xsd:appinfo><form");
-                            outf("%s", annot.str());
-                            outs("/></xsd:appinfo></xsd:annotation></xsd:element>\\n\");\n");
-                            indentOuts(-1,"else\n");
-                            indentOuts("\tschema.append(\"/>\\n\");\n");
-                        }
-                        else
-                            outs("/>\\n\");\n");
-
+                    default:
                         break;
                     }
-                default:
-                    break;
+
+                    if (access)
+                        indentOuts(-1,"}\n");
+
+                    //if (optional)
+                    if (hasMapInfo)
+                        indentOuts(-1,"}\n");
                 }
+            }
+    
+            if (needGroupType)
+            {
+                indentOuts("if (!(flags & 0x10))\n");
+                    indentOutf1(1,"schema.append(\"</xsd:%s>\\n\");\n", xsdGroupType);
+            }
 
-                if (access) 
-                    indentOuts(-1,"}\n");
+        } //!isExtSimpleType
 
-                //if (optional)
-                if (hasMapInfo)
-                    indentOuts(-1,"}\n");
+        //attributes last
+        for (pi=getParams();pi!=NULL;pi=pi->next)
+        {
+            if (pi->getMetaInt("attribute")!=0 && !pi->getMetaInt("hidden"))
+            {
+                StrBuffer tmp;
+                const char* tagName = pi->getMetaStringValue(tmp,"xml_tag") ? tmp.str() : pi->name;
+                indentOutf("schema.append(\"<xsd:attribute name=\\\"%s\\\" type=\\\"xsd:%s\\\"/>\");\n", tagName, pi->getXsdType());
             }
         }
 
-        if (needGroupType)
-        {
-            indentOuts("if (!(flags & 0x10))\n");
-                indentOutf1(1,"schema.append(\"</xsd:%s>\\n\");\n", xsdGroupType);
-        }
-    
-    } //!isExtSimpleType
-
-    //attributes last
-    for (pi=getParams();pi!=NULL;pi=pi->next)
-    {
-        if (pi->getMetaInt("attribute")!=0 && !pi->getMetaInt("hidden"))
-        {
-            StrBuffer tmp;
-            const char* tagName = pi->getMetaStringValue(tmp,"xml_tag") ? tmp.str() : pi->name;
-            indentOutf("schema.append(\"<xsd:attribute name=\\\"%s\\\" type=\\\"xsd:%s\\\"/>\");\n", tagName, pi->getXsdType());
-        }
+        indentOuts("if (flags & 0x01) {\n");
+        if (isExtSimpleType)
+            indentOuts1(1,"schema.append(\"</xsd:extension></xsd:simpleContent>\\n\");\n");
+        if (espm_type_==espm_struct)
+            indentOuts1(1,"schema.append(\"</xsd:complexType>\\n\");\n");
+        else
+            indentOuts1(1,"schema.append(\"</xsd:complexType></xsd:element>\\n\");\n");
+        indentOuts("}\n");
     }
-    
-    indentOuts("if (flags & 0x01) {\n");
-    if (isExtSimpleType)
-        indentOuts1(1,"schema.append(\"</xsd:extension></xsd:simpleContent>\\n\");\n");
-    if (espm_type_==espm_struct)
-        indentOuts1(1,"schema.append(\"</xsd:complexType>\\n\");\n");
-    else
-        indentOuts1(1,"schema.append(\"</xsd:complexType></xsd:element>\\n\");\n");
-    indentOuts("}\n");
 
     indentOuts(-1,"}\n"); // if (flags & 0x100)
     //-------------------------------------------------------------------------
