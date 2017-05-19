@@ -517,8 +517,8 @@ void EspHttpBinding::handleHttpPost(CHttpRequest *request, CHttpResponse *respon
 {
     class ESPMemCached : public CInterface
     {
-        memcached_st * connection = nullptr;
-        memcached_pool_st * pool = nullptr;
+        memcached_st* connection = nullptr;
+        memcached_pool_st* pool = nullptr;
         StringAttr options;
 
     public :
@@ -536,18 +536,7 @@ void EspHttpBinding::handleHttpPost(CHttpRequest *request, CHttpResponse *respon
             setPoolSettings();
             connect();
             if (connection)
-            {
-                DBGLOG("ESPMemCached connection<%d>", memcached_server_count(connection));
-                /*const char * msg = "'Set' request failed - ";
-                DBGLOG("20");
-                char key[1024];
-                int length= snprintf(key, sizeof(key), "%s%u", "n", 1);
-                memcached_set(connection, key, length,
-                                                   NULL, 0, // Zero length values
-                                                   time_t(0), uint32_t(0));
-                DBGLOG("21");*/
                 checkServersUp();
-            }
         }
 
         ~ESPMemCached()
@@ -584,29 +573,24 @@ void EspHttpBinding::handleHttpPost(CHttpRequest *request, CHttpResponse *respon
         {
             assertPool();
             if (connection)
-        #if (LIBMEMCACHED_VERSION_HEX<0x53000)
+#if (LIBMEMCACHED_VERSION_HEX<0x53000)
                 memcached_pool_push(pool, connection);
-        #else
-                memcached_pool_release(pool, connection);
-        #endif
             memcached_return_t rc;
-        #if (LIBMEMCACHED_VERSION_HEX<0x53000)
             connection = memcached_pool_pop(pool, (struct timespec *)0 , &rc);
-        #else
+#else
+                memcached_pool_release(pool, connection);
+            memcached_return_t rc;
             connection = memcached_pool_fetch(pool, (struct timespec *)0 , &rc);
-        #endif
+#endif
             assertOnError(rc, "memcached_pool_pop failed - ");
         }
 
-        //This call does not work here.
         void checkServersUp()
         {
             memcached_return_t rc;
-            char * args = NULL;
+            char* args = nullptr;
             OwnedMalloc<memcached_stat_st> stats;
-            DBGLOG("Before memcached_stat");
             stats.setown(memcached_stat(connection, args, &rc));
-            DBGLOG("After memcached_stat");
 
             unsigned int numberOfServers = memcached_server_count(connection);
             unsigned int numberOfServersDown = 0;
@@ -615,32 +599,26 @@ void EspHttpBinding::handleHttpPost(CHttpRequest *request, CHttpResponse *respon
                 if (stats[i].pid == -1)//perhaps not the best test?
                 {
                     numberOfServersDown++;
-                    VStringBuffer msg("Memcached Plugin: Failed connecting to entry %u\nwithin the server list: %s", i+1, options.str());
+                    VStringBuffer msg("Memcached: Failed connecting to entry %u\nwithin the server list: %s", i+1, options.str());
                     DBGLOG("%s", msg.str());
                 }
             }
             if (numberOfServersDown == numberOfServers)
-                ESPLOG(LogNormal,"Memcached Plugin: Failed connecting to ALL servers. Check memcached on all servers and \"memcached -B ascii\" not used.");
+                ESPLOG(LogNormal,"Memcached: Failed connecting to ALL servers. Check memcached on all servers and \"memcached -B ascii\" not used.");
 
             //check memcached version homogeneity
             for (unsigned i = 0; i < numberOfServers-1; ++i)
             {
                 if (!streq(stats[i].version, stats[i+1].version))
-                    DBGLOG("Memcached Plugin: Inhomogeneous versions of memcached across servers.");
+                    DBGLOG("Memcached: Inhomogeneous versions of memcached across servers.");
             }
         };
 
-        void clear(unsigned when)
+        bool exists(const char* partitionKey, const char* key)
         {
-            //NOTE: memcached_flush is the actual cache flush/clear/delete and not an io buffer flush.
-            assertOnError(memcached_flush(connection, (time_t)(when)), "'Clear' request failed - ");
-        };
-
-        bool exists(const char * key, const char * partitionKey)
-        {
-        #if (LIBMEMCACHED_VERSION_HEX<0x53000)
+#if (LIBMEMCACHED_VERSION_HEX<0x53000)
             throw makeStringException(0, "memcached_exist not supported in this version of libmemcached");
-        #else
+#else
             memcached_return_t rc;
             size_t partitionKeyLength = strlen(partitionKey);
             if (partitionKeyLength)
@@ -655,12 +633,13 @@ void EspHttpBinding::handleHttpPost(CHttpRequest *request, CHttpResponse *respon
                 assertOnError(rc, "'Exists' request failed - ");
                 return true;
             }
-        #endif
+#endif
         };
 
-        char* get(const char * partitionKey, const char * key, size_t & returnLength)
+        const char* get(const char* partitionKey, const char* key, StringBuffer& out)
         {
             uint32_t flag = 0;
+            size_t returnLength;
             memcached_return_t rc;
 
             OwnedMalloc<char> value;
@@ -670,34 +649,25 @@ void EspHttpBinding::handleHttpPost(CHttpRequest *request, CHttpResponse *respon
             else
                 value.setown(memcached_get(connection, key, strlen(key), &returnLength, &flag, &rc));
 
-            StringBuffer keyMsg = "'Get<type>' request failed - ";
-            assertOnError(rc, appendIfKeyNotFoundMsg(rc, key, keyMsg));
+            if (value)
+                out.set(value);
 
-            //returnValue = reinterpret_cast<type*>(cpy(value, returnLength));
-            return value;
+            StringBuffer keyMsg = "'Get' request failed - ";
+            assertOnError(rc, appendIfKeyNotFoundMsg(rc, key, keyMsg));
+            return out.str();
         };
 
-        /*void * cpy(const char * src, size_t length)
-        {
-            void * value = rtlMalloc(length);
-            return memcpy(value, src, length);
-        };*/
-
-        void set(const char * partitionKey, const char * key, const char * value, unsigned __int64 expireSec)
+        void set(const char* partitionKey, const char* key, const char* value, unsigned __int64 expireSec)
         {
             size_t partitionKeyLength = strlen(partitionKey);
             const char * msg = "'Set' request failed - ";
-            DBGLOG("1");
-            if (connection)
-                DBGLOG("2");
             if (partitionKeyLength)
                 assertOnError(memcached_set_by_key(connection, partitionKey, partitionKeyLength, key, strlen(key), value, strlen(value), (time_t)expireSec, 0), msg);
             else
                 assertOnError(memcached_set(connection, key, strlen(key), value, strlen(value), (time_t)expireSec, 0), msg);
-            DBGLOG("3");
         };
 
-        void deleteKey(const char * key, const char * partitionKey)
+        void deleteKey(const char* partitionKey, const char* key)
         {
             memcached_return_t rc;
             size_t partitionKeyLength = strlen(partitionKey);
@@ -708,15 +678,19 @@ void EspHttpBinding::handleHttpPost(CHttpRequest *request, CHttpResponse *respon
             assertOnError(rc, "'Delete' request failed - ");
         };
 
+        void clear(unsigned when)
+        {
+            //NOTE: memcached_flush is the actual cache flush/clear/delete and not an io buffer flush.
+            assertOnError(memcached_flush(connection, (time_t)(when)), "'Clear' request failed - ");
+        };
+
         void assertOnError(memcached_return_t rc, const char * _msg)
         {
-            DBGLOG("assertOnError:1");
             if (rc != MEMCACHED_SUCCESS)
             {
-                VStringBuffer msg("Memcached Plugin: %s%s", _msg, memcached_strerror(connection, rc));
+                VStringBuffer msg("Memcached: %s%s", _msg, memcached_strerror(connection, rc));
                 ESPLOG(LogNormal, "%s", msg.str());
             }
-            DBGLOG("assertOnError:2");
         };
 
         const char * appendIfKeyNotFoundMsg(memcached_return_t rc, const char * key, StringBuffer & target) const
@@ -730,28 +704,38 @@ void EspHttpBinding::handleHttpPost(CHttpRequest *request, CHttpResponse *respon
         {
             if (!pool)
             {
-                StringBuffer msg = "Memcached Plugin: Failed to instantiate server pool with:";
+                StringBuffer msg = "Memcached: Failed to instantiate server pool with:";
                 msg.newline().append(options);
                 ESPLOG(LogNormal, "%s", msg.str());
             }
         }
     };
-    StringBuffer testOpt;
-//    testOpt.set("--SERVER=10.176.152.33 --POOL-MIN=1 --POOL-MAX=32");
-    //testOpt.set("--SERVER=host10.example.com");
-    testOpt.set("--SERVER=10.176.152.33");
-    //testOpt.set("-POOL-MIN=10");
+
+    //The following is the test code for memcached...
+    StringBuffer testOpt, out1, out2;
+    testOpt.set("--SERVER=127.0.0.1");
     ESPMemCached testCache(testOpt.str());
-    DBGLOG("Before set");
     testCache.set("ESPResponse", "AKey", "AValue", 300);
+    testCache.set("ESPResponse", "AKey1", "AValue1", 300);
+    DBGLOG("Has ESPResponse.AKey <%d>", testCache.exists("ESPResponse", "AKey"));
+    DBGLOG("Has ESPResponse.AKey1 <%d>", testCache.exists("ESPResponse", "AKey1"));
     size_t returnLength1, returnLength2;
-    char* retV1 = testCache.get("ESPResponse", "AKey", returnLength1);
-    if (retV1 && *retV1 && (returnLength1 > 0))
-        DBGLOG("retV1<%s>", retV1);
+    const char* retV1 = testCache.get("ESPResponse", "AKey", out1);
+    if (retV1 && *retV1)
+        DBGLOG("ESPResponse.AKey:<%s>", retV1);
+    const char* retV11 = testCache.get("ESPResponse", "AKey1", out1);
+    if (retV11 && *retV11)
+        DBGLOG("ESPResponse.AKey1:<%s>", retV11);
+    testCache.deleteKey("ESPResponse", "AKey1");
+    DBGLOG("AKey1 deleted...");
+    DBGLOG("Has ESPResponse.AKey <%d>", testCache.exists("ESPResponse", "AKey"));
+    DBGLOG("Has ESPResponse.AKey1 <%d>", testCache.exists("ESPResponse", "AKey1"));
+
     testCache.clear(0);
-    char* retV2 = testCache.get("ESPResponse", "AKey", returnLength2);
-    if (retV2 && *retV2 && (returnLength2 > 0))
-        DBGLOG("retV2<%s>", retV2);
+    DBGLOG("Clear memcached...");
+    const char* retV2 = testCache.get("ESPResponse", "AKey", out2);
+    if (retV2 && *retV2)
+        DBGLOG("ESPResponse.AKey not cleared??:<%s>", retV2);
     DBGLOG("Done");
 
     if(request->isSoapMessage()) 
