@@ -130,7 +130,8 @@ public:
 #ifdef _USE_OPENLDAP
     unsigned updatePassword(IEspContext &context, IHttpMessage* request, StringBuffer& message);
     void onUpdatePasswordInput(IEspContext &context, StringBuffer &html);
-    void onUpdatePassword(IEspContext &context, IHttpMessage* request, StringBuffer& html);
+    unsigned onUpdatePassword(IEspContext &context, IHttpMessage* request, StringBuffer& html);
+    void createUpdatePasswordFailedPage(const char* userID, unsigned errorCode, const char* errorMsg, StringBuffer& html);
 #endif
 };
 

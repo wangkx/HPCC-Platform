@@ -532,7 +532,23 @@ void CEspApplicationPort::onUpdatePasswordInput(IEspContext &context, StringBuff
     return;
 }
 
-void CEspApplicationPort::onUpdatePassword(IEspContext &context, IHttpMessage* request, StringBuffer& html)
+void CEspApplicationPort::createUpdatePasswordFailedPage(const char* userID, unsigned errorCode, const char* errorMsg, StringBuffer& html)
+{
+    StringBuffer xml;
+    if (!isEmptyString(userID))
+        xml.appendf("<UpdatePassword><username>%s</username>", userID);
+    else
+        xml.appendf("<UpdatePassword><username/>");
+    xml.appendf("<Code>%d</Code><Message>%s</Message></UpdatePassword>", errorCode, errorMsg);
+
+    Owned<IXslTransform> xform = xslp->createXslTransform();
+    xform->loadXslFromFile(StringBuffer(getCFD()).append("./xslt/passwordupdate.xsl").str());
+    xform->setXmlSource(xml.str(), xml.length()+1);
+    xform->transform( html);
+    return;
+}
+
+unsigned CEspApplicationPort::onUpdatePassword(IEspContext &context, IHttpMessage* request, StringBuffer& html)
 {
     StringBuffer xml, message;
     unsigned returnCode = updatePassword(context, request, message);
@@ -547,7 +563,7 @@ void CEspApplicationPort::onUpdatePassword(IEspContext &context, IHttpMessage* r
     xform->loadXslFromFile(StringBuffer(getCFD()).append("./xslt/passwordupdate.xsl").str());
     xform->setXmlSource(xml.str(), xml.length()+1);
     xform->transform( html);
-    return;
+    return returnCode;
 }
 
 unsigned CEspApplicationPort::updatePassword(IEspContext &context, IHttpMessage* request, StringBuffer& message)
@@ -566,13 +582,6 @@ unsigned CEspApplicationPort::updatePassword(IEspContext &context, IHttpMessage*
         return 2;
     }
 
-    const char* oldpass1 = context.queryPassword();
-    if (!oldpass1)
-    {
-        message.append("Existing password missing from request.");
-        return 2;
-    }
-
     CHttpRequest *httpRequest=dynamic_cast<CHttpRequest*>(request);
     IProperties *params = httpRequest->getParameters();
     if (!params)
@@ -588,11 +597,6 @@ unsigned CEspApplicationPort::updatePassword(IEspContext &context, IHttpMessage*
     if(!username || !streq(username, user->getName()))
     {
         message.append("Incorrect username has been received.");
-        return 1;
-    }
-    if(!oldpass || !streq(oldpass, oldpass1))
-    {
-        message.append("Old password doesn't match credentials in use.");
         return 1;
     }
     if(!streq(newpass1, newpass2))

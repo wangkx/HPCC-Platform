@@ -36,6 +36,7 @@
 
 static const char* const SESSION_ID_COOKIE = "ESPSessionID";
 static const char* const SESSION_AUTH_COOKIE = "ESPAuthSession";
+static const char* const SESSION_USERID_COOKIE = "ESPUserID";
 
 //xpath in dali
 static const char* const PathSessionRoot="Sessions";

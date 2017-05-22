@@ -87,7 +87,8 @@ protected:
     void postSessionAuth(EspAuthRequest& authReq, unsigned sessionID, HTTPSessionState sessionState, time_t timeNow, void* _conn, IPropertyTree* sessionTree);
     void askUserLogin(EspHttpBinding* authBinding, unsigned sessionID);
     void handleAuthFailed(bool sessionAuth, EspAuthRequest& authReq, unsigned* sessionID);
-    void handlePasswordExpired(bool sessionAuth);
+    void handlePasswordExpired(const char* userID, bool sessionAuth);
+    void handleUpdatePasswordFailed(const char* userID, unsigned errorCode, const char* errorMsg);
     EspHttpBinding* getEspHttpBinding(EspAuthRequest& req);
     bool isAuthRequiredForBinding(EspAuthRequest& req);
     void authOptionalGroups(EspAuthRequest& req);
@@ -96,6 +97,7 @@ protected:
     void addCookie(const char* cookieName, const char *cookieValue, int maxAgeSec);
     void clearCookie(const char* cookieName);
     unsigned readCookie(const char* cookieName);
+    const char* readCookieString(const char* cookieName);
     void sendMessage(const char* msg, const char* msgType);
     bool commitAndCloseRemoteConnection(void* conn);
     void send200OK();

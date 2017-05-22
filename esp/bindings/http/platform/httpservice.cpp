@@ -526,13 +526,13 @@ int CEspHttpServer::onUpdatePasswordInput(CHttpRequest* request, CHttpResponse* 
 int CEspHttpServer::onUpdatePassword(CHttpRequest* request, CHttpResponse* response)
 {
     StringBuffer html;
-    m_apport->onUpdatePassword(*request->queryContext(), request, html);
+    unsigned returnCode = m_apport->onUpdatePassword(*request->queryContext(), request, html);
     response->setContent(html.length(), html.str());
     response->setContentType("text/html; charset=UTF-8");
     response->setStatus(HTTP_STATUS_OK);
 
     response->send();
-    return 0;
+    return returnCode;
 }
 #endif
 
@@ -1003,11 +1003,39 @@ EspAuthState CEspHttpServer::preCheckAuth(EspAuthRequest& authReq)
             EspHttpBinding* thebinding = getBinding();
             if (thebinding)
                 thebinding->populateRequest(m_request.get());
-            onUpdatePassword(m_request.get(), m_response.get());
+            const char* userID = readCookieString(SESSION_USERID_COOKIE);
+            if (isEmptyString(userID))
+            {
+                DBGLOG("UserID cookie not found in UpdatePassword request.");
+                askUserLogin(authReq.authBinding, createHTTPSession(authReq, nullptr, nullptr));
+                return authFailed;
+            }
+            IProperties *params = m_request->getParameters();
+            if (!params)
+            {
+                handleUpdatePasswordFailed(userID, 1, "No parameter is received. Please check user input.");
+                return authUpdatePassword;
+            }
+
+            const char* oldpass = params->queryProp("oldpass");
+            if (isEmptyString(oldpass))
+            {
+                handleUpdatePasswordFailed(userID, 1, "Old password can't be empty.");
+                return authUpdatePassword;
+            }
+
+            authReq.ctx->setUserID(userID);
+            authReq.ctx->setPassword(oldpass);
+            authReq.authBinding->populateRequest(m_request.get());
+            if (onUpdatePassword(m_request.get(), m_response.get()) == 0)
+                clearCookie(SESSION_USERID_COOKIE);
             return authUpdatePassword;
         }
         if (strieq(authReq.httpMethod.str(), GET_METHOD) && strieq(authReq.methodName.str(), "updatepasswordinput"))//process before authentication check
         {
+            const char* userID = readCookieString(SESSION_USERID_COOKIE);
+            if (!isEmptyString(userID))
+                authReq.ctx->setUserID(userID);
             onUpdatePasswordInput(m_request.get(), m_response.get());
             return authUpdatePassword;
         }
@@ -1018,6 +1046,16 @@ EspAuthState CEspHttpServer::preCheckAuth(EspAuthRequest& authReq)
         return authSucceeded;//Give the permission to send out some pages used for login or logout.
 
     return authUnknown;
+}
+
+void CEspHttpServer::handleUpdatePasswordFailed(const char* userID, unsigned errorCode, const char* errorMsg)
+{
+    StringBuffer html;
+    m_apport->createUpdatePasswordFailedPage(userID, errorCode, errorMsg, html);
+    m_response->setContent(html.length(), html.str());
+    m_response->setContentType("text/html; charset=UTF-8");
+    m_response->setStatus(HTTP_STATUS_OK);
+    m_response->send();
 }
 
 bool CEspHttpServer::isAuthRequiredForBinding(EspAuthRequest& authReq)
@@ -1246,7 +1284,7 @@ void CEspHttpServer::handleAuthFailed(bool sessionAuth, EspAuthRequest& authReq,
     if (user && (user->getAuthenticateStatus() == AS_PASSWORD_EXPIRED || user->getAuthenticateStatus() == AS_PASSWORD_VALID_BUT_EXPIRED))
     {
         ESPLOG(LogMin, "ESP password expired for %s", authReq.ctx->queryUserId());
-        handlePasswordExpired(sessionAuth);
+        handlePasswordExpired(authReq.ctx->queryUserId(), sessionAuth);
         return;
     }
 
@@ -1363,15 +1401,18 @@ bool CEspHttpServer::commitAndCloseRemoteConnection(void* _conn)
     return true;
 }
 
-void CEspHttpServer::handlePasswordExpired(bool sessionAuth)
+void CEspHttpServer::handlePasswordExpired(const char* userID, bool sessionAuth)
 {
     if (sessionAuth)
+    {
+        addCookie(SESSION_USERID_COOKIE, userID, 0); //time out when browser is closed
         m_response->redirect(*m_request.get(), "/esp/updatepasswordinput");
+    }
     else
     {
-        Owned<IMultiException> me = MakeMultiException();
-        me->append(*MakeStringException(-1, "Your ESP password has expired."));
-        m_response->handleExceptions(nullptr, me, "ESP Authentication", "PasswordExpired", nullptr);
+        m_response->setContentType(HTTP_TYPE_TEXT_PLAIN);
+        m_response->setContent("Your ESP password has expired");
+        m_response->send();
     }
     return;
 }
@@ -1427,4 +1468,12 @@ unsigned CEspHttpServer::readCookie(const char* cookieName)
             return atoi(sessionIDStr.str());
     }
     return 0;
+}
+
+const char* CEspHttpServer::readCookieString(const char* cookieName)
+{
+    CEspCookie* sessionIDCookie = m_request->queryCookie(cookieName);
+    if (sessionIDCookie)
+        return sessionIDCookie->getValue();
+    return nullptr;
 }
