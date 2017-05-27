@@ -47,6 +47,7 @@
 #include "xsdparser.hpp"
 #include "espsecurecontext.hpp"
 #include "jsonhelpers.hpp"
+#include "environment.hpp"
 
 #define FILE_UPLOAD     "FileUploadAccess"
 
@@ -260,6 +261,69 @@ EspHttpBinding::EspHttpBinding(IPropertyTree* tree, const char *bindname, const 
     }
     if(m_challenge_realm.length() == 0)
         m_challenge_realm.append("ESP");
+
+    StringBuffer esdlFile;
+    getServiceESDLFile(tree, bindname, procname, esdlFile);
+    readMemCachedSettings(esdlFile);
+    if(bnd_cfg)
+    {
+        const char* initString = bnd_cfg->queryProp("MemCachedInitString");
+        if (isEmptyString(initString))
+            memCachedInitString.set("--SERVER=127.0.0.1");
+        else
+            memCachedInitString.set(initString);
+    }
+}
+
+void EspHttpBinding::getServiceESDLFile(IPropertyTree* cfg, const char* bindName, const char* procName, StringBuffer& file)
+{
+    Owned<IEnvironmentFactory> envFactory = getEnvironmentFactory();
+    Owned<IConstEnvironment> constEnv = envFactory->openEnvironment();
+    Owned<IPropertyTree> envRoot = &constEnv->getPTree();
+    if (!envRoot)
+        throw MakeStringException(-1, "Failed to get environment information.");
+    const char* compPath = envRoot->queryProp("EnvSettings/path");
+    if (isEmptyString(compPath))
+        throw MakeStringException(-1, "Failed to get EnvSettings/path.");
+
+    Owned<IPropertyTree> bnd_cfg = getBindingConfig(cfg, bindName, procName);
+    if (!bnd_cfg)
+        return;
+    const char* srvName = bnd_cfg->queryProp("@service");
+    if (isEmptyString(srvName))
+        return;
+    Owned<IPropertyTree> srv_cfg = getServiceConfig(cfg, srvName, procName);
+    if (!srv_cfg)
+        return;
+
+    const char* type = srv_cfg->queryProp("@type");
+    file.set(compPath).append(PATHSEPSTR).append(ESDL_FILES_DIR_NAME).append(PATHSEPSTR);
+    if (strieq(type, "WsSMC")) //TODO: how to do all of those mappings?
+        file.append("ws_smc.xml");
+    else if (strieq(type, "WsWorkunits"))
+        file.append("ws_workunits.xml");
+    else if (strieq(type, "WsTopology"))
+        file.append("ws_topology.xml");
+}
+
+void EspHttpBinding::readMemCachedSettings(const char* esdlFile)
+{
+    {
+        Owned<IFile> f = createIFile(esdlFile);
+        if (!f->exists() || !f->isFile())
+            return;
+    }
+    Owned<IPTree> pt = createPTreeFromXMLFile(esdlFile);
+    if (!pt)
+        return;
+
+    Owned<IPropertyTreeIterator> methods = pt->getElements("EsdlService/EsdlMethod");
+    ForEach(*methods)
+    {
+        IPropertyTree& method = methods->query();
+        if (method.hasProp("@cache_seconds"))
+            memCachedSettings.setValue(method.queryProp("@name"), new CMemCachedSetting(method.getPropInt("@cache_seconds"), method.getPropBool("@cache_global", false)));
+    }
 }
 
 StringBuffer &EspHttpBinding::generateNamespace(IEspContext &context, CHttpRequest* request, const char *serv, const char *method, StringBuffer &ns)
@@ -507,9 +571,78 @@ bool EspHttpBinding::basicAuth(IEspContext* ctx)
     ctx->addTraceSummaryTimeStamp(LogMin, "basicAuth");
     return authorized;
 }
-    
+
+const char* EspHttpBinding::createMemCachedID(CHttpRequest* request, StringBuffer& memCachedID)
+{
+    memCachedID.clear();
+    const char* method = request->queryServiceMethod();
+    CMemCachedSetting** m = memCachedSettings.getValue(method);
+    if (!m)
+        return memCachedID.str();
+
+    bool cacheGlobal = (*m)->getGlobal();
+    if(request->isSoapMessage())
+        memCachedID.append(request->createUniqueRequestHash(cacheGlobal, "SOAP"));
+    else if(request->isFormSubmission())
+        memCachedID.append(request->createUniqueRequestHash(cacheGlobal, "FORM"));
+    else
+        memCachedID.append(request->createUniqueRequestHash(cacheGlobal, ""));
+    return memCachedID.str();
+}
+
+bool EspHttpBinding::sendFromMemCached(CHttpRequest* request, CHttpResponse* response, const char* memCachedID)
+{
+    StringBuffer content, contentType, contentTypeCachedID;
+    contentTypeCachedID.set(memCachedID).append("t");
+
+    {
+        CriticalBlock block(memCachedCrit);
+        memCached.init(memCachedInitString.get());
+
+        if (memCached.exists("ESPResponse", memCachedID))
+            memCached.get("ESPResponse", memCachedID, content);
+        if (memCached.exists("ESPResponse", contentTypeCachedID.str()))
+            memCached.get("ESPResponse", contentTypeCachedID.str(), contentType);
+    }
+    if (content.isEmpty() || contentType.isEmpty())
+        return false;
+
+    DBGLOG("Sending MemCached for %s.", request->queryServiceMethod());
+    response->setContentType(contentType.str());
+    response->setContent(content.str());
+    response->send();
+    return true;
+}
+
+void EspHttpBinding::addToMemCached(CHttpRequest* request, CHttpResponse* response, const char* memCachedID)
+{
+    const char* method = request->queryServiceMethod();
+    CMemCachedSetting** m = memCachedSettings.getValue(method);
+    if (!m)
+        return;
+
+    unsigned cacheSeconds = (*m)->getSeconds();
+    StringBuffer content, contentType, contentTypeID;
+    contentTypeID.set(memCachedID).append("t");
+    response->getContent(content);
+    response->getContentType(contentType);
+    {
+        CriticalBlock block(memCachedCrit);
+        memCached.init(memCachedInitString.get());
+
+        memCached.set("ESPResponse", memCachedID, content.str(), cacheSeconds);
+        memCached.set("ESPResponse", contentTypeID.str(), contentType.str(), cacheSeconds);
+    }
+    DBGLOG("AddTo MemCached for %s.", method);
+}
+
 void EspHttpBinding::handleHttpPost(CHttpRequest *request, CHttpResponse *response)
 {
+    StringBuffer memCachedID;
+    createMemCachedID(request, memCachedID);
+    if (!memCachedID.isEmpty() && sendFromMemCached(request, response, memCachedID.str()))
+        return;
+
     if(request->isSoapMessage()) 
     {
         request->queryParameters()->setProp("__wsdl_address", m_wsdlAddress.str());
@@ -519,6 +652,8 @@ void EspHttpBinding::handleHttpPost(CHttpRequest *request, CHttpResponse *respon
         onPostForm(request, response);
     else
         onPost(request, response);
+    if (!memCachedID.isEmpty())
+        addToMemCached(request, response, memCachedID.str());
 }
 
 int EspHttpBinding::onGet(CHttpRequest* request, CHttpResponse* response)
