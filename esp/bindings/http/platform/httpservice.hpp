@@ -34,7 +34,6 @@
 
 #include "espsession.ipp"
 
-
 class CEspHttpServer : implements IHttpServerService, public CInterface
 {
 protected:

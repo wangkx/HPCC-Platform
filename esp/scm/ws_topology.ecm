@@ -633,10 +633,10 @@ ESPservice [auth_feature("DEFERRED"), noforms, version("1.26"), exceptions_inlin
     ESPuses ESPstruct TpServices;
     ESPuses ESPstruct TpTargetCluster;
 
-    ESPmethod [resp_xsl_default("/esp/xslt/targetclusters.xslt")] TpTargetClusterQuery(TpTargetClusterQueryRequest, TpTargetClusterQueryResponse);
-    ESPmethod [resp_xsl_default("/esp/xslt/topology.xslt")] TpClusterQuery(TpClusterQueryRequest, TpClusterQueryResponse);
-    ESPmethod TpLogicalClusterQuery(TpLogicalClusterQueryRequest, TpLogicalClusterQueryResponse);
-    ESPmethod TpGroupQuery(TpGroupQueryRequest, TpGroupQueryResponse);
+    ESPmethod [cache_seconds(180), cache_globel(1), resp_xsl_default("/esp/xslt/targetclusters.xslt")] TpTargetClusterQuery(TpTargetClusterQueryRequest, TpTargetClusterQueryResponse);
+    ESPmethod [cache_seconds(180), cache_global(1), resp_xsl_default("/esp/xslt/topology.xslt")] TpClusterQuery(TpClusterQueryRequest, TpClusterQueryResponse);
+    ESPmethod [cache_seconds(180), cache_global(1)] TpLogicalClusterQuery(TpLogicalClusterQueryRequest, TpLogicalClusterQueryResponse);
+    ESPmethod [cache_seconds(180), cache_global(1)] TpGroupQuery(TpGroupQueryRequest, TpGroupQueryResponse);
     ESPmethod [resp_xsl_default("/esp/xslt/machines.xslt")] TpMachineQuery(TpMachineQueryRequest, TpMachineQueryResponse);
     ESPmethod [resp_xsl_default("/esp/xslt/cluster_info.xslt")] TpClusterInfo(TpClusterInfoRequest, TpClusterInfoResponse);
     ESPmethod [resp_xsl_default("/esp/xslt/thor_status.xslt")] TpThorStatus(TpThorStatusRequest, TpThorStatusResponse);

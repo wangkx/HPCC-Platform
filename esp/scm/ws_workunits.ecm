@@ -1821,10 +1821,10 @@ ESPservice [
     version("1.68"), default_client_version("1.68"),
     noforms,exceptions_inline("./smc_xslt/exceptions.xslt"),use_method_name] WsWorkunits
 {
-    ESPmethod [resp_xsl_default("/esp/xslt/workunits.xslt")]     WUQuery(WUQueryRequest, WUQueryResponse);
-    ESPmethod [min_ver("1.57")] WULightWeightQuery(WULightWeightQueryRequest, WULightWeightQueryResponse);
-    ESPmethod [resp_xsl_default("/esp/xslt/wuid.xslt")]     WUInfo(WUInfoRequest, WUInfoResponse);
-    ESPmethod [resp_xsl_default("/esp/xslt/wuiddetails.xslt")]     WUInfoDetails(WUInfoRequest, WUInfoResponse);
+    ESPmethod [cache_seconds(60), resp_xsl_default("/esp/xslt/workunits.xslt")]     WUQuery(WUQueryRequest, WUQueryResponse);
+    ESPmethod [cache_seconds(60), min_ver("1.57")] WULightWeightQuery(WULightWeightQueryRequest, WULightWeightQueryResponse);
+    ESPmethod [cache_seconds(30), resp_xsl_default("/esp/xslt/wuid.xslt")]     WUInfo(WUInfoRequest, WUInfoResponse);
+    ESPmethod [cache_seconds(30), resp_xsl_default("/esp/xslt/wuiddetails.xslt")]     WUInfoDetails(WUInfoRequest, WUInfoResponse);
     ESPmethod [resp_xsl_default("/esp/xslt/wuid.xslt")]     WUGraphTiming(WUGraphTimingRequest, WUGraphTimingResponse);
     ESPmethod [resp_xsl_default("/esp/xslt/graph.xslt")]         WUGraphInfo(WUGraphInfoRequest, WUGraphInfoResponse);
     ESPmethod [resp_xsl_default("/esp/xslt/graph_gvc.xslt")]     WUGVCGraphInfo(WUGVCGraphInfoRequest, WUGVCGraphInfoResponse);

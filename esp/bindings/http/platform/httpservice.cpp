@@ -451,32 +451,66 @@ int CEspHttpServer::processRequest()
 
             if (thebinding!=NULL)
             {
-                if(stricmp(method.str(), POST_METHOD)==0)
-                    thebinding->handleHttpPost(m_request.get(), m_response.get());
-                else if(!stricmp(method.str(), GET_METHOD)) 
+                //The following is the test code for memcached...
+                /*StringBuffer memCachedOpt;
+                memCachedOpt.set("--SERVER=127.0.0.1");
+                ESPMemCached espMemCached(memCachedOpt.str());
+
+                StringBuffer content, contentType, idStr, idStr1;
+                CHttpRequest* request = m_request.get();
+                idStr.append(request->createUniqueRequestHash(true));
+                idStr1.set(idStr).append("t");
+
+                if (espMemCached.exists("ESPResponse", idStr.str()))
                 {
-                    if (stype==sub_serv_index_redirect)
+                    espMemCached.get("ESPResponse", idStr.str(), content);
+                }
+                if (espMemCached.exists("ESPResponse", idStr1.str()))
+                {
+                    espMemCached.get("ESPResponse", idStr1.str(), contentType);
+                    DBGLOG("******************<%s>", contentType.str());
+                }
+                if (!content.isEmpty() && !contentType.isEmpty())
+                {
+                    CHttpResponse* response = m_response.get();
+                    response->setContentType(contentType.str());
+                    response->setContent(content.str());
+                    response->send();
+                    DBGLOG("******************sent");
+                }*/
+                StringBuffer memCachedID;
+                //if (sendMemCached("--SERVER=127.0.0.1", m_request.get(), m_response.get(), memCachedID)
+                {
+                    if(stricmp(method.str(), POST_METHOD)==0)
+                        thebinding->handleHttpPost(m_request.get(), m_response.get());
+                    else if(!stricmp(method.str(), GET_METHOD))
                     {
-                        StringBuffer url;
-                        if (isSubService) 
+                        if (stype==sub_serv_index_redirect)
                         {
-                            StringBuffer qSvcName;
-                            thebinding->qualifySubServiceName(*ctx,serviceName,NULL, qSvcName, NULL);
-                            url.append(qSvcName);
+                            StringBuffer url;
+                            if (isSubService)
+                            {
+                                StringBuffer qSvcName;
+                                thebinding->qualifySubServiceName(*ctx,serviceName,NULL, qSvcName, NULL);
+                                url.append(qSvcName);
+                            }
+                            else
+                                thebinding->getServiceName(url);
+                            url.append('/');
+                            const char* parms = m_request->queryParamStr();
+                            if (parms && *parms)
+                                url.append('?').append(parms);
+                            m_response->redirect(*m_request.get(),url);
                         }
                         else
-                            thebinding->getServiceName(url);
-                        url.append('/');
-                        const char* parms = m_request->queryParamStr();
-                        if (parms && *parms)
-                            url.append('?').append(parms);
-                        m_response->redirect(*m_request.get(),url);
+                            thebinding->onGet(m_request.get(), m_response.get());
                     }
                     else
-                        thebinding->onGet(m_request.get(), m_response.get());
+                        unsupported();
+                    {
+                        //addToMemCached("--SERVER=127.0.0.1", memCachedID.str(), m_response.get());
+                    }
                 }
-                else
-                    unsupported();
             }
             else
             {

@@ -59,7 +59,23 @@ public:
     };
 };
 
+#define ESDL_FILES_DIR_NAME "componentfiles/esdl_files"
+
+class CMemCachedSetting : public CInterface
+{
+    bool global = false;
+    unsigned seconds = 0; //never expire
+
+public:
+    IMPLEMENT_IINTERFACE;
+    CMemCachedSetting(unsigned _seconds, bool _global = false) : seconds(_seconds), global(_global) {};
+
+    bool getGlobal() { return global; };
+    unsigned getSeconds() { return seconds; };
+};
+
 typedef CIArrayOf<CMethodInfo> MethodInfoArray;
+typedef MapStringTo<CMemCachedSetting*> MemCachedSettings;
 
 interface IEspHttpBinding
 {
@@ -142,7 +158,18 @@ private:
     StringAttrMapping desc_map;
     StringAttrMapping help_map;
 
+    StringAttr memCachedInitString;
+    ESPMemCached memCached;
+    CriticalSection memCachedCrit;
+    unsigned memCachedID;
+    MemCachedSettings memCachedSettings;
+
     void getXMLMessageTag(IEspContext& ctx, bool isRequest, const char *method, StringBuffer& tag);
+    void getServiceESDLFile(IPropertyTree* cfg, const char* bindName, const char* procName, StringBuffer& file);
+    void readMemCachedSettings(const char* esdlFile);
+    const char* createMemCachedID(CHttpRequest* request, StringBuffer& memCachedID);
+    void addToMemCached(CHttpRequest* request, CHttpResponse* response, const char* memCachedID);
+    bool sendFromMemCached(CHttpRequest* request, CHttpResponse* response, const char* memCachedID);
 protected:
     MethodInfoArray m_methods;
     bool                    m_includeSoapTest;

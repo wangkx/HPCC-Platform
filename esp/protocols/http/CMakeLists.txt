@@ -59,6 +59,9 @@ include_directories(
     ./../../../system/include
     ./../../../system/security/shared
     ./../../../system/security/securesocket
+    ./../../../system/mp
+    ./../../../dali/base
+    ./../../../common/environment
     ./../../bindings
     ./../../bindings/SOAP/xpp
     ./../../../system/xmllib
@@ -80,6 +83,7 @@ target_link_libraries(
     ${XERCES_LIBRARIES}
     jlib
     xmllib
+    environment
     )
 
 if(LIBMEMCACHED_FOUND)
