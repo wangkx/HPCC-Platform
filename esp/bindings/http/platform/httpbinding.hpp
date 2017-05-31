@@ -59,6 +59,7 @@ public:
     };
 };
 
+#ifdef USE_LIBMEMCACHED
 #define ESDL_FILES_DIR_NAME "componentfiles/esdl_files"
 
 class CMemCachedSetting : public CInterface
@@ -74,7 +75,7 @@ public:
     unsigned getSeconds() { return seconds; };
 };
 typedef MapStringTo<CMemCachedSetting*> MemCachedSettings;
-
+#endif
 typedef CIArrayOf<CMethodInfo> MethodInfoArray;
 
 interface IEspHttpBinding
@@ -157,19 +158,22 @@ private:
 
     StringAttrMapping desc_map;
     StringAttrMapping help_map;
-
+#ifdef USE_LIBMEMCACHED
     StringAttr memCachedInitString;
     ESPMemCached memCached;
     CriticalSection memCachedCrit;
     unsigned memCachedID;
     MemCachedSettings memCachedSettings;
+#endif
 
     void getXMLMessageTag(IEspContext& ctx, bool isRequest, const char *method, StringBuffer& tag);
+#ifdef USE_LIBMEMCACHED
     void getServiceESDLFile(IPropertyTree* cfg, const char* bindName, const char* procName, StringBuffer& file);
     void readMemCachedSettings(const char* esdlFile);
     const char* createMemCachedID(CHttpRequest* request, StringBuffer& memCachedID);
     void addToMemCached(CHttpRequest* request, CHttpResponse* response, const char* memCachedID);
     bool sendFromMemCached(CHttpRequest* request, CHttpResponse* response, const char* memCachedID);
+#endif
 protected:
     MethodInfoArray m_methods;
     bool                    m_includeSoapTest;

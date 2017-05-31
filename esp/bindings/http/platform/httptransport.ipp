@@ -37,7 +37,6 @@
 
 #include "xslprocessor.hpp"
 
-
 #define POST_METHOD "POST"
 #define GET_METHOD "GET"
 #define HEAD_METHOD "HEAD"
@@ -77,7 +76,9 @@ protected:
     Owned<IProperties> m_queryparams;
     MapStrToBuf  m_attachments;
     StringArray  m_headers;
+#ifdef USE_LIBMEMCACHED
     StringBuffer allParameterString;
+#endif
 
     Owned<IEspContext> m_context;
     IArrayOf<CEspCookie> m_cookies;
@@ -337,7 +338,9 @@ public:
     virtual int receive(IMultiException *me);
 
     void updateContext();
+#ifdef USE_LIBMEMCACHED
     unsigned createUniqueRequestHash(bool cacheGlobal, const char* msgType);
+#endif
 
     virtual void setMaxRequestEntityLength(int len) {m_MaxRequestEntityLength = len;}
     virtual int getMaxRequestEntityLength() { return m_MaxRequestEntityLength; }
@@ -418,6 +421,7 @@ inline bool skipXslt(IEspContext &context)
     return (context.getResponseFormat()!=ESPSerializationANY);  //for now
 }
 
+#ifdef USE_LIBMEMCACHED
 #include <libmemcached/memcached.hpp>
 #include <libmemcached/util.h>
 
@@ -641,5 +645,6 @@ public :
         }
     }
 };
+#endif //USE_LIBMEMCACHED
 
 #endif

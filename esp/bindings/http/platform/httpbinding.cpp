@@ -262,6 +262,7 @@ EspHttpBinding::EspHttpBinding(IPropertyTree* tree, const char *bindname, const 
     if(m_challenge_realm.length() == 0)
         m_challenge_realm.append("ESP");
 
+#ifdef USE_LIBMEMCACHED
     StringBuffer esdlFile;
     getServiceESDLFile(tree, bindname, procname, esdlFile);
     readMemCachedSettings(esdlFile);
@@ -273,8 +274,9 @@ EspHttpBinding::EspHttpBinding(IPropertyTree* tree, const char *bindname, const 
         else
             memCachedInitString.set(initString);
     }
+#endif
 }
-
+#ifdef USE_LIBMEMCACHED
 void EspHttpBinding::getServiceESDLFile(IPropertyTree* cfg, const char* bindName, const char* procName, StringBuffer& file)
 {
     Owned<IEnvironmentFactory> envFactory = getEnvironmentFactory();
@@ -325,7 +327,7 @@ void EspHttpBinding::readMemCachedSettings(const char* esdlFile)
             memCachedSettings.setValue(method.queryProp("@name"), new CMemCachedSetting(method.getPropInt("@cache_seconds"), method.getPropBool("@cache_global", false)));
     }
 }
-
+#endif
 StringBuffer &EspHttpBinding::generateNamespace(IEspContext &context, CHttpRequest* request, const char *serv, const char *method, StringBuffer &ns)
 {
     ns.append("urn:hpccsystems:ws:");
@@ -571,7 +573,7 @@ bool EspHttpBinding::basicAuth(IEspContext* ctx)
     ctx->addTraceSummaryTimeStamp(LogMin, "basicAuth");
     return authorized;
 }
-
+#ifdef USE_LIBMEMCACHED
 const char* EspHttpBinding::createMemCachedID(CHttpRequest* request, StringBuffer& memCachedID)
 {
     memCachedID.clear();
@@ -635,14 +637,15 @@ void EspHttpBinding::addToMemCached(CHttpRequest* request, CHttpResponse* respon
     }
     DBGLOG("AddTo MemCached for %s.", method);
 }
-
+#endif
 void EspHttpBinding::handleHttpPost(CHttpRequest *request, CHttpResponse *response)
 {
+#ifdef USE_LIBMEMCACHED
     StringBuffer memCachedID;
     createMemCachedID(request, memCachedID);
     if (!memCachedID.isEmpty() && sendFromMemCached(request, response, memCachedID.str()))
         return;
-
+#endif
     if(request->isSoapMessage()) 
     {
         request->queryParameters()->setProp("__wsdl_address", m_wsdlAddress.str());
@@ -652,8 +655,10 @@ void EspHttpBinding::handleHttpPost(CHttpRequest *request, CHttpResponse *respon
         onPostForm(request, response);
     else
         onPost(request, response);
+#ifdef USE_LIBMEMCACHED
     if (!memCachedID.isEmpty())
         addToMemCached(request, response, memCachedID.str());
+#endif
 }
 
 int EspHttpBinding::onGet(CHttpRequest* request, CHttpResponse* response)
