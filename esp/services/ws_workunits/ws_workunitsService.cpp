@@ -44,6 +44,7 @@
 #include "thorxmlwrite.hpp"
 #include "fvdatasource.hpp"
 #include "fvresultset.ipp"
+#include "rmtsmtp.hpp"
 
 #include "package.h"
 
@@ -4931,6 +4932,24 @@ void CWsWorkunitsEx::createZAPWUGraphProgressFile(const char* wuid, const char* 
     }
 }
 
+void sendZAPEmail(const char* attachmentName, size32_t lenAttachment, const void * attachment)
+{
+    const char* to = "kevin.wang@lexisnexis";
+    const char* subject = "test sendZAPEmail()";
+    const char* body = "This is a test email. See attachment";
+    const char* mimeType = "application/zip, application/octet-stream";
+    const char* mailServer ="appmail-bct.risk.regn.net";
+    unsigned int port = 25;
+    const char* sender = "kevin.wang@lexisnexis";
+    StringArray warnings;
+    sendEmailAttachData(to, subject, body, lenAttachment, attachment, mimeType, attachmentName, mailServer, port, sender, &warnings);
+    if (!warnings.empty())
+    {
+        ForEachItemIn(i,warnings)
+            DBGLOG("Warning<%s>", warnings.item(i));
+    }
+}
+
 bool CWsWorkunitsEx::onWUCreateZAPInfo(IEspContext &context, IEspWUCreateZAPInfoRequest &req, IEspWUCreateZAPInfoResponse &resp)
 {
     try
@@ -5010,12 +5029,13 @@ bool CWsWorkunitsEx::onWUCreateZAPInfo(IEspContext &context, IEspWUCreateZAPInfo
         void * data = mb.reserve((unsigned)io->size());
         size32_t read = io->read(0, (unsigned)io->size(), data);
         mb.setLength(read);
-        resp.setThefile(mb);
+        /*resp.setThefile(mb);
         resp.setThefile_mimetype(HTTP_TYPE_OCTET_STREAM);
         resp.setZAPFileName(zipFileName.str());
         StringBuffer headerStr("attachment;filename=");
         headerStr.append(zipFileName.str());
-        context.addCustomerHeader("Content-disposition", headerStr.str());
+        context.addCustomerHeader("Content-disposition", headerStr.str());*/
+        sendZAPEmail(zipFileName.str(), mb.length(), mb.bufferBase());
         io->close();
         f->remove();
     }
