@@ -4934,13 +4934,13 @@ void CWsWorkunitsEx::createZAPWUGraphProgressFile(const char* wuid, const char* 
 
 void sendZAPEmail(const char* attachmentName, size32_t lenAttachment, const void * attachment)
 {
-    const char* to = "kevin.wang@lexisnexis";
+    const char* to = "kevin.wang@lexisnexis.com";
     const char* subject = "test sendZAPEmail()";
     const char* body = "This is a test email. See attachment";
     const char* mimeType = "application/zip, application/octet-stream";
     const char* mailServer ="appmail-bct.risk.regn.net";
     unsigned int port = 25;
-    const char* sender = "kevin.wang@lexisnexis";
+    const char* sender = "kevin.wang@lexisnexis.com";
     StringArray warnings;
     sendEmailAttachData(to, subject, body, lenAttachment, attachment, mimeType, attachmentName, mailServer, port, sender, &warnings);
     if (!warnings.empty())
