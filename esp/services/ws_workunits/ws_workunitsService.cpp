@@ -4950,6 +4950,88 @@ void sendZAPEmail(const char* attachmentName, size32_t lenAttachment, const void
     }
 }
 
+int execCommand(const char *cmd, StringBuffer& resq)
+{
+    char   buffer[128];
+    FILE   *fp;
+
+    // Open a pipe.
+    if( (fp = popen(cmd, "r")) == nullptr )
+        return -1;
+
+    while ( !feof(fp) )
+        if ( fgets( buffer, 128, fp) )
+            resq.append( buffer );
+
+    // Close a pipe.
+    return pclose( fp );
+}
+
+int readJIRAResponseContent(__int64 textLength, const char* resq, StringBuffer& content)
+{
+    int oneLineLen = 0;
+    __int64 curPos = 0;
+    __int64 nextPos = Utils::getLine(textLength, curPos, resq, oneLineLen);
+
+    char oneLine[MAX_HTTP_HEADER_LEN + 2];
+    strncpy(oneLine, resq, oneLineLen);
+    oneLine[oneLineLen] = 0;
+
+    const char* curptr = oneLine;
+    StringBuffer method;
+    curptr = Utils::getWord(curptr, method);
+    if (!strieq(curptr, "200 OK"))
+        return -1;
+
+    //Skip header lines
+    while((nextPos < textLength) && (resq[curPos] != 0))
+    {
+        nextPos = Utils::getLine(textLength, nextPos, resq, oneLineLen);
+        curPos = nextPos;
+    }
+
+    //Skip empty lines
+    while ((nextPos < textLength) && (resq[nextPos] == 0))
+        nextPos++;
+
+    if (nextPos < textLength)
+        content.set(resq + nextPos);
+    return content.length();
+}
+
+void sendJIRA(StringBuffer& resq)
+{
+//    curl -D- -u wangkx:1qaz2wsx -X GET -H "Content-Type: application/json" 'https://track.hpccsystems.com/rest/api/2/search?jql=assignee=wangkx&startAt=0&maxResults=3&fields=id,key'
+    const char* userID = "wangkx";
+    const char* passwd = "1qaz2wsx";
+    const char* method = "GET";
+    const char* baseUrl = "https://track.hpccsystems.com/rest/api/2/search";
+    const char* req = "assignee=wangkx&startAt=0&maxResults=3&fields=id,key";
+    StringBuffer respContent, cmd("curl -D- -u ");
+    cmd.append(userID).append(':').append(passwd).append(" -X ").append(method);
+    if (strieq(method, "POST"))
+        cmd.append(" --data {see below}");
+    cmd.appendf(" -H \"Content-Type: application/json\" '%s?jql=%s'", baseUrl, req);
+    DBGLOG("Command in sendJIRA():<%s>", cmd.str());
+    execCommand(cmd.str(), resq);
+    if (resq.isEmpty())
+        DBGLOG("Empty response from sendJIRA()");
+    else
+        DBGLOG("Response from sendJIRA():<%s>", resq.str());
+
+    if (readJIRAResponseContent(resq.length(), resq.str(), respContent) > 0)
+    {
+        Owned<IPropertyTree> contentTree = createPTreeFromJSONString(respContent.str());
+        StringBuffer xml;
+        toXML(contentTree, xml);
+        DBGLOG("Response XML:<%s>", xml.str());
+    }
+    else
+    {
+        ;//TODO
+    }
+}
+
 bool CWsWorkunitsEx::onWUCreateZAPInfo(IEspContext &context, IEspWUCreateZAPInfoRequest &req, IEspWUCreateZAPInfoResponse &resp)
 {
     try
@@ -5035,7 +5117,9 @@ bool CWsWorkunitsEx::onWUCreateZAPInfo(IEspContext &context, IEspWUCreateZAPInfo
         StringBuffer headerStr("attachment;filename=");
         headerStr.append(zipFileName.str());
         context.addCustomerHeader("Content-disposition", headerStr.str());*/
-        sendZAPEmail(zipFileName.str(), mb.length(), mb.bufferBase());
+        StringBuffer resq;
+        sendJIRA(resq);
+        ///sendZAPEmail(zipFileName.str(), mb.length(), mb.bufferBase());
         io->close();
         f->remove();
     }
