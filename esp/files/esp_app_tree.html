@@ -370,7 +370,7 @@ function writeESPappname(appname)
           else
             console.log("Logout failed: " + logoutRequest.status);
         }
-        logoutRequest.open( "GET", 'logout', true );            
+        logoutRequest.open( "GET", 'esp/logout', true );            
         logoutRequest.send( null );
       }
 

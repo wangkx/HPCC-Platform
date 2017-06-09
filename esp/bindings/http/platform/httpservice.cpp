@@ -962,8 +962,10 @@ EspHttpBinding* CEspHttpServer::getEspHttpBinding(EspAuthRequest& authReq)
     {
         CEspBindingEntry *entry = m_apport->queryBindingItem(0);
         espHttpBinding = (entry) ? dynamic_cast<EspHttpBinding*>(entry->queryBinding()) : NULL;
-        //Not sure why check !isSoapPost if (ordinality==1)
-        //The isValidServiceName() returns false except for ws_ecl and esdl.
+        //If there is only one binding on the port, we allow SOAP calls to work if they go
+        //to http://IP:Port without any service name on the path. Even without specifying
+        //the service, if the request matches a method, the method will run. So, the espHttpBinding
+        //is set to nullptr only if !authReq.isSoapPost.
         if (!authReq.isSoapPost && espHttpBinding && !espHttpBinding->isValidServiceName(*authReq.ctx, authReq.serviceName.str()))
             espHttpBinding=nullptr;
         return espHttpBinding;
@@ -1044,7 +1046,7 @@ EspAuthState CEspHttpServer::checkUserAuthPerSession(EspAuthRequest& authReq)
 {
     ESPLOG(LogMax, "checkUserAuthPerSession");
 
-    unsigned sessionID = readCookie(SESSION_ID_COOKIE);
+    unsigned sessionID = readCookie(authReq.authBinding->getSessionIDCookieName());
     if (strieq(authReq.httpPath.str(), authReq.authBinding->getLoginURL()))
     {//This is a request to ask for a login page.
         if (sessionID != 0)
@@ -1109,7 +1111,7 @@ void CEspHttpServer::sendMessage(const char* msg, const char* msgType)
 
 EspAuthState CEspHttpServer::doSessionAuth(unsigned sessionID, EspAuthRequest& authReq, const char* _userName, const char* _password)
 {
-    ESPLOG(LogMax, "doSessionAuth: %s<%d>", PropSessionID, sessionID);
+    ESPLOG(LogMax, "doSessionAuth: %s<%u>", PropSessionID, sessionID);
 
     CDateTime now;
     now.setNow();
@@ -1119,11 +1121,11 @@ EspAuthState CEspHttpServer::doSessionAuth(unsigned sessionID, EspAuthRequest& a
         throw MakeStringException(-1, "Failed to connect SDS DomainSession.");
 
     IPropertyTree* domainSessions = readAndCleanDomainSessions(authReq.authBinding, conn, timeNow);
-    VStringBuffer xpath("%s[%s='%d']", PathSessionSession, PropSessionID, sessionID);
+    VStringBuffer xpath("%s[%s='%u']", PathSessionSession, PropSessionID, sessionID);
     IPropertyTree* sessionTree = domainSessions->getBranch(xpath.str());
     if (!sessionTree)
     {
-        ESPLOG(LogMin, "Authentication failed: session:<%d> not found", sessionID);
+        ESPLOG(LogMin, "Authentication failed: session:<%u> not found", sessionID);
         if(authReq.isSoapPost) //from SOAP Test page
             sendMessage("Session expired. Please close this page and login again.", "text/html; charset=UTF-8");
         else
@@ -1147,7 +1149,7 @@ EspAuthState CEspHttpServer::doSessionAuth(unsigned sessionID, EspAuthRequest& a
             password.set((authReq.requestParams) ? authReq.requestParams->queryProp("password") : nullptr);
         if (userName.isEmpty() || password.isEmpty())
         {
-            ESPLOG(LogMin, "Authentication failed: invalid credential for session:<%d>", sessionID);
+            ESPLOG(LogMin, "Authentication failed: invalid credential for session:<%u>", sessionID);
             handleAuthFailed(true, authReq, &sessionID);
             commitAndCloseRemoteConnection(conn);
             return authFailed;
@@ -1158,7 +1160,7 @@ EspAuthState CEspHttpServer::doSessionAuth(unsigned sessionID, EspAuthRequest& a
         authReq.authBinding->populateRequest(m_request.get());
         if (!authReq.authBinding->doAuth(authReq.ctx))
         {
-            ESPLOG(LogMin, "Authentication failed for session:<%d>", sessionID);
+            ESPLOG(LogMin, "Authentication failed for session:<%u>", sessionID);
             handleAuthFailed(true, authReq, &sessionID);
             commitAndCloseRemoteConnection(conn);
             return authFailed;
@@ -1212,8 +1214,8 @@ void CEspHttpServer::postSessionAuth(EspAuthRequest& authReq, unsigned sessionID
     commitAndCloseRemoteConnection(conn);
 
     ///authReq.ctx->setAuthorized(true);
-    VStringBuffer sessionIDStr("%d", sessionID);
-    addCookie(SESSION_ID_COOKIE, sessionIDStr.str(), authReq.authBinding->getSessionTimeoutSeconds());
+    VStringBuffer sessionIDStr("%u", sessionID);
+    addCookie(authReq.authBinding->getSessionIDCookieName(), sessionIDStr.str(), authReq.authBinding->getSessionTimeoutSeconds());
 
     if (sessionState == HTTPSS_new)
     {
@@ -1231,7 +1233,7 @@ void CEspHttpServer::postSessionAuth(EspAuthRequest& authReq, unsigned sessionID
     }
     else if (authReq.methodName && strieq(authReq.methodName, "logout"))
     {
-        clearCookie(SESSION_ID_COOKIE);
+        clearCookie(authReq.authBinding->getSessionIDCookieName());
         const char* logoutURL = authReq.authBinding->getLogoutURL();
         if (!isEmptyString(logoutURL))
             m_response->redirect(*m_request, authReq.authBinding->getLogoutURL());
@@ -1266,8 +1268,8 @@ void CEspHttpServer::handleAuthFailed(bool sessionAuth, EspAuthRequest& authReq,
 
 void CEspHttpServer::askUserLogin(EspHttpBinding* authBinding, unsigned sessionID)
 {
-    VStringBuffer sessionIDStr("%d", sessionID);
-    addCookie(SESSION_ID_COOKIE, sessionIDStr.str(), authBinding->getSessionTimeoutSeconds());
+    VStringBuffer sessionIDStr("%u", sessionID);
+    addCookie(authBinding->getSessionIDCookieName(), sessionIDStr.str(), authBinding->getSessionTimeoutSeconds());
     addCookie(SESSION_AUTH_COOKIE, "1", 0); //time out when browser is closed
     m_response->redirect(*m_request, authBinding->getLoginURL());
 }
@@ -1292,7 +1294,7 @@ unsigned CEspHttpServer::createHTTPSession(EspAuthRequest& authReq, IPropertyTre
 
     Owned<IPropertyTree> ptree = createPTree();
     ptree->addProp(PropSessionNetworkAddress, peer.str());
-    ptree->addPropInt(PropSessionID, sessionID);
+    ptree->addPropInt64(PropSessionID, sessionID);
     ptree->addPropInt(PropSessionState, HTTPSS_new);
     ptree->setPropInt64(PropSessionCreateTime, createTime);
     ptree->setPropInt64(PropSessionLastAccessed, createTime);

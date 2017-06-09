@@ -269,58 +269,83 @@ EspHttpBinding::EspHttpBinding(IPropertyTree* tree, const char *bindname, const 
         domainName.set(authDomain);
     else
         domainName.set("default");
-    domainSessionSDSPath.setf("%s/%s[@name=\"%s\"]/%s[@name=\"%s\"]/", PathSessionRoot, PathSessionProcess,
-        procname, PathSessionDomain, domainName.str());
+
+    VStringBuffer xPath("%s/%s[@name=\"%s\"]/%s[@name=\"%s\"]", PathSessionRoot, PathSessionProcess,
+            procname, PathSessionDomain, domainName.str());
+    VStringBuffer appStr("%s[@port=\"%d\"]", PathSessionApplication, m_port);
+    Owned<IRemoteConnection> conn = querySDS().connect(xPath.str(), myProcessSession(), RTM_LOCK_WRITE, SESSION_SDS_LOCK_TIMEOUT);
+    if (!conn)
+        throw MakeStringException(-1, "Failed to connect SDS DomainSession.");
+    IPropertyTree* sessionDomain = conn->queryRoot();
+    IPropertyTree* appSessionTree = sessionDomain->queryBranch(appStr.str());
+    if (!appSessionTree)
+    {
+        Owned<IPropertyTree> newAppSessionTree = createPTree();
+        newAppSessionTree->addPropInt("@port", m_port);
+        sessionDomain->addPropTree(PathSessionApplication, LINK(newAppSessionTree));
+    }
+    domainSessionSDSPath.setf("%s/%s/", xPath.str(), appStr.str());
 
     domainAuthType = AuthPerRequestOnly;
     VStringBuffer xpath("AuthDomains/AuthDomain[@domainName=\"%s\"]", domainName.get());
     IPropertyTree* authDomainTree = proc_cfg->queryPropTree(xpath);
-    if (!authDomainTree)
-        throw MakeStringException(-1, "Can't find AuthDomain %s", domainName.str());
-
-    const char* authType = authDomainTree->queryProp("@authType");
-    if (isEmptyString(authType) || strieq(authType, "AuthTypeMixed"))
-        domainAuthType = AuthTypeMixed;
-    else if (strieq(authType, "AuthPerSessionOnly"))
-        domainAuthType = AuthPerSessionOnly;
-    if (domainAuthType == AuthPerRequestOnly)
-        return;
-
-    unsigned sessionTimeoutMinutes = authDomainTree->getPropInt("@sessionTimeoutMinutes", 0);
-    sessionTimeoutSeconds = sessionTimeoutMinutes < 0 ? -1 : sessionTimeoutMinutes > 0 ? sessionTimeoutMinutes * 60 : ESP_SESSION_TIMEOUT;
-
-    //The @resourceURL contains URLs which may be used before a user is authenticated.
-    //For example, an icon file on the login page.
-    const char* resourceURLs = authDomainTree->queryProp("@resourceURL");
-    if (isEmptyString(resourceURLs))
-        return;
-
-    StringArray urlArray;
-    urlArray.appendListUniq(resourceURLs, ",");
-    ForEachItemIn(i, urlArray)
+    if (authDomainTree)
     {
-        const char* url = urlArray.item(i);
-        if (isEmptyString(url))
-            continue;
-        const char* star = strchr(url, '*');
-        if (star == nullptr)
-            domainAuthResources.setValue(url, true);
+        const char* authType = authDomainTree->queryProp("@authType");
+        if (isEmptyString(authType) || strieq(authType, "AuthTypeMixed"))
+            domainAuthType = AuthTypeMixed;
+        else if (strieq(authType, "AuthPerSessionOnly"))
+            domainAuthType = AuthPerSessionOnly;
+        if (domainAuthType == AuthPerRequestOnly)
+            return;
+
+        unsigned sessionTimeoutMinutes = authDomainTree->getPropInt("@sessionTimeoutMinutes", 0);
+        sessionTimeoutSeconds = sessionTimeoutMinutes < 0 ? -1 : sessionTimeoutMinutes > 0 ? sessionTimeoutMinutes * 60 : ESP_SESSION_TIMEOUT;
+
+        //The @unrestrictedResources contains URLs which may be used before a user is authenticated.
+        //For example, an icon file on the login page.
+        const char* unrestrictedResources = authDomainTree->queryProp("@unrestrictedResources");
+        if (!isEmptyString(unrestrictedResources))
+        {
+            StringArray urlArray;
+            urlArray.appendListUniq(unrestrictedResources, ",");
+            ForEachItemIn(i, urlArray)
+            {
+                const char* url = urlArray.item(i);
+                if (isEmptyString(url))
+                    continue;
+                if (isWildString(url))
+                    domainAuthResourcesWildMatch.append(url);
+                else
+                    domainAuthResources.setValue(url, true);
+            }
+        }
+
+        const char* _loginURL = authDomainTree->queryProp("@logonURL");
+        if (!isEmptyString(_loginURL))
+            loginURL.set(_loginURL);
         else
-            domainAuthResourcesWildMatch.append(url);
-    }
+            loginURL.set("/esp/files/eclwatch/templates/Login.html");
 
-    const char* _loginURL = authDomainTree->queryProp("@logonURL");
-    if (!isEmptyString(_loginURL))
-        loginURL.set(_loginURL);
+        const char* _logoutURL = authDomainTree->queryProp("@logoutURL");
+        if (!isEmptyString(_logoutURL))
+        {
+            logoutURL.set(_logoutURL);
+            domainAuthResources.setValue(logoutURL.get(), true);
+        }
+    }
     else
+    {//old environment.xml
+        domainAuthType = AuthTypeMixed;
+        sessionTimeoutSeconds = ESP_SESSION_TIMEOUT;
+        domainAuthResources.setValue("/favicon.ico", true);
+        domainAuthResources.setValue("/esp/files/img/favicon.ico", true);
+        domainAuthResources.setValue("/esp/files/eclwatch/img/Loginlogo.png", true);
+        domainAuthResourcesWildMatch.append("/esp/files/dojo/*");
+        domainAuthResourcesWildMatch.append("/esp/files/eclwatch/nls/*");
         loginURL.set("/esp/files/eclwatch/templates/Login.html");
-
-    const char* _logoutURL = authDomainTree->queryProp("@logoutURL");
-    if (!isEmptyString(_logoutURL))
-    {
-        logoutURL.set(_logoutURL);
-        domainAuthResources.setValue(logoutURL.get(), true);
     }
+    sessionIDCookieName.setf("%s%d", SESSION_ID_COOKIE, m_port);
 }
 
 StringBuffer &EspHttpBinding::generateNamespace(IEspContext &context, CHttpRequest* request, const char *serv, const char *method, StringBuffer &ns)

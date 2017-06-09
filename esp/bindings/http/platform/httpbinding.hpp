@@ -145,6 +145,7 @@ private:
     StringAttr              processName;
     StringAttr              domainName;
     StringBuffer            domainSessionSDSPath;
+    StringBuffer            sessionIDCookieName;
     AuthType                domainAuthType;
 
     StringAttr              loginURL;
@@ -310,6 +311,7 @@ public:
     const char* getDomainName(){ return domainName.get(); }
     void setDomainSessionSDSPath(const char* path){ domainSessionSDSPath.set(path); }
     const char* getDomainSessionSDSPath(){ return domainSessionSDSPath.str(); }
+    const char* getSessionIDCookieName() {return sessionIDCookieName.str(); }
     AuthType getDomainAuthType(){ return domainAuthType; }
     const char* getLoginURL() { return loginURL.get(); }
     const char* getLogoutURL() { return logoutURL.get(); }
