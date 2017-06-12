@@ -46,12 +46,14 @@ ESPStruct [nil_remove] Session
     string State;
     string CreateTime;
     string LastAccessed;
+    int    Port;
     int    TimeoutMinutes;
 };
 
 ESPrequest [nil_remove] SessionQueryRequest
 {
     string AuthDomain;
+    int    Port;
     string FromIP;
     ESPenum SessionState State;
 };
@@ -64,6 +66,7 @@ ESPresponse [exceptions_inline, nil_remove, http_encode(0)] SessionQueryResponse
 ESPrequest [nil_remove] SessionInfoRequest
 {
     string AuthDomain;
+    int    Port;
     string SessionID;
 };
 
@@ -77,6 +80,7 @@ ESPrequest [nil_remove] CleanSessionRequest
     string AuthDomain;
     string SessionID;
     string FromIP;
+    int    Port;
 };
 
 ESPresponse [exceptions_inline, nil_remove, http_encode(0)] CleanSessionResponse
@@ -90,6 +94,7 @@ ESPrequest [nil_remove] SetSessionTimeoutRequest
     string AuthDomain;
     string SessionID;
     string FromIP;
+    int    Port;
     int    TimeoutMinutes;
 };
 

@@ -29,7 +29,7 @@ class CWSESPControlEx : public CWSESPControl
     const char* readSessionState(int st);
     const char* readSessionTimeStamp(int t, StringBuffer& str);
     float readSessionTimeoutMin(int sessionTimeoutMinutes, int lastAccessed);
-    IEspSession* setSessionInfo(const char* sessionID, IPropertyTree* espSessionTree, const char* domainName, IEspSession* session);
+    IEspSession* setSessionInfo(const char* sessionID, IPropertyTree* espSessionTree, const char* domainName, unsigned port, IEspSession* session);
 
 public:
     IMPLEMENT_IINTERFACE;
