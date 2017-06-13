@@ -136,32 +136,16 @@ void CEspConfig::ensureSDSSessionDomains()
         Owned<IRemoteConnection> conn = querySDS().connect(PathSessionRoot, myProcessSession(), RTM_LOCK_WRITE, SESSION_SDS_LOCK_TIMEOUT);
         if (!conn)
         {
-            conn.setown(querySDS().connect("/", myProcessSession(), RTM_LOCK_WRITE, SESSION_SDS_LOCK_TIMEOUT));
-            if (!conn)
-                throw MakeStringException(-1, "Failed to connect SDS.");
-
-            IPropertyTree* sdsRoot = conn->queryRoot();
-            if (!sdsRoot)
-                throw MakeStringException(-1, "Failed to get SDS.");
-
-            Owned<IPropertyTree> sessionTree = createPTree();
+            conn.setown(querySDS().connect("/", myProcessSession(), RTM_LOCK_WRITE|RTM_CREATE_QUERY, SESSION_SDS_LOCK_TIMEOUT));
+            IPropertyTree* sessionTree = ensurePTree(conn->queryRoot(), PathSessionRoot);
             if (!ensureSessionDomainInTree(sessionTree, m_process.str(), authDomainName))
                 throw MakeStringException(-1, "Failed to add ProcessSession.");
-
-            sdsRoot->addPropTree(PathSessionRoot, LINK(sessionTree));
         }
         else
         {
-            IPropertyTree* sessionRoot = conn->queryRoot();
-            if (!sessionRoot)
-                throw MakeStringException(-1, "Failed to get SDS session tree.");
-
-            if (!ensureSessionDomainInTree(sessionRoot, m_process.str(), authDomainName))
+            if (!ensureSessionDomainInTree(conn->queryRoot(), m_process.str(), authDomainName))
                 throw MakeStringException(-1, "Failed to add ProcessSession.");
         }
-
-        conn->commit();
-        conn->close(false);
     }
 }
 
@@ -170,18 +154,15 @@ bool CEspConfig::ensureSessionDomainInTree(IPropertyTree* sessionRoot, const cha
     if (!sessionRoot || isEmptyString(procName) || isEmptyString(domainName))
         return false;
 
-    VStringBuffer xpath("Process[@name=\"%s\"]", procName);
+    VStringBuffer xpath("%s[@name=\"%s\"]", PathSessionProcess, procName);
     IPropertyTree* procSessionTree = sessionRoot->queryBranch(xpath.str());
     if (!procSessionTree)
     {
-        Owned<IPropertyTree> processSessionTree = createPTree();
+        IPropertyTree* processSessionTree = sessionRoot->addPropTree(PathSessionProcess, createPTree());
         processSessionTree->addProp("@name", procName);
 
-        Owned<IPropertyTree> domainSessionTree = createPTree();
+        IPropertyTree* domainSessionTree = processSessionTree->addPropTree(PathSessionDomain, createPTree());
         domainSessionTree->addProp("@name", domainName);
-        processSessionTree->addPropTree(PathSessionDomain, LINK(domainSessionTree));
-
-        sessionRoot->addPropTree("Process", LINK(processSessionTree));
     }
     else
     {
@@ -189,9 +170,8 @@ bool CEspConfig::ensureSessionDomainInTree(IPropertyTree* sessionRoot, const cha
         IPropertyTree* domainSessionTree = procSessionTree->queryBranch(xpath.str());
         if (!domainSessionTree)
         {
-            Owned<IPropertyTree> ptree = createPTree();
+            IPropertyTree* ptree = procSessionTree->addPropTree(PathSessionDomain, createPTree());
             ptree->addProp("@name", domainName);
-            procSessionTree->addPropTree(PathSessionDomain, LINK(ptree));
         }
     }
 

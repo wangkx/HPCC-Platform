@@ -50,6 +50,38 @@ static const char* const PropSessionState = "@state";
 static const char* const PropSessionCreateTime = "@createtime";
 static const char* const PropSessionLastAccessed = "@lastaccessed";
 static const char* const PropSessionLoginURL = "@loginurl";
+/* The following is an example of session data stored in Dali.
+ <Sessions>
+ <Process name="myesp">
+  <Domain name="default">
+   <Application port="8010">
+    <Session createtime="1497376914"
+             id="3831947145"
+             lastaccessed="1497377015"
+             loginurl="/"
+             netaddr="10.176.152.200"
+             state="1"
+             userid="TheAdmin"/>
+    <Session createtime="1497377427"
+             id="4106750941"
+             lastaccessed="1497377427"
+             loginurl="/"
+             netaddr="10.176.152.200"
+             state="0"/>
+   </Application>
+   <Application port="8002">
+    <Session createtime="1497376989"
+             id="3680948651"
+             lastaccessed="1497377003"
+             loginurl="/"
+             netaddr="10.176.152.200"
+             state="1"
+             userid="TheAdmin"/>
+   </Application>
+  </Domain>
+ </Process>
+</Sessions>
+ */
 
 static unsigned NumOfSessionStates = 3;
 static const char *SessionStates[] = { "New", "Active", "Timeout", NULL };

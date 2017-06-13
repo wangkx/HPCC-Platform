@@ -257,7 +257,7 @@ int CEspHttpServer::processRequest()
 
         StringBuffer peerStr, pathStr;
         const char *userid=ctx->queryUserId();
-        DBGLOG("%s %s, from %s@%s", method.str(), m_request->getPath(pathStr).str(), (userid) ? userid : "unknown", m_request->getPeer(peerStr).str());
+        ESPLOG(LogMin, "%s %s, from %s@%s", method.str(), m_request->getPath(pathStr).str(), (userid) ? userid : "unknown", m_request->getPeer(peerStr).str());
 
         authState = checkUserAuth();
         if ((authState == authUpdatePassword) || (authState == authFailed))
@@ -879,7 +879,7 @@ EspAuthState CEspHttpServer::checkUserAuth()
 {
     EspAuthRequest authReq;
     readAuthRequest(authReq);
-    if(authReq.httpPath.isEmpty())
+    if (authReq.httpPath.isEmpty())
         throw MakeStringException(-1, "URL query string cannot be empty.");
 
     if (!authReq.authBinding)
@@ -1046,8 +1046,8 @@ EspAuthState CEspHttpServer::checkUserAuthPerSession(EspAuthRequest& authReq)
 {
     ESPLOG(LogMax, "checkUserAuthPerSession");
 
-    unsigned sessionID = readCookie(authReq.authBinding->getSessionIDCookieName());
-    if (strieq(authReq.httpPath.str(), authReq.authBinding->getLoginURL()))
+    unsigned sessionID = readCookie(authReq.authBinding->querySessionIDCookieName());
+    if (strieq(authReq.httpPath.str(), authReq.authBinding->queryLoginURL()))
     {//This is a request to ask for a login page.
         if (sessionID != 0)
             return authSucceeded;//If there is a valid session ID, now allow to send out the login page.
@@ -1116,13 +1116,10 @@ EspAuthState CEspHttpServer::doSessionAuth(unsigned sessionID, EspAuthRequest& a
     CDateTime now;
     now.setNow();
     time_t timeNow = now.getSimple();
-    Owned<IRemoteConnection> conn = querySDS().connect(authReq.authBinding->getDomainSessionSDSPath(), myProcessSession(), RTM_LOCK_WRITE, SESSION_SDS_LOCK_TIMEOUT);
-    if (!conn)
-        throw MakeStringException(-1, "Failed to connect SDS DomainSession.");
-
+    Owned<IRemoteConnection> conn = querySDSConnection(authReq.authBinding->queryDomainSessionSDSPath(), RTM_LOCK_WRITE, SESSION_SDS_LOCK_TIMEOUT);
     IPropertyTree* domainSessions = readAndCleanDomainSessions(authReq.authBinding, conn, timeNow);
     VStringBuffer xpath("%s[%s='%u']", PathSessionSession, PropSessionID, sessionID);
-    IPropertyTree* sessionTree = domainSessions->getBranch(xpath.str());
+    IPropertyTree* sessionTree = domainSessions->queryBranch(xpath.str());
     if (!sessionTree)
     {
         ESPLOG(LogMin, "Authentication failed: session:<%u> not found", sessionID);
@@ -1192,22 +1189,21 @@ EspAuthState CEspHttpServer::doSessionAuth(unsigned sessionID, EspAuthRequest& a
 }
 
 void CEspHttpServer::postSessionAuth(EspAuthRequest& authReq, unsigned sessionID, HTTPSessionState sessionState, time_t timeNow,
-    void* _conn, IPropertyTree* sessionTree)
+    IRemoteConnection* conn, IPropertyTree* sessionTree)
 {
-    if (!_conn)
+    if (!conn)
         throw MakeStringException(-1, "Invalid SDS connection.");
 
-    IRemoteConnection* conn = (IRemoteConnection*) _conn;
     if (authReq.methodName && strieq(authReq.methodName, "logout"))
     {//delete this session before logout
+        IArrayOf<IPropertyTree> toRemove;
         IPropertyTree* root = conn->queryRoot();
-        if (!root)
-            throw MakeStringException(-1, "Failed to get SDS DomainSession.");
-
         VStringBuffer path("%s[%s='%d']", PathSessionSession, PropSessionID, sessionID);
         Owned<IPropertyTreeIterator> it = root->getElements(path.str());
         ForEach(*it)
-            root->removeTree(&it->query());
+            toRemove.append(*LINK(&it->query()));
+        ForEachItemIn(i, toRemove)
+            root->removeTree(&toRemove.item(i));
     }
     else
         sessionTree->setPropInt64(PropSessionLastAccessed, timeNow);
@@ -1215,14 +1211,14 @@ void CEspHttpServer::postSessionAuth(EspAuthRequest& authReq, unsigned sessionID
 
     ///authReq.ctx->setAuthorized(true);
     VStringBuffer sessionIDStr("%u", sessionID);
-    addCookie(authReq.authBinding->getSessionIDCookieName(), sessionIDStr.str(), authReq.authBinding->getSessionTimeoutSeconds());
+    addCookie(authReq.authBinding->querySessionIDCookieName(), sessionIDStr.str(), authReq.authBinding->getSessionTimeoutSeconds());
 
     if (sessionState == HTTPSS_new)
     {
         const char* redirectURL = sessionTree->queryProp(PropSessionLoginURL);
         if (!isEmptyString(redirectURL))
         {
-            const char* loginURL = authReq.authBinding->getLoginURL();
+            const char* loginURL = authReq.authBinding->queryLoginURL();
             if (!strieq(loginURL, redirectURL))
                 m_response->redirect(*m_request, redirectURL);
             else
@@ -1233,10 +1229,10 @@ void CEspHttpServer::postSessionAuth(EspAuthRequest& authReq, unsigned sessionID
     }
     else if (authReq.methodName && strieq(authReq.methodName, "logout"))
     {
-        clearCookie(authReq.authBinding->getSessionIDCookieName());
-        const char* logoutURL = authReq.authBinding->getLogoutURL();
+        clearCookie(authReq.authBinding->querySessionIDCookieName());
+        const char* logoutURL = authReq.authBinding->queryLogoutURL();
         if (!isEmptyString(logoutURL))
-            m_response->redirect(*m_request, authReq.authBinding->getLogoutURL());
+            m_response->redirect(*m_request, authReq.authBinding->queryLogoutURL());
         else
             send200OK();
     }
@@ -1269,9 +1265,9 @@ void CEspHttpServer::handleAuthFailed(bool sessionAuth, EspAuthRequest& authReq,
 void CEspHttpServer::askUserLogin(EspHttpBinding* authBinding, unsigned sessionID)
 {
     VStringBuffer sessionIDStr("%u", sessionID);
-    addCookie(authBinding->getSessionIDCookieName(), sessionIDStr.str(), authBinding->getSessionTimeoutSeconds());
+    addCookie(authBinding->querySessionIDCookieName(), sessionIDStr.str(), authBinding->getSessionTimeoutSeconds());
     addCookie(SESSION_AUTH_COOKIE, "1", 0); //time out when browser is closed
-    m_response->redirect(*m_request, authBinding->getLoginURL());
+    m_response->redirect(*m_request, authBinding->queryLoginURL());
 }
 
 void CEspHttpServer::send200OK()
@@ -1318,48 +1314,39 @@ unsigned CEspHttpServer::createHTTPSession(EspAuthRequest& authReq, IPropertyTre
         return sessionID;
     }
 
-    Owned<IRemoteConnection> conn = querySDS().connect(authReq.authBinding->getDomainSessionSDSPath(), myProcessSession(), RTM_LOCK_WRITE, SESSION_SDS_LOCK_TIMEOUT);
-    if (!conn)
-        throw MakeStringException(-1, "Failed to connect SDS DomainSession.");
-
-    IPropertyTree* root = conn->queryRoot();
-    if (!root)
-        throw MakeStringException(-1, "Failed to get SDS DomainSession.");
-
-    root->addPropTree(PathSessionSession, LINK(ptree));
+    Owned<IRemoteConnection> conn = querySDSConnection(authReq.authBinding->queryDomainSessionSDSPath(), RTM_LOCK_WRITE, SESSION_SDS_LOCK_TIMEOUT);
+    conn->queryRoot()->addPropTree(PathSessionSession, ptree.getClear());
     return sessionID;
 }
 
-IPropertyTree* CEspHttpServer::readAndCleanDomainSessions(EspHttpBinding* authBinding, void* _conn, time_t timeNow)
+IPropertyTree* CEspHttpServer::readAndCleanDomainSessions(EspHttpBinding* authBinding, IRemoteConnection* conn, time_t timeNow)
 {
-    if (!_conn)
+    if (!conn)
         throw MakeStringException(-1, "Invalid SDS connection.");
 
-    IRemoteConnection* conn = (IRemoteConnection*) _conn;
-    IPropertyTree* root = conn->queryRoot();
-    if (!root)
-        throw MakeStringException(-1, "Failed to get SDS DomainSession.");
-
     if (authBinding->getSessionTimeoutSeconds() < 0)
-        return root;
+        return conn->queryRoot();
 
     //Removing HTTPSessions if timed out
+    IArrayOf<IPropertyTree> toRemove;
+    IPropertyTree* root = conn->queryRoot();
     Owned<IPropertyTreeIterator> iter = root->getElements(PathSessionSession);
     ForEach(*iter)
     {
         IPropertyTree& item = iter->query();
         if (timeNow - item.getPropInt64(PropSessionLastAccessed, 0) >= authBinding->getSessionTimeoutSeconds())
-            root->removeTree(&item);
+            toRemove.append(*LINK(&item));
     }
+    ForEachItemIn(i, toRemove)
+        root->removeTree(&toRemove.item(i));
     return root;
 }
 
-bool CEspHttpServer::commitAndCloseRemoteConnection(void* _conn)
+bool CEspHttpServer::commitAndCloseRemoteConnection(IRemoteConnection* conn)
 {
-    if (!_conn)
+    if (!conn)
         return false;
 
-    IRemoteConnection* conn = (IRemoteConnection*) _conn;
     conn->commit();
     conn->close();
     return true;
@@ -1375,15 +1362,22 @@ void CEspHttpServer::handlePasswordExpired(bool sessionAuth)
         me->append(*MakeStringException(-1, "Your ESP password has expired."));
         m_response->handleExceptions(nullptr, me, "ESP Authentication", "PasswordExpired", nullptr);
     }
-    return;
 }
 
 void CEspHttpServer::authOptionalGroups(EspAuthRequest& authReq)
 {
     if (strieq(authReq.httpMethod.str(), GET_METHOD) && (authReq.stype==sub_serv_root) && authenticateOptionalFailed(*authReq.ctx, nullptr))
-        throw MakeStringException(-1, "Unauthorized Access");
+        throw MakeStringException(-1, "Unauthorized Access to service root");
     if ((!strieq(authReq.httpMethod.str(), GET_METHOD) || !strieq(authReq.serviceName.str(), "esp")) && authenticateOptionalFailed(*authReq.ctx, authReq.authBinding))
-        throw MakeStringException(-1, "Unauthorized Access");
+        throw MakeStringException(-1, "Unauthorized Access: %s %s", authReq.httpMethod.str(), authReq.serviceName.str());
+}
+
+IRemoteConnection* CEspHttpServer::querySDSConnection(const char* xpath, unsigned mode, unsigned timeout)
+{
+    Owned<IRemoteConnection> globalLock = querySDS().connect(xpath, myProcessSession(), RTM_LOCK_READ, SESSION_SDS_LOCK_TIMEOUT);
+    if (!globalLock)
+        throw MakeStringException(-1, "Unable to connect to ESP Session information in dali %s", xpath);
+    return globalLock.getClear();
 }
 
 void CEspHttpServer::addCookie(const char* cookieName, const char *cookieValue, int maxAgeSec)

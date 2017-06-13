@@ -260,7 +260,7 @@ EspHttpBinding::EspHttpBinding(IPropertyTree* tree, const char *bindname, const 
     if(m_challenge_realm.length() == 0)
         m_challenge_realm.append("ESP");
 
-    if(!m_secmgr.get())
+    if (!m_secmgr.get())
         return;
 
     processName.set(procname);
@@ -270,25 +270,35 @@ EspHttpBinding::EspHttpBinding(IPropertyTree* tree, const char *bindname, const 
     else
         domainName.set("default");
 
+    setSDSSession();
+    readAuthDomainCfg(proc_cfg);
+}
+
+void EspHttpBinding::setSDSSession()
+{
     VStringBuffer xPath("%s/%s[@name=\"%s\"]/%s[@name=\"%s\"]", PathSessionRoot, PathSessionProcess,
-            procname, PathSessionDomain, domainName.str());
+        processName.get(), PathSessionDomain, domainName.str());
     VStringBuffer appStr("%s[@port=\"%d\"]", PathSessionApplication, m_port);
     Owned<IRemoteConnection> conn = querySDS().connect(xPath.str(), myProcessSession(), RTM_LOCK_WRITE, SESSION_SDS_LOCK_TIMEOUT);
     if (!conn)
         throw MakeStringException(-1, "Failed to connect SDS DomainSession.");
+
     IPropertyTree* sessionDomain = conn->queryRoot();
     IPropertyTree* appSessionTree = sessionDomain->queryBranch(appStr.str());
     if (!appSessionTree)
     {
-        Owned<IPropertyTree> newAppSessionTree = createPTree();
+        IPropertyTree* newAppSessionTree = sessionDomain->addPropTree(PathSessionApplication, createPTree());
         newAppSessionTree->addPropInt("@port", m_port);
-        sessionDomain->addPropTree(PathSessionApplication, LINK(newAppSessionTree));
     }
     domainSessionSDSPath.setf("%s/%s/", xPath.str(), appStr.str());
+    sessionIDCookieName.setf("%s%d", SESSION_ID_COOKIE, m_port);
+}
 
+void EspHttpBinding::readAuthDomainCfg(IPropertyTree* procCfg)
+{
     domainAuthType = AuthPerRequestOnly;
     VStringBuffer xpath("AuthDomains/AuthDomain[@domainName=\"%s\"]", domainName.get());
-    IPropertyTree* authDomainTree = proc_cfg->queryPropTree(xpath);
+    IPropertyTree* authDomainTree = procCfg->queryPropTree(xpath);
     if (authDomainTree)
     {
         const char* authType = authDomainTree->queryProp("@authType");
@@ -345,7 +355,6 @@ EspHttpBinding::EspHttpBinding(IPropertyTree* tree, const char *bindname, const 
         domainAuthResourcesWildMatch.append("/esp/files/eclwatch/nls/*");
         loginURL.set("/esp/files/eclwatch/templates/Login.html");
     }
-    sessionIDCookieName.setf("%s%d", SESSION_ID_COOKIE, m_port);
 }
 
 StringBuffer &EspHttpBinding::generateNamespace(IEspContext &context, CHttpRequest* request, const char *serv, const char *method, StringBuffer &ns)

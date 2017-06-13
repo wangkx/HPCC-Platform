@@ -178,7 +178,7 @@ interface IEspContext : extends IInterface
     virtual const char * queryTransactionID() = 0;
 
     virtual const char * getAuthenticationMethod()=0;
-    virtual void setAuthenticationMethod(const char *  method)=0;
+    virtual void setAuthenticationMethod(const char * method)=0;
     virtual void setDomainAuthType(AuthType type)=0;
     virtual AuthType getDomainAuthType()=0;
     virtual bool addUserToken(unsigned id)=0;

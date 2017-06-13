@@ -63,6 +63,7 @@ struct EspAuthRequest
     bool isSoapPost;
 };
 
+interface IRemoteConnection;
 class CEspHttpServer : implements IHttpServerService, public CInterface
 {
     CriticalSection critDaliSession;
@@ -84,7 +85,7 @@ protected:
     EspAuthState checkUserAuthPerRequest(EspAuthRequest& authReq);
     EspAuthState checkUserAuthPerSession(EspAuthRequest& authReq);
     EspAuthState doSessionAuth(unsigned sessionID, EspAuthRequest& req, const char* _userName, const char* _password);
-    void postSessionAuth(EspAuthRequest& authReq, unsigned sessionID, HTTPSessionState sessionState, time_t timeNow, void* _conn, IPropertyTree* sessionTree);
+    void postSessionAuth(EspAuthRequest& authReq, unsigned sessionID, HTTPSessionState sessionState, time_t timeNow, IRemoteConnection* _conn, IPropertyTree* sessionTree);
     void askUserLogin(EspHttpBinding* authBinding, unsigned sessionID);
     void handleAuthFailed(bool sessionAuth, EspAuthRequest& authReq, unsigned* sessionID);
     void handlePasswordExpired(bool sessionAuth);
@@ -92,13 +93,14 @@ protected:
     bool isAuthRequiredForBinding(EspAuthRequest& req);
     void authOptionalGroups(EspAuthRequest& req);
     unsigned createHTTPSession(EspAuthRequest& authReq, IPropertyTree* domainSessions, const char* loginURL);
-    IPropertyTree* readAndCleanDomainSessions(EspHttpBinding* authBinding, void* conn, time_t timeNow);
+    IPropertyTree* readAndCleanDomainSessions(EspHttpBinding* authBinding, IRemoteConnection* conn, time_t timeNow);
     void addCookie(const char* cookieName, const char *cookieValue, int maxAgeSec);
     void clearCookie(const char* cookieName);
     unsigned readCookie(const char* cookieName);
     void sendMessage(const char* msg, const char* msgType);
-    bool commitAndCloseRemoteConnection(void* conn);
+    bool commitAndCloseRemoteConnection(IRemoteConnection* conn);
     void send200OK();
+    IRemoteConnection* querySDSConnection(const char* xpath, unsigned mode, unsigned timeout);
 
 public:
     IMPLEMENT_IINTERFACE;

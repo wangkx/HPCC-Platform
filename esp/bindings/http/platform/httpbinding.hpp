@@ -302,19 +302,19 @@ public:
         }
         return false;
     }
-    ISecManager* querySecManager() {return m_secmgr.get(); }
-    IAuthMap* queryAuthMAP(){return m_authmap.get();}
-    const char* queryAuthMethod() {return m_authmethod.str(); }
+    ISecManager* querySecManager() { return m_secmgr.get(); }
+    IAuthMap* queryAuthMAP() { return m_authmap.get();}
+    const char* queryAuthMethod() { return m_authmethod.str(); }
     void setProcessName(const char* name){ processName.set(name); }
-    const char* getProcessName(){ return processName.get(); }
+    const char* queryProcessName(){ return processName.get(); }
     void setDomainName(const char* name){ domainName.set(name ? name : "default"); }
-    const char* getDomainName(){ return domainName.get(); }
+    const char* queryDomainName(){ return domainName.get(); }
     void setDomainSessionSDSPath(const char* path){ domainSessionSDSPath.set(path); }
-    const char* getDomainSessionSDSPath(){ return domainSessionSDSPath.str(); }
-    const char* getSessionIDCookieName() {return sessionIDCookieName.str(); }
+    const char* queryDomainSessionSDSPath(){ return domainSessionSDSPath.str(); }
+    const char* querySessionIDCookieName() { return sessionIDCookieName.str(); }
     AuthType getDomainAuthType(){ return domainAuthType; }
-    const char* getLoginURL() { return loginURL.get(); }
-    const char* getLogoutURL() { return logoutURL.get(); }
+    const char* queryLoginURL() { return loginURL.get(); }
+    const char* queryLogoutURL() { return logoutURL.get(); }
     const int getSessionTimeoutSeconds() { return sessionTimeoutSeconds; }
     bool isDomainAuthResources(const char* resource)
     {
@@ -330,6 +330,8 @@ public:
         }
         return false;
     }
+    void readAuthDomainCfg(IPropertyTree* procCfg);
+    void setSDSSession();
 
     static void escapeSingleQuote(StringBuffer& src, StringBuffer& escaped);
 

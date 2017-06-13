@@ -132,6 +132,14 @@ bool CWSESPControlEx::onSetLogging(IEspContext& context, IEspSetLoggingRequest& 
     return true;
 }
 
+IRemoteConnection* CWSESPControlEx::querySDSConnection(const char* xpath, unsigned mode, unsigned timeout)
+{
+    Owned<IRemoteConnection> globalLock = querySDS().connect(xpath, myProcessSession(), RTM_LOCK_READ, SESSION_SDS_LOCK_TIMEOUT);
+    if (!globalLock)
+        throw MakeStringException(ECLWATCH_INTERNAL_ERROR, "Unable to connect to ESP Session information in dali %s", xpath);
+    return globalLock.getClear();
+}
+
 bool CWSESPControlEx::onSessionQuery(IEspContext& context, IEspSessionQueryRequest& req, IEspSessionQueryResponse& resp)
 {
     try
@@ -153,9 +161,7 @@ bool CWSESPControlEx::onSessionQuery(IEspContext& context, IEspSessionQueryReque
 
         VStringBuffer xpath("/%s/%s[@name='%s']/%s[@name='%s']/%s[@port=\"%d\"]", PathSessionRoot, PathSessionProcess,
             espProcess.get(), PathSessionDomain, authDomain.str(), PathSessionApplication, port);
-        Owned<IRemoteConnection> globalLock = querySDS().connect(xpath.str(), myProcessSession(), RTM_LOCK_READ, SESSION_SDS_LOCK_TIMEOUT);
-        if (!globalLock)
-            throw MakeStringException(ECLWATCH_INTERNAL_ERROR, "Unable to connect to ESP Session information in dali %s", xpath.str());
+        Owned<IRemoteConnection> globalLock = querySDSConnection(xpath.str(), RTM_LOCK_READ, SESSION_SDS_LOCK_TIMEOUT);
 
         IArrayOf<IEspSession> sessions;
         if (!fromIP.trim().isEmpty())
@@ -202,15 +208,8 @@ bool CWSESPControlEx::onSessionInfo(IEspContext& context, IEspSessionInfoRequest
 
         VStringBuffer xpath("/%s/%s[@name='%s']/%s[@name='%s']/%s[@port=\"%d\"]/%s[%s='%s']", PathSessionRoot, PathSessionProcess, espProcess.get(),
             PathSessionDomain, authDomain.str(), PathSessionApplication, port, PathSessionSession, PropSessionID, sessionID.str());
-        Owned<IRemoteConnection> globalLock = querySDS().connect(xpath.str(), myProcessSession(), RTM_LOCK_READ, SESSION_SDS_LOCK_TIMEOUT);
-        if (!globalLock)
-            throw MakeStringException(ECLWATCH_INTERNAL_ERROR, "Unable to connect to ESP Session information in dali %s", xpath.str());
-
-        IPropertyTree* espSession = globalLock->queryRoot();
-        if (!espSession)
-            throw MakeStringException(ECLWATCH_INTERNAL_ERROR, "Unable to get ESP Session information in dali %s", xpath.str());
-
-        setSessionInfo(sessionID.str(), espSession, authDomain.str(), port, &resp.updateSession());
+        Owned<IRemoteConnection> globalLock = querySDSConnection(xpath.str(), RTM_LOCK_READ, SESSION_SDS_LOCK_TIMEOUT);
+        setSessionInfo(sessionID.str(), globalLock->queryRoot(), authDomain.str(), port, &resp.updateSession());
     }
     catch(IException* e)
     {
@@ -243,24 +242,18 @@ bool CWSESPControlEx::onCleanSession(IEspContext& context, IEspCleanSessionReque
 
         VStringBuffer xpath("/%s/%s[@name='%s']/%s[@name='%s']/%s[@port=\"%d\"]", PathSessionRoot, PathSessionProcess,
             espProcess.get(), PathSessionDomain, authDomain.str(), PathSessionApplication, port);
-        Owned<IRemoteConnection> globalLock = querySDS().connect(xpath.str(), myProcessSession(), RTM_LOCK_WRITE, SESSION_SDS_LOCK_TIMEOUT);
-        if (!globalLock)
-            throw MakeStringException(ECLWATCH_INTERNAL_ERROR, "Unable to connect to ESP Session information in dali %s", xpath.str());
+        Owned<IRemoteConnection> globalLock = querySDSConnection(xpath.str(), RTM_LOCK_WRITE, SESSION_SDS_LOCK_TIMEOUT);
 
-        IPropertyTree* espAuthDomainApp = globalLock->queryRoot();
-        if (!espAuthDomainApp)
-            throw MakeStringException(ECLWATCH_INTERNAL_ERROR, "Unable to get ESP Authentication Domain %s for port %u from dali", authDomain.str(), port);
-
+        IArrayOf<IPropertyTree> toRemove;
         if (sessionID && *sessionID)
             xpath.setf("%s[%s='%s']", PathSessionSession, PropSessionID, sessionID.str());
         else
             xpath.setf("%s[%s='%s']", PathSessionSession, PropSessionNetworkAddress, fromIP.str());
-        Owned<IPropertyTreeIterator> iter = espAuthDomainApp->getElements(xpath.str());
+        Owned<IPropertyTreeIterator> iter = globalLock->queryRoot()->getElements(xpath.str());
         ForEach(*iter)
-        {
-            IPropertyTree& item = iter->query();
-            espAuthDomainApp->removeTree(&item);
-        }
+            toRemove.append(*LINK(&iter->query()));
+        ForEachItemIn(i, toRemove)
+            globalLock->queryRoot()->removeTree(&toRemove.item(i));
 
         resp.setStatus(0);
         resp.setMessage("Session is cleaned.");
@@ -294,31 +287,26 @@ bool CWSESPControlEx::onSetSessionTimeout(IEspContext& context, IEspSetSessionTi
         if (!req.getPort_isNull())
             port = req.getPort();
 
-        VStringBuffer xpath("/%s/%s[@name='%s']/%s[@name='%s']/%s[@port=\"%d\"]", PathSessionRoot, PathSessionProcess,
-            espProcess.get(), PathSessionDomain, authDomain.str(), PathSessionApplication, port);
-        Owned<IRemoteConnection> globalLock = querySDS().connect(xpath.str(), myProcessSession(), RTM_LOCK_WRITE, SESSION_SDS_LOCK_TIMEOUT);
-        if (!globalLock)
-            throw MakeStringException(ECLWATCH_INTERNAL_ERROR, "Unable to connect to ESP Session information in dali %s", xpath.str());
-
-        IPropertyTree* espAuthDomainApp = globalLock->queryRoot();
-        if (!espAuthDomainApp)
-            throw MakeStringException(ECLWATCH_INTERNAL_ERROR, "Unable to get ESP Authentication Domain %s for port %u from dali", authDomain.str(), port);
-
         int* sessionTimeoutMinutes = sessionTimeoutMinutesMap.getValue(authDomain.str());
         if (!sessionTimeoutMinutes)
             throw MakeStringException(ECLWATCH_INVALID_INPUT, "AuthDomain %s not found for port %u.", authDomain.str(), port);
 
+        VStringBuffer xpath("/%s/%s[@name='%s']/%s[@name='%s']/%s[@port=\"%d\"]", PathSessionRoot, PathSessionProcess,
+            espProcess.get(), PathSessionDomain, authDomain.str(), PathSessionApplication, port);
+        Owned<IRemoteConnection> globalLock = querySDSConnection(xpath.str(), RTM_LOCK_WRITE, SESSION_SDS_LOCK_TIMEOUT);
+
+        IArrayOf<IPropertyTree> toRemove;
         int timeoutMinutes = req.getTimeoutMinutes_isNull() ? 0 : req.getTimeoutMinutes();
         if (!sessionID.trim().isEmpty())
             xpath.setf("%s[%s='%s']", PathSessionSession, PropSessionID, sessionID.str());
         else
             xpath.setf("%s[%s='%s']", PathSessionSession, PropSessionNetworkAddress, fromIP.str());
-        Owned<IPropertyTreeIterator> iter = espAuthDomainApp->getElements(xpath.str());
+        Owned<IPropertyTreeIterator> iter = globalLock->queryRoot()->getElements(xpath.str());
         ForEach(*iter)
         {
             IPropertyTree& item = iter->query();
             if (timeoutMinutes <= 0)
-                espAuthDomainApp->removeTree(&item);
+                toRemove.append(*LINK(&item));
             else if (*sessionTimeoutMinutes >= 0)
             {
                 CDateTime timeNow;
@@ -328,6 +316,8 @@ bool CWSESPControlEx::onSetSessionTimeout(IEspContext& context, IEspSetSessionTi
                 item.setPropInt(PropSessionState, CSessionState_InTimeout);
             }
         }
+        ForEachItemIn(i, toRemove)
+            globalLock->queryRoot()->removeTree(&toRemove.item(i));
 
         resp.setStatus(0);
         resp.setMessage("Session timeout is updated.");
