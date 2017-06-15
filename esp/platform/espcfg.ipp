@@ -170,6 +170,7 @@ public:
 
     bool ensureSessionDomainInTree(IPropertyTree* sessionRoot, const char* procName, const char* domainName);
     void ensureSDSSessionDomains();
+    void ensureASDSSessionDomain(const char* name);
 
     void loadProtocols();
     void loadServices();

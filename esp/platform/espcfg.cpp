@@ -113,11 +113,13 @@ StringBuffer &CVSBuildToEspVersion(char const * tag, StringBuffer & out)
 
 void CEspConfig::ensureSDSSessionDomains()
 {
+    bool authTypeConfigured = false;
     bool hasDefaultSessionDomain = false;
     Owned<IPropertyTree> proc_cfg = getProcessConfig(m_envpt, m_process.str());
     Owned<IPropertyTreeIterator> it = proc_cfg->getElements("AuthDomains/AuthDomain");
     ForEach(*it)
     {
+        authTypeConfigured = true;
         IPropertyTree& authDomain = it->query();
         const char* authType = authDomain.queryProp("@authType");
         if (isEmptyString(authType) || (!strieq(authType, "AuthPerSessionOnly") && !strieq(authType, "AuthTypeMixed")))
@@ -132,20 +134,26 @@ void CEspConfig::ensureSDSSessionDomains()
             hasDefaultSessionDomain = true;
             authDomainName = "default";
         }
+        ensureASDSSessionDomain(authDomainName);
+    }
+    if (!authTypeConfigured)
+        ensureASDSSessionDomain("default");
+}
 
-        Owned<IRemoteConnection> conn = querySDS().connect(PathSessionRoot, myProcessSession(), RTM_LOCK_WRITE, SESSION_SDS_LOCK_TIMEOUT);
-        if (!conn)
-        {
-            conn.setown(querySDS().connect("/", myProcessSession(), RTM_LOCK_WRITE|RTM_CREATE_QUERY, SESSION_SDS_LOCK_TIMEOUT));
-            IPropertyTree* sessionTree = ensurePTree(conn->queryRoot(), PathSessionRoot);
-            if (!ensureSessionDomainInTree(sessionTree, m_process.str(), authDomainName))
-                throw MakeStringException(-1, "Failed to add ProcessSession.");
-        }
-        else
-        {
-            if (!ensureSessionDomainInTree(conn->queryRoot(), m_process.str(), authDomainName))
-                throw MakeStringException(-1, "Failed to add ProcessSession.");
-        }
+void CEspConfig::ensureASDSSessionDomain(const char* authDomainName)
+{
+    Owned<IRemoteConnection> conn = querySDS().connect(PathSessionRoot, myProcessSession(), RTM_LOCK_WRITE, SESSION_SDS_LOCK_TIMEOUT);
+    if (!conn)
+    {
+        conn.setown(querySDS().connect("/", myProcessSession(), RTM_LOCK_WRITE|RTM_CREATE_QUERY, SESSION_SDS_LOCK_TIMEOUT));
+        IPropertyTree* sessionTree = ensurePTree(conn->queryRoot(), PathSessionRoot);
+        if (!ensureSessionDomainInTree(sessionTree, m_process.str(), authDomainName))
+            throw MakeStringException(-1, "Failed to add ProcessSession.");
+    }
+    else
+    {
+        if (!ensureSessionDomainInTree(conn->queryRoot(), m_process.str(), authDomainName))
+            throw MakeStringException(-1, "Failed to add ProcessSession.");
     }
 }
 

@@ -349,10 +349,7 @@ void EspHttpBinding::readAuthDomainCfg(IPropertyTree* procCfg)
         domainAuthType = AuthTypeMixed;
         sessionTimeoutSeconds = ESP_SESSION_TIMEOUT;
         domainAuthResources.setValue("/favicon.ico", true);
-        domainAuthResources.setValue("/esp/files/img/favicon.ico", true);
-        domainAuthResources.setValue("/esp/files/eclwatch/img/Loginlogo.png", true);
-        domainAuthResourcesWildMatch.append("/esp/files/dojo/*");
-        domainAuthResourcesWildMatch.append("/esp/files/eclwatch/nls/*");
+        domainAuthResourcesWildMatch.append("/esp/files/*");
         loginURL.set("/esp/files/eclwatch/templates/Login.html");
     }
 }
