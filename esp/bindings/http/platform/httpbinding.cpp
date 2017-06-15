@@ -269,6 +269,16 @@ EspHttpBinding::EspHttpBinding(IPropertyTree* tree, const char *bindname, const 
             memCachedInitString.set(initString);
         else
             memCachedInitString.set("--SERVER=127.0.0.1");//using local memcached server
+
+        if (proc_cfg->getPropBool("@ensureMemCached", true))
+        {
+            memCachedClient.setown(new ESPMemCached());
+            if (!memCachedClient->init(memCachedInitString.get()))
+            {
+                throw MakeStringException(-1, "Failed in checking MemCached service with %s. Please check ESP log for details.",
+                    memCachedInitString.get());
+            }
+        }
     }
 #endif
 }

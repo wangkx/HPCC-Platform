@@ -863,6 +863,13 @@
                     </xs:appinfo>
                 </xs:annotation>
             </xs:attribute>
+            <xs:attribute name="ensureMemCached" type="xs:boolean" use="optional" default="true">
+                <xs:annotation>
+                    <xs:appinfo>
+                        <tooltip>If true, ESP will not be started if no MemCached service is available.</tooltip>
+                    </xs:appinfo>
+                </xs:annotation>
+            </xs:attribute>
             <xs:attribute name="memCachedOptionString" type="xs:string" use="optional">
                 <xs:annotation>
                     <xs:appinfo>
