@@ -305,14 +305,14 @@ public:
     ISecManager* querySecManager() { return m_secmgr.get(); }
     IAuthMap* queryAuthMAP() { return m_authmap.get();}
     const char* queryAuthMethod() { return m_authmethod.str(); }
-    void setProcessName(const char* name){ processName.set(name); }
-    const char* queryProcessName(){ return processName.get(); }
-    void setDomainName(const char* name){ domainName.set(name ? name : "default"); }
-    const char* queryDomainName(){ return domainName.get(); }
-    void setDomainSessionSDSPath(const char* path){ domainSessionSDSPath.set(path); }
-    const char* queryDomainSessionSDSPath(){ return domainSessionSDSPath.str(); }
+    void setProcessName(const char* name) { processName.set(name); }
+    const char* queryProcessName() { return processName.get(); }
+    void setDomainName(const char* name) { domainName.set(name ? name : "default"); }
+    const char* queryDomainName() { return domainName.get(); }
+    void setDomainSessionSDSPath(const char* path) { domainSessionSDSPath.set(path); }
+    const char* queryDomainSessionSDSPath() { return domainSessionSDSPath.str(); }
     const char* querySessionIDCookieName() { return sessionIDCookieName.str(); }
-    AuthType getDomainAuthType(){ return domainAuthType; }
+    const AuthType getDomainAuthType() { return domainAuthType; }
     const char* queryLoginURL() { return loginURL.get(); }
     const char* queryLogoutURL() { return logoutURL.get(); }
     const int getSessionTimeoutSeconds() { return sessionTimeoutSeconds; }
@@ -324,8 +324,8 @@ public:
 
         ForEachItemIn(i, domainAuthResourcesWildMatch)
         {
-            const char* resourcePtr = domainAuthResourcesWildMatch.item(i);
-            if (WildMatch(resource, resourcePtr, true))
+            const char* wildResourcePath = domainAuthResourcesWildMatch.item(i);
+            if (WildMatch(resource, wildResourcePath, true))
                 return true;
         }
         return false;

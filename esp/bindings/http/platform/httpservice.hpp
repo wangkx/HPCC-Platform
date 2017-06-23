@@ -85,20 +85,20 @@ protected:
     EspAuthState checkUserAuthPerRequest(EspAuthRequest& authReq);
     EspAuthState checkUserAuthPerSession(EspAuthRequest& authReq);
     EspAuthState doSessionAuth(unsigned sessionID, EspAuthRequest& req, const char* _userName, const char* _password);
-    void postSessionAuth(EspAuthRequest& authReq, unsigned sessionID, HTTPSessionState sessionState, time_t timeNow, IRemoteConnection* _conn, IPropertyTree* sessionTree);
+    void postSessionAuth(EspAuthRequest& authReq, unsigned sessionID, HTTPSessionState sessionState, IPropertyTree* domainSessions, IPropertyTree* sessionTree);
     void askUserLogin(EspHttpBinding* authBinding, unsigned sessionID);
     void handleAuthFailed(bool sessionAuth, EspAuthRequest& authReq, unsigned* sessionID);
     void handlePasswordExpired(bool sessionAuth);
     EspHttpBinding* getEspHttpBinding(EspAuthRequest& req);
     bool isAuthRequiredForBinding(EspAuthRequest& req);
     void authOptionalGroups(EspAuthRequest& req);
+    unsigned createHTTPSession(EspAuthRequest& authReq, const char* loginURL);
     unsigned createHTTPSession(EspAuthRequest& authReq, IPropertyTree* domainSessions, const char* loginURL);
-    IPropertyTree* readAndCleanDomainSessions(EspHttpBinding* authBinding, IRemoteConnection* conn, time_t timeNow);
+    void removeTimedOutDomainSessions(EspHttpBinding* authBinding, IPropertyTree* domainSessions);
     void addCookie(const char* cookieName, const char *cookieValue, int maxAgeSec);
     void clearCookie(const char* cookieName);
     unsigned readCookie(const char* cookieName);
     void sendMessage(const char* msg, const char* msgType);
-    bool commitAndCloseRemoteConnection(IRemoteConnection* conn);
     void send200OK();
     IRemoteConnection* querySDSConnection(const char* xpath, unsigned mode, unsigned timeout);
 

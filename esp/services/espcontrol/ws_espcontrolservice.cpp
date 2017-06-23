@@ -153,7 +153,7 @@ bool CWSESPControlEx::onSessionQuery(IEspContext& context, IEspSessionQueryReque
         StringBuffer fromIP = req.getFromIP();
         CSessionState state = req.getState();
         StringBuffer authDomain = req.getAuthDomain();
-        if (authDomain.isEmpty())
+        if (authDomain.trim().isEmpty())
             authDomain.set("default");
         unsigned port = 8010;
         if (!req.getPort_isNull())
@@ -200,7 +200,7 @@ bool CWSESPControlEx::onSessionInfo(IEspContext& context, IEspSessionInfoRequest
             throw MakeStringException(ECLWATCH_INVALID_INPUT, "SessionID not specified.");
 
         StringBuffer authDomain = req.getAuthDomain();
-        if (authDomain.isEmpty())
+        if (authDomain.trim().isEmpty())
             authDomain.set("default");
         unsigned port = 8010;
         if (!req.getPort_isNull())
@@ -234,7 +234,7 @@ bool CWSESPControlEx::onCleanSession(IEspContext& context, IEspCleanSessionReque
             throw MakeStringException(ECLWATCH_INVALID_INPUT, "SessionID or FromIP has to be specified.");
 
         StringBuffer authDomain = req.getAuthDomain();
-        if (authDomain.isEmpty())
+        if (authDomain.trim().isEmpty())
             authDomain.set("default");
         unsigned port = 8010;
         if (!req.getPort_isNull())
@@ -281,7 +281,7 @@ bool CWSESPControlEx::onSetSessionTimeout(IEspContext& context, IEspSetSessionTi
             throw MakeStringException(ECLWATCH_INVALID_INPUT, "SessionID or FromIP has to be specified.");
 
         StringBuffer authDomain = req.getAuthDomain();
-        if (authDomain.isEmpty())
+        if (authDomain.trim().isEmpty())
             authDomain.set("default");
         unsigned port = 8010;
         if (!req.getPort_isNull())

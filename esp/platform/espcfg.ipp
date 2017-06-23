@@ -168,7 +168,7 @@ public:
 
     const SocketEndpoint &getLocalEndpoint(){return m_address;}
 
-    bool ensureSessionDomainInTree(IPropertyTree* sessionRoot, const char* procName, const char* domainName);
+    void ensureSessionDomainInTree(IPropertyTree* sessionRoot, const char* procName, const char* domainName);
     void ensureSDSSessionDomains();
 
     void loadProtocols();

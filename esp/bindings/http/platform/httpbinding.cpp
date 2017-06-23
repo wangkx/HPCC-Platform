@@ -287,12 +287,14 @@ void EspHttpBinding::setSDSSession()
     IPropertyTree* appSessionTree = sessionDomain->queryBranch(appStr.str());
     if (!appSessionTree)
     {
-        IPropertyTree* newAppSessionTree = sessionDomain->addPropTree(PathSessionApplication, createPTree());
+        IPropertyTree* newAppSessionTree = sessionDomain->addPropTree(PathSessionApplication);
         newAppSessionTree->addPropInt("@port", m_port);
     }
     domainSessionSDSPath.setf("%s/%s/", xPath.str(), appStr.str());
     sessionIDCookieName.setf("%s%d", SESSION_ID_COOKIE, m_port);
 }
+
+static int sortByLength(char const * const *l, char const * const *r) { return strlen(*l) - strlen(*r); }
 
 void EspHttpBinding::readAuthDomainCfg(IPropertyTree* procCfg)
 {
@@ -335,7 +337,7 @@ void EspHttpBinding::readAuthDomainCfg(IPropertyTree* procCfg)
         if (!isEmptyString(_loginURL))
             loginURL.set(_loginURL);
         else
-            loginURL.set("/esp/files/eclwatch/templates/Login.html");
+            loginURL.set(DEFAULT_LOGIN_URL);
 
         const char* _logoutURL = authDomainTree->queryProp("@logoutURL");
         if (!isEmptyString(_logoutURL))
@@ -348,13 +350,11 @@ void EspHttpBinding::readAuthDomainCfg(IPropertyTree* procCfg)
     {//old environment.xml
         domainAuthType = AuthTypeMixed;
         sessionTimeoutSeconds = ESP_SESSION_TIMEOUT;
-        domainAuthResources.setValue("/favicon.ico", true);
-        domainAuthResources.setValue("/esp/files/img/favicon.ico", true);
-        domainAuthResources.setValue("/esp/files/eclwatch/img/Loginlogo.png", true);
-        domainAuthResourcesWildMatch.append("/esp/files/dojo/*");
-        domainAuthResourcesWildMatch.append("/esp/files/eclwatch/nls/*");
-        loginURL.set("/esp/files/eclwatch/templates/Login.html");
+        domainAuthResources.setValue(DEFAULT_UNRESTRICTED_RESOURCE1, true);
+        domainAuthResourcesWildMatch.append(DEFAULT_UNRESTRICTED_RESOURCE2);
+        loginURL.set(DEFAULT_LOGIN_URL);
     }
+    domainAuthResourcesWildMatch.sortCompare(sortByLength);
 }
 
 StringBuffer &EspHttpBinding::generateNamespace(IEspContext &context, CHttpRequest* request, const char *serv, const char *method, StringBuffer &ns)
