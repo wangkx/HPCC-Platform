@@ -287,7 +287,7 @@ void EspHttpBinding::setSDSSession()
     IPropertyTree* appSessionTree = sessionDomain->queryBranch(appStr.str());
     if (!appSessionTree)
     {
-        IPropertyTree* newAppSessionTree = sessionDomain->addPropTree(PathSessionApplication);
+        IPropertyTree* newAppSessionTree = sessionDomain->addPropTree(PathSessionApplication, createPTree());
         newAppSessionTree->addPropInt("@port", m_port);
     }
     domainSessionSDSPath.setf("%s/%s/", xPath.str(), appStr.str());

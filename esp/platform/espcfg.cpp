@@ -147,10 +147,10 @@ void CEspConfig::ensureSessionDomainInTree(IPropertyTree* sessionRoot, const cha
     IPropertyTree* procSessionTree = sessionRoot->queryBranch(xpath.str());
     if (!procSessionTree)
     {
-        IPropertyTree* processSessionTree = sessionRoot->addPropTree(PathSessionProcess);
+        IPropertyTree* processSessionTree = sessionRoot->addPropTree(PathSessionProcess, createPTree());
         processSessionTree->addProp("@name", procName);
 
-        IPropertyTree* domainSessionTree = processSessionTree->addPropTree(PathSessionDomain);
+        IPropertyTree* domainSessionTree = processSessionTree->addPropTree(PathSessionDomain, createPTree());
         domainSessionTree->addProp("@name", domainName);
     }
     else
@@ -159,7 +159,7 @@ void CEspConfig::ensureSessionDomainInTree(IPropertyTree* sessionRoot, const cha
         IPropertyTree* domainSessionTree = procSessionTree->queryBranch(xpath.str());
         if (!domainSessionTree)
         {
-            IPropertyTree* ptree = procSessionTree->addPropTree(PathSessionDomain);
+            IPropertyTree* ptree = procSessionTree->addPropTree(PathSessionDomain, createPTree());
             ptree->addProp("@name", domainName);
         }
     }

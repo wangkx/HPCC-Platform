@@ -1275,7 +1275,7 @@ void CEspHttpServer::send200OK()
 unsigned CEspHttpServer::createHTTPSession(EspAuthRequest& authReq, const char* loginURL)
 {
     Owned<IRemoteConnection> conn = querySDSConnection(authReq.authBinding->queryDomainSessionSDSPath(), RTM_LOCK_WRITE, SESSION_SDS_LOCK_TIMEOUT);
-    IPropertyTree *newDomainSessions = conn->queryRoot()->addPropTree(PathSessionSession);
+    IPropertyTree *newDomainSessions = conn->queryRoot()->addPropTree(PathSessionSession, createPTree());
     return createHTTPSession(authReq, newDomainSessions, loginURL);
 }
 
