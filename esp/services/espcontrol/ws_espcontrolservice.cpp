@@ -91,15 +91,24 @@ void CWSESPControlEx::init(IPropertyTree *cfg, const char *process, const char *
     if (!espCFG)
         throw MakeStringException(-1, "Can't find EspBinding for %s", process);
 
+    bool hasDefaultSessionDomain = false;
     Owned<IPropertyTreeIterator> it = espCFG->getElements("AuthDomains/AuthDomain");
     ForEach(*it)
     {
         IPropertyTree& authDomain = it->query();
         StringBuffer name = authDomain.queryProp("@domainName");
         if (name.isEmpty())
+        {
+            if (hasDefaultSessionDomain)
+                throw MakeStringException(-1, ">1 AuthDomains are not named.");
+
+            hasDefaultSessionDomain = true;
             name.set("default");
+        }
         sessionTimeoutMinutesMap.setValue(name.str(), authDomain.getPropInt("@sessionTimeoutMinutes", 0));
     }
+    if (sessionTimeoutMinutesMap.count() == 0)
+        sessionTimeoutMinutesMap.setValue("default", ESP_SESSION_TIMEOUT);
 }
 
 
@@ -164,10 +173,11 @@ bool CWSESPControlEx::onSessionQuery(IEspContext& context, IEspSessionQueryReque
         Owned<IRemoteConnection> globalLock = querySDSConnection(xpath.str(), RTM_LOCK_READ, SESSION_SDS_LOCK_TIMEOUT);
 
         IArrayOf<IEspSession> sessions;
+        getSessionXPath(0, xpath);
         if (!fromIP.trim().isEmpty())
-            xpath.setf("%s[%s='%s']", PathSessionSession, PropSessionNetworkAddress, fromIP.str());
+            xpath.appendf("[%s='%s']", PropSessionNetworkAddress, fromIP.str());
         else if (state != SessionState_Undefined)
-            xpath.setf("%s[%s='%d']", PathSessionSession, PropSessionState, state);
+            xpath.appendf("[%s='%d']", PropSessionState, state);
         Owned<IPropertyTreeIterator> iter = globalLock->getElements(xpath.str());
         ForEach(*iter)
         {
@@ -206,8 +216,10 @@ bool CWSESPControlEx::onSessionInfo(IEspContext& context, IEspSessionInfoRequest
         if (!req.getPort_isNull())
             port = req.getPort();
 
-        VStringBuffer xpath("/%s/%s[@name='%s']/%s[@name='%s']/%s[@port=\"%d\"]/%s[%s='%s']", PathSessionRoot, PathSessionProcess, espProcess.get(),
-            PathSessionDomain, authDomain.str(), PathSessionApplication, port, PathSessionSession, PropSessionID, sessionID.str());
+        StringBuffer sessionXPath;
+        unsigned id = (unsigned) atoi(sessionID.str());
+        VStringBuffer xpath("/%s/%s[@name='%s']/%s[@name='%s']/%s[@port=\"%d\"]/%s", PathSessionRoot, PathSessionProcess, espProcess.get(),
+            PathSessionDomain, authDomain.str(), PathSessionApplication, port, getSessionXPath(id, sessionXPath));
         Owned<IRemoteConnection> globalLock = querySDSConnection(xpath.str(), RTM_LOCK_READ, SESSION_SDS_LOCK_TIMEOUT);
         setSessionInfo(sessionID.str(), globalLock->queryRoot(), authDomain.str(), port, &resp.updateSession());
     }
@@ -216,6 +228,18 @@ bool CWSESPControlEx::onSessionInfo(IEspContext& context, IEspSessionInfoRequest
         FORWARDEXCEPTION(context, e, ECLWATCH_INTERNAL_ERROR);
     }
     return true;
+}
+
+const char* CWSESPControlEx::getSessionXPathByIDorIP(const char* sessionID, const char* fromIP, StringBuffer& xpath)
+{
+    if (!isEmptyString(sessionID))
+        getSessionXPath((unsigned) atoi(sessionID), xpath);
+    else
+    {
+        getSessionXPath(0, xpath);
+        xpath.appendf("[%s='%s']", PropSessionNetworkAddress, fromIP);
+    }
+    return xpath.str();
 }
 
 bool CWSESPControlEx::onCleanSession(IEspContext& context, IEspCleanSessionRequest& req, IEspCleanSessionResponse& resp)
@@ -245,11 +269,7 @@ bool CWSESPControlEx::onCleanSession(IEspContext& context, IEspCleanSessionReque
         Owned<IRemoteConnection> globalLock = querySDSConnection(xpath.str(), RTM_LOCK_WRITE, SESSION_SDS_LOCK_TIMEOUT);
 
         IArrayOf<IPropertyTree> toRemove;
-        if (sessionID && *sessionID)
-            xpath.setf("%s[%s='%s']", PathSessionSession, PropSessionID, sessionID.str());
-        else
-            xpath.setf("%s[%s='%s']", PathSessionSession, PropSessionNetworkAddress, fromIP.str());
-        Owned<IPropertyTreeIterator> iter = globalLock->queryRoot()->getElements(xpath.str());
+        Owned<IPropertyTreeIterator> iter = globalLock->queryRoot()->getElements(getSessionXPathByIDorIP(sessionID.str(), fromIP.str(), xpath));
         ForEach(*iter)
             toRemove.append(*LINK(&iter->query()));
         ForEachItemIn(i, toRemove)
@@ -297,11 +317,7 @@ bool CWSESPControlEx::onSetSessionTimeout(IEspContext& context, IEspSetSessionTi
 
         IArrayOf<IPropertyTree> toRemove;
         int timeoutMinutes = req.getTimeoutMinutes_isNull() ? 0 : req.getTimeoutMinutes();
-        if (!sessionID.trim().isEmpty())
-            xpath.setf("%s[%s='%s']", PathSessionSession, PropSessionID, sessionID.str());
-        else
-            xpath.setf("%s[%s='%s']", PathSessionSession, PropSessionNetworkAddress, fromIP.str());
-        Owned<IPropertyTreeIterator> iter = globalLock->queryRoot()->getElements(xpath.str());
+        Owned<IPropertyTreeIterator> iter = globalLock->queryRoot()->getElements(getSessionXPathByIDorIP(sessionID.str(), fromIP.str(), xpath));
         ForEach(*iter)
         {
             IPropertyTree& item = iter->query();

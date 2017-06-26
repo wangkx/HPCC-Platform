@@ -58,14 +58,14 @@ static const char* const PropSessionLoginURL = "@loginurl";
  <Process name="myesp">
   <Domain name="default">
    <Application port="8010">
-    <Session createtime="1497376914"
+    <Session_3831947145 createtime="1497376914"
              id="3831947145"
              lastaccessed="1497377015"
              loginurl="/"
              netaddr="10.176.152.200"
              state="1"
              userid="TheAdmin"/>
-    <Session createtime="1497377427"
+    <Session_4106750941 createtime="1497377427"
              id="4106750941"
              lastaccessed="1497377427"
              loginurl="/"
@@ -73,7 +73,7 @@ static const char* const PropSessionLoginURL = "@loginurl";
              state="0"/>
    </Application>
    <Application port="8002">
-    <Session createtime="1497376989"
+    <Session_3680948651 createtime="1497376989"
              id="3680948651"
              lastaccessed="1497377003"
              loginurl="/"
@@ -104,6 +104,7 @@ ESPHTTP_API void getEspUrlParams(IEspContext& ctx, StringBuffer& params, const c
 
 ESPHTTP_API void addEspNativeArray(StringBuffer& schema, const char* xsdType, const char* arrayType);
 ESPHTTP_API void checkRequest(IEspContext& ctx);
+ESPHTTP_API const char* getSessionXPath(unsigned sessionID, StringBuffer& path);
 
 ESPHTTP_API LogLevel getEspLogLevel(IEspContext* );
 ESPHTTP_API LogLevel getEspLogLevel();

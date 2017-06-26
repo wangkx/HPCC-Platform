@@ -758,6 +758,15 @@ void checkRequest(IEspContext& ctx)
 #endif
 }
 
+const char* getSessionXPath(unsigned sessionID, StringBuffer& path)
+{
+    if (sessionID > 0)
+        path.setf("%s_%d", PathSessionSession, sessionID);
+    else
+        path.setf("%s_*", PathSessionSession);
+    return path.str();
+}
+
 //--------------------------------
 // log level
 

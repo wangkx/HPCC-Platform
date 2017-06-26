@@ -1118,8 +1118,8 @@ EspAuthState CEspHttpServer::doSessionAuth(unsigned sessionID, EspAuthRequest& a
     if (authReq.authBinding->getSessionTimeoutSeconds() >= 0)
         removeTimedOutDomainSessions(authReq.authBinding, domainSessions);
 
-    VStringBuffer xpath("%s[%s='%u']", PathSessionSession, PropSessionID, sessionID);
-    IPropertyTree* sessionTree = domainSessions->queryBranch(xpath.str());
+    StringBuffer xpath;
+    IPropertyTree* sessionTree = domainSessions->queryBranch(getSessionXPath(sessionID, xpath));
     if (!sessionTree)
     {
         ESPLOG(LogMin, "Authentication failed: session:<%u> not found", sessionID);
@@ -1194,8 +1194,8 @@ void CEspHttpServer::postSessionAuth(EspAuthRequest& authReq, unsigned sessionID
     if (authReq.methodName && strieq(authReq.methodName, "logout"))
     {//delete this session before logout
         ICopyArrayOf<IPropertyTree> toRemove;
-        VStringBuffer path("%s[%s='%d']", PathSessionSession, PropSessionID, sessionID);
-        Owned<IPropertyTreeIterator> it = domainSessions->getElements(path.str());
+        StringBuffer path;
+        Owned<IPropertyTreeIterator> it = domainSessions->getElements(getSessionXPath(sessionID, path));
         ForEach(*it)
             toRemove.append(it->query());
         ForEachItemIn(i, toRemove)
@@ -1275,8 +1275,7 @@ void CEspHttpServer::send200OK()
 unsigned CEspHttpServer::createHTTPSession(EspAuthRequest& authReq, const char* loginURL)
 {
     Owned<IRemoteConnection> conn = querySDSConnection(authReq.authBinding->queryDomainSessionSDSPath(), RTM_LOCK_WRITE, SESSION_SDS_LOCK_TIMEOUT);
-    IPropertyTree *newDomainSessions = conn->queryRoot()->addPropTree(PathSessionSession, createPTree());
-    return createHTTPSession(authReq, newDomainSessions, loginURL);
+    return createHTTPSession(authReq, conn->queryRoot(), loginURL);
 }
 
 unsigned CEspHttpServer::createHTTPSession(EspAuthRequest& authReq, IPropertyTree* domainSessions, const char* _loginURL)
@@ -1285,7 +1284,7 @@ unsigned CEspHttpServer::createHTTPSession(EspAuthRequest& authReq, IPropertyTre
     now.setNow();
     time_t createTime = now.getSimple();
 
-    StringBuffer peer;
+    StringBuffer peer, xpath;
     VStringBuffer idStr("%s_%ld", m_request->getPeer(peer).str(), createTime);
     unsigned sessionID = hashc((unsigned char *)idStr.str(), idStr.length(), 0);
     ESPLOG(LogMax, "New sessionID <%d> at <%ld> in createHTTPSession()", sessionID, createTime);
@@ -1310,7 +1309,7 @@ unsigned CEspHttpServer::createHTTPSession(EspAuthRequest& authReq, IPropertyTre
             ptree->addProp(PropSessionLoginURL, loginURL.str());
     }
 
-    domainSessions->addPropTree(PathSessionSession, ptree.getClear());
+    domainSessions->addPropTree(getSessionXPath(sessionID, xpath), ptree.getClear());
     return sessionID;
 }
 
@@ -1321,8 +1320,9 @@ void CEspHttpServer::removeTimedOutDomainSessions(EspHttpBinding* authBinding, I
     now.setNow();
     time_t timeNow = now.getSimple();
 
+    StringBuffer path;
     ICopyArrayOf<IPropertyTree> toRemove;
-    Owned<IPropertyTreeIterator> iter = domainSessions->getElements(PathSessionSession);
+    Owned<IPropertyTreeIterator> iter = domainSessions->getElements(getSessionXPath(0, path));
     ForEach(*iter)
     {
         IPropertyTree& item = iter->query();
