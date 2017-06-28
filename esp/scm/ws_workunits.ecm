@@ -36,6 +36,15 @@ ESPenum ECLWUActions : string
     SetToFailed("SetToFailed"),
 };
 
+//The ESPenum ECLQueryActions has to be matched by the ECLQueryActions[] in ws_workunitsService.cpp.
+ESPenum ECLQueryActions : string
+{
+    SyntaxCheck("SyntaxCheck"),
+    Compile("Compile"),
+    Publish("Publish"),
+    Unpublish("Unpublish")
+};
+
 ESPStruct [nil_remove] ECLException
 {
     string Source;
@@ -1826,9 +1835,49 @@ ESPresponse [exceptions_inline, nil_remove] WUGetNumFileToCopyResponse
     [min_ver("1.69")] int64 Total;
 };
 
+ESPStruct [nil_remove] WUECLQueryActionResult
+{
+    string QueryName;
+    string Action;
+    string Result;
+};
+
+ESPrequest [nil_remove] WUECLQueryActionRequest
+{
+    ESParray<string> QueryNames;
+    ESPenum ECLQueryActions ActionType;
+
+    //Publish option
+    string Target;
+    string RemoteDali;
+    string SourceProcess;
+    string Priority;
+    string Comment;
+    string MemoryLimit; //123M
+    bool DeletePrevious(false);
+    bool SuspendPrevious(false);
+    bool NoActivate(false);
+    bool NoReload(false);
+    bool DontCopyFiles(false);
+    bool AllowForeign(false);
+    bool UpdateDfs(false);
+    bool UpdateSuperfiles(false);
+    bool UpdateCloneFrom(false);
+    bool DontAppendCluster(false);
+    int MsToWait(10000);
+    int TimeLimit(-1);
+    int WarnTimeLimit(-1);
+        //activateSet(false), optUpdateDfs(false),
+};
+
+ESPresponse [exceptions_inline] WUECLQueryActionResponse
+{
+    ESParray<ESPstruct WUECLQueryActionResult> ActionResults;
+};
+
 ESPservice [
     auth_feature("DEFERRED"), //This declares that the method logic handles feature level authorization
-    version("1.69"), default_client_version("1.69"),
+    version("1.70"), default_client_version("1.70"),
     noforms,exceptions_inline("./smc_xslt/exceptions.xslt"),use_method_name] WsWorkunits
 {
     ESPmethod [cache_seconds(60), resp_xsl_default("/esp/xslt/workunits.xslt")]     WUQuery(WUQueryRequest, WUQueryResponse);
@@ -1907,6 +1956,7 @@ ESPservice [
     ESPmethod [cache_seconds(60), min_ver("1.57")] WUListArchiveFiles(WUListArchiveFilesRequest, WUListArchiveFilesResponse);
     ESPmethod [cache_seconds(60), min_ver("1.57")] WUGetArchiveFile(WUGetArchiveFileRequest, WUGetArchiveFileResponse);
     ESPmethod [cache_seconds(60), min_ver("1.61")] WUGetNumFileToCopy(WUGetNumFileToCopyRequest, WUGetNumFileToCopyResponse);
+    ESPmethod [min_ver("1.70")] WUECLQueryAction(WUECLQueryActionRequest, WUECLQueryActionResponse);
 };
 
 

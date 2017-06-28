@@ -83,6 +83,7 @@ int EclCMDShell::callExternal(ArgvIterator &iter)
 
 int EclCMDShell::processCMD(ArgvIterator &iter)
 {
+    sleep(60);
     Owned<IEclCommand> c = factory(cmd.get());
     if (!c)
     {

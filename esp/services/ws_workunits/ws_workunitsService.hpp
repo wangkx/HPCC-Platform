@@ -267,6 +267,7 @@ public:
 
     bool onWUListArchiveFiles(IEspContext &context, IEspWUListArchiveFilesRequest &req, IEspWUListArchiveFilesResponse &resp);
     bool onWUGetArchiveFile(IEspContext &context, IEspWUGetArchiveFileRequest &req, IEspWUGetArchiveFileResponse &resp);
+    bool onWUECLQueryAction(IEspContext &context, IEspWUECLQueryActionRequest &req, IEspWUECLQueryActionResponse &resp);
 private:
     void addProcessLogfile(Owned<IConstWorkUnit> &cwu, WsWuInfo &winfo, const char * process, const char* path);
     void addThorSlaveLogfile(Owned<IConstWorkUnit> &cwu,WsWuInfo& winfo, const char* path);
@@ -283,6 +284,9 @@ private:
     IPropertyTree* getWorkunitArchive(IEspContext &context, WsWuInfo& winfo, const char* wuid, unsigned cacheMinutes);
     void readSuperFiles(IEspContext &context, IReferencedFile* rf, const char* fileName, IReferencedFileList* wufiles, IArrayOf<IEspQuerySuperFile>* files);
     IReferencedFile* getReferencedFileByName(const char* name, IReferencedFileList* wufiles);
+    void doECLQueryPublish(IEspContext &context, const char* query, IEspWUECLQueryActionRequest &req, IArrayOf<IConstWUECLQueryActionResult> &results);
+    void doECLQueryUnpublish(IEspContext &context, const char* query, IEspWUECLQueryActionRequest &req, IArrayOf<IConstWUECLQueryActionResult> &results);
+    bool deployECLQuery(IEspContext &context, const char *cluster, const char *name, IEspWUECLQueryActionRequest &req, StringBuffer &wuid, StringBuffer &result);
 
     unsigned awusCacheMinutes;
     StringBuffer queryDirectory;
