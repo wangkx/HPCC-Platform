@@ -37,6 +37,7 @@
 
 static const char* const SESSION_ID_COOKIE = "ESPSessionID";
 static const char* const SESSION_START_URL_COOKIE = "ESPAuthURL";
+static const char* const SESSION_OLD_ID_COOKIE = "ESPOLDID";
 static const char* const DEFAULT_LOGIN_URL = "/esp/files/eclwatch/templates/Login.html";
 static const char* const DEFAULT_UNRESTRICTED_RESOURCES = "/favicon.ico,/esp/files/*,/esp/xslt/*";
 

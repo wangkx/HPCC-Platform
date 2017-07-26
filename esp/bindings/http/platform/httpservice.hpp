@@ -82,8 +82,7 @@ protected:
     EspAuthState authExistingSession(EspAuthRequest& req, unsigned sessionID);
     void logoutSession(EspAuthRequest& authReq, unsigned sessionID, IPropertyTree* domainSessions);
     void askUserLogin(EspAuthRequest& authReq);
-    void handleAuthFailed(bool sessionAuth, EspAuthRequest& authReq);
-    void handlePasswordExpired(bool sessionAuth);
+    EspAuthState handleAuthFailed(bool sessionAuth, EspAuthRequest& authReq);
     EspHttpBinding* getEspHttpBinding(EspAuthRequest& req);
     bool isAuthRequiredForBinding(EspAuthRequest& req);
     void authOptionalGroups(EspAuthRequest& req);

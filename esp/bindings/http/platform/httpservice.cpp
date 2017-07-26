@@ -923,8 +923,7 @@ EspAuthState CEspHttpServer::checkUserAuth()
 
     //HTTP authentication failed. Send out a login page or 401.
     bool authSession = (domainAuthType == AuthPerSessionOnly) || ((domainAuthType == AuthTypeMixed) && authorizationHeader.isEmpty());
-    handleAuthFailed(authSession, authReq);
-    return authFailed;
+    return handleAuthFailed(authSession, authReq);
 }
 
 //Read authentication related information into EspAuthRequest.
@@ -1007,6 +1006,10 @@ EspAuthState CEspHttpServer::preCheckAuth(EspAuthRequest& authReq)
         }
         if (strieq(authReq.httpMethod.str(), GET_METHOD) && strieq(authReq.methodName.str(), "updatepasswordinput"))//process before authentication check
         {
+            StringBuffer userID;
+            readCookie(SESSION_OLD_ID_COOKIE, userID);
+            if (!userID.isEmpty())
+                authReq.ctx->setUserID(userID.str());
             onUpdatePasswordInput(m_request.get(), m_response.get());
             return authUpdatePassword;
         }
@@ -1116,8 +1119,7 @@ EspAuthState CEspHttpServer::authNewSession(EspAuthRequest& authReq, const char*
     if (!authReq.authBinding->doAuth(authReq.ctx))
     {
         ESPLOG(LogMin, "Authentication failed for %s@%s", _userName, peer.str());
-        handleAuthFailed(true, authReq);
-        return authFailed;
+        return handleAuthFailed(true, authReq);
     }
 
     // authenticate optional groups
@@ -1223,25 +1225,39 @@ void CEspHttpServer::logoutSession(EspAuthRequest& authReq, unsigned sessionID, 
         sendMessage(nullptr, "text/html; charset=UTF-8");
 }
 
-void CEspHttpServer::handleAuthFailed(bool sessionAuth, EspAuthRequest& authReq)
+EspAuthState CEspHttpServer::handleAuthFailed(bool sessionAuth, EspAuthRequest& authReq)
 {
     ISecUser *user = authReq.ctx->queryUser();
-    if (user && (user->getAuthenticateStatus() == AS_PASSWORD_EXPIRED || user->getAuthenticateStatus() == AS_PASSWORD_VALID_BUT_EXPIRED))
+    if (user && user->getAuthenticateStatus() == AS_PASSWORD_VALID_BUT_EXPIRED)
+    {
+        ESPLOG(LogMin, "ESP password expired for %s. Asking update ...", authReq.ctx->queryUserId());
+        if (sessionAuth)
+            addCookie(SESSION_OLD_ID_COOKIE, authReq.ctx->queryUserId(), 0);
+        m_response->redirect(*m_request.get(), "/esp/updatepasswordinput");
+        return authSucceeded;
+    }
+
+    if (user && (user->getAuthenticateStatus() == AS_PASSWORD_EXPIRED))
     {
         ESPLOG(LogMin, "ESP password expired for %s", authReq.ctx->queryUserId());
-        handlePasswordExpired(sessionAuth);
-        return;
+        if (sessionAuth)
+            askUserLogin(authReq);
+        else
+            m_response->sendBasicChallenge(authReq.authBinding->getChallengeRealm(), true);
+        return authFailed;
     }
 
     if (!sessionAuth)
     {
         ESPLOG(LogMin, "Authentication failed: send BasicAuthentication.");
         m_response->sendBasicChallenge(authReq.authBinding->getChallengeRealm(), true);
-        return;
     }
-
-    ESPLOG(LogMin, "Authentication failed: call askUserLogin.");
-    askUserLogin(authReq);
+    else
+    {
+        ESPLOG(LogMin, "Authentication failed: call askUserLogin.");
+        askUserLogin(authReq);
+    }
+    return authFailed;
 }
 
 void CEspHttpServer::askUserLogin(EspAuthRequest& authReq)
@@ -1321,18 +1337,6 @@ void CEspHttpServer::timeoutESPSessions(EspHttpBinding* authBinding, IPropertyTr
         }
         ForEachItemIn(i, toRemove)
             iter1->query().removeTree(&toRemove.item(i));
-    }
-}
-
-void CEspHttpServer::handlePasswordExpired(bool sessionAuth)
-{
-    if (sessionAuth)
-        m_response->redirect(*m_request.get(), "/esp/updatepasswordinput");
-    else
-    {
-        Owned<IMultiException> me = MakeMultiException();
-        me->append(*MakeStringException(-1, "Your ESP password has expired."));
-        m_response->handleExceptions(nullptr, me, "ESP Authentication", "PasswordExpired", nullptr);
     }
 }
 

@@ -566,13 +566,6 @@ unsigned CEspApplicationPort::updatePassword(IEspContext &context, IHttpMessage*
         return 2;
     }
 
-    const char* oldpass1 = context.queryPassword();
-    if (!oldpass1)
-    {
-        message.append("Existing password missing from request.");
-        return 2;
-    }
-
     CHttpRequest *httpRequest=dynamic_cast<CHttpRequest*>(request);
     IProperties *params = httpRequest->getParameters();
     if (!params)
@@ -588,11 +581,6 @@ unsigned CEspApplicationPort::updatePassword(IEspContext &context, IHttpMessage*
     if(!username || !streq(username, user->getName()))
     {
         message.append("Incorrect username has been received.");
-        return 1;
-    }
-    if(!oldpass || !streq(oldpass, oldpass1))
-    {
-        message.append("Old password doesn't match credentials in use.");
         return 1;
     }
     if(!streq(newpass1, newpass2))
