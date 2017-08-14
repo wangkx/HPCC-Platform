@@ -1253,6 +1253,14 @@ EspAuthState CEspHttpServer::authExistingSession(EspAuthRequest& authReq, unsign
             sessionTree->setPropInt64(PropSessionTimeoutAt, timeoutAt);
             ESPLOG(LogMin, "Updated %s for (/%s/%s) : %ld", PropSessionTimeoutAt, authReq.serviceName.isEmpty() ? "" : authReq.serviceName.str(),
                 authReq.methodName.isEmpty() ? "" : authReq.methodName.str(), timeoutAt);
+            if (getEspLogLevel()>=LogMax)
+            {
+                CDateTime timeoutAtCDT;
+                StringBuffer timeoutAtString, nowString;
+                timetToIDateTime(&timeoutAtCDT, timeoutAt);
+                PROGLOG("Updated timeout at <%s><%ld> : expires at <%s><%ld>",
+                    now.getString(nowString).str(), createTime, timeoutAtCDT.getString(timeoutAtString).str(), timeoutAt);
+            }
         }
         ///authReq.ctx->setAuthorized(true);
         VStringBuffer sessionIDStr("%u", sessionID);
@@ -1344,6 +1352,15 @@ unsigned CEspHttpServer::createHTTPSession(EspHttpBinding* authBinding, const ch
     CDateTime now;
     now.setNow();
     time_t createTime = now.getSimple();
+    time_t timeoutAt = createTime + authBinding->getSessionTimeoutSeconds();
+    if (getEspLogLevel()>=LogMax)
+    {
+        CDateTime timeoutAtCDT;
+        StringBuffer timeoutAtString, nowString;
+        timetToIDateTime(&timeoutAtCDT, timeoutAt);
+        PROGLOG("createHTTPSession(): <%s><%ld>: expires at <%s><%ld>",
+            now.getString(nowString).str(), createTime, timeoutAtCDT.getString(timeoutAtString).str(), timeoutAt);
+    }
 
     StringBuffer peer, sessionIDStr;
     VStringBuffer idStr("%s_%ld", m_request->getPeer(peer).str(), createTime);
@@ -1358,11 +1375,11 @@ unsigned CEspHttpServer::createHTTPSession(EspHttpBinding* authBinding, const ch
     {
         sessionTree->setPropInt64(PropSessionLastAccessed, createTime);
         if (!sessionTree->getPropBool(PropSessionTimeoutByAdmin, false))
-            sessionTree->setPropInt64(PropSessionTimeoutAt, createTime + authBinding->getSessionTimeoutSeconds());
+            sessionTree->setPropInt64(PropSessionTimeoutAt, timeoutAt);
         return sessionID;
     }
-    ESPLOG(LogMax, "New sessionID <%d> at <%ld> in createHTTPSession()", sessionID, createTime);
 
+    ESPLOG(LogMax, "New sessionID <%d> at <%ld> in createHTTPSession()", sessionID, createTime);
     IPropertyTree* ptree = domainSessions->addPropTree(PathSessionSession);
     ptree->setProp(PropSessionNetworkAddress, peer.str());
     ptree->setPropInt64(PropSessionID, sessionID);
@@ -1370,7 +1387,7 @@ unsigned CEspHttpServer::createHTTPSession(EspHttpBinding* authBinding, const ch
     ptree->setProp(PropSessionUserID, userID);
     ptree->setPropInt64(PropSessionCreateTime, createTime);
     ptree->setPropInt64(PropSessionLastAccessed, createTime);
-    ptree->setPropInt64(PropSessionTimeoutAt, createTime + authBinding->getSessionTimeoutSeconds());
+    ptree->setPropInt64(PropSessionTimeoutAt, timeoutAt);
     ptree->setProp(PropSessionLoginURL, sessionStartURL);
     return sessionID;
 }
