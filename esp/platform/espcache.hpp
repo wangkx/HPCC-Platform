@@ -39,5 +39,5 @@ interface IEspCache : extends IInterface
     virtual bool readResponseCache(const char* cacheID, StringBuffer& content, StringBuffer& contentType) = 0;
 };
 
-extern esp_http_decl IEspCache* createESPCache(const char* setting);
+extern esp_http_decl IEspCache* createESPCache(const char* setting, const char* username, const char* password);
 #endif

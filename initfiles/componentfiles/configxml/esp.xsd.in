@@ -892,6 +892,21 @@
                     </xs:appinfo>
                 </xs:annotation>
             </xs:attribute>
+            <xs:attribute name="espCacheUserName" type="xs:string" use="optional">
+                <xs:annotation>
+                    <xs:appinfo>
+                        <tooltip>The user name to access ESP cache server.</tooltip>
+                    </xs:appinfo>
+                </xs:annotation>
+            </xs:attribute>
+            <xs:attribute name="espCachePassword" type="xs:string" use="optional">
+                <xs:annotation>
+                    <xs:appinfo>
+                        <viewType>password</viewType>
+                        <tooltip>The password to access ESP cache server</tooltip>
+                    </xs:appinfo>
+                </xs:annotation>
+            </xs:attribute>
             <xs:attribute name="checkSessionTimeoutSeconds" type="xs:nonNegativeInteger" use="optional">
                 <xs:annotation>
                     <xs:appinfo>

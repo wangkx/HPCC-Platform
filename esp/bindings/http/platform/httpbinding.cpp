@@ -113,6 +113,11 @@ EspHttpBinding::EspHttpBinding(IPropertyTree* tree, const char *bindname, const 
     if (defVersion && *defVersion)
         m_defaultSvcVersion.set(defVersion);
 
+    espCacheInitString.set(proc_cfg->queryProp("@espCacheInitString"));
+    espCacheUserName.set(proc_cfg->queryProp("@espCacheUserName"));
+    espCachePassword.set(proc_cfg->queryProp("@espCachePassword"));
+    espCacheUserName.set("user-233");
+    espCachePassword.set("password-233");
     if(!bnd_cfg)
     {
         m_filespath.append(getCFD()).append("files/");
@@ -726,7 +731,7 @@ void EspHttpBinding::handleHttpPost(CHttpRequest *request, CHttpResponse *respon
         if (queryCacheSeconds(method, cacheSeconds)) //ESP cache is needed for this method
         {
             if (!espCacheClient)
-                espCacheClient.setown(createESPCache(espCacheInitString.get()));
+                espCacheClient.setown(createESPCache(espCacheInitString.get(), espCacheUserName.get(), espCachePassword.get()));
             if (espCacheClient)
                 createESPCacheID(request, cacheID);
             if (!cacheID.isEmpty() && sendFromESPCache(request, response, cacheID.str()))

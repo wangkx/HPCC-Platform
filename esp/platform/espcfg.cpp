@@ -808,7 +808,8 @@ bool CEspConfig::checkESPCache()
         binding_cfg& xcfg = **iter;
         if (xcfg.bind->getCacheMethodCount() > 0)
         {
-            Owned<IEspCache> espCache = createESPCache(m_cfg->queryProp("@espCacheInitString"));
+            Owned<IEspCache> espCache = createESPCache(m_cfg->queryProp("@espCacheInitString"),
+                m_cfg->queryProp("@espCacheUserName"), m_cfg->queryProp("@espCachePassword"));
             espCacheAvailable = (espCache != nullptr);
             break;
         }

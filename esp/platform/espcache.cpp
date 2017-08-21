@@ -28,6 +28,7 @@ class ESPMemCached : implements IEspCache, public CInterface
     memcached_st* connection = nullptr;
     memcached_pool_st* pool = nullptr;
     StringAttr options;
+    StringAttr username, password;
     bool initialized = false;
     CriticalSection cacheCrit;
 
@@ -48,7 +49,7 @@ public :
     virtual bool cacheResponse(const char* cacheID, const unsigned cacheSeconds, const char* content, const char* contentType);
     virtual bool readResponseCache(const char* cacheID, StringBuffer& content, StringBuffer& contentType);
 
-    bool init(const char * _options);
+    bool init(const char * _options, const char * _username, const char * _password);
     ESPCacheResult exists(const char* groupID, const char* cacheID);
     ESPCacheResult get(const char* groupID, const char* cacheID, StringBuffer& out);
     ESPCacheResult set(const char* groupID, const char* cacheID, const char* value, unsigned __int64 expireSec);
@@ -80,7 +81,7 @@ ESPMemCached::~ESPMemCached()
     }
 }
 
-bool ESPMemCached::init(const char * _options)
+bool ESPMemCached::init(const char * _options, const char * _username, const char * _password)
 {
     CriticalBlock block(cacheCrit);
 
@@ -91,6 +92,10 @@ bool ESPMemCached::init(const char * _options)
         options.set(_options);
     else
         options.set("--SERVER=127.0.0.1");
+    if (!isEmptyString(_username))
+    	username.set(_username);
+    if (!isEmptyString(_password))
+    	password.set(_password);
     pool = memcached_pool(options.get(), options.length());
     assertPool();
 
@@ -151,6 +156,13 @@ void ESPMemCached::connect()
     connection = memcached_pool_fetch(pool, (struct timespec *)0 , &rc);
 #endif
     assertOnError(rc, "memcached_pool_pop failed - ");
+
+    if (username.get() && password.get())
+    {
+    	ESPLOG(LogMax, "memcached_set_sasl_auth_data called: <%s><%s>", username.get(), password.get());
+		rc = memcached_set_sasl_auth_data(connection, username.get(), password.get());
+		assertOnError(rc, "memcached_set_sasl_auth_data failed - ");
+    }
 }
 
 bool ESPMemCached::checkServersUp()
@@ -293,11 +305,11 @@ void ESPMemCached::assertPool()
 }
 #endif //USE_LIBMEMCACHED
 
-extern esp_http_decl IEspCache* createESPCache(const char* setting)
+extern esp_http_decl IEspCache* createESPCache(const char* setting, const char* username, const char* password)
 {
 #ifdef USE_LIBMEMCACHED
     Owned<ESPMemCached> espCache = new ESPMemCached();
-    if (espCache->init(setting))
+    if (espCache->init(setting, username, password))
         return espCache.getClear();
 #endif
     return nullptr;

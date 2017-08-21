@@ -144,7 +144,7 @@ private:
     StringAttrMapping help_map;
 
     Owned<IEspCache> espCacheClient;
-    StringAttr espCacheInitString;
+    StringAttr espCacheInitString, espCacheUserName, espCachePassword;
     unsigned cacheMethods = 0;
     MapStringTo<unsigned> cacheSecondsMap;
     MapStringTo<bool> cacheGlobalMap;
