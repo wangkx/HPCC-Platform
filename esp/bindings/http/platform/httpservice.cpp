@@ -910,6 +910,8 @@ EspAuthState CEspHttpServer::checkUserAuth()
         throw MakeStringException(-1, "Cannot find ESP HTTP Binding");
 
     ESPLOG(LogMax, "checkUserAuth: %s %s", m_request->isSoapMessage() ? "SOAP" : "HTTP", authReq.httpMethod.isEmpty() ? "??" : authReq.httpMethod.str());
+    m_response->sendBasicChallenge(authReq.authBinding->getChallengeRealm(), true);
+    return authFailed;
 
     //The preCheckAuth() does not return authUnknown when:
     //No authentication is required for the ESP binding;
