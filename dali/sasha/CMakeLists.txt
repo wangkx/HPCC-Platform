@@ -109,6 +109,7 @@ install ( TARGETS sasha RUNTIME DESTINATION ${EXEC_DIR})
 target_link_libraries ( sasha 
          ${XALAN_LIBRARIES} ${XERCES_LIBRARIES}
          jlib
+         dalibase
          mp 
     )
 

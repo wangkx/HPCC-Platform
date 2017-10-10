@@ -8,6 +8,7 @@
 #include "mpbase.hpp"
 #include "mpcomm.hpp"
 #include "dasds.hpp"
+#include "dautils.hpp"
 #include "saserver.hpp"
 #include "salds.hpp"
 #include "sacmd.hpp"
@@ -376,7 +377,228 @@ void WUiterate(ISashaCommand *cmd, const char *mask)
         cmd->setWUSresult(WUSbuf);
 }
 
+void setSashaCommandIDs(ISashaCommand *cmd, bool dfu, const char *outputFormat, IArrayOf<IPropertyTree> &results)
+{
+    ForEachItemIn(i, results)
+    {
+        IPropertyTree &r = results.item(i);
 
+        StringBuffer output;
+        r.getProp("@id", output);
+
+        char *saveptr;
+        char *parse = strdup(outputFormat);
+        char *tok = strtok_r(parse, "|,",&saveptr);
+        while (tok)
+        {
+            StringBuffer val;
+            bool found = true;
+            if (strieq(tok, "owner"))
+                r.getProp("@submitID", val);
+            else if (strieq(tok, "cluster"))
+                r.getProp("@clusterName", val);
+            else if (strieq(tok, "jobname"))
+                r.getProp("@jobName", val);
+            else if (strieq(tok, "state"))
+                r.getProp(dfu ? "Progress/@state":"@state", val);
+            else if (strieq(tok, "command"))
+                r.getProp("@command", val);
+            else if (strieq(tok, "wuid"))
+                r.getName(val);
+            else
+                found = false;
+            if (found)
+            {
+                // remove commas TBD
+                output.append(',').append(val);
+            }
+            tok = strtok_r(NULL, "|,",&saveptr);
+        }
+        cmd->addId(output.str());
+        free(parse);
+    }
+}
+
+void WUiterateSorted(ISashaCommand *cmd)
+{
+//#ifdef NEWCODE
+    class CWUPager : public CSimpleInterface, implements IElementsPager
+    {
+        StringBuffer beforeDT, afterDT;
+        StringAttr owner, cluster, jobName, state, priority, eclContains, fileRead, fileWritten;
+        StringAttr cmdName;
+        bool dfu;
+
+        void getFileMasks(StringBuffer &mask, StringBuffer &dirMask, StringBuffer &fileMask)
+        {
+            if (afterDT.isEmpty() || beforeDT.isEmpty())
+            {
+                fileMask.append("*.xml");
+                return;
+            }
+
+            const char *lo = afterDT.str();
+            const char *hi = beforeDT.str();
+            while (*lo && (toupper(*lo)==toupper(*hi)))
+            {
+                mask.append((char)toupper(*lo));
+                lo++;
+                hi++;
+            }
+            mask.append("*");
+
+            StringBuffer head;
+            splitWUID(mask, head);
+            if (!head.isEmpty())
+                dirMask = head.str();
+            fileMask.set(mask).toUpperCase();
+            fileMask.append(".xml");
+        }
+        bool parseAndCheckWUID(StringBuffer &mask, StringBuffer &name)
+        {
+            if (name.length() < 5)
+                return false;
+
+            name.setLength(name.length()-4);
+            name.toUpperCase();
+            const char *wuid = name.str();
+            if ((name.length()>6) && strieq(wuid+name.length()-6, "_HINTS"))
+                return false;
+
+            if (!mask.isEmpty() && !WildMatch(wuid, mask.str(),true))
+                return false;
+
+            if (!beforeDT.isEmpty() && (stricmp(wuid, beforeDT.str()) >= 0))
+                return false;
+
+            if (!afterDT.isEmpty() && (stricmp(wuid, afterDT.str()) <= 0))
+                return false;
+            return true;
+        }
+        bool checkFilters(IPropertyTree *t)
+        {
+            StringBuffer path, val;
+            if (!owner.isEmpty() && (!t->getProp("@submitID", val.clear()) || !WildMatch(val.str(), owner.get(), true)))
+                return false;
+            if (!state.isEmpty() && (!t->getProp(dfu?"Progress/@state":"@state", val.clear()) || !WildMatch(val.str(), state.get(), true)))
+                return false;
+            if (!cluster.isEmpty() && (!t->getProp("@clusterName", val.clear()) || !WildMatch(val.str(), cluster.get(), true)))
+                return false;
+            if (!jobName.isEmpty() && (!t->getProp("@jobName", val.clear()) || !WildMatch(val.str(), jobName.get(), true)))
+                return false;
+            if (!cmdName.isEmpty() && (!t->getProp("@command", val.clear()) || !WildMatch(val.str(), cmdName.get(), true)))
+                return false;
+            if (!priority.isEmpty() && (!t->getProp("@priorityClass", val.clear()) || !WildMatch(val.str(), priority.get(), true)))
+                return false;
+            if (!fileRead.isEmpty() && !t->hasProp(path.setf("FilesRead/File[@name=~?\"%s\"]", fileRead.get()).str()))
+                return false;
+            if (!fileWritten.isEmpty() && !t->hasProp(path.setf("Files/File[@name=~?\"%s\"]", fileWritten.get()).str()))
+                return false;
+            if (!eclContains.isEmpty() && !t->hasProp(path.setf("Query[Text=~?\"*%s*\"]", eclContains.get()).str()))
+                return false;
+            return true;
+        }
+    public:
+        IMPLEMENT_IINTERFACE_USING(CSimpleInterface);
+
+        CWUPager(const char *_owner, const char *_state, const char *_cluster, const char *_jobName, 
+            const char *_fileRead, const char *_fileWritten, const char *_priority, const char *_eclContains,
+            const char *_beforeDT, const char *_afterDT, const char *_cmdName, bool _dfu)
+            : owner(_owner), state(_state), cluster(_cluster),
+            jobName(_jobName), fileRead(_fileRead), fileWritten(_fileWritten), priority(_priority),
+            eclContains(_eclContains), cmdName(_cmdName), dfu(_dfu)
+        {
+            mkDateCompare(dfu, _afterDT, afterDT, '0');
+            mkDateCompare(dfu, _beforeDT, beforeDT, '9');
+
+        }
+
+        virtual IRemoteConnection* getElements(IArrayOf<IPropertyTree> &elements)
+        {
+            StringBuffer baseXPath = dfu ? "DFU/WorkUnits" : "WorkUnits";
+            StringBuffer path;
+            if (dfu)
+                getLdsPath("Archive/DFUWorkUnits", path);
+            else
+                getLdsPath("Archive/WorkUnits", path);
+            Owned<IFile> dir = createIFile(path.str());
+    
+            StringBuffer mask, dirMask, fileMask;
+            getFileMasks(mask, dirMask, fileMask);
+    
+            Owned<IRemoteConnection> conn;
+            CIArrayOf<CDirectoryEntry> sortedDirs;
+            Owned<IDirectoryIterator> dirIterator = dir->directoryFiles(dirMask.str(),false,true);
+            sortDirectory(sortedDirs, *dirIterator, SD_bynameNC, true, true); 
+            ForEachItemIn(sortedDirsIdx, sortedDirs)
+            {
+                CDirectoryEntry &dir = sortedDirs.item(sortedDirsIdx);
+                if (!dir.isdir)
+                    continue;
+    
+                CIArrayOf<CDirectoryEntry> sortedFiles;
+                Owned<IDirectoryIterator> fileIterator = dir.file->directoryFiles(fileMask.str(),false);
+                sortDirectory(sortedFiles, *fileIterator, SD_bynameNC, true, true); 
+                ForEachItemIn(sortedFilesIdx, sortedFiles)
+                {
+                    CDirectoryEntry &file = sortedFiles.item(sortedFilesIdx);
+                    if (file.isdir)
+                        continue;
+    
+                    StringBuffer output = file.name.get();
+                    if (!parseAndCheckWUID(mask, output))
+                        continue;
+    
+                    const char *wuid = output.str();
+                    if (!conn)
+                        conn.setown(querySDS().connect(baseXPath.str(), myProcessSession(), 0, 5*60*1000)); // connection to all
+                    if (conn->queryRoot()->hasProp(wuid)) // check not online
+                        continue;
+    
+                    Owned<IPropertyTree> element;
+                    try
+                    {
+                        element.setown(createPTree(*file.file));
+                        if (!element)
+                            continue;
+                    }
+                    catch (IException *e)
+                    {
+                        StringBuffer msg;
+                        msg.appendf("WUiterate: Workunit %s failed to load", wuid);
+                        EXCLOG(e,msg.str());
+                        e->Release();
+                        continue;
+                    }
+    
+                    if (!checkFilters(element))
+                        continue;
+    
+                    element->addProp("@id", wuid);
+                    elements.append(*element.getLink());
+                }
+            }
+            return nullptr;
+        }
+        virtual bool allMatchingElementsReceived() { return true; } //For now, all of matched WUs are returned.
+    };
+
+    unsigned numWUs = 2, totalWUs;
+    __int64 cachehint;
+
+    StringBuffer outputFormat = cmd->queryOutputFormat();
+    IArrayOf<IPropertyTree> results;
+    Owned<IElementsPager> wuPager = new CWUPager(cmd->queryBefore(), cmd->queryAfter(), cmd->queryOwner(),
+        cmd->queryState(), cmd->queryCluster(), cmd->queryJobName(), cmd->queryFileRead(), cmd->queryFileWritten(),
+        cmd->queryPriority(), cmd->queryEclContains(), cmd->queryDfuCmdName(), cmd->getDFU());
+    ///wuPager->getElementsPaged(cmd->queryBeforeWU(), cmd->queryAfterWU(), numWUs, results, &totalWUs, &cachehint);
+    ///return new CConstWUIterator(results);
+///    getElementsPaged2(wuPager, cmd->queryBeforeWU(), cmd->queryAfterWU(), numWUs, cachehint, results, total);
+    getElementsPaged2(wuPager, cmd->queryBefore(), cmd->queryAfter(), outputFormat, numWUs, &cachehint, results, &totalWUs);
+    setSashaCommandIDs(cmd, cmd->getDFU(), outputFormat.str(), results);
+//#endif
+}
+//WUiterateSorted
 interface IBranchItem: extends IInterface
 {
     virtual int compare(IBranchItem &to)=0;
@@ -1322,6 +1544,9 @@ bool processArchiverCommand(ISashaCommand *cmd)
                 else
                     WUiterate(cmd,NULL);
             }
+            break;
+        case SCA_LISTSORTED:
+            WUiterateSorted(cmd);
             break;
         default:
             return false;

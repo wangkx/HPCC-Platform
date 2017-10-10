@@ -5305,3 +5305,798 @@ bool CWsWorkunitsEx::onWUGetArchiveFile(IEspContext &context, IEspWUGetArchiveFi
     }
     return true;
 }
+
+#define NEW
+#ifdef NEW
+
+#include <string.h>
+#include <stdlib.h>
+#include <stdio.h>
+
+unsigned char csv[100000];
+unsigned char head[256];
+unsigned char w0[1000000];
+unsigned char w1[1000000];
+unsigned char w2[1000000];
+unsigned char w3[1000000];
+unsigned char w4[1000000];
+unsigned char w5[1000000];
+unsigned char w6[1000000];
+unsigned char w7[1000000];
+unsigned char w11[1000000];
+unsigned char w12[1000000];
+unsigned char w13[1000000];
+unsigned char w14[1000000];
+unsigned char w15[1000000];
+unsigned char w16[1000000];
+unsigned char w17[1000000];
+unsigned char w21[1000000];
+unsigned char w22[1000000];
+unsigned char w23[1000000];
+unsigned char w24[1000000];
+unsigned char w25[1000000];
+unsigned char w26[1000000];
+unsigned char w27[1000000];
+unsigned char w31[1000000];
+unsigned char w32[1000000];
+unsigned char w33[1000000];
+unsigned char w34[1000000];
+unsigned char w35[1000000];
+unsigned char w36[1000000];
+unsigned char w37[1000000];
+
+unsigned char* getWArray(unsigned i, unsigned j)
+{
+    unsigned char* p = NULL;
+    switch (i)
+    {
+    case 0:
+        switch (j)
+        {
+        case 1:
+            p = w1;
+            break;
+        case 2:
+            p = w2;
+            break;
+        case 3:
+            p = w3;
+            break;
+        case 4:
+            p = w4;
+            break;
+        case 5:
+            p = w5;
+            break;
+        case 6:
+            p = w6;
+            break;
+        case 7:
+            p = w7;
+            break;
+        default:
+            p = w0;
+            break;
+        }
+        break;
+    case 1:
+        switch (j)
+        {
+        case 1:
+            p = w11;
+            break;
+        case 2:
+            p = w12;
+            break;
+        case 3:
+            p = w13;
+            break;
+        case 4:
+            p = w14;
+            break;
+        case 5:
+            p = w15;
+            break;
+        case 6:
+            p = w16;
+            break;
+        case 7:
+            p = w17;
+            break;
+        }
+        break;
+    case 2:
+        switch (j)
+        {
+        case 1:
+            p = w21;
+            break;
+        case 2:
+            p = w22;
+            break;
+        case 3:
+            p = w23;
+            break;
+        case 4:
+            p = w24;
+            break;
+        case 5:
+            p = w25;
+            break;
+        case 6:
+            p = w26;
+            break;
+        case 7:
+            p = w27;
+            break;
+        }
+        break;
+    case 3:
+        switch (j)
+        {
+        case 1:
+            p = w31;
+            break;
+        case 2:
+            p = w32;
+            break;
+        case 3:
+            p = w33;
+            break;
+        case 4:
+            p = w34;
+            break;
+        case 5:
+            p = w35;
+            break;
+        case 6:
+            p = w36;
+            break;
+        case 7:
+            p = w37;
+            break;
+        }
+        break;
+    default:
+        break;
+    }
+    return p;
+}
+
+#include <windows.h>
+
+FILE* callfopen(const char* filepath, const char* mode)
+{
+#if defined(_MSC_VER) && (_MSC_VER >= 1400 ) && (!defined WINCE)
+    FILE* fp = 0;
+    errno_t err = fopen_s(&fp, filepath, mode);
+    if (err) {
+        return 0;
+    }
+#else
+    FILE* fp = fopen(filepath, mode);
+#endif
+    return fp;
+}
+
+long getFileSize(FILE * fp)
+{
+    fseek(fp, 0L, SEEK_END);
+    long fileSize = ftell(fp);
+    fseek(fp, 0L, SEEK_SET);
+    return fileSize;
+}
+
+void readFile(const char* path, void* buf, long bufSize)
+{
+    FILE * fp = callfopen(path, "rb");
+    if (!fp)
+        return;
+
+    size_t fileSize = (size_t) getFileSize(fp);
+    if (fileSize > bufSize)
+        printf("Cannot read <%s>: need a big buffer", path);
+
+    size_t nRead = fread(buf, 1, fileSize, fp);
+    if (nRead != fileSize)
+        printf("Cannot read <%s>:<%ld><%d>", path, fileSize, nRead);
+
+    fclose(fp);
+    fp = NULL;
+}
+
+long getFileSize2(const char* filepath)
+{
+    FILE * fp = callfopen(filepath, "rb");
+    fseek(fp, 0L, SEEK_END);
+    long fileSize = ftell(fp);
+    fseek(fp, 0L, SEEK_SET);
+    printf("size: <%ld>\n", fileSize);
+    fclose(fp);
+    fp = NULL;
+    return fileSize;
+}
+
+void readFile2(const char* path, unsigned pos, size_t len, void* buf)
+{
+    HANDLE hFile = CreateFile(path, GENERIC_READ, 0, NULL, OPEN_ALWAYS, 0, NULL);
+    if (pos > 0)
+    {
+        LARGE_INTEGER tempPos;
+        tempPos.QuadPart = pos;
+        tempPos.LowPart = SetFilePointer(hFile, tempPos.LowPart, &tempPos.HighPart, 0);
+    }
+
+    DWORD numRead;
+    if (ReadFile(hFile, buf, len, &numRead, NULL) == 0)
+        printf("Cannot read after update");
+
+    CloseHandle(hFile);
+}
+
+const char* skipLine(const char* s)
+{
+    const char* ptr = s;
+    while (ptr)
+    {
+        if (ptr[0] == '\n')
+            break;
+        ptr++;
+    }
+    return ++ptr;
+}
+
+void readPitches(const char* pathBase, unsigned& byteRate)
+{
+    unsigned lowSamples = 44444440;
+    for (unsigned i = 0; i < 4; i++)
+    {
+        char path2[256];
+        strcpy(path2, pathBase);
+        if (i > 0)
+        {
+            char temp[8];
+            strcat(path2, itoa(i, temp, 10));
+        }
+
+        for (unsigned j = 1; j < 8; j++)
+        {
+            char pitchPath[256];
+            strcpy(pitchPath, path2);
+            char temp[8];
+            strcat(pitchPath, itoa(j, temp, 10));
+            strcat(pitchPath, ".wav");
+            unsigned sz = getFileSize2(pitchPath);
+            if ((i == 0) && (j == 1))
+            {
+                readFile2(pitchPath, 0, 44, head);
+
+                //void* p = (void*) (head + 28);
+                byteRate = 176400;// atoi(p1);
+            }
+
+            unsigned char* pW = getWArray(i, j);
+            readFile2(pitchPath, 44, sz - 44, pW);
+            if ((i == 1) && (j == 2))
+            {
+                unsigned char buf[1000000];
+                readFile2(pitchPath, 44, sz - 44, buf);
+                printf("\n");
+                printf("read 12.wav\n");
+                for (int i1 = 0; i1 < 100; i1++)
+                {
+                    printf("0x%02X", buf[i1]);
+                }
+                printf("\n");
+                printf("read w12[]\n");
+                for (int i2 = 0; i2 < 100; i2++)
+                {
+                    printf("0x%02X", w12[i2]);
+                }
+                printf("\n");
+            }
+        }
+    }
+
+    char path3[256];
+    strcpy(path3, pathBase);
+    strcat(path3, "0.wav");
+    unsigned sz3 = getFileSize2(path3);
+    readFile2(path3, 44, sz3 - 44, w0);
+}
+
+const char* readNoteLine(const char* s, double& time, unsigned& lValue, unsigned& hValue, unsigned& m, bool& hasValue)
+{
+    hasValue = false;
+    if (strlen(s) == 0)
+        return nullptr;
+
+    double t = 0.0;
+    unsigned countCh = 0;
+    unsigned countField = 0;
+    char str[128];
+    const char* ptr = s;
+    while (ptr && *ptr)
+    {
+        if (ptr[0] == '\n')
+            break;
+
+        if (ptr[0] != ',')
+        {
+            str[countCh] = ptr[0];
+            countCh++;
+        }
+        else
+        {
+            str[countCh] = 0;
+            if (str && *str)
+            {
+                if (countField == 0)
+                    m = atoi(str);
+                else if (countField == 1)
+                    t = atof(str);
+                else if (countField == 3)
+                {
+                    lValue = atoi(str);
+                    hasValue = true;
+                }
+                else if (hasValue && (countField == 4))
+                {
+                    hValue = atoi(str);
+                }
+            }
+            countCh = 0;
+            countField++;
+        }
+        ptr++;
+    }
+    time = t + (double)m;
+
+    return ++ptr;
+}
+
+void writeTo(HANDLE handle, unsigned pos, size_t size, void* data)
+{
+    LARGE_INTEGER tempPos;
+    tempPos.QuadPart = pos;
+    tempPos.LowPart = SetFilePointer(handle, tempPos.LowPart, &tempPos.HighPart, 0);
+
+    DWORD numWritten;
+    if (!WriteFile(handle, data, size, &numWritten, NULL))
+        printf("Cannot write <%d>", GetLastError());
+}
+
+void outputSize(HANDLE handle, unsigned pos, long sz)
+{
+    unsigned sz0 = (unsigned)sz;
+    printf("\n---outputSize---<%d><%ld><%02x><%02x><%02x><%02x>\n", sz0, sz, sz0 & 0x000000FF, (sz0 & 0x0000FF00) >> 8, (sz0 & 0x00FF0000) >> 16, (sz0 & 0xFF000000) >> 24);
+    unsigned char s0[5];
+    s0[0] = sz0 & 0x000000FF;
+    s0[1] = (sz0 & 0x0000FF00) >> 8;
+    s0[2] = (sz0 & 0x00FF0000) >> 16;
+    s0[3] = (sz0 & 0xFF000000) >> 24;
+    s0[4] = 0;
+
+    writeTo(handle, pos, 4, s0);
+}
+
+void updateSize(const char* outFile, long sz)
+{
+    HANDLE hFile = CreateFile(outFile, GENERIC_WRITE | GENERIC_READ, 0, NULL, OPEN_ALWAYS, 0, NULL);
+    outputSize(hFile, 4, sz - 8);
+    outputSize(hFile, 40, sz - 44);
+    CloseHandle(hFile);
+}
+
+void outputNotes(const char* noteString, unsigned byteRate, unsigned quartNsPerMin, const char* outFile)
+{
+    unsigned bytesInN = byteRate * 240 / quartNsPerMin;
+
+    char fileName[256];
+    strcpy(fileName, outFile);
+    FILE * fp = callfopen(fileName, "w+b");
+    if (!fp)
+        return;
+
+    fwrite(head, 1, 44, fp);
+
+    long pos = 44;
+    const char* s = noteString;
+    const char* ptr0 = skipLine(s);
+    ptr0 = skipLine(ptr0);
+    ptr0 = skipLine(ptr0);
+    ptr0 = skipLine(ptr0);
+
+    double time = 0.0, time2 = 0.0;
+    unsigned lValue = 0, hValue = 0;
+    unsigned m = 0, maxSampleBytes = 0, count = 0;
+    bool hasValue = false;
+    bool inc = true;
+    const char* ptr = readNoteLine(ptr0, time, lValue, hValue, m, hasValue);
+    while (ptr)
+    {
+        unsigned lValue2 = 0, hValue2 = 0;
+        ptr = readNoteLine(ptr, time2, lValue2, hValue2, m, hasValue);
+        if (!hasValue)
+            continue;
+
+        unsigned sampleBytes = (unsigned)(bytesInN * (time2 - time));
+        if ((sampleBytes % 2) == 1)
+        {
+            sampleBytes += (inc ? 1 : -1);
+            inc = !inc;
+        }
+
+        if (count < 5 || count > 230)
+            printf("---outputNotes---<%d><%d><%d><%d><%ld>\n", count, hValue, lValue, sampleBytes, pos);
+        fwrite(getWArray(hValue, lValue), 1, sampleBytes, fp);
+        pos += sampleBytes;
+        count++;
+
+        time = time2;
+        lValue = lValue2;
+        hValue = hValue2;
+    }
+    fclose(fp);
+    fp = NULL;
+
+    printf("\n---big---<%d>\n", maxSampleBytes);
+    printf("\n---pos---<%ld>\n", pos);
+
+    updateSize(outFile, pos);
+}
+
+void printOut(const char* outFile, unsigned from, unsigned len)
+{
+    printf("printOut <%s> - <%d> - <%d> \n", outFile, from, len);
+
+    unsigned char buf[2000];
+    readFile2(outFile, from, len, buf);
+    for (unsigned i1 = 0; i1 < len; i1++)
+    {
+        printf("0x%02X", buf[i1]);
+    }
+    printf("\n");
+}
+
+int main(int argc, const char *argv[])
+{
+    ///Sleep(30000);
+    char pathBase[256];
+    strcpy(pathBase, argv[1]);
+    strcat(pathBase, "\\");
+
+    unsigned byteRate = 0;
+    readPitches(pathBase, byteRate);
+
+    char csvPath[256];
+    strcpy(csvPath, pathBase);
+    strcat(csvPath, "csv.csv");
+    readFile(csvPath, csv, 100000);
+
+    outputNotes((const char*) csv, byteRate, 96, argv[2]);
+
+    printOut(argv[2], 0, 48);
+    printOut(argv[2], 110294, 100);
+
+    char new1[256];
+    strcpy(new1, "C:\\Users\\wangkx\\Documents\\personal\\a_new.wav_0.wav");
+    printOut(new1, 0, 48);
+    printOut(new1, 110294, 100);
+
+    char testF[256];
+    strcpy(testF, argv[1]);
+    strcat(testF, "\\12.wav");
+
+    printOut(testF, 44, 100);
+    return 0;
+}
+
+#else
+
+#include "jlib.hpp"
+#include "jfile.hpp"
+#include "jprop.hpp"
+#include "jptree.hpp"
+#include "jsocket.hpp"
+#include "jutil.hpp"
+
+class CPitch : public CInterface, implements IInterface
+{
+public:
+    IMPLEMENT_IINTERFACE;
+    CPitch(const char* _index) : index(_index){ };
+
+    StringAttr index;
+    MemoryBuffer data;
+};
+
+void usage()
+{
+    printf("Usage: wutool action [WUID=xxx] [DALISERVER=ip] [CASSANDRASERVER=ip] [option=value]...\n\n"
+            );
+}
+
+void readFile(const char* path, StringBuffer& content)
+{
+    Owned<IFile> file = createIFile(path);
+    Owned<IFileIO> io = file->open(IFOread);
+    if (io)
+    {
+        offset_t fileSize = io->size();
+        content.ensureCapacity((unsigned)fileSize);
+        content.setLength((unsigned)fileSize);
+
+        size32_t nRead = io->read(0, (size32_t)fileSize, (char*)content.str());
+        if (nRead != fileSize)
+            printf("Cannot read <%s>", path);
+    }
+}
+
+void readFile2(const char* path, offset_t pos, size32_t size, MemoryBuffer& content)
+{
+    printf(path);
+    printf("\n");
+    Owned<IFile> file = createIFile(path);
+    Owned<IFileIO> io = file->open(IFOread);
+    if (io)
+    {
+        offset_t fileSize = size > 0 ? size : io->size();
+        size32_t nRead = read(io, pos, (size32_t) (fileSize - pos), content);
+        if (nRead != (fileSize - pos))
+            printf("Cannot read <%s>", path);
+        //printf(content.readDirect(fileSize);
+    }
+}
+
+const char* skipLine(const char* s)
+{
+    const char* ptr = s;
+    while (ptr)
+    {
+        if (ptr[0] == '\n')
+            break;
+        ptr++;
+    }
+    return ++ptr;
+}
+
+const char* readNoteLine(const char* s, double& time, unsigned& lValue, unsigned& hValue, unsigned& m, bool& hasValue)
+{
+    hasValue = false;
+    if (strlen(s) == 0)
+        return nullptr;
+
+    StringBuffer line;
+    const char* ptr = s;
+    while (ptr && *ptr)
+    {
+        if (ptr[0] == '\n')
+            break;
+        line.append(ptr[0]);
+        ptr++;
+    }
+
+    if (!line.isEmpty())
+    {
+        StringArray arr;
+        arr.appendList(line.str(), ",");
+
+        const char* s0 = arr.item(0);
+        if (s0 && *s0)
+            m = atoi(s0);
+        double t = atof(arr.item(1));
+        time = t +  (double) m;
+        const char* s3 = arr.item(3);
+        if (s3 && *s3)
+        {
+            lValue = atoi(s3);
+            if (lValue > 0)
+                hValue = atoi(arr.item(4));
+            hasValue = true;
+        }
+    }
+    return ++ptr;
+}
+
+void readPitches(StringBuffer& pathBase, MapStringToMyClass<CPitch>& pitches, MemoryBuffer& head, unsigned& byteRate)
+{
+    unsigned lowSamples = 44444440;
+    for (unsigned i = 0; i < 4; i++)
+    {
+        StringBuffer key, path2 = pathBase;
+        if (i > 0)
+            path2.append(i);
+
+        for (unsigned j = 1; j < 8; j++)
+        {
+            StringBuffer key, pitchPath = path2;
+            pitchPath.append(j).append(".wav");
+            if (i > 0)
+                key.append(i);
+            key.append(j);
+
+            Owned<CPitch> p = new CPitch(key.str());
+            readFile2(pitchPath.str(), 44, 0, p->data);
+            if (p->data.length() < lowSamples)
+                lowSamples = p->data.length();
+            pitches.setValue(key.str(), p);
+
+            if ((i == 0) && (j == 1))
+            {
+                readFile2(pitchPath.str(), 0, 44, head);
+
+                const char * p = head.toByteArray();
+/*              printf("my data is <<<");
+                for (unsigned i1 = 0; i1 < head.length(); i1++)
+                {
+                    const char c = p[0];
+                    printf("0x%02X", c);
+                    p++;
+                }*/
+                const char * p1 = p + 28;
+                byteRate = 176400;// atoi(p1);
+                //printf(">>>\n");
+
+            }
+        }
+    }
+
+    StringBuffer pitchPath0 = pathBase;
+    pitchPath0.append("0.wav");
+
+    Owned<CPitch> p0 = new CPitch("0");
+    readFile2(pitchPath0.str(), 44, 0, p0->data);
+    if (p0->data.length() < lowSamples)
+        lowSamples = p0->data.length();
+    pitches.setValue("0", p0);
+    printf("\n---small---<%d>\n", lowSamples);
+}
+
+void outputSize(IFileIO* ioOut, unsigned pos, offset_t sz)
+{
+    unsigned sz0 = (unsigned) sz;
+
+    unsigned char s0[5];
+    s0[0] = sz0 & 0x000000FF;
+    s0[1] = (sz0 & 0x0000FF00) >> 8;
+    s0[2] = (sz0 & 0x00FF0000) >> 16;
+    s0[3] = (sz0 & 0xFF000000) >> 24;
+    s0[4] = 0;
+
+    for (unsigned i = 0; i < 4; i++)
+        ioOut->write(pos + i, 1, s0 + i);
+    printf("pos<%d>:<%08X>:<%02X><%02X><%02X><%02X>\n", sz0, sz0, sz0 & 0x000000FF, (sz0 & 0x0000FF00) >> 8, (sz0 & 0x00FF0000) >> 16, (sz0 & 0xFF000000) >> 24);
+}
+
+void outputNotes(MemoryBuffer& head, const char* noteString, unsigned byteRate, unsigned quartNsPerMin, MapStringToMyClass<CPitch>& pitches, const char* outFile)
+{
+    unsigned bytesInN = byteRate * 240 / quartNsPerMin;
+
+    unsigned fileCount = 0;
+    StringBuffer fileName(outFile);
+    fileName.append("_0.wav");
+    Owned<IFile> fileOut = createIFile(fileName.str());
+    Owned<IFileIO> ioOut = fileOut->open(IFOwrite);
+    if (!ioOut)
+        return;
+
+    ioOut->write(0, head.length(), head.bufferBase());
+
+    offset_t pos = head.length();
+    const char* s = noteString;
+    const char* ptr0 = skipLine(s);
+    ptr0 = skipLine(ptr0);
+    ptr0 = skipLine(ptr0);
+    ptr0 = skipLine(ptr0);
+
+    StringBuffer line, line2;
+    double time = 0.0, time2 = 0.0;
+    unsigned lValue = 0, hValue = 0;
+    unsigned m = 0, maxSampleBytes = 0, count = 0;
+    bool hasValue = false;
+    bool inc = true;
+    const char* ptr = readNoteLine(ptr0, time, lValue, hValue, m, hasValue);
+    while (ptr)
+    {
+        unsigned lValue2 = 0, hValue2 = 0;
+        ptr = readNoteLine(ptr, time2, lValue2, hValue2, m, hasValue);
+        if (!hasValue)
+            continue;
+
+        unsigned sampleBytes = (unsigned) (bytesInN * (time2 - time));
+        if ((sampleBytes % 2) == 1)
+        {
+            sampleBytes += (inc ? 1 : -1);
+            inc = !inc;
+        }
+
+        StringBuffer key;
+        if (hValue > 0)
+            key.append(hValue);
+        key.append(lValue);
+//      printf("\n---outputNotes---<%d>:<%s><%lld><%d>\n", count, key.str(), pos, sampleBytes);
+        if (maxSampleBytes < sampleBytes)
+            maxSampleBytes = sampleBytes;
+
+        Linked<CPitch> pitch = pitches.getValue(key);
+        if (pos > 9000000)
+        {
+            outputSize(ioOut, 4, pos - 8);
+            outputSize(ioOut, 40, pos - 44);
+
+            fileCount++;
+            fileName.set(outFile).append("_").append(fileCount).append(".wav");
+            fileOut.setown(createIFile(fileName.str()));
+            ioOut.setown(fileOut->open(IFOwrite));
+            if (!ioOut)
+                return;
+
+            ioOut->write(0, head.length(), head.bufferBase());
+            pos = head.length();
+        }
+        ioOut->write(pos, sampleBytes, pitch->data.bufferBase());
+        if (count < 20)
+        {
+            printf("\n---outputNotes:<%d><%s><%lld><%d>\n", count, key.str(), pos, sampleBytes);
+        }
+        pos += sampleBytes;
+        count++;
+
+        time = time2;
+        lValue = lValue2;
+        hValue = hValue2;
+    }
+    printf("\n---big---<%d>\n", maxSampleBytes);
+    printf("\n---pos---<%lld>\n", pos);
+
+    outputSize(ioOut, 4, pos - 8);
+    outputSize(ioOut, 40, pos - 44);
+}
+
+void printOut(const char* outFile, offset_t from, unsigned len)
+{
+    printf("printOut <%s> - <%lld> - <%d> \n", outFile, from, len);
+    Owned<IFile> fileOut = createIFile(outFile);
+    Owned<IFileIO> ioOut = fileOut->open(IFOread);
+    if (!ioOut)
+        return;
+
+    MemoryBuffer content;
+    read(ioOut, from, (size32_t)len, content);
+    const char * p = content.toByteArray();
+    for (unsigned i1 = 0; i1 < content.length(); i1++)
+    {
+        const char c = p[0];
+        printf("0x%02X", c);
+        p++;
+    }
+    printf("\n");
+}
+
+int main(int argc, const char *argv[])
+{
+    usage();
+    sleep(30);
+    MapStringToMyClass<CPitch> pitches;
+    StringBuffer pathBase, csvPath, csv;
+    pathBase.set(argv[1]).append("\\");
+
+    MemoryBuffer head;
+    unsigned byteRate = 0;
+    readPitches(pathBase, pitches, head, byteRate);
+    
+    csvPath.append(pathBase).append("csv.csv");
+    readFile(csvPath.str(), csv);
+
+    outputNotes(head, csv.str(), byteRate, 96, pitches, argv[2]);
+    printOut(argv[2], 0, 100);
+
+    StringBuffer testF;
+    testF.set(argv[1]).append("\\13.wav");
+    printOut(testF.str(), 44, 100);
+    printOut(argv[2], 385919, 100);
+    printOut(argv[2], 385910, 9);
+    return 0;
+}
+#endif

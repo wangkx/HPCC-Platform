@@ -310,6 +310,15 @@ extern da_decl IRemoteConnection *getElementsPaged(IElementsPager *elementsPager
                                      bool *allMatchingElementsReceived,
                                      bool checkConn = true); // total possible filtered matches, i.e. irrespective of startoffset and pagesize
 
+extern da_decl void getElementsPaged2(IElementsPager *elementsPager,
+                                     const char *beforeElement,
+                                     const char *afterElement,
+                                     StringBuffer &columnNames,
+                                     unsigned pagesize, 
+                                     __int64 *hint,                         // if non null points to in/out cache hint
+                                     IArrayOf<IPropertyTree> &results,
+                                     unsigned *total); // total possible filtered matches, i.e. irrespective of startoffset and pagesize
+
 extern da_decl void clearPagedElementsCache();
 
 class da_decl CSDSFileScanner // NB should use dadfs iterators in preference to this unless good reason not to

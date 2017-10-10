@@ -2061,6 +2061,7 @@ public:
     Linked<ISortedElementsTreeFilter> postFilter;
     unsigned postFiltered;
     Owned<IBitSet> passesFilter;
+    StringAttr columnNames;
 };
 
 void sortElements(IPropertyTreeIterator* elementsIter,
@@ -2177,6 +2178,60 @@ IRemoteConnection *getElementsPaged( IElementsPager *elementsPager,
     }
     return ret;
 }
+
+void getElementsPaged2(IElementsPager *elementsPager,
+                       const char *beforeID,
+                       const char *afterID,
+                       StringBuffer &columnNames,
+                       unsigned pageSize,
+                       __int64 *hint,
+                       IArrayOf<IPropertyTree> &results,
+                       unsigned *total)
+{
+    if ((pageSize==0) || !elementsPager)
+        return;
+    if ((hint == nullptr) && columnNames.isEmpty())
+        return;
+    {
+        CriticalBlock block(pagedElementsCacheSect);
+        if (!pagedElementsCache) {
+            pagedElementsCache = new CTimedCache;
+            pagedElementsCache->start();
+        }
+    }
+    Owned<CPECacheElem> elem;
+    if (hint&&*hint)
+    {
+        elem.setown(QUERYINTERFACE(pagedElementsCache->get("",*hint),CPECacheElem)); // NB: removes from cache in process, added back at end
+        if (elem)
+            columnNames.set(elem->columnNames); // reuse cached columnNames
+    }
+    if (!elem)
+    {
+        elem.setown(new CPECacheElem("", nullptr));
+        elementsPager->getElements(elem->totalres);
+        elem->columnNames.set(columnNames.str());
+    }
+
+    unsigned n;
+    if (total)
+        *total = elem->totalres.ordinality();
+    ///n = (elem->totalres.ordinality()>startoffset) ? (elem->totalres.ordinality()-startoffset) : 0;
+    n = 0;
+    if (n>pageSize)
+        n = pageSize;
+///    for (unsigned i=startoffset;i<startoffset+n;i++) {
+    for (unsigned i=0;i<n;i++) {
+        IPropertyTree &item = elem->totalres.item(i);
+        item.Link();
+        results.append(item);
+    }
+    if (hint) {
+        *hint = elem->hint;
+        pagedElementsCache->add(elem.getClear());
+    }
+}
+
 
 void clearPagedElementsCache()
 {
