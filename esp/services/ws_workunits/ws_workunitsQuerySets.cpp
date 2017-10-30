@@ -52,12 +52,11 @@ bool isRoxieProcess(const char *process)
 {
     if (!process)
         return false;
-    Owned<IEnvironmentFactory> factory = getEnvironmentFactory();
-    Owned<IConstEnvironment> env = factory->openEnvironment();
-    if (!env)
+
+    Owned<IPropertyTree> root = getEnvironmentPTreeWithUpdate();
+    if (!root)
         return false;
 
-    Owned<IPropertyTree> root = &env->getPTree();
     VStringBuffer xpath("Software/RoxieCluster[@name=\"%s\"]", process);
     return root->hasProp(xpath.str());
 }
@@ -1956,11 +1955,9 @@ bool CWsWorkunitsEx::onWUQueryDetails(IEspContext &context, IEspWUQueryDetailsRe
     if (req.getIncludeWsEclAddresses())
     {
         StringArray wseclAddresses;
-        Owned<IEnvironmentFactory> factory = getEnvironmentFactory();
-        Owned<IConstEnvironment> env = factory->openEnvironment();
-        if (env)
+        Owned<IPropertyTree> root = getEnvironmentPTreeWithUpdate();
+        if (root)
         {
-            Owned<IPropertyTree> root = &env->getPTree();
             Owned<IPropertyTreeIterator> services = root->getElements("Software/EspService[Properties/@type='ws_ecl']");
             StringArray serviceNames;
             VStringBuffer xpath("Target[@name='%s']", querySet);

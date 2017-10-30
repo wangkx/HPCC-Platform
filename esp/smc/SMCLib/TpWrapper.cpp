@@ -33,9 +33,7 @@ const char* MSG_FAILED_GET_ENVIRONMENT_INFO = "Failed to get environment informa
 
 IPropertyTree* CTpWrapper::getEnvironment(const char* xpath)
 {
-    Owned<IEnvironmentFactory> envFactory = getEnvironmentFactory();
-    Owned<IConstEnvironment> constEnv = envFactory->openEnvironment();
-    Owned<IPropertyTree> root = &constEnv->getPTree();
+    Owned<IPropertyTree> root = getEnvironmentPTreeWithUpdate();
     if (root)
     {
         if (!xpath || !*xpath)
@@ -59,15 +57,7 @@ bool CTpWrapper::getClusterLCR(const char* clusterType, const char* clusterName)
     if (!clusterType || !*clusterType || !clusterName || !*clusterName)
         return bLCR;
 
-    Owned<IEnvironmentFactory> envFactory = getEnvironmentFactory();
-    if (!envFactory)
-        throw MakeStringExceptionDirect(ECLWATCH_CANNOT_GET_ENV_INFO, MSG_FAILED_GET_ENVIRONMENT_INFO);
-    
-    Owned<IConstEnvironment> constEnv = envFactory->openEnvironment();
-    if (!constEnv)
-        throw MakeStringExceptionDirect(ECLWATCH_CANNOT_GET_ENV_INFO, MSG_FAILED_GET_ENVIRONMENT_INFO);
-
-    Owned<IPropertyTree> root = &constEnv->getPTree();
+    Owned<IPropertyTree> root = getEnvironmentPTreeWithUpdate();
     if (!root)
         throw MakeStringExceptionDirect(ECLWATCH_CANNOT_GET_ENV_INFO, MSG_FAILED_GET_ENVIRONMENT_INFO);
 
@@ -734,9 +724,7 @@ void CTpWrapper::getTargetClusterList(IArrayOf<IEspTpLogicalCluster>& clusters, 
 
 void CTpWrapper::queryTargetClusterProcess(double version, const char* processName, const char* clusterType, IArrayOf<IConstTpCluster>& clusterList)
 {
-    Owned<IEnvironmentFactory> envFactory = getEnvironmentFactory();
-    Owned<IConstEnvironment> constEnv = envFactory->openEnvironment();
-    Owned<IPropertyTree> root = &constEnv->getPTree();
+    Owned<IPropertyTree> root = getEnvironmentPTreeWithUpdate();
     if (!root)
         throw MakeStringExceptionDirect(ECLWATCH_CANNOT_GET_ENV_INFO, MSG_FAILED_GET_ENVIRONMENT_INFO);
 
@@ -864,9 +852,7 @@ void CTpWrapper::queryTargetClusters(double version, const char* clusterType, co
 {
     try
     {
-        Owned<IEnvironmentFactory> envFactory = getEnvironmentFactory();
-        Owned<IConstEnvironment> constEnv = envFactory->openEnvironment();
-        Owned<IPropertyTree> root = &constEnv->getPTree();
+        Owned<IPropertyTree> root = getEnvironmentPTreeWithUpdate();
         if (!root)
             throw MakeStringExceptionDirect(ECLWATCH_CANNOT_GET_ENV_INFO, MSG_FAILED_GET_ENVIRONMENT_INFO);
 
@@ -1001,9 +987,7 @@ void CTpWrapper::getClusterProcessList(const char* ClusterType, IArrayOf<IEspTpC
 {
     try
     {
-        Owned<IEnvironmentFactory> envFactory = getEnvironmentFactory();
-        Owned<IConstEnvironment> constEnv = envFactory->openEnvironment();
-        Owned<IPropertyTree> root = &constEnv->getPTree();
+        Owned<IPropertyTree> root = getEnvironmentPTreeWithUpdate();
         if (root)
         {
             IPropertyTree* pSoftware = root->queryPropTree("Software");
@@ -1164,9 +1148,7 @@ void CTpWrapper::getHthorClusterList(IArrayOf<IEspTpCluster>& clusterList)
 {
     try
     {
-        Owned<IEnvironmentFactory> envFactory = getEnvironmentFactory();
-        Owned<IConstEnvironment> constEnv = envFactory->openEnvironment();
-        Owned<IPropertyTree> root = &constEnv->getPTree();
+        Owned<IPropertyTree> root = getEnvironmentPTreeWithUpdate();
         if (root)
         {
             IPropertyTree* pSoftware = root->queryPropTree("Software");
@@ -1304,11 +1286,7 @@ bool CTpWrapper::checkGroupReplicateOutputs(const char* groupName, const char* k
     if (strieq(kind, "Roxie") || strieq(kind, "hthor"))
         return false;
 
-    Owned<IEnvironmentFactory> factory = getEnvironmentFactory();
-    Owned<IConstEnvironment> environment = factory->openEnvironment();
-    if (!environment)
-        throw MakeStringException(ECLWATCH_CANNOT_GET_ENV_INFO, "Failed to get environment information.");
-    Owned<IPropertyTree> root = &environment->getPTree();
+    Owned<IPropertyTree> root = getEnvironmentPTreeWithUpdate();
     if (!root)
         throw MakeStringException(ECLWATCH_CANNOT_GET_ENV_INFO, "Failed to get environment information.");
 
@@ -1384,8 +1362,10 @@ bool CTpWrapper::ContainsProcessDefinition(IPropertyTree& clusterNode,const char
 
 void CTpWrapper::getMachineInfo(double clientVersion, const char* name, const char* netAddress, IEspTpMachine& machineInfo)
 {
-    Owned<IEnvironmentFactory> envFactory = getEnvironmentFactory();
+    Owned<IEnvironmentFactory> envFactory = getEnvironmentFactoryWithUpdate();
     Owned<IConstEnvironment> constEnv = envFactory->openEnvironment();
+    if (!constEnv)
+        throw MakeStringException(ECLWATCH_CANNOT_GET_ENV_INFO, "Failed to get environment information.");
     Owned<IConstMachineInfo> pMachineInfo;
     if (name && *name)
         pMachineInfo.setown(constEnv->getMachine(name));
@@ -1446,9 +1426,7 @@ void CTpWrapper::getMachineInfo(IEspTpMachine& machineInfo,IPropertyTree& machin
 
 bool CTpWrapper::checkMultiSlavesFlag(const char* clusterName)
 {
-    Owned<IEnvironmentFactory> envFactory = getEnvironmentFactory();
-    Owned<IConstEnvironment> constEnv = envFactory->openEnvironment();
-    Owned<IPropertyTree> root = &constEnv->getPTree();
+    Owned<IPropertyTree> root = getEnvironmentPTreeWithUpdate();
     if (!root)
         throw MakeStringExceptionDirect(ECLWATCH_CANNOT_GET_ENV_INFO, MSG_FAILED_GET_ENVIRONMENT_INFO);
 
@@ -1504,8 +1482,10 @@ void CTpWrapper::getThorSlaveMachineList(double clientVersion, const char* clust
 {
     try
     {
-        Owned<IEnvironmentFactory> envFactory = getEnvironmentFactory();
+        Owned<IEnvironmentFactory> envFactory = getEnvironmentFactoryWithUpdate();
         Owned<IConstEnvironment> constEnv = envFactory->openEnvironment();
+        if (!constEnv)
+            throw MakeStringException(ECLWATCH_CANNOT_GET_ENV_INFO, "Failed to get environment information.");
         Owned<IGroup> nodeGroup = getClusterProcessNodeGroup(clusterName, "ThorCluster");
         if (!nodeGroup || (nodeGroup->ordinality() == 0))
             return;
@@ -1534,11 +1514,11 @@ void CTpWrapper::getThorSpareMachineList(double clientVersion, const char* clust
 {
     try
     {
-        Owned<IEnvironmentFactory> envFactory = getEnvironmentFactory();
+        Owned<IEnvironmentFactory> envFactory = getEnvironmentFactoryWithUpdate();
         Owned<IConstEnvironment> constEnv = envFactory->openEnvironment();
+        if (!constEnv)
+            throw MakeStringException(ECLWATCH_CANNOT_GET_ENV_INFO, "Failed to get environment information.");
         Owned<IPropertyTree> root = &constEnv->getPTree();
-        if (!root)
-            throw MakeStringExceptionDirect(ECLWATCH_CANNOT_GET_ENV_INFO, MSG_FAILED_GET_ENVIRONMENT_INFO);
 
         VStringBuffer path("Software/ThorCluster[@name=\"%s\"]", clusterName);
         Owned<IPropertyTree> cluster= root->getPropTree(path.str());
@@ -1584,9 +1564,7 @@ void CTpWrapper::getMachineList(const char* MachineType,
     try
     {
         //ParentPath=Path to parent node... normally a cluster
-        Owned<IEnvironmentFactory> envFactory = getEnvironmentFactory();
-        Owned<IConstEnvironment> constEnv = envFactory->openEnvironment();
-        Owned<IPropertyTree> root0 = &constEnv->getPTree();
+        Owned<IPropertyTree> root0 = getEnvironmentPTreeWithUpdate();
         if (!root0)
             throw MakeStringExceptionDirect(ECLWATCH_CANNOT_GET_ENV_INFO, MSG_FAILED_GET_ENVIRONMENT_INFO);
     
@@ -1689,8 +1667,10 @@ void CTpWrapper::getDropZoneMachineList(double clientVersion, bool ECLWatchVisib
 
 void CTpWrapper::getTpDropZones(double clientVersion, const char* name, bool ECLWatchVisibleOnly, IArrayOf<IConstTpDropZone>& list)
 {
-    Owned<IEnvironmentFactory> envFactory = getEnvironmentFactory();
+    Owned<IEnvironmentFactory> envFactory = getEnvironmentFactoryWithUpdate();
     Owned<IConstEnvironment> constEnv = envFactory->openEnvironment();
+    if (!constEnv)
+        throw MakeStringException(ECLWATCH_CANNOT_GET_ENV_INFO, "Failed to get environment information.");
     if (!isEmptyString(name))
     {
         Owned<IConstDropZoneInfo> pDropZoneInfo = constEnv->getDropZone(name);
@@ -1811,9 +1791,11 @@ IEspTpMachine* CTpWrapper::createTpMachineEx(const char* name, const char* type,
 void CTpWrapper::setMachineInfo(const char* name,const char* type,IEspTpMachine& machine)
 {
     try{
-        Owned<IEnvironmentFactory> factory = getEnvironmentFactory();
-        Owned<IConstEnvironment> m_pConstEnvironment = factory->openEnvironment();
-        Owned<IConstMachineInfo> pMachineInfo =  m_pConstEnvironment->getMachine(name);
+        Owned<IEnvironmentFactory> factory = getEnvironmentFactoryWithUpdate();
+        Owned<IConstEnvironment> constEnv = factory->openEnvironment();
+        if (!constEnv)
+            throw MakeStringException(ECLWATCH_CANNOT_GET_ENV_INFO, "Failed to get environment information.");
+        Owned<IConstMachineInfo> pMachineInfo =  constEnv->getMachine(name);
         if (pMachineInfo.get())
         {
             SCMStringBuffer ep;

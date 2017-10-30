@@ -1840,6 +1840,27 @@ extern ENVIRONMENT_API IEnvironmentFactory * getEnvironmentFactory()
     return LINK(factory);
 }
 
+extern ENVIRONMENT_API IEnvironmentFactory * getEnvironmentFactoryWithUpdate()
+{
+    CriticalBlock block(getEnvSect);
+    if (!factory)
+    {
+        factory = new CEnvironmentFactory();
+        addShutdownHook(*factory);
+    }
+    factory->validateCache();
+    return LINK(factory);
+}
+
+extern ENVIRONMENT_API IPropertyTree * getEnvironmentPTreeWithUpdate()
+{
+    Owned<IEnvironmentFactory> factory = getEnvironmentFactoryWithUpdate();
+    Owned<IConstEnvironment> env = factory->openEnvironment();
+    if (!env)
+        return nullptr;
+    return &env->getPTree();
+}
+
 extern ENVIRONMENT_API void closeEnvironment()
 {
     try

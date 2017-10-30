@@ -1185,11 +1185,9 @@ bool CWsPackageProcessEx::onGetPackageMapSelectOptions(IEspContext &context, IEs
         bool includeProcesses = req.getIncludeProcesses();
         if (includeTargets || includeProcesses)
         {
-            Owned<IEnvironmentFactory> factory = getEnvironmentFactory();
-            Owned<IConstEnvironment> env = factory->openEnvironment();
-            if (!env)
-                throw MakeStringException(PKG_DALI_LOOKUP_ERROR,"Failed to get environment information.");
-            Owned<IPropertyTree> root = &env->getPTree();
+            Owned<IPropertyTree> root = getEnvironmentPTreeWithUpdate();
+            if (!root)
+                throw MakeStringException(PKG_DALI_LOOKUP_ERROR, "Failed to get environment information.");
 
             IArrayOf<IConstTargetData> targets;
             CConstWUClusterInfoArray clusters;

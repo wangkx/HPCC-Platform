@@ -214,9 +214,9 @@ bool CWsEclService::init(const char * name, const char * type, IPropertyTree * c
             daliAddress.append(*daliServers++);
     }
 
-    Owned<IEnvironmentFactory> factory = getEnvironmentFactory();
-    Owned<IConstEnvironment> environment = factory->openEnvironment();
-    Owned<IPropertyTree> pRoot = &environment->getPTree();
+    Owned<IPropertyTree> pRoot = getEnvironmentPTreeWithUpdate();
+    if (!pRoot)
+        throw MakeStringException(-1, "Failed to get environment information.");
 
     xpath.clear().appendf("EspService[@name='%s']", name);
     IPropertyTree *serviceTree = prc->queryPropTree(xpath);

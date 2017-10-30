@@ -184,11 +184,10 @@ WsWUExceptions::WsWUExceptions(IConstWorkUnit& wu): numerr(0), numwrn(0), numinf
 
 void getSashaNode(SocketEndpoint &ep)
 {
-    Owned<IEnvironmentFactory> factory = getEnvironmentFactory();
-    Owned<IConstEnvironment> env = factory->openEnvironment();
-    if (!env)
-        throw MakeStringException(ECLWATCH_CANNOT_GET_ENV_INFO,"Cannot get environment information.");
-    Owned<IPropertyTree> root = &env->getPTree();
+    Owned<IPropertyTree> root = getEnvironmentPTreeWithUpdate();
+    if (!root)
+        throw MakeStringException(ECLWATCH_CANNOT_GET_ENV_INFO, "Cannot get environment information.");
+
     IPropertyTree *pt = root->queryPropTree("Software/SashaServerProcess[1]/Instance[1]");
     if (!pt)
         throw MakeStringException(ECLWATCH_ARCHIVE_SERVER_NOT_FOUND, "Archive Server not found.");
@@ -1156,9 +1155,7 @@ unsigned WsWuInfo::getWorkunitThorLogInfo(IArrayOf<IEspECLHelpFile>& helpers, IE
         }
 
         StringBuffer logDir;
-        Owned<IEnvironmentFactory> envFactory = getEnvironmentFactory();
-        Owned<IConstEnvironment> constEnv = envFactory->openEnvironment();
-        Owned<IPropertyTree> logTree = &constEnv->getPTree();
+        Owned<IPropertyTree> logTree = getEnvironmentPTreeWithUpdate();
         if (logTree)
              logTree->getProp("EnvSettings/log", logDir);
         if (logDir.length() > 0)
@@ -1247,11 +1244,9 @@ bool WsWuInfo::getClusterInfo(IEspECLWorkunit &info, unsigned long flags)
     {
         int clusterTypeFlag = 0;
 
-        Owned<IEnvironmentFactory> envFactory = getEnvironmentFactory();
-        Owned<IConstEnvironment> constEnv = envFactory->openEnvironment();
-        Owned<IPropertyTree> root = &constEnv->getPTree();
+        Owned<IPropertyTree> root = getEnvironmentPTreeWithUpdate();
         if (!root)
-            throw MakeStringException(ECLWATCH_CANNOT_CONNECT_DALI,"Cannot connect to DALI server.");
+            throw MakeStringException(ECLWATCH_CANNOT_GET_ENV_INFO, "Failed to get environment information.");
 
         Owned<IConstWUClusterInfo> clusterInfo = getTargetClusterInfo(clusterName.str());
         if (clusterInfo.get())

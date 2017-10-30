@@ -175,9 +175,7 @@ void Cws_machineEx::init(IPropertyTree *cfg, const char *process, const char *se
         m_machineInfoFile.append("preflight");
 
     //Read settings from environment.xml
-    m_envFactory.setown( getEnvironmentFactory() );
-    Owned<IConstEnvironment> constEnv = getConstEnvironment();
-    Owned<IPropertyTree> pEnvironmentRoot = &constEnv->getPTree();
+    Owned<IPropertyTree> pEnvironmentRoot = getEnvironmentPTreeWithUpdate();
     if (!pEnvironmentRoot)
         throw MakeStringException(ECLWATCH_CANNOT_GET_ENV_INFO, "Failed to get environment information.");
 
@@ -593,8 +591,7 @@ void Cws_machineEx::readSettingsForTargetClusters(IEspContext& context, StringAr
     if (ordinality < 1)
         return;
 
-    Owned<IConstEnvironment> constEnv = getConstEnvironment();
-    Owned<IPropertyTree> pEnvironmentRoot = &constEnv->getPTree();
+    Owned<IPropertyTree> pEnvironmentRoot = getEnvironmentPTreeWithUpdate();
     if (!pEnvironmentRoot)
         throw MakeStringException(ECLWATCH_CANNOT_GET_ENV_INFO, "Failed to get environment information.");
 
@@ -2199,8 +2196,10 @@ const char* Cws_machineEx::getProcessTypeFromMachineType(const char* machineType
 
 IConstEnvironment* Cws_machineEx::getConstEnvironment()
 {
-    Owned<IEnvironmentFactory> envFactory = getEnvironmentFactory();
+    Owned<IEnvironmentFactory> envFactory = getEnvironmentFactoryWithUpdate();
     Owned<IConstEnvironment> constEnv = envFactory->openEnvironment();
+    if (!constEnv)
+        throw MakeStringException(ECLWATCH_CANNOT_GET_ENV_INFO, "Failed to get environment information.");
     return constEnv.getLink();
 }
 
@@ -2210,17 +2209,14 @@ IPropertyTree* Cws_machineEx::getComponent(const char* compType, const char* com
     StringBuffer xpath;
     xpath.append("Software/").append(compType).append("[@name='").append(compName).append("']");
 
-    m_envFactory->validateCache();
-
-    Owned<IConstEnvironment> constEnv = getConstEnvironment();
-    Owned<IPropertyTree> pEnvRoot = &constEnv->getPTree();
+    Owned<IPropertyTree> pEnvRoot = getEnvironmentPTreeWithUpdate();
+    if (!pEnvRoot)
+        throw MakeStringException(ECLWATCH_CANNOT_GET_ENV_INFO, "Failed to get environment information.");
     return pEnvRoot->getPropTree( xpath.str() );
 }
 
 void Cws_machineEx::getAccountAndPlatformInfo(const char* address, StringBuffer& userId, StringBuffer& password, bool& bLinux)
 {
-    m_envFactory->validateCache();
-
     Owned<IConstEnvironment> constEnv = getConstEnvironment();
     Owned<IConstMachineInfo> machine = constEnv->getMachineByAddress(address);
     if (!machine && strieq(address, "."))

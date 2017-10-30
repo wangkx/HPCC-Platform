@@ -24,6 +24,7 @@
 #ifdef _WIN32
 #include "windows.h"
 #endif
+#include "exception_util.hpp"
 
 ///#define FILE_DESPRAY_URL "FileDesprayAccess"
 #define FILE_IO_URL     "FileIOAccess"
@@ -36,12 +37,13 @@ bool CWsFileIOEx::CheckServerAccess(const char* server, const char* relPath, Str
 {
     if (!server || (server[0] == 0) || !relPath || (relPath[0] == 0))
         return false;
-    Owned<IEnvironmentFactory> factory = getEnvironmentFactory();
 
-    Owned<IConstEnvironment> env;
-    env.setown(factory->openEnvironment());
-
+    Owned<IEnvironmentFactory> factory = getEnvironmentFactoryWithUpdate();
+    Owned<IConstEnvironment> env = factory->openEnvironment();
     Owned<IPropertyTree> pEnvRoot = &env->getPTree();
+    if (!pEnvRoot)
+        throw MakeStringException(ECLWATCH_CANNOT_GET_ENV_INFO, "Failed to get environment information.");
+
     IPropertyTree* pEnvSoftware = pEnvRoot->queryPropTree("Software");
     Owned<IPropertyTree> pRoot = createPTreeFromXMLString("<Environment/>");
     IPropertyTree* pSoftware = pRoot->addPropTree("Software", createPTree("Software"));
