@@ -127,6 +127,11 @@ void CFileSprayEx::init(IPropertyTree *cfg, const char *process, const char *ser
         }
     }
 
+    xpath.setf("Software/EspProcess[@name=\"%s\"]/@PageCacheTimeoutSeconds", process);
+    pageCacheTimeoutSeconds = cfg->getPropInt(xpath.str(), 0); //0: PAGE_CACHE_TIMEOUT (600 seconds).
+    xpath.setf("Software/EspProcess[@name=\"%s\"]/@MaxPageCacheItems", process);
+    maxPageCacheItems = cfg->getPropInt(xpath.str(), 0); //0: no limit.
+
     xpath.clear().appendf("Software/EspProcess[@name=\"%s\"]/EspService[@name=\"%s\"]/MonitorQueueLabel", process, service);
     cfg->getProp(xpath.str(), m_MonitorQueueLabel);
 
@@ -1079,7 +1084,8 @@ bool CFileSprayEx::onGetDFUWorkunits(IEspContext &context, IEspGetDFUWorkunits &
         Owned<IDFUWorkUnitFactory> factory = getDFUWorkUnitFactory();
         unsigned numWUs;
         PROGLOG("GetDFUWorkunits: getWorkUnitsSorted");
-        Owned<IConstDFUWorkUnitIterator> itr = factory->getWorkUnitsSorted(sortorder, filters, filterbuf.bufferBase(), (int) displayFrom, (int) pagesize+1, req.getOwner(), &cacheHint, &numWUs);
+        Owned<IConstDFUWorkUnitIterator> itr = factory->getWorkUnitsSorted(sortorder, filters, filterbuf.bufferBase(),
+            (int) displayFrom, (int) pagesize+1, req.getOwner(), pageCacheTimeoutSeconds, maxPageCacheItems, &cacheHint, &numWUs);
         if (version >= 1.07)
             resp.setCacheHint(cacheHint);
         PROGLOG("GetDFUWorkunits: getWorkUnitsSorted done");

@@ -451,6 +451,8 @@ interface IDFUWorkUnitFactory : extends IInterface
                                                         unsigned startoffset,
                                                         unsigned maxnum,
                                                         const char *queryowner,
+                                                        unsigned pageCacheTimeoutSeconds,
+                                                        unsigned maxPageCacheItems,
                                                         __int64 *cachehint,         // set to NULL if caching not required
                                                         unsigned *total) = 0;       // set to NULL if caching not required
     virtual unsigned numWorkUnits()=0;

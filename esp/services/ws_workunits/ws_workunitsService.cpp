@@ -373,6 +373,11 @@ void CWsWorkunitsEx::init(IPropertyTree *cfg, const char *process, const char *s
     VStringBuffer xpath("Software/EspProcess[@name=\"%s\"]/EspService[@name=\"%s\"]/AWUsCacheMinutes", process, service);
     cfg->getPropInt(xpath.str(), awusCacheMinutes);
 
+    xpath.setf("Software/EspProcess[@name=\"%s\"]/@PageCacheTimeoutSeconds", process);
+    pageCacheTimeoutSeconds = cfg->getPropInt(xpath.str(), 0); //0: PAGE_CACHE_TIMEOUT (600 seconds).
+    xpath.setf("Software/EspProcess[@name=\"%s\"]/@MaxPageCacheItems", process);
+    maxPageCacheItems = cfg->getPropInt(xpath.str(), 0); //0: no limit.
+
     xpath.setf("Software/EspProcess[@name=\"%s\"]/EspService[@name=\"%s\"]/serverForArchivedECLWU/@netAddress", process, service);
     if (cfg->hasProp(xpath.str()))
     {
@@ -1739,7 +1744,8 @@ void readWUQuerySortOrder(const char* sortBy, const bool descending, WUSortField
         sortOrder = (WUSortField) (sortOrder | WUSFreverse);
 }
 
-void doWUQueryWithSort(IEspContext &context, IEspWUQueryRequest & req, IEspWUQueryResponse & resp)
+void doWUQueryWithSort(IEspContext &context, IEspWUQueryRequest & req, IEspWUQueryResponse & resp,
+    unsigned pageCacheTimeoutSeconds, unsigned maxPageCacheItems)
 {
     SecAccessFlags accessOwn;
     SecAccessFlags accessOthers;
@@ -1828,7 +1834,8 @@ void doWUQueryWithSort(IEspContext &context, IEspWUQueryRequest & req, IEspWUQue
     Owned<IWorkUnitFactory> factory = getWorkUnitFactory(context.querySecManager(), context.queryUser());
     unsigned numWUs;
     PROGLOG("WUQuery: getWorkUnitsSorted");
-    Owned<IConstWorkUnitIterator> it = factory->getWorkUnitsSorted(sortorder, filters, filterbuf.bufferBase(), begin, pagesize+1, &cacheHint, &numWUs); // MORE - need security flags here!
+    Owned<IConstWorkUnitIterator> it = factory->getWorkUnitsSorted(sortorder, filters, filterbuf.bufferBase(),
+        begin, pagesize+1, pageCacheTimeoutSeconds, maxPageCacheItems, &cacheHint, &numWUs); // MORE - need security flags here!
     if (version >= 1.41)
         resp.setCacheHint(cacheHint);
     PROGLOG("WUQuery: getWorkUnitsSorted done");
@@ -1963,7 +1970,8 @@ void doWUQueryWithSort(IEspContext &context, IEspWUQueryRequest & req, IEspWUQue
     return;
 }
 
-void doWULightWeightQueryWithSort(IEspContext &context, IEspWULightWeightQueryRequest & req, IEspWULightWeightQueryResponse & resp)
+void doWULightWeightQueryWithSort(IEspContext &context, IEspWULightWeightQueryRequest &req, IEspWULightWeightQueryResponse &resp,
+    unsigned pageCacheTimeoutSeconds, unsigned maxPageCacheItems)
 {
     SecAccessFlags accessOwn;
     SecAccessFlags accessOthers;
@@ -2023,7 +2031,8 @@ void doWULightWeightQueryWithSort(IEspContext &context, IEspWULightWeightQueryRe
     Owned<IWorkUnitFactory> factory = getWorkUnitFactory(context.querySecManager(), context.queryUser());
     unsigned numWUs;
     PROGLOG("getWorkUnitsSorted(LightWeight)");
-    Owned<IConstWorkUnitIterator> it = factory->getWorkUnitsSorted(sortOrder, filters, filterbuf.bufferBase(), pageStartFrom, pageSize+1, &cacheHint, &numWUs); // MORE - need security flags here!
+    Owned<IConstWorkUnitIterator> it = factory->getWorkUnitsSorted(sortOrder, filters, filterbuf.bufferBase(),
+        pageStartFrom, pageSize+1, pageCacheTimeoutSeconds, maxPageCacheItems, &cacheHint, &numWUs); // MORE - need security flags here!
     resp.setCacheHint(cacheHint);
     PROGLOG("getWorkUnitsSorted(LightWeight) done");
 
@@ -2484,7 +2493,7 @@ bool CWsWorkunitsEx::onWUQuery(IEspContext &context, IEspWUQueryRequest & req, I
         else if (notEmpty(req.getLogicalFile()) && req.getLogicalFileSearchType() && strieq(req.getLogicalFileSearchType(), "Created"))
             doWUQueryByFile(context, req.getLogicalFile(), resp);
         else
-            doWUQueryWithSort(context, req, resp);
+            doWUQueryWithSort(context, req, resp, pageCacheTimeoutSeconds, maxPageCacheItems);
 
         resp.setState(req.getState());
         resp.setCluster(req.getCluster());
@@ -2543,7 +2552,7 @@ bool CWsWorkunitsEx::onWULightWeightQuery(IEspContext &context, IEspWULightWeigh
         if (req.getType() && strieq(req.getType(), "archived workunits"))
             doWULightWeightQueryFromArchive(context, sashaServerIp.get(), sashaServerPort, *archivedWuCache, awusCacheMinutes, req, resp);
         else
-            doWULightWeightQueryWithSort(context, req, resp);
+            doWULightWeightQueryWithSort(context, req, resp, pageCacheTimeoutSeconds, maxPageCacheItems);
     }
     catch(IException* e)
     {
@@ -5287,7 +5296,7 @@ bool CWsWorkunitsEx::onWUGetStats(IEspContext &context, IEspWUGetStatsRequest &r
             filterbuf.append(wuid.str());
             filters[1] = WUSFterm;
             Owned<IWorkUnitFactory> factory = getWorkUnitFactory(context.querySecManager(), context.queryUser());
-            Owned<IConstWorkUnitIterator> iter = factory->getWorkUnitsSorted((WUSortField) (WUSFwuid), filters, filterbuf.bufferBase(), 0, INT_MAX, NULL, NULL);
+            Owned<IConstWorkUnitIterator> iter = factory->getWorkUnitsSorted((WUSortField) (WUSFwuid), filters, filterbuf.bufferBase(), 0, INT_MAX, 0, 0, NULL, NULL);
             ForEach(*iter)
             {
                 Owned<IConstWorkUnit> workunit = factory->openWorkUnit(iter->query().queryWuid());

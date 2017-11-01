@@ -1926,11 +1926,17 @@ public:
         hint = queryCoven().getUniqueId();
         due = msTick()+PAGE_CACHE_TIMEOUT;
     }
+    void setDue(unsigned timeoutSeconds)
+    {
+        if (timeoutSeconds > 0)
+            due = msTick() + 1000 * timeoutSeconds;
+        else
+            due = msTick() + PAGE_CACHE_TIMEOUT;
+    }
 };
 
 class CTimedCache
 {
-
     class cThread: public Thread
     {
     public:
@@ -1993,12 +1999,26 @@ public:
     }
 
 
-    DALI_UID add(CTimedCacheItem *item)
+    DALI_UID add(CTimedCacheItem *item, unsigned maxPageCacheItems)
     {
         if (!item)
             return 0;
         CriticalBlock block(sect);
-        item->due = msTick()+PAGE_CACHE_TIMEOUT;
+        if ((maxPageCacheItems > 0) && (maxPageCacheItems == items.length()))
+        {
+            unsigned indexToRemove = items.length() - 1;
+            unsigned minExpires = 0;
+            ForEachItemInRev(i,items)
+            {
+                CTimedCacheItem &item = items.item(i);
+                if (item.due < minExpires)
+                {
+                    minExpires = item.due;
+                    indexToRemove = i;
+                }
+            }
+            items.remove(indexToRemove, true);
+        }
         items.append(*item);
         DALI_UID ret = item->hint;
         sem.signal();
@@ -2089,6 +2109,8 @@ IRemoteConnection *getElementsPaged( IElementsPager *elementsPager,
                                      unsigned pagesize,
                                      ISortedElementsTreeFilter *postfilter, // filters before adding to page
                                      const char *owner,
+                                     unsigned pageCacheTimeoutSeconds,
+                                     unsigned maxPageCacheItems,
                                      __int64 *hint,
                                      IArrayOf<IPropertyTree> &results,
                                      unsigned *total,
@@ -2109,7 +2131,10 @@ IRemoteConnection *getElementsPaged( IElementsPager *elementsPager,
     {
         elem.setown(QUERYINTERFACE(pagedElementsCache->get(owner,*hint),CPECacheElem)); // NB: removes from cache in process, added back at end
         if (elem)
+        {
             postfilter = elem->postFilter; // reuse cached postfilter
+            elem->setDue(pageCacheTimeoutSeconds);
+        }
     }
     if (!elem)
     {
@@ -2173,7 +2198,8 @@ IRemoteConnection *getElementsPaged( IElementsPager *elementsPager,
         ret = elem->conn.getLink();
     if (hint) {
         *hint = elem->hint;
-        pagedElementsCache->add(elem.getClear());
+        elem->setDue(pageCacheTimeoutSeconds);
+        pagedElementsCache->add(elem.getClear(), maxPageCacheItems);
     }
     return ret;
 }

@@ -51,6 +51,8 @@ public:
 
 class CFileSprayEx : public CFileSpray
 {
+    unsigned pageCacheTimeoutSeconds = 0;
+    unsigned maxPageCacheItems = 0;
     void readAndCheckSpraySourceReq(MemoryBuffer& srcxml, const char* srcIP, const char* srcPath,
         StringBuffer& sourceIPReq, StringBuffer& sourcePathReq);
 

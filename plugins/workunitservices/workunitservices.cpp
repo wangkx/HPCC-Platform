@@ -472,7 +472,7 @@ WORKUNITSERVICES_API void wsWorkunitList(
 
         filters[filterCount] = WUSFterm;
         Owned<IWorkUnitFactory> wuFactory = getWorkunitFactory(ctx);
-        Owned<IConstWorkUnitIterator> it = wuFactory->getWorkUnitsSorted((WUSortField) (WUSFwuid | WUSFreverse), filters, filterbuf.bufferBase(), 0, INT_MAX, NULL, NULL); // MORE - need security flags here!
+        Owned<IConstWorkUnitIterator> it = wuFactory->getWorkUnitsSorted((WUSortField) (WUSFwuid | WUSFreverse), filters, filterbuf.bufferBase(), 0, INT_MAX, 0, 0, NULL, NULL); // MORE - need security flags here!
         ForEach(*it)
         {
             if (!serializeWUInfo(it->query(), mb))

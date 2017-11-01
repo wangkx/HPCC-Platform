@@ -1126,9 +1126,11 @@ public:
     bool getProtectedInfo(const CDfsLogicalFileName &logicalname, StringArray &names, UnsignedArray &counts);
     IDFProtectedIterator *lookupProtectedFiles(const char *owner=NULL,bool notsuper=false,bool superonly=false);
     IDFAttributesIterator* getLogicalFilesSorted(IUserDescriptor* udesc, DFUQResultField *sortOrder, const void *filterBuf, DFUQResultField *specialFilters,
-            const void *specialFilterBuf, unsigned startOffset, unsigned maxNum, __int64 *cacheHint, unsigned *total, bool *allMatchingFilesReceived);
+            const void *specialFilterBuf, unsigned startOffset, unsigned maxNum, unsigned pageCacheTimeoutSeconds,
+            unsigned maxPageCacheItems, __int64 *cacheHint, unsigned *total, bool *allMatchingFilesReceived);
     IDFAttributesIterator* getLogicalFiles(IUserDescriptor* udesc, DFUQResultField *sortOrder, const void *filterBuf, DFUQResultField *specialFilters,
-            const void *specialFilterBuf, unsigned startOffset, unsigned maxNum, __int64 *cacheHint, unsigned *total, bool *allMatchingFilesReceived, bool recursive, bool sorted);
+            const void *specialFilterBuf, unsigned startOffset, unsigned maxNum, unsigned pageCacheTimeoutSeconds,
+            unsigned maxPageCacheItems, __int64 *cacheHint, unsigned *total, bool *allMatchingFilesReceived, bool recursive, bool sorted);
 
     void setFileProtect(CDfsLogicalFileName &dlfn,IUserDescriptor *user, const char *owner, bool set, const INode *foreigndali=NULL,unsigned foreigndalitimeout=FOREIGN_DALI_TIMEOUT);
 
@@ -12430,6 +12432,8 @@ IDFAttributesIterator* CDistributedFileDirectory::getLogicalFiles(
     const void *localFilterBuf,
     unsigned startOffset,
     unsigned maxNum,
+    unsigned pageCacheTimeoutSeconds,
+    unsigned maxPageCacheItems,
     __int64 *cacheHint,
     unsigned *total,
     bool *allMatchingFiles,
@@ -12487,7 +12491,8 @@ IDFAttributesIterator* CDistributedFileDirectory::getLogicalFiles(
     IArrayOf<IPropertyTree> results;
     Owned<IElementsPager> elementsPager = new CDFUPager(udesc, (const char*) filters, localFilters, (const char*) localFilterBuf,
         so.length()?so.str():NULL, recursive, sorted);
-    Owned<IRemoteConnection> conn = getElementsPaged(elementsPager,startOffset,maxNum,NULL,"",cacheHint,results,total,allMatchingFiles,false);
+    Owned<IRemoteConnection> conn = getElementsPaged(elementsPager, startOffset, maxNum, NULL, "", pageCacheTimeoutSeconds,
+        maxPageCacheItems, cacheHint, results, total, allMatchingFiles, false);
     return new CDFAttributeIterator(results);
 }
 
@@ -12499,12 +12504,14 @@ IDFAttributesIterator* CDistributedFileDirectory::getLogicalFilesSorted(
     const void *localFilterBuf,
     unsigned startOffset,
     unsigned maxNum,
+    unsigned pageCacheTimeoutSeconds,
+    unsigned maxPageCacheItems,
     __int64 *cacheHint,
     unsigned *total,
     bool *allMatchingFiles)
 {
     return getLogicalFiles(udesc, sortOrder, filters, localFilters, localFilterBuf, startOffset, maxNum,
-        cacheHint, total, allMatchingFiles, true, true);
+        pageCacheTimeoutSeconds, maxPageCacheItems, cacheHint, total, allMatchingFiles, true, true);
 }
 
 #ifdef _USE_CPPUNIT

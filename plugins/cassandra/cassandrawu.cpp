@@ -3356,7 +3356,8 @@ public:
         return getWorkUnitsByXXX("@state", getWorkunitStateStr(WUStateScheduled), secmgr, secuser); // MORE - there may be more efficient ways to do this?
     }
     virtual IConstWorkUnitIterator * getWorkUnitsSorted(WUSortField sortorder, WUSortField * filters, const void * filterbuf,
-                                                        unsigned startOffset, unsigned pageSize, __int64 * cachehint, unsigned *total,
+                                                        unsigned startOffset, unsigned pageSize, unsigned pageCacheTimeoutSeconds,
+                                                        unsigned maxPageCacheItems, __int64 * cachehint, unsigned *total,
                                                         ISecManager *secmgr, ISecUser *secuser)
     {
         // To assist in the efficient implementation of this function without requiring local sorting and filtering,

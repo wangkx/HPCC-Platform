@@ -2674,7 +2674,7 @@ static void dumpWorkunitAttr(const char *wuid, const char * userFilter)
         filters[0] = WUSFwildwuid;
         filterbuf.append(wuid);
         filters[1] = WUSFterm;
-        Owned<IConstWorkUnitIterator> iter = factory->getWorkUnitsSorted((WUSortField) (WUSFwuid), filters, filterbuf.bufferBase(), 0, INT_MAX, NULL, NULL);
+        Owned<IConstWorkUnitIterator> iter = factory->getWorkUnitsSorted((WUSortField) (WUSFwuid), filters, filterbuf.bufferBase(), 0, INT_MAX, 0, 0, NULL, NULL);
 
         ForEach(*iter)
         {

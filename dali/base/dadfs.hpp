@@ -681,9 +681,11 @@ interface IDistributedFileDirectory: extends IInterface
 
     virtual IDFProtectedIterator *lookupProtectedFiles(const char *owner=NULL,bool notsuper=false,bool superonly=false)=0; // if owner = NULL then all
     virtual IDFAttributesIterator* getLogicalFilesSorted(IUserDescriptor* udesc, DFUQResultField *sortOrder, const void* filters, DFUQResultField *localFilters,
-            const void *specialFilterBuf, unsigned startOffset, unsigned maxNum, __int64 *cacheHint, unsigned *total, bool *allMatchingFilesReceived) = 0;
+            const void *specialFilterBuf, unsigned startOffset, unsigned maxNum, unsigned pageCacheTimeoutSeconds,
+            unsigned maxPageCacheItems, __int64 *cacheHint, unsigned *total, bool *allMatchingFilesReceived) = 0;
     virtual IDFAttributesIterator* getLogicalFiles(IUserDescriptor* udesc, DFUQResultField *sortOrder, const void* filters, DFUQResultField *localFilters,
-            const void *specialFilterBuf, unsigned startOffset, unsigned maxNum, __int64 *cacheHint, unsigned *total, bool *allMatchingFilesReceived, bool recursive, bool sorted) = 0;
+            const void *specialFilterBuf, unsigned startOffset, unsigned maxNum, unsigned pageCacheTimeoutSeconds,
+            unsigned maxPageCacheItems, __int64 *cacheHint, unsigned *total, bool *allMatchingFilesReceived, bool recursive, bool sorted) = 0;
 
     virtual unsigned setDefaultTimeout(unsigned timems) = 0;                                // sets default timeout for SDS connections and locking
                                                                                             // returns previous value

@@ -1490,7 +1490,8 @@ bool CWsWorkunitsEx::onWUListQueries(IEspContext &context, IEspWUListQueriesRequ
 
     PROGLOG("WUListQueries: getQuerySetQueriesSorted");
     Owned<IWorkUnitFactory> factory = getWorkUnitFactory(context.querySecManager(), context.queryUser());
-    Owned<IConstQuerySetQueryIterator> it = factory->getQuerySetQueriesSorted(sortOrder, filters, filterBuf.bufferBase(), pageStartFrom, pageSize, &cacheHint, &numberOfQueries, queriesUsingFileMap);
+    Owned<IConstQuerySetQueryIterator> it = factory->getQuerySetQueriesSorted(sortOrder, filters, filterBuf.bufferBase(),
+        pageStartFrom, pageSize, pageCacheTimeoutSeconds, maxPageCacheItems, &cacheHint, &numberOfQueries, queriesUsingFileMap);
     resp.setCacheHint(cacheHint);
     PROGLOG("WUListQueries: getQuerySetQueriesSorted done");
 
@@ -3280,7 +3281,7 @@ bool CWsWorkunitsEx::onWUGetNumFileToCopy(IEspContext& context, IEspWUGetNumFile
         unsigned numberOfEndpoints = 0;
         IArrayOf<IPropertyTree> results;
         Owned<IElementsPager> elementsPager = new CWUGetNumFileToCopyPager(clusterName.str(), so.str());
-        getElementsPaged(elementsPager, pageStartFrom, pageSize, NULL, "", &cacheHint, results, &numberOfEndpoints, NULL, false);
+        getElementsPaged(elementsPager, pageStartFrom, pageSize, NULL, "", pageCacheTimeoutSeconds, maxPageCacheItems, &cacheHint, results, &numberOfEndpoints, NULL, false);
 
         IArrayOf<IEspClusterEndpoint> endpoints;
         ForEachItemIn(i, results)

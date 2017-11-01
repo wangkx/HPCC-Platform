@@ -3031,6 +3031,8 @@ public:
                                                     unsigned startoffset,
                                                     unsigned maxnum,
                                                     const char *queryowner,
+                                                    unsigned pageCacheTimeoutSeconds,
+                                                    unsigned maxPageCacheItems,
                                                     __int64 *cachehint,
                                                     unsigned *total)
     {
@@ -3117,7 +3119,8 @@ public:
         }
         IArrayOf<IPropertyTree> results;
         Owned<IElementsPager> elementsPager = new CDFUWorkUnitsPager(query.str(), so.length()?so.str():NULL, namefilterlo.get(), namefilterhi.get(), unknownAttributes);
-        Owned<IRemoteConnection> conn=getElementsPaged(elementsPager,startoffset,maxnum,NULL,queryowner,cachehint,results,total, NULL);
+        Owned<IRemoteConnection> conn=getElementsPaged(elementsPager, startoffset, maxnum, NULL, queryowner, pageCacheTimeoutSeconds,
+            maxPageCacheItems, cachehint, results, total, NULL);
         return new CConstDFUWUArrayIterator(this,conn,results);
     }
 

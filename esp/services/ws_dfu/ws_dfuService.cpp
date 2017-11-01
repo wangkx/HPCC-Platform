@@ -147,6 +147,11 @@ void CWsDfuEx::init(IPropertyTree *cfg, const char *process, const char *service
     if (streq(disableUppercaseTranslation.str(), "true"))
         m_disableUppercaseTranslation = true;
 
+    xpath.setf("Software/EspProcess[@name=\"%s\"]/@PageCacheTimeoutSeconds", process);
+    pageCacheTimeoutSeconds = cfg->getPropInt(xpath.str(), 0); //0: PAGE_CACHE_TIMEOUT (600 seconds).
+    xpath.setf("Software/EspProcess[@name=\"%s\"]/@MaxPageCacheItems", process);
+    maxPageCacheItems = cfg->getPropInt(xpath.str(), 0); //0: no limit.
+
     xpath.clear().appendf("Software/EspProcess[@name=\"%s\"]/EspService[@name=\"%s\"]/NodeGroupCacheMinutes", process, service);
     int timeout = cfg->getPropInt(xpath.str(), -1);
     if (timeout > -1)
@@ -2282,7 +2287,7 @@ void CWsDfuEx::getLogicalFileAndDirectory(IEspContext &context, IUserDescriptor*
         unsigned totalFiles = 0;
         bool allMatchingFilesReceived = true;
         Owned<IDFAttributesIterator> it = queryDistributedFileDirectory().getLogicalFiles(udesc, sortOrder, filterBuf.str(),
-            localFilters, NULL, 0, (unsigned)-1, &cacheHint, &totalFiles, &allMatchingFilesReceived, false, false);
+            localFilters, NULL, 0, (unsigned)-1, pageCacheTimeoutSeconds, maxPageCacheItems, &cacheHint, &totalFiles, &allMatchingFilesReceived, false, false);
         if(!it)
             throw MakeStringException(ECLWATCH_CANNOT_GET_FILE_ITERATOR,"Cannot get LogicalFile information from file system.");
 
@@ -3594,7 +3599,7 @@ bool CWsDfuEx::doLogicalFileSearch(IEspContext &context, IUserDescriptor* udesc,
     unsigned totalFiles = 0;
     PROGLOG("DFUQuery: getLogicalFilesSorted");
     Owned<IDFAttributesIterator> it = queryDistributedFileDirectory().getLogicalFilesSorted(udesc, sortOrder, filterBuf.str(),
-        localFilters, localFilterBuf.bufferBase(), pageStart, pageSize, &cacheHint, &totalFiles, &allMatchingFilesReceived);
+        localFilters, localFilterBuf.bufferBase(), pageStart, pageSize, pageCacheTimeoutSeconds, maxPageCacheItems, &cacheHint, &totalFiles, &allMatchingFilesReceived);
     if(!it)
         throw MakeStringException(ECLWATCH_CANNOT_GET_FILE_ITERATOR,"Cannot get information from file system.");
     PROGLOG("DFUQuery: getLogicalFilesSorted done");

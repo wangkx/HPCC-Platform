@@ -309,6 +309,8 @@ private:
     Owned<IPropertyTree> directories;
     int maxRequestEntityLength;
     Owned<IThreadPool> clusterQueryStatePool;
+    unsigned pageCacheTimeoutSeconds = 0;
+    unsigned maxPageCacheItems = 0;
 public:
     QueryFilesInUse filesInUse;
 };

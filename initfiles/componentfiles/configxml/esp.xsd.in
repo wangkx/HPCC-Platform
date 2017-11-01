@@ -907,6 +907,20 @@
                     </xs:appinfo>
                 </xs:annotation>
             </xs:attribute>
+            <xs:attribute name="PageCacheTimeoutSeconds" type="xs:nonNegativeInteger" use="optional">
+                <xs:annotation>
+                    <xs:appinfo>
+                        <tooltip>Paging data timeout in the given seconds. Default to 600 seconds.</tooltip>
+                    </xs:appinfo>
+                </xs:annotation>
+            </xs:attribute>
+            <xs:attribute name="MaxPageCacheItems" type="xs:nonNegativeInteger" use="optional">
+                <xs:annotation>
+                    <xs:appinfo>
+                        <tooltip>The maximum number of cached items inside one page cache. 0 means unlimited..</tooltip>
+                    </xs:appinfo>
+                </xs:annotation>
+            </xs:attribute>
         </xs:complexType>
     </xs:element>
 </xs:schema>

@@ -211,6 +211,8 @@ private:
     StringBuffer defaultScope_;
     StringBuffer user_;
     StringBuffer password_;
+    unsigned pageCacheTimeoutSeconds = 0;
+    unsigned maxPageCacheItems = 0;
 };
 
 

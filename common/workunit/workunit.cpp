@@ -4561,6 +4561,8 @@ IConstQuerySetQueryIterator* CWorkUnitFactory::getQuerySetQueriesSorted( WUQuery
                                             const void *filterbuf,  // (appended) string values for filters
                                             unsigned startoffset,
                                             unsigned maxnum,
+                                            unsigned pageCacheTimeoutSeconds,
+                                            unsigned maxPageCacheItems,
                                             __int64 *cachehint,
                                             unsigned *total,
                                             const MapStringTo<bool> *_subset)
@@ -4718,7 +4720,8 @@ IConstQuerySetQueryIterator* CWorkUnitFactory::getQuerySetQueriesSorted( WUQuery
     }
     IArrayOf<IPropertyTree> results;
     Owned<IElementsPager> elementsPager = new CQuerySetQueriesPager(querySet.get(), xPath.str(), so.length()?so.str():NULL, postFilters, unknownAttributes, _subset);
-    Owned<IRemoteConnection> conn=getElementsPaged(elementsPager,startoffset,maxnum,NULL,"",cachehint,results,total,NULL);
+    Owned<IRemoteConnection> conn=getElementsPaged(elementsPager, startoffset, maxnum, NULL, "", pageCacheTimeoutSeconds,
+        maxPageCacheItems, cachehint, results, total, NULL);
     return new CConstQuerySetQueryIterator(results);
 }
 
@@ -4972,6 +4975,8 @@ public:
                                                 const void *filterbuf,  // (appended) string values for filters
                                                 unsigned startoffset,
                                                 unsigned maxnum,
+                                                unsigned pageCacheTimeoutSeconds,
+                                                unsigned maxPageCacheItems,
                                                 __int64 *cachehint,
                                                 unsigned *total,
                                                 ISecManager *secmgr,
@@ -5208,7 +5213,8 @@ public:
         }
         IArrayOf<IPropertyTree> results;
         Owned<IElementsPager> elementsPager = new CWorkUnitsPager(query.str(), orFilter.getClear(), so.length()?so.str():NULL, namefilterlo.get(), namefilterhi.get(), unknownAttributes);
-        Owned<IRemoteConnection> conn=getElementsPaged(elementsPager,startoffset,maxnum,secmgr?sc:NULL,"",cachehint,results,total,NULL);
+        Owned<IRemoteConnection> conn=getElementsPaged(elementsPager, startoffset, maxnum, secmgr?sc:NULL, "", pageCacheTimeoutSeconds,
+            maxPageCacheItems, cachehint, results, total, NULL);
         return new CConstWUArrayIterator(results);
     }
 
@@ -5560,13 +5566,16 @@ public:
                                                         const void *filterbuf,  // (appended) string values for filters
                                                         unsigned startoffset,
                                                         unsigned maxnum,
+                                                        unsigned pageCacheTimeoutSeconds,
+                                                        unsigned maxPageCacheItems,
                                                         __int64 *cachehint,
                                                         unsigned *total,
                                                         ISecManager *secMgr, ISecUser *secUser)
     {
         if (!secMgr) secMgr = defaultSecMgr.get();
         if (!secUser) secUser = defaultSecUser.get();
-        return baseFactory->getWorkUnitsSorted(sortorder,filters,filterbuf,startoffset,maxnum,cachehint, total, secMgr, secUser);
+        return baseFactory->getWorkUnitsSorted(sortorder, filters, filterbuf, startoffset, maxnum,
+            pageCacheTimeoutSeconds, maxPageCacheItems, cachehint, total, secMgr, secUser);
     }
 
     virtual IConstQuerySetQueryIterator* getQuerySetQueriesSorted( WUQuerySortField *sortorder,
@@ -5574,12 +5583,15 @@ public:
                                                 const void *filterbuf,
                                                 unsigned startoffset,
                                                 unsigned maxnum,
+                                                unsigned pageCacheTimeoutSeconds,
+                                                unsigned maxPageCacheItems,
                                                 __int64 *cachehint,
                                                 unsigned *total,
                                                 const MapStringTo<bool> *subset)
     {
         // MORE - why no security?
-        return baseFactory->getQuerySetQueriesSorted(sortorder,filters,filterbuf,startoffset,maxnum,cachehint,total,subset);
+        return baseFactory->getQuerySetQueriesSorted(sortorder, filters, filterbuf, startoffset, maxnum,
+            pageCacheTimeoutSeconds, maxPageCacheItems, cachehint,total,subset);
     }
 
     virtual unsigned numWorkUnits()

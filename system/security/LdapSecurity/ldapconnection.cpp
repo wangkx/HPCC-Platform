@@ -2618,7 +2618,7 @@ public:
         }
         IArrayOf<IPropertyTree> results;
         Owned<IElementsPager> elementsPager = new CElementsPager(this, userName, so.length()?so.str():NULL);
-        Owned<IRemoteConnection> conn=getElementsPaged(elementsPager, pageStartFrom, pageSize, NULL, "", cacheHint, results, total, NULL, false);
+        Owned<IRemoteConnection> conn=getElementsPaged(elementsPager, pageStartFrom, pageSize, NULL, "", 0, 0, cacheHint, results, total, NULL, false);
         return new CSecItemIterator(results);
     }
 
@@ -3606,7 +3606,7 @@ public:
         }
         IArrayOf<IPropertyTree> results;
         Owned<IElementsPager> elementsPager = new CElementsPager(this, rtype, basedn, resourceName, extraNameFilter, so.length()?so.str():NULL);
-        Owned<IRemoteConnection> conn=getElementsPaged(elementsPager, pageStartFrom, pageSize, NULL, "", cacheHint, results, total, NULL, false);
+        Owned<IRemoteConnection> conn=getElementsPaged(elementsPager, pageStartFrom, pageSize, NULL, "", 0, 0, cacheHint, results, total, NULL, false);
         return new CSecItemIterator(results);
     }
 
@@ -3726,7 +3726,7 @@ public:
         }
         IArrayOf<IPropertyTree> results;
         Owned<IElementsPager> elementsPager = new CElementsPager(this, name, accountType, baseDN, rtype, prefix, so.length()?so.str():NULL);
-        Owned<IRemoteConnection> conn=getElementsPaged(elementsPager, pageStartFrom, pageSize, NULL, "", cacheHint, results, total, NULL, false);
+        Owned<IRemoteConnection> conn=getElementsPaged(elementsPager, pageStartFrom, pageSize, NULL, "", 0, 0, cacheHint, results, total, NULL, false);
         return new CSecItemIterator(results);
     }
 
@@ -3860,7 +3860,7 @@ public:
         }
         IArrayOf<IPropertyTree> results;
         Owned<IElementsPager> elementsPager = new CElementsPager(this, so.length()?so.str():NULL);
-        Owned<IRemoteConnection> conn=getElementsPaged(elementsPager, pageStartFrom, pageSize, NULL, "", cacheHint, results, total, NULL, false);
+        Owned<IRemoteConnection> conn=getElementsPaged(elementsPager, pageStartFrom, pageSize, NULL, "", 0, 0, cacheHint, results, total, NULL, false);
         return new CSecItemIterator(results);
     }
 
@@ -4403,7 +4403,7 @@ public:
         }
         IArrayOf<IPropertyTree> results;
         Owned<IElementsPager> elementsPager = new CElementsPager(this, groupName, so.length()?so.str():NULL);
-        Owned<IRemoteConnection> conn=getElementsPaged(elementsPager, pageStartFrom, pageSize, NULL, "", cacheHint, results, total, NULL, false);
+        Owned<IRemoteConnection> conn=getElementsPaged(elementsPager, pageStartFrom, pageSize, NULL, "", 0, 0, cacheHint, results, total, NULL, false);
         return new CSecItemIterator(results);
     }
 

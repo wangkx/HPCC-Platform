@@ -304,6 +304,8 @@ extern da_decl IRemoteConnection *getElementsPaged(IElementsPager *elementsPager
                                      unsigned pagesize, 
                                      ISortedElementsTreeFilter *postfilter, // if non-NULL filters before adding to page
                                      const char *owner,
+                                     unsigned pageCacheTimeoutSeconds,
+                                     unsigned maxPageCacheItems,
                                      __int64 *hint,                         // if non null points to in/out cache hint
                                      IArrayOf<IPropertyTree> &results,
                                      unsigned *total,
