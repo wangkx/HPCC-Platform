@@ -79,6 +79,9 @@ const unsigned MAX_KEY_ROWS = 20;
 
 short days[12] = {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
 
+static unsigned NumOfDFUDefFileFormat = 2;
+static const char *DFUDefFileFormatNames[] = { "xml", "def", NULL };
+
 CThorNodeGroup* CThorNodeGroupCache::readNodeGroup(const char* _groupName)
 {
     Owned<IEnvironmentFactory> factory = getEnvironmentFactory();
@@ -1490,6 +1493,10 @@ bool CWsDfuEx::onDFUDefFile(IEspContext &context,IEspDFUDefFileRequest &req, IEs
         if (!context.validateFeatureAccess(FEATURE_URL, SecAccess_Read, false))
             throw MakeStringException(ECLWATCH_DFU_ACCESS_DENIED, "Failed to access DFUDefFile. Permission denied.");
 
+        CDFUDefFileFormat format = req.getFormat();
+        if (format == DFUDefFileFormat_Undefined)
+            throw MakeStringException(ECLWATCH_INVALID_INPUT,"Invalid format");
+
         const char* fileName = req.getName();
         if (!fileName || !*fileName)
             throw MakeStringException(ECLWATCH_MISSING_PARAMS, "File name required");
@@ -1509,7 +1516,7 @@ bool CWsDfuEx::onDFUDefFile(IEspContext &context,IEspDFUDefFileRequest &req, IEs
 
         getDefFile(userdesc.get(), req.getName(),rawStr);
         StringBuffer xsltFile;
-        xsltFile.append(getCFD()).append("smc_xslt/").append(req.getFormat()).append("_def_file.xslt");
+        xsltFile.append(getCFD()).append("smc_xslt/").append(DFUDefFileFormatNames[format]).append("_def_file.xslt");
         xsltTransformer(xsltFile.str(),rawStr,returnStr);
 
         //set the file
@@ -1518,12 +1525,12 @@ bool CWsDfuEx::onDFUDefFile(IEspContext &context,IEspDFUDefFileRequest &req, IEs
         resp.setDefFile(buff);
 
         //set the type
-        StringBuffer type;
-        const char* format = req.getFormat();
-        if (!stricmp(format, "def"))
-            format = "plain";
+        StringBuffer type = "text/";
+        if (format == CDFUDefFileFormat_xml)
+            type.append("xml");
+        else
+            type.append("plain");
 
-        type.append("text/").append(format);
         resp.setDefFile_mimetype(type.str());
     }
     catch(IException* e)

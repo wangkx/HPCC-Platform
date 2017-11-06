@@ -24,6 +24,13 @@ ESPenum DFUArrayActions : string
     AddToSuperfile("Add To Superfile"),
 };
 
+//The ESPenum DFUDefFileFormat has to be matched by the DFUDefFileFormatNames[] in ws_dfuService.cpp.
+ESPenum DFUDefFileFormat : string
+{
+    xml("xml"),
+    def("def"),
+};
+
 ESPStruct SpaceItem
 {
     string Name;
@@ -310,7 +317,7 @@ ESPrequest []
 DFUDefFileRequest
 {
     string Name;
-    string Format;
+    ESPenum DFUDefFileFormat Format;
 };
 
 ESPresponse
