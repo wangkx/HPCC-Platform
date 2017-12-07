@@ -285,7 +285,14 @@ int CEspHttpServer::processRequest()
                     if (!getTxSummaryResourceReq())
                         ctx->cancelTxSummary();
                     checkInitEclIdeResponse(m_request, m_response);
-                    return onGetFile(m_request.get(), m_response.get(), pathEx.str());
+                    return onGetFile(m_request.get(), m_response.get(), pathEx.str(), otherOCT);
+                }
+                else if (strieq(methodName.str(), "chunked"))
+                {
+                    if (!getTxSummaryResourceReq())
+                        ctx->cancelTxSummary();
+                    checkInitEclIdeResponse(m_request, m_response);
+                    return onGetFile(m_request.get(), m_response.get(), pathEx.str(), chunkedOCT);
                 }
                 else if (!stricmp(methodName.str(), "xslt"))
                 {
@@ -440,7 +447,7 @@ int CEspHttpServer::onGetApplicationFrame(CHttpRequest* request, CHttpResponse* 
             {
                 const char *page = httpbind->getRootPage(ctx);
                 if(page && *page)
-                    return onGetFile(request, response, page);
+                    return onGetFile(request, response, page, otherOCT);
             }
         }
 
@@ -694,13 +701,15 @@ static bool checkHttpPathStaysWithinBounds(const char *path)
     return true;
 }
 
-int CEspHttpServer::onGetFile(CHttpRequest* request, CHttpResponse* response, const char *urlpath)
+int CEspHttpServer::onGetFile(CHttpRequest* request, CHttpResponse* response, const char *urlpath, EspOutputContentType octType)
 {
         if (!request || !response || !urlpath)
             return -1;
 
         StringBuffer basedir(getCFD());
-        basedir.append("files/");
+        basedir.append("files").append(PATHSEPCHAR);
+        if (octType == chunkedOCT)
+            basedir.append("temp").append(PATHSEPCHAR);
 
         if (!checkHttpPathStaysWithinBounds(urlpath))
         {
@@ -713,6 +722,11 @@ int CEspHttpServer::onGetFile(CHttpRequest* request, CHttpResponse* response, co
         StringBuffer ext;
         StringBuffer tail;
         splitFilename(urlpath, NULL, NULL, &tail, &ext);
+        if (octType == chunkedOCT)
+        {
+            getFileStream(request, response, basedir.str(), urlpath, tail);
+            return 0;
+        }
 
         bool top = !urlpath || !*urlpath;
         StringBuffer httpPath;
@@ -737,6 +751,28 @@ int CEspHttpServer::onGetFile(CHttpRequest* request, CHttpResponse* response, co
         else
             httpGetFile(request, response, urlpath, fullpath);
         return 0;
+}
+
+void CEspHttpServer::getFileStream(CHttpRequest* request, CHttpResponse* response, const char *basedir, const char *urlpath, const char *tail)
+{
+        StringBuffer file;
+        file.set(basedir).append(urlpath);
+        if (!checkFileExists(file))
+        {
+            DBGLOG("Get File %s: file not found", file.str());
+            response->setStatus(HTTP_STATUS_NOT_FOUND);
+            response->send();
+            return;
+        }
+
+        Owned<IFile> iFile = createIFile(file.str());
+        Owned<IFileIO> fileIO = iFile->open(IFOread);
+        response->setContent(createIOStream(fileIO));
+        response->setContentType(HTTP_TYPE_OCTET_STREAM);
+
+        VStringBuffer headerStr("attachment;filename=%s", tail);
+        request->queryContext()->addCustomerHeader("Content-disposition", headerStr.str());
+        response->send();
 }
 
 int CEspHttpServer::onGetXslt(CHttpRequest* request, CHttpResponse* response, const char *path)

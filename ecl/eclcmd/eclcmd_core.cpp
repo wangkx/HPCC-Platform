@@ -1888,42 +1888,59 @@ public:
     {
         Owned<IClientWsWorkunits> client = createCmdClient(WsWorkunits, *this);
 
-        Owned<IClientWUCreateZAPInfoRequest> zapReq = client->createWUCreateZAPInfoRequest();
-        zapReq->setWuid(optWuid.get());
-        zapReq->setIncludeThorSlaveLog(optIncThorSlave);
-        zapReq->setProblemDescription(optProblemDesc.get());
+        Owned<IClientWUCreateZAPInfoFileRequest> req = client->createWUCreateZAPInfoFileRequest();
+        req->setWuid(optWuid.get());
+        req->setIncludeThorSlaveLog(optIncThorSlave);
+        req->setProblemDescription(optProblemDesc.get());
 
-        Owned<IClientWUCreateZAPInfoResponse> zapResp = client->WUCreateZAPInfo(zapReq);
+        Owned<IClientWUCreateZAPInfoFileResponse> zapResp = client->WUCreateZAPInfoFile(req);
         int ret = outputMultiExceptionsEx(zapResp->getExceptions());
-        if (ret == 0)
+        if (ret != 0)
+            return 0;
+
+        StringBuffer zapFileName = zapResp->getZAPFileName();
+        if (zapFileName.isEmpty())
         {
-            StringBuffer filePath;
-            if (optPath.length())
-            {
-                filePath.set(optPath);
-                const char *p = filePath.str();
-                p = (p + strlen(p) - 1);
-                if (!streq(p, PATHSEPSTR))
-                    filePath.append(PATHSEPSTR);
-            }
-            else
-                filePath.set(".").append(PATHSEPSTR);
-
-            filePath.append(zapResp->getZAPFileName());
-
-            const MemoryBuffer & zapFileData = zapResp->getThefile();
-
-            Owned<IFile> zapFile = createIFile(filePath.str());
-            Owned<IFileIO> zapFileIo = zapFile->open(IFOcreate);
-
-            size32_t written = zapFileIo->write(0, zapFileData.length(), (const void *)zapFileData.toByteArray());
-
-            if (written != zapFileData.length())
-                throw MakeStringException(-1, "truncated write to file %s, ZAP file creation cancelled.\n", filePath.str());
-
-            fprintf(stdout, "ZAP file written into %s.\n",filePath.str());
+            fprintf(stdout, "Empty ZAP file name returned in WUCreateZAPInfoFile.\n");
+            return 0;
         }
 
+        const char *zapFileNamePtr = pathTail(zapFileName.str());
+        if (isEmptyString(zapFileNamePtr))
+        {
+            fprintf(stdout, "Invalid ZAP file name '%s' returned in WUCreateZAPInfoFile.\n", zapFileName.str());
+            return 0;
+        }
+
+        StringBuffer urlTail, outputFile;
+        if (optPath.length())
+        {
+            outputFile.set(optPath);
+            const char *p = outputFile.str();
+            p = (p + strlen(p) - 1);
+            if (!streq(p, PATHSEPSTR))
+                outputFile.append(PATHSEPSTR);
+        }
+        else
+            outputFile.set(".").append(PATHSEPSTR);
+
+        outputFile.append(zapFileNamePtr);
+
+        urlTail.set("/chunked").append(PATHSEPSTR).append(zapFileName.str());
+        EclCmdURL eclCmdURL("esp", !streq(optServer, ".") ? optServer : "localhost", optPort, optSSL, urlTail.str());
+        StringBuffer curlCommand = "curl";
+        if (optUsername.get())
+        {
+            curlCommand.append(" -u ").append(optUsername.get());
+            if (optPassword.get())
+                curlCommand.append(":").append(optPassword.get());
+        }
+        curlCommand.appendf(" -o %s %s", outputFile.str(), eclCmdURL.str());
+        int curlRet = system(curlCommand.str());
+        if (curlRet != 0)
+            throw MakeStringException(-1, "Failed to execute system command 'curl'. Please make sure that curl utility is installed.");
+
+        fprintf(stdout, "ZAP file written into %s.\n", outputFile.str());
         return 0;
     }
     virtual void usage()

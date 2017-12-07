@@ -46,6 +46,12 @@ typedef enum espAuthState_
     authFailed
 } EspAuthState;
 
+typedef enum espOutputContentType_
+{
+    chunkedOCT,
+    otherOCT
+} EspOutputContentType;
+
 struct EspAuthRequest
 {
     IEspContext* ctx;
@@ -98,6 +104,7 @@ protected:
     void resetSessionTimeout(EspAuthRequest& authReq, unsigned sessionID, StringBuffer& resp, ESPSerializationFormat format, IPropertyTree* sessionTree);
     void sendMessage(const char* msg, const char* msgType);
     IRemoteConnection* getSDSConnection(const char* xpath, unsigned mode, unsigned timeout);
+    void getFileStream(CHttpRequest* request, CHttpResponse* response, const char *basedir, const char *urlpath, const char *tail);
 
 public:
     IMPLEMENT_IINTERFACE;
@@ -118,7 +125,7 @@ public:
     virtual int onGet();
     virtual int onOptions();
 
-    virtual int onGetFile(CHttpRequest* request, CHttpResponse* response, const char *path);
+    virtual int onGetFile(CHttpRequest* request, CHttpResponse* response, const char *path, EspOutputContentType octType);
     virtual int onGetXslt(CHttpRequest* request, CHttpResponse* response, const char *path);
 
     virtual int onGetBuildSoapRequest(CHttpRequest* request, CHttpResponse* response);

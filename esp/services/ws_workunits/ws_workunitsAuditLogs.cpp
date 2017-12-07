@@ -1384,6 +1384,170 @@ void logWUClusterJobESPCall(const char* method, const char* cluster, const char*
     PROGLOG("%s", logMsg.str());
 }
 
+void CWsWorkunitsSoapBindingEx::createAndDownloadWUZAPFile(IEspContext& context, CHttpRequest* request, CHttpResponse* response)
+{
+    CWsWuZAPInfoReq zapInfoReq;
+    request->getParameter("Wuid", zapInfoReq.wuid);
+    WsWuHelpers::checkAndTrimWorkunit("createAndDownloadWUZAPFile", zapInfoReq.wuid);
+
+    Owned<IWorkUnitFactory> factory = getWorkUnitFactory(context.querySecManager(), context.queryUser());
+    Owned<IConstWorkUnit> cwu = factory->openWorkUnit(zapInfoReq.wuid.str());
+    if(!cwu.get())
+        throw MakeStringException(ECLWATCH_CANNOT_OPEN_WORKUNIT, "Cannot open workunit %s.", zapInfoReq.wuid.str());
+    ensureWsWorkunitAccess(context, *cwu, SecAccess_Read);
+
+    request->getParameter("ESPIPAddress", zapInfoReq.espIP);
+    request->getParameter("ThorIPAddress", zapInfoReq.thorIP);
+    request->getParameter("ProblemDescription", zapInfoReq.problemDesc);
+    request->getParameter("WhatChanged", zapInfoReq.whatChanged);
+    request->getParameter("WhereSlow", zapInfoReq.whereSlow);
+    request->getParameter("IncludeThorSlaveLog", zapInfoReq.includeThorSlaveLog);
+    request->getParameter("ZAPFileName", zapInfoReq.zapFileName);
+    double version = context.getClientVersion();
+    if (version >= 1.70)
+        request->getParameter("ZAPPassword", zapInfoReq.password);
+    else
+        request->getParameter("Password", zapInfoReq.password);
+
+//#define TEST_downloadWUFiles
+#ifdef TEST_downloadWUFiles
+    //CWUFileDownloadOption opt = CWUFileDownloadOption_OriginalText; //Tested
+    CWUFileDownloadOption opt = CWUFileDownloadOption_Attachment;
+    //CWUFileDownloadOption opt = CWUFileDownloadOption_ZIP; //Tested
+    //CWUFileDownloadOption opt = CWUFileDownloadOption_GZIP; //Tested
+
+    IArrayOf<IConstWUFileOption> wuFileOptions;
+    // Tested
+    Owned<IEspWUFileOption> wuFileOption = createWUFileOption();
+    wuFileOption->setFileType("ThorLog");
+    wuFileOption->setName("//10.241.30.201/mnt/disk1/var/log/HPCCSystems/thor50_dev02_2/thormaster.2018_02_23.log");
+    wuFileOptions.append(*wuFileOption.getClear());
+
+    /*
+    // Tested
+    Owned<IEspWUFileOption> wuFileOption = createWUFileOption();
+    wuFileOption->setFileType("ThorLog");
+    wuFileOption->setName("//10.0.2.15/var/log/HPCCSystems/mythor/thormaster.2018_02_07.log");
+    wuFileOptions.append(*wuFileOption.getClear());
+
+    // Tested
+    Owned<IEspWUFileOption> wuFileOption1 = createWUFileOption();
+    wuFileOption1->setFileType("EclAgentLog");
+    wuFileOption1->setName("//10.0.2.15/var/log/HPCCSystems/myeclagent/eclagent.2018_02_07.log");
+    wuFileOption1->setProcess("18226");
+    wuFileOptions.append(*wuFileOption1.getClear());
+
+    // Tested
+    Owned<IEspWUFileOption> wuFileOption2 = createWUFileOption();
+    wuFileOption2->setFileType("XML");
+    //wuFileOption->setIPAddress("cpp");
+    //wuFileOption->setDescription("cpp");
+    wuFileOptions.append(*wuFileOption2.getClear());
+
+    // Tested
+    Owned<IEspWUFileOption> wuFileOption3 = createWUFileOption();
+    wuFileOption3->setFileType("ArchiveQuery");
+    wuFileOptions.append(*wuFileOption3.getClear());
+
+    // Tested
+    Owned<IEspWUFileOption> wuFileOption4 = createWUFileOption();
+    wuFileOption4->setFileType("dll");
+    wuFileOption4->setName("//10.0.2.15/var/lib/HPCCSystems/myeclccserver/libW20180207-173709.so");
+    wuFileOptions.append(*wuFileOption4.getClear());
+
+    // Tested
+    Owned<IEspWUFileOption> wuFileOption7 = createWUFileOption();
+    wuFileOption7->setFileType("ThorSlaveLog");
+    wuFileOption7->setClusterGroup("thor50_dev01_2");
+    wuFileOption7->setProcess("thor50_dev02_2");
+    wuFileOption7->setLogDate("2018_02_23");
+    wuFileOption7->setSlaveNumber(1);
+    wuFileOptions.append(*wuFileOption7.getClear());*/
+
+    // Tested
+    Owned<IEspWUFileOption> wuFileOption8 = createWUFileOption();
+    wuFileOption8->setFileType("cpp");
+    wuFileOption8->setName("//10.241.20.197/mnt/disk1/var/lib/HPCCSystems/dev_eclserver/W20180223-114821.cpp");
+    wuFileOption8->setIPAddress("10.241.20.197");
+    wuFileOption8->setDescription("W20180223-114821.cpp");
+    wuFileOptions.append(*wuFileOption8.getClear());
+
+    /*
+    //No tested!!!
+    Owned<IEspWUFileOption> wuFileOption5 = createWUFileOption();
+    wuFileOption5->setFileType("res");
+    wuFileOptions.append(*wuFileOption5.getClear());
+
+    //No tested!!!
+    Owned<IEspWUFileOption> wuFileOption6 = createWUFileOption();
+    wuFileOption6->setFileType("WUECL");
+    wuFileOptions.append(*wuFileOption6.getClear());*/
+
+    StringBuffer contentType;
+    //CWsWuFileHelper may need ESP's <Directories> settings to locate log files. 
+    CWsWuFileHelper helper(directories);
+    response->setContent(helper.createWUFileIOStream(context, zapInfoReq.wuid.str(), wuFileOptions, opt, contentType));
+    response->setContentType(contentType);
+#else
+    //CWsWuFileHelper may need ESP's <Directories> settings to locate log files. 
+    CWsWuFileHelper helper(directories);
+    response->setContent(helper.createWUZAPFileIOStream(context, cwu, zapInfoReq));
+    response->setContentType(HTTP_TYPE_OCTET_STREAM);
+#endif
+    response->send();
+}
+
+void CWsWorkunitsSoapBindingEx::downloadWUFiles(IEspContext& context, CHttpRequest* request, CHttpResponse* response)
+{
+    try
+    {
+        StringBuffer wuid;
+        request->getParameter("Wuid", wuid);
+        if (wuid.trim().isEmpty())
+        {
+            StringBuffer querySet, queryReq;
+            request->getParameter("QuerySet", querySet);
+            request->getParameter("Query", queryReq);
+            if (queryReq.trim().isEmpty() || querySet.trim().isEmpty())
+                throw MakeStringException(ECLWATCH_INVALID_INPUT, "WU ID or QuerySet/Query not specified");
+
+            Owned<IPropertyTree> registry = getQueryRegistry(querySet.str(), false);
+            if (!registry)
+                throw MakeStringException(ECLWATCH_QUERYSET_NOT_FOUND, "Queryset %s not found", querySet.str());
+            Owned<IPropertyTree> query = resolveQueryAlias(registry, queryReq.str());
+            if (!query)
+                throw MakeStringException(ECLWATCH_QUERYID_NOT_FOUND, "Query %s not found", queryReq.str());
+            wuid.set(query->queryProp("@wuid"));
+        }
+
+        if (!looksLikeAWuid(wuid, 'W'))
+            throw MakeStringException(ECLWATCH_INVALID_INPUT, "Invalid Workunit ID");
+
+        ensureWsWorkunitAccess(context, wuid, SecAccess_Read);
+
+        Owned<CWUDownloadFilesRequest> espRequest = new CWUDownloadFilesRequest(&context, "WsWorkunits", request->queryParameters(), request->queryAttachments());
+        IArrayOf<IConstWUFileOption>& wuFileOptions = espRequest->getWUFileOptions();
+        if (!wuFileOptions.ordinality())
+            throw MakeStringException(ECLWATCH_INVALID_INPUT, "No WU file specified");
+
+        CWUFileDownloadOption opt = espRequest->getDownloadOption();
+        if ((wuFileOptions.length() > 1) && ((opt == CWUFileDownloadOption_OriginalText) || (opt == CWUFileDownloadOption_Attachment)))
+            throw MakeStringException(ECLWATCH_INVALID_INPUT, "Cannot download multiple files without zip");
+
+        StringBuffer contentType;
+        //CWsWuFileHelper may need ESP's <Directories> settings to locate log files. 
+        CWsWuFileHelper helper(directories);
+        response->setContent(helper.createWUFileIOStream(context, wuid.str(), wuFileOptions, opt, contentType));
+        response->setContentType(contentType);
+        response->send();
+    }
+    catch(IException* e)
+    {
+        FORWARDEXCEPTION(context, e,  ECLWATCH_INTERNAL_ERROR);
+    }
+    return;
+}
+
 int CWsWorkunitsSoapBindingEx::onGet(CHttpRequest* request, CHttpResponse* response)
 {
     IEspContext *ctx = request->queryContext();
@@ -1491,6 +1655,16 @@ int CWsWorkunitsSoapBindingEx::onGet(CHttpRequest* request, CHttpResponse* respo
             response->setContentType("text/xml");
             response->setStatus(HTTP_STATUS_OK);
             response->send();
+            return 0;
+        }
+        if (!strnicmp(path.str(), "/WsWorkunits/WUCreateZAPInfo", 28))
+        {
+            createAndDownloadWUZAPFile(*ctx, request, response);
+            return 0;
+        }
+        if (!strnicmp(path.str(), "/WsWorkunits/WUDownloadFiles", 28))
+        {
+            downloadWUFiles(*ctx, request, response);
             return 0;
         }
     }

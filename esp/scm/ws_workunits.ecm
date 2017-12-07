@@ -861,12 +861,6 @@ ESPrequest WUDownloadFilesRequest
 
 ESPresponse [exceptions_inline] WUDownloadFilesResponse
 {
-    string Wuid;
-    string QuerySet;
-    string QueryName;
-    string QueryId;
-    string FileName; //For DLL
-    string DaliServer; //For DLL
     [http_content("application/octet-stream")] binary thefile;
 };
 
@@ -1845,7 +1839,7 @@ ESPresponse [exceptions_inline] WUGetZAPInfoResponse
     string Archive;
 };
 
-ESPrequest [nil_remove] WUCreateZAPInfoRequest
+ESPrequest [nil_remove] WUCreateZAPInfoFileRequest
 {
     string Wuid;
     string ESPIPAddress;
@@ -1854,16 +1848,14 @@ ESPrequest [nil_remove] WUCreateZAPInfoRequest
     string ProblemDescription;
     string WhatChanged;
     string WhereSlow;
-    [min_ver("1.53"), depr_ver("1.70")] string Password;
-    [min_ver("1.65")] string ZAPFileName;
-    [min_ver("1.57")] bool IncludeThorSlaveLog(false);
-    [min_ver("1.70")] string ZAPPassword;
+    string ZAPFileName;
+    bool IncludeThorSlaveLog(false);
+    string ZAPPassword;
 };
 
-ESPresponse [exceptions_inline] WUCreateZAPInfoResponse
+ESPresponse [exceptions_inline] WUCreateZAPInfoFileResponse
 {
-    [http_content("application/octet-stream")] binary thefile;
-    [min_ver("1.70")] string ZAPFileName;
+    string ZAPFileName;
 };
 
 ESPrequest [nil_remove] WUCheckFeaturesRequest
@@ -2171,7 +2163,6 @@ ESPservice [
 
     //ESPmethod WUAction(WUActionRequest, WUActionResponse);
     ESPmethod [cache_seconds(60)]WUFile(WULogFileRequest, WULogFileResponse);
-    ESPmethod [cache_seconds(60)]WUDownloadFiles(WUDownloadFilesRequest, WUDownloadFilesResponse);
     ESPmethod [resp_xsl_default("/esp/xslt/graphStats.xslt")] WUProcessGraph(WUProcessGraphRequest, WUProcessGraphResponse);
     ESPmethod [cache_seconds(30), min_ver("1.57")] WUGetGraphNameAndTypes(WUGetGraphNameAndTypesRequest, WUGetGraphNameAndTypesResponse);
     ESPmethod [cache_seconds(30)] WUGetGraph(WUGetGraphRequest, WUGetGraphResponse);
@@ -2199,7 +2190,7 @@ ESPservice [
     ESPmethod [min_ver("1.59")] WUUpdateQueryEntry(WUUpdateQueryEntryRequest, WUUpdateQueryEntryResponse);
     ESPmethod [cache_seconds(60)]WUQueryFiles(WUQueryFilesRequest, WUQueryFilesResponse);
     ESPmethod [cache_seconds(60), resp_xsl_default("/esp/xslt/QueriesUsingFile.xslt")] WUListQueriesUsingFile(WUListQueriesUsingFileRequest, WUListQueriesUsingFileResponse);
-    ESPmethod WUCreateZAPInfo(WUCreateZAPInfoRequest, WUCreateZAPInfoResponse);
+    ESPmethod [min_ver("1.72")] WUCreateZAPInfoFile(WUCreateZAPInfoFileRequest, WUCreateZAPInfoFileResponse);
     ESPmethod [resp_xsl_default("/esp/xslt/WUZAPInfoForm.xslt")] WUGetZAPInfo(WUGetZAPInfoRequest, WUGetZAPInfoResponse);
     ESPmethod WUCheckFeatures(WUCheckFeaturesRequest, WUCheckFeaturesResponse);
     ESPmethod [cache_seconds(30)] WUGetStats(WUGetStatsRequest, WUGetStatsResponse);
