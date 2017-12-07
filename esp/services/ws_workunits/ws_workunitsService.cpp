@@ -2993,7 +2993,7 @@ bool CWsWorkunitsEx::onWUFile(IEspContext &context,IEspWULogFileRequest &req, IE
             }
             else if (strncmp(req.getType(), File_ThorLog, 7) == 0)
             {
-                winfo.getWorkunitThorLog(req.getName(), mb);
+                winfo.getWorkunitThorLog(req.getName(), mb, nullptr);
                 openSaveFile(context, opt, req.getSizeLimit(), "thormaster.log", HTTP_TYPE_TEXT_PLAIN, mb, resp);
             }
             else if (strieq(File_ThorSlaveLog,req.getType()))
@@ -3001,12 +3001,12 @@ bool CWsWorkunitsEx::onWUFile(IEspContext &context,IEspWULogFileRequest &req, IE
                 StringBuffer logDir;
                 getConfigurationDirectory(directories, "log", "thor", req.getProcess(), logDir);
 
-                winfo.getWorkunitThorSlaveLog(req.getClusterGroup(), req.getIPAddress(), req.getLogDate(), logDir.str(), req.getSlaveNumber(), mb, false);
+                winfo.getWorkunitThorSlaveLog(req.getClusterGroup(), req.getIPAddress(), req.getLogDate(), logDir.str(), req.getSlaveNumber(), mb, nullptr, false);
                 openSaveFile(context, opt, req.getSizeLimit(), "ThorSlave.log", HTTP_TYPE_TEXT_PLAIN, mb, resp);
             }
             else if (strieq(File_EclAgentLog,req.getType()))
             {
-                winfo.getWorkunitEclAgentLog(req.getName(), req.getProcess(), mb);
+                winfo.getWorkunitEclAgentLog(req.getName(), req.getProcess(), mb, nullptr);
                 openSaveFile(context, opt, req.getSizeLimit(), "eclagent.log", HTTP_TYPE_TEXT_PLAIN, mb, resp);
             }
             else if (strieq(File_XML,req.getType()) && notEmpty(req.getName()))
@@ -3090,7 +3090,7 @@ void CWsWorkunitsEx::readWUFile(const char *wuid, WsWuInfo &winfo, IConstWUFileO
         fileMimeType.set(HTTP_TYPE_TEXT_PLAIN);
         break;
     case CWUFileType_ThorLog:
-        winfo.getWorkunitThorLog(item.getName(), mb);
+        winfo.getWorkunitThorLog(item.getName(), mb, nullptr);
         fileName.set("thormaster.log");
         fileMimeType.set(HTTP_TYPE_TEXT_PLAIN);
         break;
@@ -3098,13 +3098,13 @@ void CWsWorkunitsEx::readWUFile(const char *wuid, WsWuInfo &winfo, IConstWUFileO
     {
         StringBuffer logDir;
         getConfigurationDirectory(directories, "log", "thor", item.getProcess(), logDir);
-        winfo.getWorkunitThorSlaveLog(item.getClusterGroup(), item.getIPAddress(), item.getLogDate(), logDir.str(), item.getSlaveNumber(), mb, false);
+        winfo.getWorkunitThorSlaveLog(item.getClusterGroup(), item.getIPAddress(), item.getLogDate(), logDir.str(), item.getSlaveNumber(), mb, nullptr, false);
         fileName.set("ThorSlave.log");
         fileMimeType.set(HTTP_TYPE_TEXT_PLAIN);
         break;
     }
     case CWUFileType_EclAgentLog:
-        winfo.getWorkunitEclAgentLog(item.getName(), item.getProcess(), mb);
+        winfo.getWorkunitEclAgentLog(item.getName(), item.getProcess(), mb, nullptr);
         fileName.set("eclagent.log");
         fileMimeType.set(HTTP_TYPE_TEXT_PLAIN);
         break;
@@ -3229,7 +3229,10 @@ bool CWsWorkunitsEx::onWUDownloadFiles(IEspContext &context, IEspWUDownloadFiles
             if (!zipDir->exists())
                 zipDir->createDirectory();
             else
-                cleanZAPFolder(zipDir, false);
+            {
+                CWsWuFileHelper helper(nullptr);
+                helper.cleanFolder(zipDir, false);
+            }
         }
 
         resp.setWuid(wuid.str());
@@ -3275,7 +3278,8 @@ bool CWsWorkunitsEx::onWUDownloadFiles(IEspContext &context, IEspWUDownloadFiles
             zipAFolderToMB(folderToZIP.str(), zipFileName.str(), opt == CWUFileDownloadOption_GZIP, mb);
 
             //Remove the temporary files and the folder
-            cleanZAPFolder(zipDir, true);
+            CWsWuFileHelper helper(nullptr);
+            helper.cleanFolder(zipDir, false);
 
             resp.setThefile(mb);
             resp.setThefile_mimetype(HTTP_TYPE_OCTET_STREAM);
@@ -4744,7 +4748,7 @@ void CWsWorkunitsEx::createZAPFile(const char* fileName, size32_t len, const voi
     if (wuInfoIO)
         wuInfoIO->write(0, len, data);
 }
-
+/*
 void CWsWorkunitsEx::cleanZAPFolder(IFile* zipDir, bool removeFolder)
 {
     if (!zipDir)
@@ -4779,9 +4783,9 @@ void CWsWorkunitsEx::addProcessLogfile(Owned<IConstWorkUnit>& cwu, WsWuInfo& win
         try
         {
             if (strieq(process, "EclAgent"))
-                winfo.getWorkunitEclAgentLog(logSpec.str(), pid.str(), mb);
+                winfo.getWorkunitEclAgentLog(logSpec.str(), pid.str(), mb, nullptr);
             else if (strieq(process, "Thor"))
-                winfo.getWorkunitThorLog(logSpec.str(), mb);
+                winfo.getWorkunitThorLog(logSpec.str(), mb, nullptr);
         }
         catch(IException *e)
         {
@@ -4862,7 +4866,7 @@ void CWsWorkunitsEx::addThorSlaveLogfile(Owned<IConstWorkUnit>& cwu, WsWuInfo& w
             for (unsigned i = 0; i < numberOfSlaveLogs; i++)
             {
                 MemoryBuffer mb;
-                winfo.getWorkunitThorSlaveLog(groupName.str(), NULL, logDate.str(), logDir.str(), i+1, mb, false);
+                winfo.getWorkunitThorSlaveLog(groupName.str(), NULL, logDate.str(), logDir.str(), i+1, mb, nullptr, false);
                 if (!mb.length())
                     continue;
 
@@ -5104,7 +5108,7 @@ bool CWsWorkunitsEx::onWUCreateZAPInfo(IEspContext &context, IEspWUCreateZAPInfo
         FORWARDEXCEPTION(context, e,  ECLWATCH_INTERNAL_ERROR);
     }
     return true;
-}
+}*/
 
 bool CWsWorkunitsEx::onWUGetZAPInfo(IEspContext &context, IEspWUGetZAPInfoRequest &req, IEspWUGetZAPInfoResponse &resp)
 {

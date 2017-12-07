@@ -275,13 +275,13 @@ public:
     bool onWUGetArchiveFile(IEspContext &context, IEspWUGetArchiveFileRequest &req, IEspWUGetArchiveFileResponse &resp);
 private:
     void addProcessLogfile(Owned<IConstWorkUnit> &cwu, WsWuInfo &winfo, const char * process, const char* path);
-    void addThorSlaveLogfile(Owned<IConstWorkUnit> &cwu,WsWuInfo& winfo, const char* path);
-    void createZAPWUInfoFile(IEspWUCreateZAPInfoRequest &req, Owned<IConstWorkUnit>& cwu, const char* pathNameStr);
+    //void addThorSlaveLogfile(Owned<IConstWorkUnit> &cwu,WsWuInfo& winfo, const char* path);
+    /*void createZAPWUInfoFile(IEspWUCreateZAPInfoRequest &req, Owned<IConstWorkUnit>& cwu, const char* pathNameStr);
     void createZAPWUXMLFile(WsWuInfo &winfo, const char* pathNameStr);
     void createZAPWUGraphProgressFile(const char* wuid, const char* pathNameStr);
-    void createZAPECLQueryArchiveFiles(Owned<IConstWorkUnit>& cwu, const char* pathNameStr);
+    void createZAPECLQueryArchiveFiles(Owned<IConstWorkUnit>& cwu, const char* pathNameStr);*/
     void createZAPFile(const char* fileName, size32_t len, const void* data);
-    void cleanZAPFolder(IFile* zipDir, bool removeFolder);
+    ///void cleanZAPFolder(IFile* zipDir, bool removeFolder);
     IPropertyTree* sendControlQuery(IEspContext &context, const char* target, const char* query, unsigned timeout);
     bool resetQueryStats(IEspContext &context, const char* target, IProperties* queryIds, IEspWUQuerySetQueryActionResponse& resp);
     void readGraph(IEspContext& context, const char* subGraphId, WUGraphIDType& id, bool running,
@@ -315,12 +315,14 @@ public:
 
 class CWsWorkunitsSoapBindingEx : public CWsWorkunitsSoapBinding
 {
+    void doWUCreateZAPInfo(IEspContext &context, CHttpRequest* request, CHttpResponse* response);
 public:
     CWsWorkunitsSoapBindingEx(IPropertyTree *cfg, const char *name, const char *process, http_soap_log_level llevel) : CWsWorkunitsSoapBinding(cfg, name, process, llevel)
     {
         wswService = NULL;
         VStringBuffer xpath("Software/EspProcess[@name=\"%s\"]/EspBinding[@name=\"%s\"]/BatchWatch", process, name);
         batchWatchFeaturesOnly = cfg->getPropBool(xpath.str(), false);
+        directories.set(cfg->queryPropTree("Software/Directories"));
     }
 
     virtual void getNavigationData(IEspContext &context, IPropertyTree & data)
@@ -351,6 +353,7 @@ public:
 private:
     bool batchWatchFeaturesOnly;
     CWsWorkunitsEx *wswService;
+    Owned<IPropertyTree> directories;
 };
 
 void deploySharedObject(IEspContext &context, StringBuffer &wuid, const char *filename, const char *cluster, const char *name, const MemoryBuffer &obj, const char *dir, const char *xml=NULL);

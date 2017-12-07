@@ -1384,6 +1384,105 @@ void logWUClusterJobESPCall(const char* method, const char* cluster, const char*
     PROGLOG("%s", logMsg.str());
 }
 
+const char* zipFolder0 = "tempzipfiles" PATHSEPSTR;//TODO: remove the same line from ws_workunitService.cpp
+
+void CWsWorkunitsSoapBindingEx::doWUCreateZAPInfo(IEspContext &context, CHttpRequest* request, CHttpResponse* response)
+{
+    try
+    {
+        StringBuffer wuid;
+        request->getParameter("Wuid", wuid);
+
+        WsWuHelpers::checkAndTrimWorkunit("WUCreateZAPInfo", wuid);
+        Owned<IWorkUnitFactory> factory = getWorkUnitFactory(context.querySecManager(), context.queryUser());
+        Owned<IConstWorkUnit> cwu = factory->openWorkUnit(wuid.str());
+        if(!cwu.get())
+            throw MakeStringException(ECLWATCH_CANNOT_OPEN_WORKUNIT, "Cannot open workunit %s.", wuid.str());
+        ensureWsWorkunitAccess(context, *cwu, SecAccess_Read);
+        PROGLOG("WUCreateZAPInfo: %s", wuid.str());
+
+        StringBuffer userName, nameStr, fileName;
+        StringBuffer zipFileName, zipFileNameWithPath, zipCommand, folderToZIP;
+        if (context.queryUser())
+            userName.append(context.queryUser()->getName());
+        nameStr.append("ZAPReport_").append(wuid.str()).append('_').append(userName.str());
+
+        CWsWuFileHelper helper(directories);
+        //create a folder for WU ZAP files
+        folderToZIP.append(zipFolder0).append(nameStr.str());
+        Owned<IFile> zipDir = createIFile(folderToZIP.str());
+        if (!zipDir->exists())
+            zipDir->createDirectory();
+        else
+            helper.cleanFolder(zipDir, false);
+
+        //create WU ZAP files
+        VStringBuffer pathNameStr("%s/%s", folderToZIP.str(), nameStr.str());
+        StringBuffer espIP, thorIP, problemDesc, whatChanged, whereSlow, includeThorSlaveLog;
+        request->getParameter("ESPIPAddress", espIP);
+        request->getParameter("ThorIPAddress", thorIP);
+        request->getParameter("ProblemDescription", problemDesc);
+        request->getParameter("WhatChanged", whatChanged);
+        request->getParameter("WhereSlow", whereSlow);
+        request->getParameter("IncludeThorSlaveLog", includeThorSlaveLog);
+        helper.createZAPWUInfoFile(espIP.str(), thorIP.str(), problemDesc.str(), whatChanged.str(), whereSlow.str(), cwu, pathNameStr.str());
+        helper.createZAPECLQueryArchiveFiles(cwu, pathNameStr.str());
+
+        WsWuInfo winfo(context, cwu);
+        helper.createZAPWUXMLFile(winfo, pathNameStr.str());
+        helper.createZAPWUGraphProgressFile(wuid.str(), pathNameStr.str());
+        helper.createProcessLogfile(cwu, winfo, "EclAgent", folderToZIP.str());
+        helper.createProcessLogfile(cwu, winfo, "Thor", folderToZIP.str());
+//        if (!isEmpty(includeThorSlaveLog) && (atoi(includeThorSlaveLog)==1))
+        if (!isEmpty(includeThorSlaveLog))
+            helper.createThorSlaveLogfile(cwu, winfo, folderToZIP.str());
+
+        //Write out to ZIP file
+        request->getParameter("ZAPFileName", zipFileName);
+        if (zipFileName.isEmpty())
+            zipFileName.append(nameStr.str()).append(".zip");
+        else
+        {
+            const char* ext = pathExtension(zipFileName.str());
+            if (!ext || !strieq(ext, ".zip"))
+                zipFileName.append(".zip");
+        }
+        zipFileNameWithPath.append(zipFolder0).append(zipFileName.str());
+        pathNameStr.set(folderToZIP.str()).append("/*");
+
+        StringBuffer password;
+        double version = context.getClientVersion();
+        if (version >= 1.70)
+            request->getParameter("ZAPPassword", password);
+        else
+            request->getParameter("Password", password);
+        if (!isEmpty(password))
+            zipCommand.appendf("zip -j --password %s %s %s", password.str(), zipFileNameWithPath.str(), pathNameStr.str());
+        else
+            zipCommand.appendf("zip -j %s %s", zipFileNameWithPath.str(), pathNameStr.str());
+        int zipRet = system(zipCommand.str());
+
+        //Remove the temporary files and the folder
+        helper.cleanFolder(zipDir, true);
+
+        if (zipRet != 0)
+            throw MakeStringException(ECLWATCH_CANNOT_COMPRESS_DATA,"Failed to execute system command 'zip'. Please make sure that zip utility is installed.");
+
+        VStringBuffer headerStr("attachment;filename=%s", zipFileName.str());
+        context.addCustomerHeader("Content-disposition", headerStr.str());
+
+        //Download ZIP file to user
+        response->setContent(helper.createIOStreamWithFileName(zipFileNameWithPath.str(), IFOread));
+        response->setContentType(HTTP_TYPE_OCTET_STREAM);
+        response->send();
+    }
+    catch(IException* e)
+    {
+        FORWARDEXCEPTION(context, e,  ECLWATCH_INTERNAL_ERROR);
+    }
+    return;
+}
+
 int CWsWorkunitsSoapBindingEx::onGet(CHttpRequest* request, CHttpResponse* response)
 {
     IEspContext *ctx = request->queryContext();
@@ -1491,6 +1590,11 @@ int CWsWorkunitsSoapBindingEx::onGet(CHttpRequest* request, CHttpResponse* respo
             response->setContentType("text/xml");
             response->setStatus(HTTP_STATUS_OK);
             response->send();
+            return 0;
+        }
+        if (!strnicmp(path.str(), "/WsWorkunits/WUCreateZAPInfo", 28))
+        {
+            doWUCreateZAPInfo(*ctx, request, response);
             return 0;
         }
     }

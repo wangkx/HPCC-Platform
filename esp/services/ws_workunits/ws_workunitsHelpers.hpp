@@ -135,6 +135,7 @@ class WsWuInfo
     IEspWUArchiveFile* readArchiveFileAttr(IPropertyTree& fileTree, const char* path);
     IEspWUArchiveModule* readArchiveModuleAttr(IPropertyTree& moduleTree, const char* path);
     void readArchiveFiles(IPropertyTree* archiveTree, const char* path, IArrayOf<IEspWUArchiveFile>& files);
+    void outputALine(size32_t len, const char* content, const char* outFile, Owned<IFileIOStream>& outIOS, MemoryBuffer& outputBuf);
 public:
     WsWuInfo(IEspContext &ctx, IConstWorkUnit *cw_) :
       context(ctx), cw(cw_)
@@ -187,9 +188,9 @@ public:
     void getResult(IConstWUResult &r, IArrayOf<IEspECLResult>& results, unsigned long flags);
     void getStats(const WuScopeFilter & filter, const StatisticsFilter& statsFilter, bool createDescriptions, IArrayOf<IEspWUStatisticItem>& statistics);
 
-    void getWorkunitEclAgentLog(const char* eclAgentInstance, const char* agentPid, MemoryBuffer& buf);
-    void getWorkunitThorLog(const char *processName, MemoryBuffer& buf);
-    void getWorkunitThorSlaveLog(const char *groupName, const char *ipAddress, const char* logDate, const char* logDir, int slaveNum, MemoryBuffer& buf, bool forDownload);
+    void getWorkunitEclAgentLog(const char* eclAgentInstance, const char* agentPid, MemoryBuffer& buf, const char* outFile);
+    void getWorkunitThorLog(const char *processName, MemoryBuffer& buf, const char* outFile);
+    void getWorkunitThorSlaveLog(const char *groupName, const char *ipAddress, const char* logDate, const char* logDir, int slaveNum, MemoryBuffer& buf, const char* outIOS, bool forDownload);
     void getWorkunitResTxt(MemoryBuffer& buf);
     void getWorkunitArchiveQuery(IStringVal& str);
     void getWorkunitArchiveQuery(StringBuffer& str);
@@ -560,6 +561,26 @@ public:
         Owned<IWUQuery> query=get()->updateQuery();
         query->setQueryMainDefinition(s);
     }
+};
+class CWsWuFileHelper
+{
+    IPropertyTree* directories;
+
+    void writeToIOStream(IFileIOStream* outFile, const char* name, SCMStringBuffer& value);
+    void writeToIOStream(IFileIOStream* outFile, const char* name, const char* value);
+    void createFile(const char* fileName, size32_t contentLength, const void* content);
+public:
+    CWsWuFileHelper(IPropertyTree* _directories) : directories(_directories) {};
+
+    IFileIOStream* createIOStreamWithFileName(const char* fileName, IFOmode mode);
+    void cleanFolder(IFile* folder, bool removeFolder);
+    void createZAPWUInfoFile(const char* espIP, const char* thorIP, const char* problemDesc,
+            const char* whatChanged, const char* timing, Owned<IConstWorkUnit>& cwu, const char* pathNameStr);
+    void createZAPWUXMLFile(WsWuInfo &winfo, const char* pathNameStr);
+    void createZAPECLQueryArchiveFiles(Owned<IConstWorkUnit>& cwu, const char* pathNameStr);
+    void createZAPWUGraphProgressFile(const char* wuid, const char* pathNameStr);
+    void createProcessLogfile(Owned<IConstWorkUnit>& cwu, WsWuInfo& winfo, const char* process, const char* path);
+    void createThorSlaveLogfile(Owned<IConstWorkUnit>& cwu, WsWuInfo& winfo, const char* path);
 };
 }
 #endif
