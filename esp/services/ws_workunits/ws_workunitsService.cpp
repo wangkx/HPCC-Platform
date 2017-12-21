@@ -4738,7 +4738,7 @@ bool CWsWorkunitsEx::onWUDeployWorkunit(IEspContext &context, IEspWUDeployWorkun
     return true;
 }
 
-
+/*
 void CWsWorkunitsEx::createZAPFile(const char* fileName, size32_t len, const void* data)
 {
     if (!fileName || !*fileName)
@@ -4748,7 +4748,7 @@ void CWsWorkunitsEx::createZAPFile(const char* fileName, size32_t len, const voi
     if (wuInfoIO)
         wuInfoIO->write(0, len, data);
 }
-/*
+
 void CWsWorkunitsEx::cleanZAPFolder(IFile* zipDir, bool removeFolder)
 {
     if (!zipDir)
@@ -5013,13 +5013,13 @@ void CWsWorkunitsEx::createZAPWUGraphProgressFile(const char* wuid, const char* 
         VStringBuffer fileName("%s.graphprogress", pathNameStr);
         createZAPFile(fileName.str(), graphProgressXML.length(), graphProgressXML.str());
     }
-}
+}*/
 
 bool CWsWorkunitsEx::onWUCreateZAPInfo(IEspContext &context, IEspWUCreateZAPInfoRequest &req, IEspWUCreateZAPInfoResponse &resp)
 {
     try
     {
-        StringBuffer wuid = req.getWuid();
+        /*StringBuffer wuid = req.getWuid();
         WsWuHelpers::checkAndTrimWorkunit("WUCreateZAPInfo", wuid);
         Owned<IWorkUnitFactory> factory = getWorkUnitFactory(context.querySecManager(), context.queryUser());
         Owned<IConstWorkUnit> cwu = factory->openWorkUnit(wuid.str());
@@ -5101,14 +5101,14 @@ bool CWsWorkunitsEx::onWUCreateZAPInfo(IEspContext &context, IEspWUCreateZAPInfo
         headerStr.append(zipFileName.str());
         context.addCustomerHeader("Content-disposition", headerStr.str());
         io->close();
-        f->remove();
+        f->remove();*/
     }
     catch(IException* e)
     {
         FORWARDEXCEPTION(context, e,  ECLWATCH_INTERNAL_ERROR);
     }
     return true;
-}*/
+}
 
 bool CWsWorkunitsEx::onWUGetZAPInfo(IEspContext &context, IEspWUGetZAPInfoRequest &req, IEspWUGetZAPInfoResponse &resp)
 {

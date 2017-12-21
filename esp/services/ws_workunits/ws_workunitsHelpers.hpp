@@ -562,6 +562,12 @@ public:
         query->setQueryMainDefinition(s);
     }
 };
+
+struct CWsWuZAPInfoReq
+{
+    StringBuffer wuid, espIP, thorIP, problemDesc, whatChanged, whereSlow, includeThorSlaveLog, zipFileName, password;
+};
+
 class CWsWuFileHelper
 {
     IPropertyTree* directories;
@@ -581,6 +587,7 @@ public:
     void createZAPWUGraphProgressFile(const char* wuid, const char* pathNameStr);
     void createProcessLogfile(Owned<IConstWorkUnit>& cwu, WsWuInfo& winfo, const char* process, const char* path);
     void createThorSlaveLogfile(Owned<IConstWorkUnit>& cwu, WsWuInfo& winfo, const char* path);
+    IFileIOStream* createWUZAPFileIOStream(IEspContext &context, Owned<IConstWorkUnit>& cwu, CWsWuZAPInfoReq& request, StringBuffer& zipFileName);
 };
 }
 #endif

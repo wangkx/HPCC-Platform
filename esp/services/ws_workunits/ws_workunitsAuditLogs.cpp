@@ -1384,97 +1384,169 @@ void logWUClusterJobESPCall(const char* method, const char* cluster, const char*
     PROGLOG("%s", logMsg.str());
 }
 
-const char* zipFolder0 = "tempzipfiles" PATHSEPSTR;//TODO: remove the same line from ws_workunitService.cpp
+void CWsWorkunitsSoapBindingEx::downloadWUZAPFile(IEspContext &context, CHttpRequest* request, CHttpResponse* response)
+{
+    StringBuffer wuid;
+    request->getParameter("Wuid", wuid);
 
-void CWsWorkunitsSoapBindingEx::doWUCreateZAPInfo(IEspContext &context, CHttpRequest* request, CHttpResponse* response)
+    WsWuHelpers::checkAndTrimWorkunit("WUCreateZAPInfo", wuid);
+    Owned<IWorkUnitFactory> factory = getWorkUnitFactory(context.querySecManager(), context.queryUser());
+    Owned<IConstWorkUnit> cwu = factory->openWorkUnit(wuid.str());
+    if(!cwu.get())
+        throw MakeStringException(ECLWATCH_CANNOT_OPEN_WORKUNIT, "Cannot open workunit %s.", wuid.str());
+    ensureWsWorkunitAccess(context, *cwu, SecAccess_Read);
+    PROGLOG("WUCreateZAPInfo: %s", wuid.str());
+
+    CWsWuZAPInfoReq zapInfoReq;
+    request->getParameter("Wuid", zapInfoReq.wuid);
+    request->getParameter("ESPIPAddress", zapInfoReq.espIP);
+    request->getParameter("ThorIPAddress", zapInfoReq.thorIP);
+    request->getParameter("ProblemDescription", zapInfoReq.problemDesc);
+    request->getParameter("WhatChanged", zapInfoReq.whatChanged);
+    request->getParameter("WhereSlow", zapInfoReq.whereSlow);
+    request->getParameter("IncludeThorSlaveLog", zapInfoReq.includeThorSlaveLog);
+
+    request->getParameter("ZAPFileName", zapInfoReq.zipFileName);
+    double version = context.getClientVersion();
+    if (version >= 1.70)
+        request->getParameter("ZAPPassword", zapInfoReq.password);
+    else
+        request->getParameter("Password", zapInfoReq.password);
+
+    StringBuffer zipFileName;
+    CWsWuFileHelper helper(directories);
+    response->setContent(helper.createWUZAPFileIOStream(context, cwu, zapInfoReq, zipFileName));
+    response->setContentType(HTTP_TYPE_OCTET_STREAM);
+
+    VStringBuffer headerStr("attachment;filename=%s", zipFileName.str());
+    context.addCustomerHeader("Content-disposition", headerStr.str());
+    response->send();
+}
+
+void CWsWorkunitsSoapBindingEx::downloadFiles(IEspContext &context, CHttpRequest* request, CHttpResponse* response)
 {
     try
     {
         StringBuffer wuid;
-        request->getParameter("Wuid", wuid);
+        /*request->getParameter("Wuid", wuid);
+        if (wuid.trim().isEmpty())
+        {
+            StringBuffer querySet, queryReq;
+            request->getParameter("QuerySet", querySet);
+            request->getParameter("Query", queryReq);
+            if (queryReq.trim().isEmpty() || querySet.trim().isEmpty())
+                throw MakeStringException(ECLWATCH_INVALID_INPUT, "WU ID or QuerySet/Query not specified");
 
-        WsWuHelpers::checkAndTrimWorkunit("WUCreateZAPInfo", wuid);
-        Owned<IWorkUnitFactory> factory = getWorkUnitFactory(context.querySecManager(), context.queryUser());
-        Owned<IConstWorkUnit> cwu = factory->openWorkUnit(wuid.str());
-        if(!cwu.get())
-            throw MakeStringException(ECLWATCH_CANNOT_OPEN_WORKUNIT, "Cannot open workunit %s.", wuid.str());
-        ensureWsWorkunitAccess(context, *cwu, SecAccess_Read);
-        PROGLOG("WUCreateZAPInfo: %s", wuid.str());
+            Owned<IPropertyTree> registry = getQueryRegistry(querySet.str(), false);
+            if (!registry)
+                throw MakeStringException(ECLWATCH_QUERYSET_NOT_FOUND, "Queryset %s not found", querySet.str());
+            Owned<IPropertyTree> query = resolveQueryAlias(registry, queryReq.str());
+            if (!query)
+                throw MakeStringException(ECLWATCH_QUERYID_NOT_FOUND, "Query %s not found", queryReq.str());
+            response->setQuerySet(querySet.str());
+            response->setQueryName(query->queryProp("@name"));
+            response->setQueryId(query->queryProp("@id"));
+            wuid.set(query->queryProp("@wuid"));
+        }
 
-        StringBuffer userName, nameStr, fileName;
-        StringBuffer zipFileName, zipFileNameWithPath, zipCommand, folderToZIP;
-        if (context.queryUser())
-            userName.append(context.queryUser()->getName());
-        nameStr.append("ZAPReport_").append(wuid.str()).append('_').append(userName.str());
+        if (!looksLikeAWuid(wuid, 'W'))
+            throw MakeStringException(ECLWATCH_INVALID_INPUT, "Invalid Workunit ID");
 
-        CWsWuFileHelper helper(directories);
-        //create a folder for WU ZAP files
-        folderToZIP.append(zipFolder0).append(nameStr.str());
-        Owned<IFile> zipDir = createIFile(folderToZIP.str());
-        if (!zipDir->exists())
-            zipDir->createDirectory();
-        else
+        ensureWsWorkunitAccess(context, wuid, SecAccess_Read);
+
+        IArrayOf<IConstWUFileOption> &wuFileOptions;/// = req.getWUFileOptions();
+        if (!wuFileOptions.ordinality())
+            throw MakeStringException(ECLWATCH_INVALID_INPUT, "No WU file specified");
+
+        StringBuffer downloadOption;
+        request->getParameter("DownloadOption", downloadOption);
+        CWUFileDownloadOption opt = atoi(downloadOption.str());
+        if ((wuFileOptions.length() > 1) && ((opt == CWUFileDownloadOption_OriginalText) || (opt == CWUFileDownloadOption_Attachment)))
+            throw MakeStringException(ECLWATCH_INVALID_INPUT, "Cannot download multiple files without zip");
+
+        Owned<IFile> zipDir;
+        StringBuffer folderToZIP, zipFileName;
+        if ((opt == CWUFileDownloadOption_ZIP) || (opt == CWUFileDownloadOption_GZIP))
+        {
+            StringBuffer userName;
+            if (context.queryUser())
+                userName.append(context.queryUser()->getName());
+
+            zipFileName.set("WUFiles_").append(wuid.str());
+            folderToZIP.set(zipFolder).append(zipFileName.str()).append('_').append(userName.str());
+            if (opt == CWUFileDownloadOption_ZIP)
+                zipFileName.append(".zip");
+            else
+                zipFileName.append(".gzip");
+
+            zipDir.setown(createIFile(folderToZIP));
+            if (!zipDir->exists())
+                zipDir->createDirectory();
+            else
+            {
+                CWsWuFileHelper helper(nullptr);
+                helper.cleanFolder(zipDir, false);
+            }
+        }
+
+        resp->setWuid(wuid.str());
+        WsWuInfo winfo(context, wuid.str());
+        ForEachItemIn(i, wuFileOptions)
+        {
+            IConstWUFileOption &item = wuFileOptions.item(i);
+
+            MemoryBuffer mb;
+            if (item.getFileType() != CWUFileType_DLL)
+            {
+                StringBuffer downloadFileName, downloadFileMimeType;
+                readWUFile(wuid.str(), winfo, item, opt != CWUFileDownloadOption_OriginalText, mb, downloadFileName, downloadFileMimeType);
+            }
+            else
+            {
+                StringBuffer downloadFileName, downloadFileMimeType;
+                const char *tail = pathTail(item.getName());
+                downloadFileName.set(tail ? tail : item.getName());
+                downloadFileMimeType.set(HTTP_TYPE_OCTET_STREAM);
+
+                StringBuffer name;
+                winfo.getWorkunitDll(name, mb);
+                resp->setFileName(name.str());
+                resp->setDaliServer(daliServers.get());
+            }
+
+            if ((opt == CWUFileDownloadOption_OriginalText) || (opt == CWUFileDownloadOption_Attachment))
+            {
+                checkFileSizeLimit(mb.length(), item.getSizeLimit());
+                resp->setThefile(mb);
+                resp->setThefile_mimetype(downloadFileMimeType.str());
+                if (opt == CWUFileDownloadOption_Attachment)
+                    setAttachmentFileName(context, downloadFileName.str());
+                break;
+            }
+            else
+            {
+                StringBuffer aZIPFile = folderToZIP;
+                aZIPFile.append(PATHSEPCHAR).append(downloadFileName.str());
+                Owned<IFile> wuIFile = createIFile(aZIPFile.str());
+                Owned<IFileIO> wuIFileIO = wuIFile->open(IFOcreate);
+                if (wuIFileIO)
+                    wuIFileIO->write(0, mb.length(), mb.bufferBase());
+            }
+        }
+
+        if ((opt == CWUFileDownloadOption_ZIP) || (opt == CWUFileDownloadOption_GZIP))
+        {
+            MemoryBuffer mb;
+            zipAFolderToMB(folderToZIP.str(), zipFileName.str(), opt == CWUFileDownloadOption_GZIP, mb);
+
+            //Remove the temporary files and the folder
+            CWsWuFileHelper helper(nullptr);
             helper.cleanFolder(zipDir, false);
 
-        //create WU ZAP files
-        VStringBuffer pathNameStr("%s/%s", folderToZIP.str(), nameStr.str());
-        StringBuffer espIP, thorIP, problemDesc, whatChanged, whereSlow, includeThorSlaveLog;
-        request->getParameter("ESPIPAddress", espIP);
-        request->getParameter("ThorIPAddress", thorIP);
-        request->getParameter("ProblemDescription", problemDesc);
-        request->getParameter("WhatChanged", whatChanged);
-        request->getParameter("WhereSlow", whereSlow);
-        request->getParameter("IncludeThorSlaveLog", includeThorSlaveLog);
-        helper.createZAPWUInfoFile(espIP.str(), thorIP.str(), problemDesc.str(), whatChanged.str(), whereSlow.str(), cwu, pathNameStr.str());
-        helper.createZAPECLQueryArchiveFiles(cwu, pathNameStr.str());
-
-        WsWuInfo winfo(context, cwu);
-        helper.createZAPWUXMLFile(winfo, pathNameStr.str());
-        helper.createZAPWUGraphProgressFile(wuid.str(), pathNameStr.str());
-        helper.createProcessLogfile(cwu, winfo, "EclAgent", folderToZIP.str());
-        helper.createProcessLogfile(cwu, winfo, "Thor", folderToZIP.str());
-//        if (!isEmpty(includeThorSlaveLog) && (atoi(includeThorSlaveLog)==1))
-        if (!isEmpty(includeThorSlaveLog))
-            helper.createThorSlaveLogfile(cwu, winfo, folderToZIP.str());
-
-        //Write out to ZIP file
-        request->getParameter("ZAPFileName", zipFileName);
-        if (zipFileName.isEmpty())
-            zipFileName.append(nameStr.str()).append(".zip");
-        else
-        {
-            const char* ext = pathExtension(zipFileName.str());
-            if (!ext || !strieq(ext, ".zip"))
-                zipFileName.append(".zip");
-        }
-        zipFileNameWithPath.append(zipFolder0).append(zipFileName.str());
-        pathNameStr.set(folderToZIP.str()).append("/*");
-
-        StringBuffer password;
-        double version = context.getClientVersion();
-        if (version >= 1.70)
-            request->getParameter("ZAPPassword", password);
-        else
-            request->getParameter("Password", password);
-        if (!isEmpty(password))
-            zipCommand.appendf("zip -j --password %s %s %s", password.str(), zipFileNameWithPath.str(), pathNameStr.str());
-        else
-            zipCommand.appendf("zip -j %s %s", zipFileNameWithPath.str(), pathNameStr.str());
-        int zipRet = system(zipCommand.str());
-
-        //Remove the temporary files and the folder
-        helper.cleanFolder(zipDir, true);
-
-        if (zipRet != 0)
-            throw MakeStringException(ECLWATCH_CANNOT_COMPRESS_DATA,"Failed to execute system command 'zip'. Please make sure that zip utility is installed.");
-
-        VStringBuffer headerStr("attachment;filename=%s", zipFileName.str());
-        context.addCustomerHeader("Content-disposition", headerStr.str());
-
-        //Download ZIP file to user
-        response->setContent(helper.createIOStreamWithFileName(zipFileNameWithPath.str(), IFOread));
-        response->setContentType(HTTP_TYPE_OCTET_STREAM);
-        response->send();
+            resp.setThefile(mb);
+            resp.setThefile_mimetype(HTTP_TYPE_OCTET_STREAM);
+            setAttachmentFileName(context, zipFileName.str());
+        }*/
     }
     catch(IException* e)
     {
@@ -1592,9 +1664,15 @@ int CWsWorkunitsSoapBindingEx::onGet(CHttpRequest* request, CHttpResponse* respo
             response->send();
             return 0;
         }
+ //       if (!strnicmp(path.str(), "/WsWorkunits/downloadWUZAPInfo", 28))
         if (!strnicmp(path.str(), "/WsWorkunits/WUCreateZAPInfo", 28))
         {
-            doWUCreateZAPInfo(*ctx, request, response);
+            downloadWUZAPFile(*ctx, request, response);
+            return 0;
+        }
+        if (!strnicmp(path.str(), "/WsWorkunits/downloadFiles", 28))
+        {
+            downloadFiles(*ctx, request, response);
             return 0;
         }
     }

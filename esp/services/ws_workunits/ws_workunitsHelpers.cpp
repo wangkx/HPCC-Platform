@@ -3620,5 +3620,62 @@ void CWsWuFileHelper::createZAPWUGraphProgressFile(const char* wuid, const char*
     createFile(fileName.str(), graphProgressXML.length(), graphProgressXML.str());
 }
 
+const char* zipFolder0 = "tempzipfiles" PATHSEPSTR;//TODO: remove the same line from ws_workunitService.cpp
+
+IFileIOStream* CWsWuFileHelper::createWUZAPFileIOStream(IEspContext &context, Owned<IConstWorkUnit>& cwu, CWsWuZAPInfoReq& request, StringBuffer& zipFileName)
+{
+    StringBuffer userName, nameStr, fileName, zipFileNameWithPath, zipCommand, folderToZIP;
+    if (context.queryUser())
+        userName.append(context.queryUser()->getName());
+    nameStr.append("ZAPReport_").append(request.wuid.str()).append('_').append(userName.str());
+
+    //create a folder for WU ZAP files
+    folderToZIP.append(zipFolder0).append(nameStr.str());
+    Owned<IFile> zipDir = createIFile(folderToZIP.str());
+    if (!zipDir->exists())
+        zipDir->createDirectory();
+    else
+        cleanFolder(zipDir, false);
+
+    //create WU ZAP files
+    VStringBuffer pathNameStr("%s/%s", folderToZIP.str(), nameStr.str());
+    createZAPWUInfoFile(request.espIP.str(), request.thorIP.str(), request.problemDesc.str(), request.whatChanged.str(), request.whereSlow.str(), cwu, pathNameStr.str());
+    createZAPECLQueryArchiveFiles(cwu, pathNameStr.str());
+
+    WsWuInfo winfo(context, cwu);
+    createZAPWUXMLFile(winfo, pathNameStr.str());
+    createZAPWUGraphProgressFile(request.wuid.str(), pathNameStr.str());
+    createProcessLogfile(cwu, winfo, "EclAgent", folderToZIP.str());
+    createProcessLogfile(cwu, winfo, "Thor", folderToZIP.str());
+//        if (!isEmpty(includeThorSlaveLog) && (atoi(includeThorSlaveLog)==1))
+    if (!isEmpty(request.includeThorSlaveLog))
+        createThorSlaveLogfile(cwu, winfo, folderToZIP.str());
+
+    //Write out to ZIP file
+    if (zipFileName.isEmpty())
+        zipFileName.append(nameStr.str()).append(".zip");
+    else
+    {
+        const char* ext = pathExtension(zipFileName.str());
+        if (!ext || !strieq(ext, ".zip"))
+            zipFileName.append(".zip");
+    }
+    zipFileNameWithPath.append(zipFolder0).append(zipFileName.str());
+    pathNameStr.set(folderToZIP.str()).append("/*");
+
+    if (!isEmpty(request.password))
+        zipCommand.appendf("zip -j --password %s %s %s", request.password.str(), zipFileNameWithPath.str(), pathNameStr.str());
+    else
+        zipCommand.appendf("zip -j %s %s", zipFileNameWithPath.str(), pathNameStr.str());
+    int zipRet = system(zipCommand.str());
+
+    //Remove the temporary files and the folder
+    cleanFolder(zipDir, true);
+
+    if (zipRet != 0)
+        throw MakeStringException(ECLWATCH_CANNOT_COMPRESS_DATA,"Failed to execute system command 'zip'. Please make sure that zip utility is installed.");
+
+    return createIOStreamWithFileName(zipFileNameWithPath.str(), IFOread);
+}
 
 }

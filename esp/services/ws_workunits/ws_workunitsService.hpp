@@ -315,7 +315,8 @@ public:
 
 class CWsWorkunitsSoapBindingEx : public CWsWorkunitsSoapBinding
 {
-    void doWUCreateZAPInfo(IEspContext &context, CHttpRequest* request, CHttpResponse* response);
+    void downloadWUZAPFile(IEspContext &context, CHttpRequest* request, CHttpResponse* response);
+    void downloadFiles(IEspContext &context, CHttpRequest* request, CHttpResponse* response);
 public:
     CWsWorkunitsSoapBindingEx(IPropertyTree *cfg, const char *name, const char *process, http_soap_log_level llevel) : CWsWorkunitsSoapBinding(cfg, name, process, llevel)
     {
