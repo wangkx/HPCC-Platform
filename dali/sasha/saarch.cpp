@@ -164,7 +164,7 @@ void WUiterate(ISashaCommand *cmd, const char *mask)
                 return false;
             return true;
         }
-        bool parseAndCheckWUID(const char *wuid)
+        bool checkArchivedWUID(const char *wuid)
         {
             if (isEmptyString(wuid))
                 return false;
@@ -175,6 +175,22 @@ void WUiterate(ISashaCommand *cmd, const char *mask)
             if (!afterWU.isEmpty() && (stricmp(wuid, afterWU.str()) <= 0))
                 return false;
             if (!beforeWU.isEmpty() && (stricmp(wuid, beforeWU.str()) >= 0))
+                return false;
+
+            return true;
+        }
+        bool checkOnlineWUID(const char *wuid)
+        {
+            if (isEmptyString(wuid))
+                return false;
+
+            if (!afterWU.isEmpty() && (stricmp(wuid, afterWU.str()) <= 0))
+                return false;
+            if (!beforeWU.isEmpty() && (stricmp(wuid, beforeWU.str()) >= 0))
+                return false;
+            if (!fromDT.isEmpty() && (stricmp(wuid, fromDT.str()) < 0))
+                return false;
+            if (!toDT.isEmpty() && (stricmp(wuid, toDT.str()) > 0))
                 return false;
 
             return true;
@@ -389,7 +405,7 @@ void WUiterate(ISashaCommand *cmd, const char *mask)
                 ForEach(*fileIterator)
                 {
                     fileIterator->getName(name.clear());
-                    if (!parseAndCheckWUID(readWUIDFromFileName(name)))
+                    if (!checkArchivedWUID(readWUIDFromFileName(name)))
                         continue;
 
                     const char *wuid = name.str();
@@ -462,11 +478,11 @@ void WUiterate(ISashaCommand *cmd, const char *mask)
                 cmd->setWUSresult(WUSbuf);
         }
         void getOnlineWUs()
-        { //The code here is refactered based on the pre-existing code.
+        {
             if (cmd->getAction()==SCA_WORKUNIT_SERVICES_GET)
                 throw MakeStringException(-1,"SCA_WORKUNIT_SERVICES_GET not implemented for online workunits!");
 
-            Owned<IRemoteConnection> conn = getSDSConnection(mask);
+            Owned<IRemoteConnection> conn = getSDSConnection(mask.str());
             if (!conn)
                 return;
     
@@ -479,12 +495,7 @@ void WUiterate(ISashaCommand *cmd, const char *mask)
                 IPropertyTree *pt = &iter->query();
                 wuid.set(pt->queryName());
 
-                if (!parseAndCheckWUID(wuid.str()))
-                    continue;
-
-                if (!fromDT.isEmpty() && (stricmp(wuid.str(), fromDT.str()) < 0))
-                    continue;
-                if (!toDT.isEmpty() && (stricmp(wuid.str(), toDT.str()) > 0))
+                if (!checkOnlineWUID(wuid.str()))
                     continue;
 
                 try
