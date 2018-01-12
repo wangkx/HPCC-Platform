@@ -92,7 +92,7 @@ public:
 
 static CriticalSection wuDataSortSect;
 static bool wuDataSortInc = true;
-static CIArrayOf<CWUData> *wusRef = nullptr;
+static IArrayOf<IPropertyTree> *wusRef = nullptr;
 
 void WUiterate(ISashaCommand *cmd, const char *mask)
 {
@@ -305,7 +305,7 @@ void WUiterate(ISashaCommand *cmd, const char *mask)
                     output.append(',').append(val);
             }
         }
-        void addWUsSorted(StringArray &outputFields, CIArrayOf<CWUData> &wus)
+        void addWUsSorted(StringArray &outputFields, IArrayOf<IPropertyTree> &wus)
         {
             unsigned nwus = wus.ordinality();
             unsigned *idx = new unsigned[nwus];
@@ -320,7 +320,7 @@ void WUiterate(ISashaCommand *cmd, const char *mask)
             }
             for (i = 0; i < nwus; i++)
             {
-                if (!addOutputFromWUTree(outputFields, wus.item(idx[i]).wuTree))
+                if (!addOutputFromWUTree(outputFields, &wus.item(idx[i])))
                     break;
             }
             delete [] idx;
@@ -334,9 +334,9 @@ void WUiterate(ISashaCommand *cmd, const char *mask)
 
             int ret = 0;
             if (wuDataSortInc)
-                ret = stricmp(wusRef->item(i1).wuTree->queryName(), wusRef->item(i2).wuTree->queryName());
+                ret = stricmp(wusRef->item(i1).queryName(), wusRef->item(i2).queryName());
             else
-                ret = stricmp(wusRef->item(i2).wuTree->queryName(), wusRef->item(i1).wuTree->queryName());
+                ret = stricmp(wusRef->item(i2).queryName(), wusRef->item(i1).queryName());
             return ret;
         }
 
@@ -486,7 +486,7 @@ void WUiterate(ISashaCommand *cmd, const char *mask)
             if (!conn)
                 return;
     
-            CIArrayOf<CWUData> wus;
+            IArrayOf<IPropertyTree> wus;
             unsigned wuCount = 0;
             StringBuffer wuid;
             Owned<IPropertyTreeIterator> iter = conn->queryRoot()->getElements(isWild ? "*" : NULL);
@@ -511,9 +511,8 @@ void WUiterate(ISashaCommand *cmd, const char *mask)
                     continue;
                 }
 
-                Owned<CWUData> wu = new CWUData();
-                wu->wuTree.setown(createPTreeFromIPT(pt));
-                wus.append(*wu.getClear());
+                pt->Link();
+                wus.append(*pt);
 
                 wuCount++;
                 if (wuCount == maxNumWUs)
