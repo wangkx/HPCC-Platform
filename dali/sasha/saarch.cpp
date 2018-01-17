@@ -308,35 +308,32 @@ void WUiterate(ISashaCommand *cmd, const char *mask)
         void addWUsSorted(StringArray &outputFields, IArrayOf<IPropertyTree> &wus)
         {
             unsigned nwus = wus.ordinality();
-            unsigned *idx = new unsigned[nwus];
+            UnsignedArray idx;
             unsigned i;
             for (i = 0; i < nwus; i++)
-                idx[i] = i;
+                idx.append(i);
             {
                 CriticalBlock block(wuDataSortSect);
                 wusRef = &wus;
                 wuDataSortInc = sortInc;
-                qsort(idx, nwus, sizeof(unsigned), compare);
+                idx.sort(compare);
             }
             for (i = 0; i < nwus; i++)
             {
                 if (!addOutputFromWUTree(outputFields, &wus.item(idx[i])))
                     break;
             }
-            delete [] idx;
         }
-        static int compare(const void *v1, const void *v2)
+        static int compare(unsigned const *i1, unsigned const *i2)
         {
-            const unsigned &i1 = *(const unsigned *) v1;
-            const unsigned &i2 = *(const unsigned *) v2;
-            if (i1 == i2)
+            if (*i1 == *i2)
                 return 0;
 
             int ret = 0;
             if (wuDataSortInc)
-                ret = stricmp(wusRef->item(i1).queryName(), wusRef->item(i2).queryName());
+                ret = stricmp(wusRef->item(*i1).queryName(), wusRef->item(*i2).queryName());
             else
-                ret = stricmp(wusRef->item(i2).queryName(), wusRef->item(i1).queryName());
+                ret = stricmp(wusRef->item(*i2).queryName(), wusRef->item(*i1).queryName());
             return ret;
         }
 
@@ -482,14 +479,14 @@ void WUiterate(ISashaCommand *cmd, const char *mask)
             if (cmd->getAction()==SCA_WORKUNIT_SERVICES_GET)
                 throw MakeStringException(-1,"SCA_WORKUNIT_SERVICES_GET not implemented for online workunits!");
 
-            Owned<IRemoteConnection> conn = getSDSConnection(mask.str());
+            Owned<IRemoteConnection> conn = getSDSConnection(isWild ? nullptr : mask.str());
             if (!conn)
                 return;
     
             IArrayOf<IPropertyTree> wus;
             unsigned wuCount = 0;
             StringBuffer wuid;
-            Owned<IPropertyTreeIterator> iter = conn->queryRoot()->getElements(isWild ? "*" : NULL);
+            Owned<IPropertyTreeIterator> iter = conn->queryRoot()->getElements(isWild ? (mask.isEmpty() ? "*" : mask.str()) : nullptr);
             ForEach(*iter)
             {
                 IPropertyTree *pt = &iter->query();
