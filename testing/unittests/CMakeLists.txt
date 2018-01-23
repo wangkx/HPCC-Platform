@@ -26,7 +26,12 @@ if (USE_CPPUNIT)
 
 project( unitests )
 
+include(${HPCC_SOURCE_DIR}/esp/scm/smcscm.cmake)
+
 set (    SRCS
+         ${ESPSCM_GENERATED_DIR}/common_esp.cpp
+         ${ESPSCM_GENERATED_DIR}/ws_workunits_esp.cpp
+         ${HPCC_SOURCE_DIR}/dali/sasha/sacmd.cpp
          unittests.cpp
          remotetests.cpp
          dalitests.cpp
@@ -41,8 +46,14 @@ include_directories (
          ./../../system/mp
          ./../../common/remote
          ./../../dali/base
+         ./../../dali/sasha
          ./../../system/security/shared
          ./../../common/deftype
+         ./../../system/xmllib
+         ./../../esp/platform
+         ./../../esp/bindings
+         ./../../esp/bindings/SOAP/xpp
+         ./../../esp/bindings/http/client
     )
 
 ADD_DEFINITIONS( -D_CONSOLE )
@@ -55,6 +66,7 @@ target_link_libraries ( unittests
          remote
          dalibase
          deftype
+         esphttp
          ${CPPUNIT_LIBRARIES}
     )
 
