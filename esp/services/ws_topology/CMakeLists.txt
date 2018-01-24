@@ -43,7 +43,8 @@ include_directories (
          ./../../../system/xmllib 
          ./../../../system/security/securesocket         
          ./../../../system/security/shared 
-         ./../../../system/security/zcrypt 
+         ./../../../system/security/zcrypt
+         ./../../../system/security/LdapSecurity
          ./../../../system/include 
          ./../../../common/workunit 
          ./../../../common/remote 

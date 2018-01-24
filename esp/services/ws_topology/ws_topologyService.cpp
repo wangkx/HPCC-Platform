@@ -34,6 +34,9 @@
 #endif
 #include "exception_util.hpp"
 #include "jwrapper.hpp"
+#ifdef _USE_OPENLDAP
+#include "ldapsecurity.ipp"
+#endif
 
 #define SDS_LOCK_TIMEOUT 30000
 
@@ -1758,6 +1761,41 @@ bool CWsTopologyEx::onTpDropZoneQuery(IEspContext &context, IEspTpDropZoneQueryR
             throw MakeStringException(ECLWATCH_TOPOLOGY_ACCESS_DENIED, "Failed to do Machine Query. Permission denied.");
 
         m_TpWrapper.getTpDropZones(context.getClientVersion(), req.getName(), req.getECLWatchVisibleOnly(), resp.getTpDropZones());
+    }
+    catch(IException* e)
+    {
+        FORWARDEXCEPTION(context, e,  ECLWATCH_INTERNAL_ERROR);
+    }
+    return false;
+}
+
+bool CWsTopologyEx::onTpGetEnvironment(IEspContext &context, IEspTpGetEnvironmentRequest &req, IEspTpGetEnvironmentResponse &resp)
+{
+    try
+    {
+#ifdef _USE_OPENLDAP
+        CLdapSecManager* secmgr = dynamic_cast<CLdapSecManager*>(context.querySecManager());
+        if(secmgr && !secmgr->isSuperUser(context.queryUser()))
+            throw MakeStringException(ECLWATCH_SUPER_USER_ACCESS_DENIED, "access denied, administrators only.");
+#endif
+
+        SCMStringBuffer sb;
+        Owned<IEnvironmentFactory> factory = getEnvironmentFactory(true);
+        Owned<IConstEnvironment> env = factory->openEnvironment();
+        env->getXML(sb);
+
+        const char* header;
+        bool plainText = req.getPlainText();
+        if (plainText)
+            header = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>";
+        else
+            header = "<?xml version=\"1.0\" encoding=\"UTF-8\"?><?xml-stylesheet href=\"../esp/xslt/xmlformatter.xsl\" type=\"text/xsl\"?>";
+
+        MemoryBuffer mb;
+        mb.append(strlen(header), header);
+        mb.append(sb.length(), sb.str());
+        resp.setEnvironment(mb);
+        resp.setEnvironment_mimetype(HTTP_TYPE_APPLICATION_XML);
     }
     catch(IException* e)
     {

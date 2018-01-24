@@ -152,6 +152,7 @@ public:
     bool onTpGetComponentFile(IEspContext &context, IEspTpGetComponentFileRequest &req, IEspTpGetComponentFileResponse &resp);
 
     bool onTpThorStatus(IEspContext &context, IEspTpThorStatusRequest &req, IEspTpThorStatusResponse &resp);
+    bool onTpGetEnvironment(IEspContext &context, IEspTpGetEnvironmentRequest &req, IEspTpGetEnvironmentResponse &resp);
 };
 
 

@@ -611,7 +611,18 @@ ESPresponse [nil_remove, exceptions_inline] TpDropZoneQueryResponse
     ESParray<ESPstruct TpDropZone>    TpDropZones;
 };
 
-ESPservice [auth_feature("DEFERRED"), noforms, version("1.26"), exceptions_inline("./smc_xslt/exceptions.xslt")] WsTopology
+ESPrequest TpGetEnvironmentRequest
+{
+    bool PlainText(true);
+    string Path;
+};
+
+ESPresponse [nil_remove, exceptions_inline] TpGetEnvironmentResponse
+{
+    [http_content("application/octet-stream")] binary Environment;
+};
+
+ESPservice [auth_feature("DEFERRED"), noforms, version("1.27"), exceptions_inline("./smc_xslt/exceptions.xslt")] WsTopology
 {
     ESPmethod [cache_seconds(180), cache_global(1), resp_xsl_default("/esp/xslt/targetclusters.xslt")] TpTargetClusterQuery(TpTargetClusterQueryRequest, TpTargetClusterQueryResponse);
     ESPmethod [cache_seconds(180), cache_global(1), resp_xsl_default("/esp/xslt/topology.xslt")] TpClusterQuery(TpClusterQueryRequest, TpClusterQueryResponse);
@@ -632,6 +643,7 @@ ESPservice [auth_feature("DEFERRED"), noforms, version("1.26"), exceptions_inlin
     ESPmethod [cache_seconds(180), cache_global(1)] TpGetServicePlugins(TpGetServicePluginsRequest, TpGetServicePluginsResponse);
     ESPmethod [cache_seconds(180), cache_global(1)] TpListTargetClusters(TpListTargetClustersRequest, TpListTargetClustersResponse);
     ESPmethod [cache_seconds(180), cache_global(1), min_ver(1.25)] TpMachineInfo(TpMachineInfoRequest, TpMachineInfoResponse);
+    ESPmethod [cache_seconds(180), cache_global(1), min_ver(1.27)] TpGetEnvironment(TpGetEnvironmentRequest, TpGetEnvironmentResponse);
 
     ESPmethod SystemLog(SystemLogRequest, SystemLogResponse);
 };
