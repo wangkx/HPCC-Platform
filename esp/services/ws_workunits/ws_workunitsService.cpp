@@ -2182,6 +2182,7 @@ class CArchivedWUsReader : public CInterface, implements IArchivedWUsReader
         addToFilterString("timeTo", req.getEndDate());
         addToFilterString("beforeWU", req.getBeforeWU());
         addToFilterString("afterWU", req.getAfterWU());
+        addToFilterString("descending", req.getDescending());
         addToFilterString("pageSize", pageSize);
         if (sashaServerIP && *sashaServerIP)
         {
@@ -2242,6 +2243,7 @@ class CArchivedWUsReader : public CInterface, implements IArchivedWUsReader
             cmd->setBeforeWU(req.getBeforeWU());
         if (notEmpty(req.getAfterWU()))
             cmd->setAfterWU(req.getAfterWU());
+        cmd->setSortDescending(req.getDescending());
         return;
     }
 
@@ -2268,6 +2270,7 @@ class CArchivedWUsReader : public CInterface, implements IArchivedWUsReader
             cmd->setBeforeWU(req.getBeforeWU());
         if (notEmpty(req.getAfterWU()))
             cmd->setAfterWU(req.getAfterWU());
+        cmd->setSortDescending(req.getDescending());
 
         return;
     }
@@ -2427,10 +2430,6 @@ public:
                 archivedLWWUs.append(*info.getClear());
             }
         }
-        if (!lightWeight)
-            archivedWUs.sort(compareWuids);
-        else
-            archivedLWWUs.sort(compareLWWuids);
 
         archivedWuCache.add(filterStr, "AddWhenAvailable", hasMoreWU, numberOfWUsReturned, archivedWUs, archivedLWWUs);
         return;

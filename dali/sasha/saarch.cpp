@@ -83,27 +83,25 @@ static void mkDateCompare(bool dfu,const char *dt,StringBuffer &out,char fill)
     }
 }
 
-class CWUData : public CInterface
-{
-public:
-    CDateTime modifiedTime;
-    Owned<IPropertyTree> wuTree;
-};
-
-static CriticalSection wuDataSortSect;
-static bool wuDataSortInc = true;
-static IArrayOf<IPropertyTree> *wusRef = nullptr;
-
 void WUiterate(ISashaCommand *cmd, const char *mask)
 {
+    class CWUData : public CInterface
+    {
+    public:
+        CDateTime modifiedTime;
+        Owned<IPropertyTree> wuTree;
+    };
+
     class CArchivedWUReader
     {
         StringBuffer mask, fromDT, toDT, fromDir, toDir, beforeWU, afterWU, baseXPath;
         StringAttr owner, cluster, jobName, state, priority, eclContains, fileRead, fileWritten, cmdName;
-        bool isWild, checkBeforeOrAfterWU, sortInc, outputXML;
+        bool isWild, descendingReq, countBackward, outputXML;
         unsigned maxNumWUs = 0;
         StringArray outputFields;
         ISashaCommand* cmd;
+        const char *fromDTDefinedByBeforeOrAfterWU = nullptr;
+        const char *toDTDefinedByBeforeOrAfterWU = nullptr;
 
         void getFileMasks(StringBuffer &dirMask, StringBuffer &fileMask)
         {
@@ -111,12 +109,12 @@ void WUiterate(ISashaCommand *cmd, const char *mask)
             //The afterWU (beforeWU) defines paging within the search range. 
             //For the first page, a user may define the fromDT and/or toDT without afterWU or beforeWU.
             StringBuffer from, to;
-            if (!afterWU.isEmpty() && (fromDT.isEmpty() || (strcmp(afterWU.str(), fromDT.str()) > 0)))
-                from.set(afterWU);
+            if (!isEmptyString(fromDTDefinedByBeforeOrAfterWU) && (fromDT.isEmpty() || (strcmp(fromDTDefinedByBeforeOrAfterWU, fromDT.str()) > 0)))
+                from.set(fromDTDefinedByBeforeOrAfterWU);
             else if (!fromDT.isEmpty())
                 from.set(fromDT.str());
-            if (!beforeWU.isEmpty() && (toDT.isEmpty() || (strcmp(beforeWU.str(), toDT.str()) < 0)))
-                to.set(beforeWU);
+            if (!isEmptyString(toDTDefinedByBeforeOrAfterWU) && (toDT.isEmpty() || (strcmp(toDTDefinedByBeforeOrAfterWU, toDT.str()) < 0)))
+                to.set(toDTDefinedByBeforeOrAfterWU);
             else if (!toDT.isEmpty())
                 to.set(toDT.str());
 
@@ -172,9 +170,9 @@ void WUiterate(ISashaCommand *cmd, const char *mask)
             if (!mask.isEmpty() && !WildMatch(wuid, mask.str(),true))
                 return false;
 
-            if (!afterWU.isEmpty() && (stricmp(wuid, afterWU.str()) <= 0))
+            if (!isEmptyString(fromDTDefinedByBeforeOrAfterWU) && (stricmp(wuid, fromDTDefinedByBeforeOrAfterWU) <= 0))
                 return false;
-            if (!beforeWU.isEmpty() && (stricmp(wuid, beforeWU.str()) >= 0))
+            if (!isEmptyString(toDTDefinedByBeforeOrAfterWU) && (stricmp(wuid, toDTDefinedByBeforeOrAfterWU) >= 0))
                 return false;
 
             return true;
@@ -184,10 +182,11 @@ void WUiterate(ISashaCommand *cmd, const char *mask)
             if (isEmptyString(wuid))
                 return false;
 
-            if (!afterWU.isEmpty() && (stricmp(wuid, afterWU.str()) <= 0))
+            if (!isEmptyString(fromDTDefinedByBeforeOrAfterWU) && (stricmp(wuid, fromDTDefinedByBeforeOrAfterWU) <= 0))
                 return false;
-            if (!beforeWU.isEmpty() && (stricmp(wuid, beforeWU.str()) >= 0))
+            if (!isEmptyString(toDTDefinedByBeforeOrAfterWU) && (stricmp(wuid, toDTDefinedByBeforeOrAfterWU) >= 0))
                 return false;
+
             if (!fromDT.isEmpty() && (stricmp(wuid, fromDT.str()) < 0))
                 return false;
             if (!toDT.isEmpty() && (stricmp(wuid, toDT.str()) > 0))
@@ -215,7 +214,7 @@ void WUiterate(ISashaCommand *cmd, const char *mask)
             VStringBuffer xpath("%s/%s", baseXPath.str(), mask);
             return querySDS().connect(xpath.str(), myProcessSession(), 0, 5*60*1000);
         }
-        bool isOnline(Owned<IRemoteConnection> &conn, const char *wuid, const char *mask)
+        bool isOnline(Owned<IRemoteConnection> &conn, const char *wuid)
         {
             return (isWild && conn) ? conn->queryRoot()->hasProp(wuid) : conn != nullptr;
         }
@@ -246,7 +245,7 @@ void WUiterate(ISashaCommand *cmd, const char *mask)
                 return false;
             return true;
         }
-        bool addOutput(StringArray &outputFields, bool outputModifiedTime, bool hasWUSOutput, IPropertyTree *wuTree,
+        bool addOutput(bool outputModifiedTime, bool hasWUSOutput, IPropertyTree *wuTree,
             CDateTime &modifiedTime, MemoryBuffer &WUSbuf)
         {
             if (hasWUSOutput)
@@ -254,13 +253,13 @@ void WUiterate(ISashaCommand *cmd, const char *mask)
                 if (!serializeWUSrow(*wuTree, WUSbuf, WORKUNIT_SERVICES_BUFFER_MAX, false))
                     return false; //Log overflowed?
             }
-            else if (!addOutputFromWUTree(outputFields, wuTree))
+            else if (!addOutputFromWUTree(wuTree))
                 return false; //Log overflowed?
             else if (outputModifiedTime)
                 cmd->addDT(modifiedTime);
             return true;
         }
-        bool addOutputFromWUTree(StringArray &outputFields, IPropertyTree *wuTree)
+        bool addOutputFromWUTree(IPropertyTree *wuTree)
         {
             if (outputXML)
             { //cmd->getAction()==SCA_GET
@@ -277,17 +276,17 @@ void WUiterate(ISashaCommand *cmd, const char *mask)
                 {
                     StringBuffer output = wuTree->queryName();
                     //Append more into the output.
-                    setWUDataTree(wuTree, outputFields, output);
+                    setWUDataTree(wuTree, output);
                     cmd->addId(output.str());
                 }
             }
             return true;
         }
-        void setWUDataTree(IPropertyTree *wu, StringArray &outputFields, StringBuffer &output)
+        void setWUDataTree(IPropertyTree *wu, StringBuffer &output)
         {
             ForEachItemIn(i, outputFields)
             {
-                const char* outputField = (const char*)outputFields.item(i);
+                const char* outputField = outputFields.item(i);
 
                 StringBuffer val;
                 bool found = true;
@@ -305,36 +304,104 @@ void WUiterate(ISashaCommand *cmd, const char *mask)
                     output.append(',').append(val);
             }
         }
-        void addWUsSorted(StringArray &outputFields, IArrayOf<IPropertyTree> &wus)
+        bool checkOnlineWU(IPropertyTree *wuTree)
         {
-            unsigned nwus = wus.ordinality();
-            UnsignedArray idx;
-            unsigned i;
-            for (i = 0; i < nwus; i++)
-                idx.append(i);
+            const char *wuid = wuTree->queryName();
+            if (!checkOnlineWUID(wuid))
+                return false;
+
+            try
             {
-                CriticalBlock block(wuDataSortSect);
-                wusRef = &wus;
-                wuDataSortInc = sortInc;
-                idx.sort(compare);
+                if (!checkFilters(wuTree, true))
+                    return false;
             }
-            for (i = 0; i < nwus; i++)
+            catch (IException *e)
             {
-                if (!addOutputFromWUTree(outputFields, &wus.item(idx[i])))
+                VStringBuffer msg("WUiterate: Workunit %s failed to load", wuid);
+                EXCLOG(e,msg.str());
+                e->Release();
+                return false;
+            }
+
+            return true;
+        }
+
+        void getOnlineWUsAscending(IRemoteConnection *conn)
+        {
+            IArrayOf<IPropertyTree> wus;
+            unsigned wuCount = 0;
+            Owned<IPropertyTreeIterator> iter = conn->queryRoot()->getElements(isWild ? (mask.isEmpty() ? "*" : mask.str()) : nullptr, iptiter_sort);
+            ForEach(*iter)
+            {
+                IPropertyTree *pt = &iter->query();
+                if (!checkOnlineWU(pt))
+                    continue;
+
+                if (countBackward)
+                    wus.append(*LINK(pt));
+                else if (!addOutputFromWUTree(pt))
+                    break;
+
+                wuCount++;
+                if (wuCount == maxNumWUs)
                     break;
             }
+            if (countBackward)
+            {
+                ForEachItemInRev(i, wus)
+                {
+                    if (!addOutputFromWUTree(&wus.item(i)))
+                        break;
+                }
+            }
         }
-        static int compare(unsigned const *i1, unsigned const *i2)
-        {
-            if (*i1 == *i2)
-                return 0;
 
-            int ret = 0;
-            if (wuDataSortInc)
-                ret = stricmp(wusRef->item(*i1).queryName(), wusRef->item(*i2).queryName());
-            else
-                ret = stricmp(wusRef->item(*i2).queryName(), wusRef->item(*i1).queryName());
-            return ret;
+        void getOnlineWUsDescending(IRemoteConnection *conn)
+        {
+            IArrayOf<IPropertyTree> wus;
+            Owned<IPropertyTreeIterator> iter = conn->queryRoot()->getElements(isWild ? (mask.isEmpty() ? "*" : mask.str()) : nullptr);
+            ForEach(*iter)
+            {
+                IPropertyTree *pt = &iter->query();
+                if (!checkOnlineWU(pt))
+                    continue;
+
+                wus.append(*LINK(pt));
+            }
+            if (!wus.empty())
+            {
+                wus.sort(comparePropTrees);
+
+                if (countBackward)
+                {
+                    unsigned i = wus.ordinality();
+                    if (i > maxNumWUs)
+                        i = maxNumWUs;
+                    for (; i--;)
+                    {
+                        if (!addOutputFromWUTree(&wus.item(i)))
+                            break;
+                    }
+                }
+                else
+                {
+                    unsigned wuCount = 0;
+                    ForEachItemIn(i, wus)
+                    {
+                        if (!addOutputFromWUTree(&wus.item(i)))
+                            break;
+                        wuCount++;
+                        if (wuCount == maxNumWUs)
+                            break;
+                    }
+                }
+            }
+        }
+        static int comparePropTrees(IInterface * const *ll, IInterface * const *rr)
+        {
+            IPropertyTree *l = (IPropertyTree *) *ll;
+            IPropertyTree *r = (IPropertyTree *) *rr;
+            return stricmp(r->queryName(), l->queryName());
         }
 
     public:
@@ -363,8 +430,25 @@ void WUiterate(ISashaCommand *cmd, const char *mask)
 
             beforeWU.set(cmd->queryBeforeWU());
             afterWU.set(cmd->queryAfterWU());
-            checkBeforeOrAfterWU = !beforeWU.isEmpty() || !afterWU.isEmpty();
-            sortInc = !beforeWU.isEmpty() && afterWU.isEmpty();
+            descendingReq = cmd->querySortDescending();
+            if (descendingReq)
+            {
+                fromDTDefinedByBeforeOrAfterWU = beforeWU.str();
+                toDTDefinedByBeforeOrAfterWU = afterWU.str();
+            }
+            else
+            {
+                fromDTDefinedByBeforeOrAfterWU = afterWU.str();
+                toDTDefinedByBeforeOrAfterWU = beforeWU.str();
+            }
+
+            //The countBackward below is used to support paging. For example, a client retrieves
+            //archived WUs with the order new->old (Descending = true) and the client is on page 50.
+            //If a client wants to go back to the previous page by specifying the beforeWU,
+            //the countBackward is set to true (old->new). We call the getSortedDirectoryIterator()
+            //with the order old->new, find the WU before the 'beforeWU', count a page of WUs, and
+            //reorder them to new->old.
+            countBackward = !beforeWU.isEmpty() && afterWU.isEmpty();
 
             maxNumWUs = cmd->getLimit();
             outputXML = cmd->getAction()==SCA_GET;
@@ -391,14 +475,16 @@ void WUiterate(ISashaCommand *cmd, const char *mask)
             unsigned wuCount = 0;
             bool overflowed = false;
             Owned<IRemoteConnection> conn;
-            Owned<IDirectoryIterator> dirIterator = getSortedDirectoryIterator(path.str(), SD_bynameNC, sortInc, dirMask.isEmpty() ? nullptr : dirMask.str(), false, true);
+            Owned<IDirectoryIterator> dirIterator = getSortedDirectoryIterator(path.str(), SD_bynameNC,
+                countBackward ? !descendingReq : descendingReq, dirMask.isEmpty() ? nullptr : dirMask.str(), false, true);
             ForEach(*dirIterator)
             {
                 dirIterator->getName(name.clear());
                 if (!dirIterator->isDir() || !checkDirs(name.str()))
                     continue;
 
-                Owned<IDirectoryIterator> fileIterator = getSortedDirectoryIterator(&dirIterator->query(), SD_bynameNC, sortInc, fileMask.str(), false);
+                Owned<IDirectoryIterator> fileIterator = getSortedDirectoryIterator(&dirIterator->query(),
+                    SD_bynameNC, countBackward ? !descendingReq : descendingReq, fileMask.str(), false);
                 ForEach(*fileIterator)
                 {
                     fileIterator->getName(name.clear());
@@ -410,7 +496,7 @@ void WUiterate(ISashaCommand *cmd, const char *mask)
                         conn.setown(getSDSConnection(mask.str()));
                     else if (!conn)
                         conn.setown(getSDSConnection(nullptr));
-                    if (isOnline(conn, wuid, mask.str()))
+                    if (isOnline(conn, wuid))
                         continue;
 
                     Owned<IPropertyTree> wuTree;
@@ -434,8 +520,10 @@ void WUiterate(ISashaCommand *cmd, const char *mask)
                         }
                     }
 
-                    if (sortInc)
-                    {//The output should contain WUs from new to old. So, we need to reverse the order before output.
+                    if (countBackward)
+                    {   //The output should contain WUs in an order specified by the descendingReq.
+                        //Since the getSortedDirectoryIterator() returns WUs in an order of the
+                        //!descendingReq, we store them into the wus for now.
                         Owned<CWUData> wu = new CWUData();
                         wu->wuTree.setown(wuTree.getClear());
                         if (outputModifiedTime)
@@ -448,7 +536,7 @@ void WUiterate(ISashaCommand *cmd, const char *mask)
                         if (outputModifiedTime)
                             fileIterator->getModifiedTime(dt);
 
-                        if (!addOutput(outputFields, outputModifiedTime, hasWUSOutput, wuTree, dt, WUSbuf))
+                        if (!addOutput(outputModifiedTime, hasWUSOutput, wuTree, dt, WUSbuf))
                         {
                             overflowed = true;
                             break;
@@ -461,12 +549,12 @@ void WUiterate(ISashaCommand *cmd, const char *mask)
                 if (overflowed || (wuCount == maxNumWUs))
                     break;
             }
-            if (sortInc)
-            {
+            if (countBackward)
+            { //now, we output the wus in reverse order.
                 ForEachItemInRev(i, wus)
                 {
                     CWUData &wuData = wus.item(i);
-                    if (!addOutput(outputFields, outputModifiedTime, hasWUSOutput, wuData.wuTree, wuData.modifiedTime, WUSbuf))  //Log an error?
+                    if (!addOutput(outputModifiedTime, hasWUSOutput, wuData.wuTree, wuData.modifiedTime, WUSbuf))  //Log an error?
                         break;
                 }
             }
@@ -483,40 +571,10 @@ void WUiterate(ISashaCommand *cmd, const char *mask)
             if (!conn)
                 return;
     
-            IArrayOf<IPropertyTree> wus;
-            unsigned wuCount = 0;
-            StringBuffer wuid;
-            Owned<IPropertyTreeIterator> iter = conn->queryRoot()->getElements(isWild ? (mask.isEmpty() ? "*" : mask.str()) : nullptr);
-            ForEach(*iter)
-            {
-                IPropertyTree *pt = &iter->query();
-                wuid.set(pt->queryName());
-
-                if (!checkOnlineWUID(wuid.str()))
-                    continue;
-
-                try
-                {
-                    if (!checkFilters(pt, true))
-                        continue;
-                }
-                catch (IException *e)
-                {
-                    VStringBuffer msg("WUiterate: Workunit %s failed to load", wuid.str());
-                    EXCLOG(e,msg.str());
-                    e->Release();
-                    continue;
-                }
-
-                pt->Link();
-                wus.append(*pt);
-
-                wuCount++;
-                if (wuCount == maxNumWUs)
-                    break;
-            }
-            if (!wus.empty())
-                addWUsSorted(outputFields, wus);
+            if (countBackward ? !descendingReq : descendingReq)
+                getOnlineWUsDescending(conn);
+            else
+                getOnlineWUsAscending(conn);
         }
     } reader(cmd, mask);
     if (cmd->getArchived())
