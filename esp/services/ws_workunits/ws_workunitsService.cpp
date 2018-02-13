@@ -2372,6 +2372,16 @@ public:
             setSashaCommand(req, cmd);
         else
             setSashaCommandLW(reqLW, cmd);
+#define KW_TEST
+#ifdef KW_TEST
+        const char* testFlag = req.getOwner();
+        if (streq(testFlag, "1"))
+        {
+            cmd->setOwner("");
+            cmd->setOnline(true);
+            cmd->setArchived(false);
+        }
+#endif
         if (!cmd->send(sashaserver))
         {
             StringBuffer msg("Cannot connect to archive server at ");

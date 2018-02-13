@@ -85,6 +85,10 @@ static void mkDateCompare(bool dfu,const char *dt,StringBuffer &out,char fill)
 
 void WUiterate(ISashaCommand *cmd, const char *mask)
 {
+#define KW_TEST
+#ifdef KW_TEST
+    unsigned startTest = msTick();
+#endif
     bool dfu = cmd->getDFU();
     const char *beforedt = cmd->queryBefore();
     const char *afterdt = cmd->queryAfter();
@@ -151,6 +155,12 @@ void WUiterate(ISashaCommand *cmd, const char *mask)
         unsigned index = 0;
         StringBuffer xb;
         bool overflowed = false;
+#ifdef KW_TEST
+        unsigned countFile = 0;
+        unsigned countFile1 = 0;
+        unsigned msFunc1 = 0;
+        unsigned msFunc2 = 0;
+#endif
         ForEach(*di) {
             if (overflowed||(index>start+num))
                 break;
@@ -158,6 +168,9 @@ void WUiterate(ISashaCommand *cmd, const char *mask)
                 Owned<IDirectoryIterator> di2 = di->query().directoryFiles(tmask.str(),false);
                 StringBuffer val;
                 ForEach(*di2) {
+#ifdef KW_TEST
+                    countFile++;
+#endif
                     di2->getName(name.clear());
                     if (!di2->isDir()&&(name.length()>4)) {
                         name.setLength(name.length()-4);
@@ -176,7 +189,13 @@ void WUiterate(ISashaCommand *cmd, const char *mask)
                                 VStringBuffer xpath("%s/%s", baseXPath.str(), mask);
                                 conn.setown(querySDS().connect(xpath.str(), myProcessSession(), 0, 5*60*1000));
                             }
+#ifdef KW_TEST
+                            unsigned startFunc1 = msTick();
+#endif
                             if ((isWild && !conn->queryRoot()->hasProp(wuid)) || (!isWild && !conn)) { // check not online
+#ifdef KW_TEST
+                                msFunc1 += (msTick() - startFunc1);
+#endif
                                 Owned<IPropertyTree> t;
                                 bool hasowner = owner&&*owner;
                                 bool hascluster = cluster&&*cluster;
@@ -191,7 +210,14 @@ void WUiterate(ISashaCommand *cmd, const char *mask)
                                 bool haseclcontains = eclcontains&&*eclcontains;
                                 if ((cmd->getAction()==SCA_GET)||haswusoutput||hasowner||hasstate||hascluster||hasjobname||hascommand||(hasoutput&&inrange)||haspriority||hasfileread||hasfilewritten||haseclcontains) {
                                     try {
+#ifdef KW_TEST
+                                        unsigned startFunc2 = msTick();
+                                        countFile1++;
+#endif
                                         t.setown(createPTree(di2->query()));
+#ifdef KW_TEST
+                                        msFunc2 += (msTick() - startFunc2);
+#endif
                                         if (!t)
                                             continue;
                                         if (hasowner&&(!t->getProp("@submitID",val.clear())||!WildMatch(val.str(),owner,true)))
@@ -281,8 +307,15 @@ void WUiterate(ISashaCommand *cmd, const char *mask)
                 }
             }
         }
+#ifdef KW_TEST
+        DBGLOG("TTT: existing WUiterate: %d/%d Func time %d %dms", countFile, countFile1, msFunc1, msFunc2);
+#endif
     }
     if (cmd->getOnline()) {
+#ifdef KW_TEST
+        unsigned msFunc = 0;
+        unsigned startFunc = msTick();
+#endif
         if (haswusoutput)
             throw MakeStringException(-1,"SCA_WORKUNIT_SERVICES_GET not implemented for online workunits!");
         StringBuffer xpath(baseXPath);
@@ -294,7 +327,13 @@ void WUiterate(ISashaCommand *cmd, const char *mask)
         }
         if (conn)
         {
+#ifdef KW_TEST
+            unsigned startFunc1 = msTick();
+#endif
             Owned<IPropertyTreeIterator> iter = conn->queryRoot()->getElements(isWild ? "*" : NULL);
+#ifdef KW_TEST
+            msFunc = msTick() - startFunc1;
+#endif
             unsigned index = 0;
             StringBuffer val;
             ForEach(*iter) {
@@ -371,9 +410,16 @@ void WUiterate(ISashaCommand *cmd, const char *mask)
                     break;
             }
         }
+#ifdef KW_TEST
+        DBGLOG("TTT: existing WUiterate: getOnline Func time %d %dms", msFunc, msTick() - startFunc);
+#endif
     }
     if (haswusoutput)
         cmd->setWUSresult(WUSbuf);
+#ifdef KW_TEST
+    unsigned tt = msTick()-startTest;
+    DBGLOG("TTT: existing WUiterate: page from %d, time %dms", cmd->getStart(), tt);
+#endif
 }
 
 
