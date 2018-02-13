@@ -85,6 +85,10 @@ static void mkDateCompare(bool dfu,const char *dt,StringBuffer &out,char fill)
 
 void WUiterate(ISashaCommand *cmd, const char *mask)
 {
+#define KW_TEST
+#ifdef KW_TEST
+    unsigned startTest = msTick();
+#endif
     class CWUData : public CInterface
     {
     public:
@@ -326,11 +330,18 @@ void WUiterate(ISashaCommand *cmd, const char *mask)
             return true;
         }
 
-        void getOnlineWUsAscending(IRemoteConnection *conn)
+        unsigned getOnlineWUsAscending(IRemoteConnection *conn)
         {
             IArrayOf<IPropertyTree> wus;
             unsigned wuCount = 0;
+#ifdef KW_TEST
+            unsigned msFunc = 0;
+            unsigned startFunc1 = msTick();
+#endif
             Owned<IPropertyTreeIterator> iter = conn->queryRoot()->getElements(isWild ? (mask.isEmpty() ? "*" : mask.str()) : nullptr, iptiter_sort);
+#ifdef KW_TEST
+            msFunc = msTick() - startFunc1;
+#endif
             ForEach(*iter)
             {
                 IPropertyTree *pt = &iter->query();
@@ -354,12 +365,20 @@ void WUiterate(ISashaCommand *cmd, const char *mask)
                         break;
                 }
             }
+            return msFunc;
         }
 
-        void getOnlineWUsDescending(IRemoteConnection *conn)
+        unsigned getOnlineWUsDescending(IRemoteConnection *conn)
         {
             IArrayOf<IPropertyTree> wus;
+#ifdef KW_TEST
+            unsigned msFunc = 0;
+            unsigned startFunc1 = msTick();
+#endif
             Owned<IPropertyTreeIterator> iter = conn->queryRoot()->getElements(isWild ? (mask.isEmpty() ? "*" : mask.str()) : nullptr);
+#ifdef KW_TEST
+            msFunc = msTick() - startFunc1;
+#endif
             ForEach(*iter)
             {
                 IPropertyTree *pt = &iter->query();
@@ -396,6 +415,7 @@ void WUiterate(ISashaCommand *cmd, const char *mask)
                     }
                 }
             }
+            return msFunc;
         }
         static int comparePropTrees(IInterface * const *ll, IInterface * const *rr)
         {
@@ -457,6 +477,9 @@ void WUiterate(ISashaCommand *cmd, const char *mask)
         }
         void getArchivedWUs()
         {
+#ifdef KW_TEST
+            unsigned startMSGetArch = msTick();
+#endif
             bool outputModifiedTime = cmd->getAction()==SCA_LISTDT;
             StringBuffer dirMask, fileMask, path, name;
             getFileMasks(dirMask, fileMask);
@@ -475,6 +498,12 @@ void WUiterate(ISashaCommand *cmd, const char *mask)
             unsigned wuCount = 0;
             bool overflowed = false;
             Owned<IRemoteConnection> conn;
+#ifdef KW_TEST
+            unsigned countFile = 0;
+            unsigned countFile1 = 0;
+            unsigned msFunc1 = 0;
+            unsigned msFunc2 = 0;
+#endif
             Owned<IDirectoryIterator> dirIterator = getSortedDirectoryIterator(path.str(), SD_bynameNC,
                 countBackward ? !descendingReq : descendingReq, dirMask.isEmpty() ? nullptr : dirMask.str(), false, true);
             ForEach(*dirIterator)
@@ -487,18 +516,29 @@ void WUiterate(ISashaCommand *cmd, const char *mask)
                     SD_bynameNC, countBackward ? !descendingReq : descendingReq, fileMask.str(), false);
                 ForEach(*fileIterator)
                 {
+#ifdef KW_TEST
+                    countFile++;
+#endif
                     fileIterator->getName(name.clear());
                     if (!checkArchivedWUID(readWUIDFromFileName(name)))
                         continue;
+#ifdef KW_TEST
+                    countFile1++;
+#endif
 
                     const char *wuid = name.str();
                     if (!isWild)
                         conn.setown(getSDSConnection(mask.str()));
                     else if (!conn)
                         conn.setown(getSDSConnection(nullptr));
+#ifdef KW_TEST
+                    unsigned startFunc1 = msTick();
+#endif
                     if (isOnline(conn, wuid))
                         continue;
-
+#ifdef KW_TEST
+                    msFunc1 += (msTick() - startFunc1);
+#endif
                     Owned<IPropertyTree> wuTree;
                     if (outputXML || hasWUSOutput || (outputFields.length() > 0) || !owner.isEmpty()
                         || !state.isEmpty() || !cluster.isEmpty() || !jobName.isEmpty()
@@ -507,7 +547,13 @@ void WUiterate(ISashaCommand *cmd, const char *mask)
                     {
                         try
                         {
+#ifdef KW_TEST
+                            unsigned startFunc2 = msTick();
+#endif
                             wuTree.setown(createPTree(fileIterator->query()));
+#ifdef KW_TEST
+                            msFunc2 += (msTick() - startFunc2);
+#endif
                             if (!wuTree || isEmptyString(wuTree->queryName()) || !checkFilters(wuTree, false))
                                 continue;
                         }
@@ -561,26 +607,45 @@ void WUiterate(ISashaCommand *cmd, const char *mask)
 
             if (hasWUSOutput)
                 cmd->setWUSresult(WUSbuf);
+#ifdef KW_TEST
+            DBGLOG("TTT: New WUiterate: Func time %d %dms", msFunc1, msFunc2);
+            DBGLOG("TTT: New WUiterate: WUCount %d/%d GetArch time %dms", countFile, countFile1, msTick()-startMSGetArch);
+#endif
         }
         void getOnlineWUs()
         {
+            unsigned startTest = msTick();
             if (cmd->getAction()==SCA_WORKUNIT_SERVICES_GET)
                 throw MakeStringException(-1,"SCA_WORKUNIT_SERVICES_GET not implemented for online workunits!");
 
             Owned<IRemoteConnection> conn = getSDSConnection(isWild ? nullptr : mask.str());
             if (!conn)
                 return;
-    
+            unsigned msFunc = 0;
             if (countBackward ? !descendingReq : descendingReq)
-                getOnlineWUsDescending(conn);
+                msFunc = getOnlineWUsDescending(conn);
             else
-                getOnlineWUsAscending(conn);
+                msFunc = getOnlineWUsAscending(conn);
+#ifdef KW_TEST
+            DBGLOG("TTT: New WUiterate: getOnlineWUs time %d %dms", msFunc, msTick()-startTest);
+#endif
         }
     } reader(cmd, mask);
     if (cmd->getArchived())
         reader.getArchivedWUs();
     if (cmd->getOnline())
         reader.getOnlineWUs();
+#ifdef KW_TEST
+    unsigned tt = msTick()-startTest;
+    const char * beforeWU = cmd->queryBeforeWU();
+    const char * afterWU = cmd->queryAfterWU();
+    if (!isEmptyString(afterWU))
+        DBGLOG("TTT: New WUiterate: afterWU-%s, time %dms", afterWU, tt);
+    else if (!isEmptyString(beforeWU))
+        DBGLOG("TTT: New WUiterate: beforeWU-%s, time %dms", beforeWU, tt);
+    else
+        DBGLOG("TTT: New WUiterate: 1st page, time %dms", tt);
+#endif
 }
 
 

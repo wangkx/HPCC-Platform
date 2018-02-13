@@ -2384,6 +2384,161 @@ public:
             setSashaCommand(req, cmd);
         else
             setSashaCommandLW(reqLW, cmd);
+///#define KW_TEST
+#ifdef KW_TEST
+        unsigned onlineCount = 0;
+        bool getOnlineWUs = false;
+        while (true)
+        {
+            bool pageUp = true;
+            bool hasMoreWUs = true;
+            StringAttr firstWU;
+            while (true)
+            {
+                if (!cmd->send(sashaserver))
+                {
+                    StringBuffer msg("Cannot connect to archive server at ");
+                    sashaserver->endpoint().getUrlStr(msg);
+                    throw MakeStringException(ECLWATCH_CANNOT_CONNECT_ARCHIVE_SERVER, "%s", msg.str());
+                }
+
+                numberOfWUsReturned = cmd->numIds();
+                hasMoreWU = (numberOfWUsReturned > pageSize);
+                if (hasMoreWU)
+                    numberOfWUsReturned--;
+                if (getOnlineWUs && pageUp)
+                {
+                    onlineCount++;
+                    if (onlineCount > 5)
+                    {//Too many online WUs. Only pageUp 5 times.
+                        hasMoreWU = false;
+                    }
+                }
+
+#ifdef KW_TEST2
+                StringArray wuDataArray0, wuDataArray1, wuDataArray3, wuDataArray4;
+                const char *idLine0 = cmd->queryId(0);
+                if (!idLine0 || !*idLine0)
+                    throw MakeStringException(-1, "Empty ID line from sasha");
+                wuDataArray0.appendList(idLine0, ",");
+                DBGLOG("TTT pageUp: WU1<%s>", wuDataArray0.item(0));
+                const char *idLine1 = cmd->queryId(1);
+                if (!idLine1 || !*idLine1)
+                    throw MakeStringException(-1, "Empty ID line from sasha");
+                wuDataArray1.appendList(idLine1, ",");
+                DBGLOG("TTT pageUp: WU2<%s>", wuDataArray1.item(0));
+                if (hasMoreWU)
+                {
+                    const char *idLine3 = cmd->queryId(numberOfWUsReturned - 2);
+                    if (!idLine3 || !*idLine3)
+                        throw MakeStringException(-1, "Empty ID line from sasha");
+                    wuDataArray3.appendList(idLine3, ",");
+                    DBGLOG("TTT pageUp: WU3<%s>", wuDataArray3.item(0));
+                    const char *idLine4 = cmd->queryId(numberOfWUsReturned - 1);
+                    if (!idLine4 || !*idLine4)
+                        throw MakeStringException(-1, "Empty ID line from sasha");
+                    wuDataArray4.appendList(idLine4, ",");
+                    DBGLOG("TTT pageUp: WU4<%s>", wuDataArray4.item(0));
+                }
+#endif
+                StringArray wuDataArray;
+                if (pageUp)
+                {
+                    if (hasMoreWU)
+                    {
+                        const char *idLine = cmd->queryId(numberOfWUsReturned - 1);
+                        if (!idLine || !*idLine)
+                            throw MakeStringException(-1, "Empty ID line from sasha");
+                        wuDataArray.appendList(idLine, ",");
+                        DBGLOG("TTT pageUp: lastWU<%s>, numWUs<%d>", wuDataArray.item(0), cmd->numIds());
+
+                        cmd.setown(createSashaCommand());
+                        initSashaCommand(cmd);
+                        if (!lightWeight)
+                            setSashaCommand(req, cmd);
+                        else
+                            setSashaCommandLW(reqLW, cmd);
+                        if (getOnlineWUs)
+                        {
+                            cmd->setOnline(true);
+                            cmd->setArchived(false);
+                        }
+                        cmd->setAfterWU(wuDataArray.item(0));
+                        continue;
+                    }
+
+                    pageUp = false;
+                    const char *idLine = cmd->queryId(hasMoreWU ? 1 : 0);
+                    if (!idLine || !*idLine)
+                        throw MakeStringException(-1, "Empty ID line from sasha");
+                    wuDataArray.appendList(idLine, ",");
+                    DBGLOG("TTT pageDown: firstWU<%s>, numWUs<%d>", wuDataArray.item(0), cmd->numIds());
+
+                    cmd.setown(createSashaCommand());
+                    initSashaCommand(cmd);
+                    if (!lightWeight)
+                        setSashaCommand(req, cmd);
+                    else
+                        setSashaCommandLW(reqLW, cmd);
+                    if (getOnlineWUs)
+                    {
+                        cmd->setOnline(true);
+                        cmd->setArchived(false);
+                    }
+                    cmd->setBeforeWU(wuDataArray.item(0));
+                    continue;
+                }
+
+                if (!hasMoreWU)
+                {
+                    DBGLOG("TTT pageDown: numWUs<%d>. No more WU", cmd->numIds());
+                    break;
+                }
+
+                const char *idLine = cmd->queryId(hasMoreWU ? 1 : 0);
+                if (!idLine || !*idLine)
+                    throw MakeStringException(-1, "Empty ID line from sasha");
+                wuDataArray.appendList(idLine, ",");
+                DBGLOG("TTT pageDown: firstWU<%s>, numWUs<%d>", wuDataArray.item(0), cmd->numIds());
+
+                cmd.setown(createSashaCommand());
+                initSashaCommand(cmd);
+                if (!lightWeight)
+                    setSashaCommand(req, cmd);
+                else
+                    setSashaCommandLW(reqLW, cmd);
+                if (getOnlineWUs)
+                {
+                    cmd->setOnline(true);
+                    cmd->setArchived(false);
+                }
+                cmd->setBeforeWU(wuDataArray.item(0));
+            }
+            if (getOnlineWUs)
+                break;
+
+            cmd.setown(createSashaCommand());
+            initSashaCommand(cmd);
+            if (!lightWeight)
+                setSashaCommand(req, cmd);
+            else
+                setSashaCommandLW(reqLW, cmd);
+            cmd->setOnline(true);
+            cmd->setArchived(false);
+            getOnlineWUs = true;
+        }
+        return;
+#endif
+#define KW_TEST1
+#ifdef KW_TEST1
+        const char* testFlag = req.getOwner();
+        if (streq(testFlag, "1"))
+        {
+            cmd->setOwner("");
+            cmd->setOnline(true);
+            cmd->setArchived(false);
+        }
+#endif
         if (!cmd->send(sashaserver))
         {
             StringBuffer msg("Cannot connect to archive server at ");
