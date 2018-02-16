@@ -64,6 +64,8 @@ typedef CIArrayOf<CMethodInfo> MethodInfoArray;
 
 interface IEspHttpBinding
 {
+    virtual const char* queryCacheGroupID(StringBuffer &groupID)=0;
+    virtual const char* getCacheGroupID(StringBuffer &groupID)=0;
     virtual void handleHttpPost(CHttpRequest *request, CHttpResponse *response)=0;
 
     virtual int onGet(CHttpRequest* request, CHttpResponse* response) = 0;
@@ -235,6 +237,7 @@ public:
         if (global)
             cacheGlobalMap.setValue(key.str(), global);
     }
+    void clearCacheByGroupID(const char *id);
 
     int onGetConfig(IEspContext &context, CHttpRequest* request, CHttpResponse* response);
 
@@ -295,6 +298,7 @@ public:
     virtual int onStartUpload(IEspContext &context, CHttpRequest* request, CHttpResponse* response, const char *serv, const char *method);
     virtual int onFinishUpload(IEspContext &context, CHttpRequest* request, CHttpResponse* response,    const char *serv, const char *method,
         StringArray& fileNames, StringArray& files, IMultiException *me);
+    virtual const char *queryCacheGroupID(StringBuffer &groupID){ groupID.set("ESPResponse"); return groupID.str(); };
 
 //interface IEspWsdlSections
     StringBuffer & getServiceName(StringBuffer & resp){return resp;}
@@ -317,7 +321,7 @@ public:
     virtual bool hasSubService(IEspContext &context, const char *name);
 
     virtual IRpcRequestBinding *createReqBinding(IEspContext &context, IHttpMessage *ireq, const char *service, const char *method){return NULL;}
-
+    virtual const char* getCacheGroupID(StringBuffer &groupID) { return nullptr; };
     bool isMethodInSubService(IEspContext &context, const char *servname, const char *methname)
     {
         if (m_subservices)

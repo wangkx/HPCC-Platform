@@ -311,6 +311,7 @@ private:
     Owned<IThreadPool> clusterQueryStatePool;
 public:
     QueryFilesInUse filesInUse;
+    StringAttr espCachaDomain;
 };
 
 class CWsWorkunitsSoapBindingEx : public CWsWorkunitsSoapBinding
@@ -347,6 +348,11 @@ public:
             wswService->setPort(port);
         CWsWorkunitsSoapBinding::addService(name, host, port, service);
     }
+    /*virtual const char* queryCacheGroupID(StringBuffer &groupID)
+    {
+        groupID.set(wswService->espCachaDomain.get());
+        return groupID.str();
+    }*/
 
 private:
     bool batchWatchFeaturesOnly;

@@ -52,7 +52,7 @@ public :
     ESPCacheResult exists(const char* groupID, const char* cacheID);
     ESPCacheResult get(const char* groupID, const char* cacheID, StringBuffer& out);
     ESPCacheResult set(const char* groupID, const char* cacheID, const char* value, unsigned __int64 expireSec);
-    void remove(const char* groupID, const char* cacheID);
+    virtual void remove(const char* groupID, const char* cacheID);
     void flush(unsigned when);
 };
 
@@ -101,25 +101,29 @@ bool ESPMemCached::init(const char * _options)
     return initialized;
 }
 
-bool ESPMemCached::cacheResponse(const char* cacheID, unsigned cacheSeconds, const char* content, const char* contentType)
+bool ESPMemCached::cacheResponse(const char* groupID, const char* cacheID, unsigned cacheSeconds, const char* content, const char* contentType)
 {
     VStringBuffer contentTypeID("ContentType_%s", cacheID);
+    if (isEmptyString(groupID))
+        groupID = "ESPResponse";
 
     CriticalBlock block(cacheCrit);
-    ESPCacheResult ret = set("ESPResponse", cacheID, content, cacheSeconds);
+    ESPCacheResult ret = set(groupID, cacheID, content, cacheSeconds);
     if (ret != ESPCacheSuccess)
         return false;
-    return set("ESPResponse", contentTypeID.str(), contentType, cacheSeconds) == ESPCacheSuccess;
+    return set(groupID, contentTypeID.str(), contentType, cacheSeconds) == ESPCacheSuccess;
 }
 
-bool ESPMemCached::readResponseCache(const char* cacheID, StringBuffer& content, StringBuffer& contentType)
+bool ESPMemCached::readResponseCache(const char* groupID, const char* cacheID, StringBuffer& content, StringBuffer& contentType)
 {
     VStringBuffer contentTypeID("ContentType_%s", cacheID);
+    if (isEmptyString(groupID))
+        groupID = "ESPResponse";
 
     CriticalBlock block(cacheCrit);
-    if (!checkAndGet("ESPResponse", cacheID, content))
+    if (!checkAndGet(groupID, cacheID, content))
         return false;
-    return checkAndGet("ESPResponse", contentTypeID.str(), contentType);
+    return checkAndGet(groupID, contentTypeID.str(), contentType);
 }
 
 void ESPMemCached::setPoolSettings()

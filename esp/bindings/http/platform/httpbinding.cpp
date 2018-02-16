@@ -113,6 +113,9 @@ EspHttpBinding::EspHttpBinding(IPropertyTree* tree, const char *bindname, const 
     if (defVersion && *defVersion)
         m_defaultSvcVersion.set(defVersion);
 
+    if (proc_cfg->hasProp("@espCacheInitString"))
+        espCacheInitString.set(proc_cfg->queryProp("@espCacheInitString"));
+
     if(!bnd_cfg)
     {
         m_filespath.append(getCFD()).append("files/");
@@ -698,8 +701,8 @@ const char* EspHttpBinding::createESPCacheID(CHttpRequest* request, StringBuffer
 
 bool EspHttpBinding::sendFromESPCache(CHttpRequest* request, CHttpResponse* response, const char* cacheID)
 {
-    StringBuffer content, contentType;
-    if (!espCacheClient->readResponseCache(cacheID, content.clear(), contentType.clear()))
+    StringBuffer content, contentType, groupID;
+    if (!espCacheClient->readResponseCache(getCacheGroupID(groupID), cacheID, content.clear(), contentType.clear()))
         ESPLOG(LogMax, "Failed to read from ESP Cache for %s.", request->queryServiceMethod());
     if (content.isEmpty() || contentType.isEmpty())
         return false;
@@ -718,18 +721,30 @@ void EspHttpBinding::addToESPCache(CHttpRequest* request, CHttpResponse* respons
     if (!queryCacheSeconds(method, cacheSeconds)) //no cache required for this method
         return;
 
-    StringBuffer content, contentType;
+    StringBuffer content, contentType, groupID;
     response->getContent(content);
     response->getContentType(contentType);
-    if (espCacheClient->cacheResponse(cacheID, cacheSeconds, content.str(), contentType.str()))
+
+    if (espCacheClient->cacheResponse(getCacheGroupID(groupID), cacheID, cacheSeconds, content.str(), contentType.str()))
         ESPLOG(LogMax, "AddTo ESP Cache for %s.", method);
     else
         ESPLOG(LogMax, "Failed to add ESP Cache for %s.", method);
 }
 
+void EspHttpBinding::clearCacheByGroupID(const char *id)
+{
+    if (cacheMethods == 0)
+        return;
+
+    if (!espCacheClient)
+        espCacheClient.setown(createESPCache(espCacheInitString.get()));
+    //if (espCacheClient)
+    //    espCacheClient->remove()
+}
+
 void EspHttpBinding::handleHttpPost(CHttpRequest *request, CHttpResponse *response)
 {
-    StringBuffer cacheID;
+    StringBuffer cacheID, groupID;
     if (cacheMethods > 0)
     {
         unsigned cacheSeconds = 0;

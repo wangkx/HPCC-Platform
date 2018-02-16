@@ -2123,7 +2123,7 @@ ESPResponse [exceptions_inline] WUDetailsMetaResponse
 // ----------------------------------------------------------------------------------
 ESPservice [
     auth_feature("DEFERRED"), //This declares that the method logic handles feature level authorization
-    version("1.72"), default_client_version("1.72"),
+    version("1.72"), default_client_version("1.72"), cache_group("ESPWsWUs"),
     noforms,exceptions_inline("./smc_xslt/exceptions.xslt"),use_method_name] WsWorkunits
 {
     ESPmethod [cache_seconds(60), resp_xsl_default("/esp/xslt/workunits.xslt")]     WUQuery(WUQueryRequest, WUQueryResponse);
@@ -2138,7 +2138,7 @@ ESPservice [
     ESPmethod [cache_seconds(30)] WUFullResult(WUFullResultRequest, WUFullResultResponse);
     ESPmethod [cache_seconds(30)] WUResultView(WUResultViewRequest, WUResultViewResponse);
     ESPmethod [cache_seconds(60), resp_xsl_default("/esp/xslt/wuid_jobs.xslt")]     WUJobList(WUJobListRequest, WUJobListResponse);
-    ESPmethod [resp_xsl_default("/esp/xslt/wuaction_results.xslt")] WUAction(WUActionRequest, WUActionResponse);
+    ESPmethod [clear_cache, resp_xsl_default("/esp/xslt/wuaction_results.xslt")] WUAction(WUActionRequest, WUActionResponse);
     ESPmethod [cache_seconds(60), resp_xsl_default("/esp/xslt/scheduledwus.xslt")] WUShowScheduled(WUShowScheduledRequest, WUShowScheduledResponse);
 
     ESPmethod [cache_seconds(30)] WUResultSummary(WUResultSummaryRequest, WUResultSummaryResponse);
