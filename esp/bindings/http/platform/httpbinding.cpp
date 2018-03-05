@@ -727,6 +727,37 @@ void EspHttpBinding::addToESPCache(CHttpRequest* request, CHttpResponse* respons
         ESPLOG(LogMax, "Failed to add ESP Cache for %s.", method);
 }
 
+void EspHttpBinding::clearCacheByGroupID(const char *ids)
+{
+    if (isEmptyString(ids))
+        return;
+
+    IEspContainer *espContainer = nullptr;
+    StringArray idList;
+    idList.appendListUniq(ids, ",");
+    ForEachItemIn(i, idList)
+    {
+        const char *id = idList.item(i);
+        if (espCacheClient && strieq(id, getCacheGroupID()))
+        {
+            espCacheClient->flush(0);
+            continue;
+        }
+
+        Owned<IEspCache> cacheClient;
+        if (!espContainer)
+            espContainer = getESPContainer();
+        const StringAttr *initString = espContainer->queryCacheInitString(id);
+        if (initString && !initString->isEmpty())
+        {
+            cacheClient.setown(createESPCache(initString->str()));
+            cacheClient->flush(0);
+            if ((cacheMethods > 0) && strieq(id, getCacheGroupID()))
+                espCacheClient.setown(cacheClient.getLink());
+        }
+    }
+}
+
 void EspHttpBinding::handleHttpPost(CHttpRequest *request, CHttpResponse *response)
 {
     StringBuffer cacheID;
@@ -737,7 +768,15 @@ void EspHttpBinding::handleHttpPost(CHttpRequest *request, CHttpResponse *respon
         if (queryCacheSeconds(method, cacheSeconds)) //ESP cache is needed for this method
         {
             if (!espCacheClient)
-                espCacheClient.setown(createESPCache(espCacheInitString.get()));
+            {
+                const char *cacheGroupID = getCacheGroupID();
+                if (!isEmptyString(cacheGroupID))
+                {
+                    const StringAttr *initString = getESPContainer()->queryCacheInitString(cacheGroupID);
+                    if (initString && !initString->isEmpty())
+                        espCacheClient.setown(createESPCache(initString->str()));
+                }
+            }
             if (espCacheClient)
                 createESPCacheID(request, cacheID);
             if (!cacheID.isEmpty() && sendFromESPCache(request, response, cacheID.str()))

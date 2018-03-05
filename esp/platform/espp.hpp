@@ -63,6 +63,7 @@ private:
     Mutex abortMutex;
     bool m_SEHMappingEnabled;
     CEspConfig* m_config;
+    StringAttrMapping espCacheInitStrings;
     
 public:
     IMPLEMENT_IINTERFACE;
@@ -256,6 +257,21 @@ public:
         m_SEHMappingEnabled = mappingEnabled;
     }
     virtual void sendSnmpMessage(const char* msg) { throwUnexpected(); }
+
+    void addCacheInitString(const char* id, const char* initString)
+    {
+        if (espCacheInitStrings.find(id))
+            return;
+        espCacheInitStrings.setValue(id, initString);
+    }
+
+    virtual const StringAttr* queryCacheInitString(const char* id)
+    {
+        const StringAttr* initString = espCacheInitStrings.getValue(id);
+        if (initString)
+            return initString;
+        return espCacheInitStrings.getValue("default");
+    }
 };
 
 

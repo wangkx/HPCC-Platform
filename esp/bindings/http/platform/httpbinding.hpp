@@ -143,8 +143,8 @@ private:
     StringAttrMapping desc_map;
     StringAttrMapping help_map;
 
+    StringAttr cacheGroupID;
     Owned<IEspCache> espCacheClient;
-    StringAttr espCacheInitString;
     unsigned cacheMethods = 0;
     MapStringTo<unsigned> cacheSecondsMap;
     MapStringTo<bool> cacheGlobalMap;
@@ -235,6 +235,15 @@ public:
         if (global)
             cacheGlobalMap.setValue(key.str(), global);
     }
+    void setCacheGroupID(const char *id)
+    {
+        cacheGroupID.set(id);
+    }
+    const char *getCacheGroupID()
+    {
+        return cacheGroupID.get();
+    }
+    void clearCacheByGroupID(const char *id);
 
     int onGetConfig(IEspContext &context, CHttpRequest* request, CHttpResponse* response);
 

@@ -213,6 +213,7 @@ interface IEspContainer : extends IInterface
     virtual void setFrameTitle(const char* title) = 0;
     virtual const char* getFrameTitle() = 0;
     virtual void sendSnmpMessage(const char* msg) = 0;
+    virtual const StringAttr* queryCacheInitString(const char* id) = 0;
 };
 
 interface IEspRpcBinding;
@@ -334,6 +335,7 @@ SCMinterface IEspServer(IInterface)
 {
    void addProtocol(IEspProtocol &prot);
    void addBinding(const char * name, const char * host, unsigned short port, IEspProtocol &prot, IEspRpcBinding &bind, bool isdefault, IPropertyTree* cfgtree);
+   void addCacheInitString(const char* id, const char* initString);
 };
 
 SCMinterface IEspServiceCfg(IInterface)

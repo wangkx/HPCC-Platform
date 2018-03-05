@@ -876,21 +876,46 @@ IEspPlugin* CEspConfig::getPlugin(const char* name)
     return NULL;
 }
 
-bool CEspConfig::checkESPCache()
+void CEspConfig::checkESPCache(IEspServer& server)
 {
-    bool espCacheAvailable = false ;
-    list<binding_cfg*>::iterator iter = m_bindings.begin();
-    while (iter!=m_bindings.end())
+    const char* cacheInitString = m_cfg->queryProp("@espCacheInitString");
+    IPropertyTree* espCacheCfg = m_cfg->queryBranch("ESPCache");
+    if (!espCacheCfg && isEmptyString(cacheInitString))
+        return;
+
+    bool hasDefault = false;
+    bool ensureESPCache = m_cfg->getPropBool("@ensureESPCache", false);
+    if (!espCacheCfg)
     {
-        binding_cfg& xcfg = **iter;
-        if (xcfg.bind->getCacheMethodCount() > 0)
+        server.addCacheInitString("default", cacheInitString);
+        if (ensureESPCache)
         {
-            Owned<IEspCache> espCache = createESPCache(m_cfg->queryProp("@espCacheInitString"));
-            espCacheAvailable = (espCache != nullptr);
-            break;
+            Owned<IEspCache> espCache = createESPCache(cacheInitString);
+            if (!espCache)
+                throw MakeStringException(-1, "Failed in checking ESP cache service using %s", cacheInitString);
         }
-        iter++;
+        return;
     }
-    return espCacheAvailable;
+    Owned<IPropertyTreeIterator> iter = espCacheCfg->getElements("Group");
+    ForEach(*iter)
+    {
+        IPropertyTree& espCacheGroup = iter->query();
+        const char* id = espCacheGroup.queryProp("@id");
+        const char* initString = espCacheGroup.queryProp("@initString");
+        if (ensureESPCache)
+        {
+            Owned<IEspCache> espCache = createESPCache(initString);
+            if (!espCache)
+                throw MakeStringException(-1, "Failed in checking ESP cache service using %s", initString);
+        }
+        if (isEmptyString(id))
+        {
+            if (hasDefault)
+                throw MakeStringException(-1, "Default ESP caches cannot have more than 1 ESP cache initStrings.");
+            id = "default";
+            hasDefault = true;
+        }
+        server.addCacheInitString(id, initString);
+    }
 }
 
