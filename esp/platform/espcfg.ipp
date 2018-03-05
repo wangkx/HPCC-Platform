@@ -205,12 +205,9 @@ public:
         loadServices();
         loadProtocols();
         loadBindings();
-
-        if (m_cfg->getPropBool("@ensureESPCache", false) && !checkESPCache())
-            throw MakeStringException(-1, "Failed in checking ESP cache service using %s", m_cfg->queryProp("@espCacheInitString"));
     }
 
-    bool checkESPCache();
+    void checkESPCache(IEspServer& server);
     IEspPlugin* getPlugin(const char* name);
 
     void loadBuiltIns();

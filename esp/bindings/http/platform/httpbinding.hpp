@@ -143,8 +143,7 @@ private:
     StringAttrMapping desc_map;
     StringAttrMapping help_map;
 
-    Owned<IEspCache> espCacheClient;
-    StringAttr espCacheInitString;
+    StringAttr cacheGroupID;
     unsigned cacheMethods = 0;
     MapStringTo<unsigned> cacheSecondsMap;
     MapStringTo<bool> cacheGlobalMap;
@@ -152,8 +151,8 @@ private:
     bool queryCacheSeconds(const char *method, unsigned& cacheSecond);
     bool queryCacheGlobal(const char *method);
     const char* createESPCacheID(CHttpRequest* request, StringBuffer& cacheID);
-    void addToESPCache(CHttpRequest* request, CHttpResponse* response, const char* cacheID);
-    bool sendFromESPCache(CHttpRequest* request, CHttpResponse* response, const char* cacheID);
+    void addToESPCache(IEspCache* cacheClient, CHttpRequest* request, CHttpResponse* response, const char* cacheID, unsigned cacheSecond);
+    bool sendFromESPCache(IEspCache* cacheClient, CHttpRequest* request, CHttpResponse* response, const char* cacheID);
 
     StringAttr              processName;
     StringAttr              domainName;
@@ -235,6 +234,15 @@ public:
         if (global)
             cacheGlobalMap.setValue(key.str(), global);
     }
+    void setCacheGroupID(const char *id)
+    {
+        cacheGroupID.set(id);
+    }
+    const char *getCacheGroupID()
+    {
+        return cacheGroupID.get();
+    }
+    void clearCacheByGroupID(const char *id);
 
     int onGetConfig(IEspContext &context, CHttpRequest* request, CHttpResponse* response);
 
