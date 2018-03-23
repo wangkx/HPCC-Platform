@@ -5008,6 +5008,121 @@ void storeHistoryTreeToArray(IPropertyTree *history, IArrayOf<IEspHistory>& arrH
     }
 }
 
+
+enum DFUHistoryField
+{
+    DFUHip = 0,
+    DFUHname = 1,
+    DFUHoperation = 2,
+    DFUHowner = 3,
+    DFUHpath = 4,
+    DFUHtimestamp = 5,
+    DFUHworkunit = 6,
+    DFUHterm = 7,
+    DFUHreverse = 256,
+    DFUHnocase = 512,
+    DFUHnumeric = 1024,
+    DFUHwild = 2048
+};
+
+const char* DFUHistoryFieldNames[] = { "@ip", "@name", "@operation", "@owner", "@path", "@timestamp", "@workunit"};
+
+bool CWsDfuEx::getListHistorySorted(IUserDescriptor* userdesc, IEspContext &context, IEspListHistoryRequest &req, IEspListHistoryResponse &resp)
+{
+    class CDFUHistoryPager : implements IElementsPager, public CSimpleInterface
+    {
+        IUserDescriptor* udesc;
+        StringAttr name;
+        StringAttr sortOrder;
+
+    public:
+        IMPLEMENT_IINTERFACE_USING(CSimpleInterface);
+
+        CDFUHistoryPager(IUserDescriptor* _udesc, const char*_name, const char*_sortOrder)
+            : udesc(_udesc), name(_name), sortOrder(_sortOrder) { };
+        virtual IRemoteConnection* getElements(IArrayOf<IPropertyTree> &elements)
+        {
+            Owned<IDistributedFile> file = queryDistributedFileDirectory().lookup(name.get(), udesc);
+            if (!file)
+                throw MakeStringException(ECLWATCH_FILE_NOT_EXIST,"CWsDfuEx::onListHistory: Could not find file '%s'.", name.get());
+
+            IPropertyTree* history = file->queryHistory();
+            if (!history)
+                throw MakeStringException(ECLWATCH_FILE_NOT_EXIST,"CWsDfuEx::onListHistory: Could not find history for file '%s'.", name.get());
+
+            StringArray unknownAttributes;
+            Owned<IPropertyTreeIterator> historyIter = history->getElements("*");
+            sortElements(historyIter, sortOrder.get(), NULL, NULL, unknownAttributes, elements);
+            return NULL;
+        }
+        virtual bool allMatchingElementsReceived() { return true; }
+    };
+
+    StringBuffer sortOrder;
+    const char* sortBy = req.getSortby();
+    if (req.getDescending())
+        sortOrder.append('-');
+    sortOrder.append('?'); //DFUHnocase
+
+    if (isEmptyString(sortBy))
+        sortOrder.append(DFUHistoryFieldNames[DFUHtimestamp]);
+    else if (strieq(sortBy, "Owner"))
+        sortOrder.append(DFUHistoryFieldNames[DFUHowner]);
+    else if (strieq(sortBy, "Name"))
+        sortOrder.append(DFUHistoryFieldNames[DFUHname]);
+    else if (strieq(sortBy, "IP"))
+        sortOrder.append(DFUHistoryFieldNames[DFUHip]);
+    else if (strieq(sortBy, "Operation"))
+        sortOrder.append(DFUHistoryFieldNames[DFUHoperation]);
+    else if (strieq(sortBy, "Path"))
+        sortOrder.append(DFUHistoryFieldNames[DFUHpath]);
+    else if (strieq(sortBy, "Workunit"))
+        sortOrder.append(DFUHistoryFieldNames[DFUHworkunit]);
+    else
+        sortOrder.append(DFUHistoryFieldNames[DFUHtimestamp]);
+
+    unsigned pageStart = 0;
+    if (req.getPageStartFrom() > 0)
+        pageStart = req.getPageStartFrom() - 1;
+    unsigned pageSize = req.getPageSize();
+    if (pageSize < 1)
+        pageSize = 100;
+
+    __int64 cacheHint = 0;
+    if (!req.getCacheHint_isNull())
+        cacheHint = req.getCacheHint();
+
+    unsigned total = 0;
+    bool allMatchingItemsReceived = true;
+    IArrayOf<IPropertyTree> results;
+    Owned<IElementsPager> elementsPager = new CDFUHistoryPager(userdesc, req.getName(), sortOrder.str());
+    Owned<IRemoteConnection> conn = getElementsPaged(elementsPager, pageStart, pageSize, NULL, "",
+        &cacheHint, results, &total, &allMatchingItemsReceived, false);
+
+    IArrayOf<IEspHistory> arrHistory;
+    ForEachItemIn(i, results)
+    {
+        IPropertyTree& item = results.item(i);
+
+        Owned<IEspHistory> historyRecord = createHistory();
+        historyRecord->setIP(item.queryProp(DFUHistoryFieldNames[DFUHip]));
+        historyRecord->setName(item.queryProp(DFUHistoryFieldNames[DFUHname]));
+        historyRecord->setOperation(item.queryProp(DFUHistoryFieldNames[DFUHoperation]));
+        historyRecord->setOwner(item.queryProp(DFUHistoryFieldNames[DFUHowner]));
+        historyRecord->setPath(item.queryProp(DFUHistoryFieldNames[DFUHpath]));
+        historyRecord->setTimestamp(item.queryProp(DFUHistoryFieldNames[DFUHtimestamp]));
+        historyRecord->setWorkunit(item.queryProp(DFUHistoryFieldNames[DFUHworkunit]));
+
+        arrHistory.append(*historyRecord.getClear());
+    }
+    if (arrHistory.ordinality())
+        resp.setHistory(arrHistory);
+
+    resp.setNumHistories(total);
+    resp.setCacheHint(cacheHint);
+    return true;
+}
+
 bool CWsDfuEx::onListHistory(IEspContext &context, IEspListHistoryRequest &req, IEspListHistoryResponse &resp)
 {
     try
@@ -5025,6 +5140,10 @@ bool CWsDfuEx::onListHistory(IEspContext &context, IEspListHistoryRequest &req, 
         if (!req.getName() || !*req.getName())
             throw MakeStringException(ECLWATCH_MISSING_PARAMS, "Name required");
         PROGLOG("onListHistory: %s", req.getName());
+
+        double version = context.getClientVersion();
+        if (version >= 1.39)
+            return getListHistorySorted(userdesc.get(), context, req, resp);
 
         MemoryBuffer xmlmap;
         IArrayOf<IEspHistory> arrHistory;
