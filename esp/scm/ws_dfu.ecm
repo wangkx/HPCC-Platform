@@ -752,9 +752,14 @@ ESPresponse [exceptions_inline, nil_remove, http_encode(0)] DFUGetFileMetaDataRe
     int64 TotalResultRows;
 };
 
-ESPrequest ListHistoryRequest
+ESPrequest [nil_remove] ListHistoryRequest
 {
     string Name;
+    [min_ver("1.39")] int PageStartFrom;
+    [min_ver("1.39")] int PageSize;
+    [min_ver("1.39")] string Sortby;
+    [min_ver("1.39")] bool Descending(false);
+    [min_ver("1.39")] int64 CacheHint;
 };
 
 ESPStruct History
@@ -772,6 +777,8 @@ ESPresponse [exceptions_inline, nil_remove] ListHistoryResponse
 {
     [depr_ver("1.36")] binary xmlmap;
     ESParray<ESPStruct History, Origin> History;
+    [min_ver("1.39")] int NumHistories;
+    [min_ver("1.39")] int64 CacheHint;
 };
 
 ESPrequest EraseHistoryRequest
@@ -790,7 +797,7 @@ ESPresponse [exceptions_inline, nil_remove] EraseHistoryResponse
 //  ===========================================================================
 ESPservice [
     auth_feature("DEFERRED"),
-    version("1.38"),
+    version("1.39"),
     noforms,
     exceptions_inline("./smc_xslt/exceptions.xslt")] WsDfu
 {

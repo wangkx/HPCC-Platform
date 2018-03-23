@@ -4855,8 +4855,55 @@ void storeHistoryTreeToArray(IPropertyTree *history, IArrayOf<IEspHistory>& arrH
     }
 }
 
+
+void storeHistoryTreeArray(IArrayOf<IPropertyTree>& results, IArrayOf<IEspHistory>& arrHistory)
+{
+    ForEachItemIn(i, results)
+    {
+        Owned<IEspHistory> historyRecord = createHistory();
+
+        IPropertyTree& item = results.item(i);
+        historyRecord->setIP(item.queryProp("@ip"));
+        historyRecord->setName(item.queryProp("@name"));
+        historyRecord->setOperation(item.queryProp("@operation"));
+        historyRecord->setOwner(item.queryProp("@owner"));
+        historyRecord->setPath(item.queryProp("@path"));
+        historyRecord->setTimestamp(item.queryProp("@timestamp"));
+        historyRecord->setWorkunit(item.queryProp("@workunit"));
+
+        arrHistory.append(*historyRecord.getClear());
+    }
+}
+
 bool CWsDfuEx::onListHistory(IEspContext &context, IEspListHistoryRequest &req, IEspListHistoryResponse &resp)
 {
+    class CDFUHistoryPager : implements IElementsPager, public CSimpleInterface
+    {
+        IUserDescriptor* udesc;
+        StringAttr name;
+
+    public:
+        IMPLEMENT_IINTERFACE_USING(CSimpleInterface);
+
+        CDFUHistoryPager(IUserDescriptor* _udesc, const char*_name) : udesc(_udesc), name(_name) { };
+        virtual IRemoteConnection* getElements(IArrayOf<IPropertyTree> &elements)
+        {
+            Owned<IDistributedFile> file = queryDistributedFileDirectory().lookup(name.get(), udesc);
+            if (!file)
+                throw MakeStringException(ECLWATCH_FILE_NOT_EXIST,"CWsDfuEx::onListHistory: Could not find file '%s'.", name.get());
+
+            IPropertyTree* history = file->queryHistory();
+            if (!history)
+                throw MakeStringException(ECLWATCH_FILE_NOT_EXIST,"CWsDfuEx::onListHistory: Could not find history for file '%s'.", name.get());
+
+            StringArray unknownAttributes;
+            Owned<IPropertyTreeIterator> historyIter = history->getElements("*");
+            sortElements(historyIter, NULL, NULL, NULL, unknownAttributes, elements);
+            return NULL;
+        }
+        virtual bool allMatchingElementsReceived() { return true; }
+    };
+
     try
     {
         StringBuffer username;
@@ -4872,27 +4919,59 @@ bool CWsDfuEx::onListHistory(IEspContext &context, IEspListHistoryRequest &req, 
             throw MakeStringException(ECLWATCH_MISSING_PARAMS, "Name required");
         PROGLOG("onListHistory: %s", req.getName());
 
-        MemoryBuffer xmlmap;
-        IArrayOf<IEspHistory> arrHistory;
-        Owned<IDistributedFile> file = queryDistributedFileDirectory().lookup(req.getName(),userdesc.get());
-        if (file)
+        double version = context.getClientVersion();
+        if (version >= 1.39)
         {
-            IPropertyTree *history = file->queryHistory();
-            if (history)
-            {
-                storeHistoryTreeToArray(history, arrHistory);
-                if (context.getClientVersion() < 1.36)
-                    history->serialize(xmlmap);
-            }
+            unsigned pageStart = 0;
+            if (req.getPageStartFrom() > 0)
+                pageStart = req.getPageStartFrom() - 1;
+            unsigned pageSize = req.getPageSize();
+            if (pageSize < 1)
+                pageSize = 100;
 
+            __int64 cacheHint = 0;
+            if (!req.getCacheHint_isNull())
+                cacheHint = req.getCacheHint();
+
+            unsigned total = 0;
+            bool allMatchingItemsReceived = true;
+            IArrayOf<IPropertyTree> results;
+            Owned<IElementsPager> elementsPager = new CDFUHistoryPager(userdesc.get(), req.getName());
+            Owned<IRemoteConnection> conn = getElementsPaged(elementsPager, pageStart, pageSize, NULL, "",
+                &cacheHint, results, &total, &allMatchingItemsReceived, false);
+
+            IArrayOf<IEspHistory> arrHistory;
+            storeHistoryTreeArray(results, arrHistory);
             if (arrHistory.ordinality())
                 resp.setHistory(arrHistory);
+
+            resp.setNumHistories(total);
+            resp.setCacheHint(cacheHint);
         }
         else
-            throw MakeStringException(ECLWATCH_FILE_NOT_EXIST,"CWsDfuEx::onListHistory: Could not find file '%s'.", req.getName());
+        {
+            MemoryBuffer xmlmap;
+            IArrayOf<IEspHistory> arrHistory;
+            Owned<IDistributedFile> file = queryDistributedFileDirectory().lookup(req.getName(),userdesc.get());
+            if (file)
+            {
+                IPropertyTree *history = file->queryHistory();
+                if (history)
+                {
+                    storeHistoryTreeToArray(history, arrHistory);
+                    if (context.getClientVersion() < 1.36)
+                        history->serialize(xmlmap);
+                }
 
-        if (xmlmap.length())
-            resp.setXmlmap(xmlmap);
+                if (arrHistory.ordinality())
+                    resp.setHistory(arrHistory);
+            }
+            else
+                throw MakeStringException(ECLWATCH_FILE_NOT_EXIST,"CWsDfuEx::onListHistory: Could not find file '%s'.", req.getName());
+
+            if (xmlmap.length())
+                resp.setXmlmap(xmlmap);
+        }
     }
     catch(IException* e)
     {
