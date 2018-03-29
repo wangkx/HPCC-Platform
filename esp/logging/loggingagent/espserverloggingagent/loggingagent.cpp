@@ -34,6 +34,7 @@ static const char* const PropMaxTransSeedTimeoutMinutes = "MaxTransSeedTimeoutMi
 static const char* const MaxTriesGTS = "MaxTriesGTS";
 static const char* const appESPServerLoggingAgent = "ESPServerLoggingAgent";
 
+#define TEST_SEED
 bool CESPServerLoggingAgent::init(const char * name, const char * type, IPropertyTree * cfg, const char * process)
 {
     if (!cfg)
@@ -89,6 +90,9 @@ bool CESPServerLoggingAgent::init(const char * name, const char * type, IPropert
             getTransactionSeed(groupName.str(), transactionSeed, statusMessage);
             if (transactionSeed.length() > 0)
             {
+#ifdef TEST_SEED
+                DBGLOG("*******New CTransIDBuilder(%d, %d, %d)", maxLength, maxSeq, seedExpiredSeconds);
+#endif
                 Owned<CTransIDBuilder> entry = new CTransIDBuilder(transactionSeed.str(), false,
                     maxLength, maxSeq, seedExpiredSeconds);
                 transIDMap.setValue(groupName.str(), entry);
@@ -100,6 +104,10 @@ bool CESPServerLoggingAgent::init(const char * name, const char * type, IPropert
         }
     }
     createLocalTransactionSeed(localTransactionSeed);
+#ifdef TEST_SEED
+    DBGLOG("*******New defaul CTransIDBuilder(%d, %d, %d)", cfg->getPropInt(PropMaxTransIDLength, 0), cfg->getPropInt(PropMaxTransIDSequenceNumber, 0),
+            60 * cfg->getPropInt(PropMaxTransSeedTimeoutMinutes, 0));
+#endif
     Owned<CTransIDBuilder> localTransactionEntry = new CTransIDBuilder(localTransactionSeed.str(), true,
         cfg->getPropInt(PropMaxTransIDLength, 0), cfg->getPropInt(PropMaxTransIDSequenceNumber, 0),
         60 * cfg->getPropInt(PropMaxTransSeedTimeoutMinutes, 0));
@@ -201,6 +209,12 @@ bool CESPServerLoggingAgent::getTransactionSeed(IEspGetTransactionSeedRequest& r
 
 int CESPServerLoggingAgent::getTransactionSeed(const char* appName, StringBuffer& transactionSeed, StringBuffer& statusMessage)
 {
+#define TEST_SEED
+#ifdef TEST_SEED
+    transactionSeed.set("TestSeed123");
+    DBGLOG("*******New TransactionSeed");
+    return 0;
+#endif
     StringBuffer soapreq(
         "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
         "<soap:Envelope xmlns:soap=\"http://schemas.xmlsoap.org/soap/envelope/\""

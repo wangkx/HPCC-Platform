@@ -79,6 +79,8 @@ include_directories (
          ./../../bindings
          ./../../bindings/http/client
          ./../../smc/SMCLib
+         ${HPCC_SOURCE_DIR}/esp/logging/logginglib
+         ${HPCC_SOURCE_DIR}/esp/logging/loggingmanager
          ./../../bindings/SOAP/xpp
          ${HPCC_SOURCE_DIR}/dali/dfu
     )

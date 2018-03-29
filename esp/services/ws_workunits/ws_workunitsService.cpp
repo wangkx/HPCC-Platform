@@ -342,6 +342,13 @@ static void checkUpdateQuerysetLibraries()
         querySet.setPropBool("@updatedLibraries", true);
     }
 }
+#define TEST_SEED
+#ifdef TEST_SEED
+#include "loggingagentbase.hpp"
+#include "loggingmanager.h"
+
+static ILoggingManager* m_oLoggingManager = nullptr;
+#endif
 
 void CWsWorkunitsEx::init(IPropertyTree *cfg, const char *process, const char *service)
 {
@@ -415,6 +422,34 @@ void CWsWorkunitsEx::init(IPropertyTree *cfg, const char *process, const char *s
     Owned<CClusterQueryStateThreadFactory> threadFactory = new CClusterQueryStateThreadFactory();
     clusterQueryStatePool.setown(createThreadPool("CheckAndSetClusterQueryState Thread Pool", threadFactory, NULL,
             cfg->getPropInt(xpath.str(), CHECK_QUERY_STATUS_THREAD_POOL_SIZE)));
+#ifdef TEST_SEED
+    if (!m_oLoggingManager)
+    {
+        StringBuffer realName, serviceName = "dynamicesdl";
+        realName.append(SharedObjectPrefix).append(LOGGINGMANAGERLIB).append(SharedObjectExtension);
+
+        HINSTANCE loggingManagerLib = LoadSharedObject(realName.str(), true, false);
+
+        if(loggingManagerLib == NULL)
+        {
+            ESPLOG(LogNormal,"ESP service %s: cannot load logging manager library(%s)", serviceName.str(), realName.str());
+            return;
+        }
+
+        newLoggingManager_t_ xproc = (newLoggingManager_t_)GetSharedProcedure(loggingManagerLib, "newLoggingManager");
+        if (!xproc)
+        {
+            ESPLOG(LogNormal,"ESP service %s: procedure newLogggingManager of %s can't be loaded\n", serviceName.str(), realName.str());
+            return;
+        }
+
+        m_oLoggingManager = (ILoggingManager*) xproc();
+        StringBuffer xpath;
+        xpath.appendf("Software/EspProcess[@name=\"%s\"]/EspService[@name=\"%s\"]", process, serviceName.str());
+        IPropertyTree * srvcfg = cfg->queryPropTree(xpath.str());
+        m_oLoggingManager->init(srvcfg->queryPropTree("LoggingManager"), serviceName.str());
+    }
+#endif
 }
 
 void CWsWorkunitsEx::refreshValidClusters()
@@ -5686,6 +5721,17 @@ bool CWsWorkunitsEx::onWUEclDefinitionAction(IEspContext &context, IEspWUEclDefi
 {
     try
     {
+#ifdef TEST_SEED
+        if (m_oLoggingManager)
+        {
+            StringBuffer trxid, trxidstatus;
+            if (!m_oLoggingManager->getTransactionID(nullptr,trxid, trxidstatus))
+                ESPLOG(LogMin,"DESDL: Logging Agent generated Transaction ID failed: %s", trxidstatus.str());
+            else
+                ESPLOG(LogMin,"DESDL: Logging Agent generated Transaction ID: %s", trxid.str());
+        }
+        return true;
+#endif
         CEclDefinitionActions action = req.getActionType();
         if (action == EclDefinitionActions_Undefined)
             throw MakeStringException(ECLWATCH_INVALID_INPUT,"Action not defined in onWUEclDefinitionAction.");
