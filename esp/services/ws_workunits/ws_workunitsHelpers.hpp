@@ -584,7 +584,7 @@ class CWsWuFileHelper
     IFile *createWorkingFolder(IEspContext &context, const char *wuid, const char *namePrefix,
         StringBuffer &namePrefixStr, StringBuffer &folderName);
 
-    void createZAPInfoFile(const char *espIP, const char *thorIP, const char *problemDesc,
+    void createZAPInfoFile(IEspContext &context, const char *thorIP, const char *problemDesc,
         const char *whatChanged, const char *timing, Owned<IConstWorkUnit> &cwu, const char *pathNameStr);
     void createZAPWUXMLFile(WsWuInfo &winfo, const char *pathNameStr);
     void createZAPECLQueryArchiveFiles(Owned<IConstWorkUnit> &cwu, const char *pathNameStr);

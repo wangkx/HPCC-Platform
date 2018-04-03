@@ -47,6 +47,7 @@ private:
     StringBuffer    m_servName;
     StringBuffer    m_servHost;
     short           m_servPort;
+    bool            isSSL = false;
 
     Owned<ISecUser> m_user;
     Owned<ISecResourceList> m_resources;
@@ -377,7 +378,10 @@ public:
         host.append(m_servHost);
         port = m_servPort;
     }
-    
+
+    virtual void setIsSSL(bool ssl) { isSSL = ssl; };
+    virtual bool getIsSSL() { return isSSL; };
+
     virtual void setFeatureAuthMap(IAuthMap * map)
     {
         if(map != NULL)

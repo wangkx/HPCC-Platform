@@ -254,6 +254,7 @@ int CEspHttpServer::processRequest()
 
         m_request->updateContext();
         IEspContext* ctx = m_request->queryContext();
+        ctx->setIsSSL(m_apport->getIsSSL());
         ctx->setServiceName(serviceName.str());
         ctx->setHTTPMethod(method.str());
         ctx->setServiceMethod(methodName.str());

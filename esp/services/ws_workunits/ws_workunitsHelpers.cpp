@@ -3481,26 +3481,23 @@ void CWsWuFileHelper::createThorSlaveLogfile(Owned<IConstWorkUnit>& cwu, WsWuInf
     }
 }
 
-void CWsWuFileHelper::createZAPInfoFile(const char* espIP, const char* thorIP, const char* problemDesc,
+void CWsWuFileHelper::createZAPInfoFile(IEspContext& context, const char* thorIP, const char* problemDesc,
     const char* whatChanged, const char* timing, Owned<IConstWorkUnit>& cwu, const char* pathNameStr)
 {
     VStringBuffer fileName("%s.txt", pathNameStr);
     Owned<IFileIOStream> outFile = createIOStreamWithFileName(fileName.str(), IFOcreate);
 
-    StringBuffer sb;
+    StringBuffer sb, ip;
     sb.set("Workunit:     ").append(cwu->queryWuid()).append("\r\n");
     sb.append("User:         ").append(cwu->queryUser()).append("\r\n");
     sb.append("Build Version:").append(getBuildVersion()).append("\r\n");
     sb.append("Cluster:      ").append(cwu->queryClusterName()).append("\r\n");
-    if (!isEmptyString(espIP))
-        sb.append("ESP:          ").append(espIP).append("\r\n");
-    else
-    {
-        StringBuffer espIPAddr;
-        IpAddress ipaddr = queryHostIP();
-        ipaddr.getIpText(espIPAddr);
-        sb.append("ESP:          ").append(espIPAddr.str()).append("\r\n");
-    }
+
+    short port = 0;
+    context.getServAddress(ip, port);
+    sb.append("ESP:          ").append(ip.str()).append("\r\n");
+    sb.append("ECLWatch:     ").append(context.getIsSSL() ? "https://" : "http://");
+    sb.append(ip.str()).append(":").append(port).append("\r\n");
     if (!isEmptyString(thorIP))
         sb.append("Thor:         ").append(thorIP).append("\r\n");
     outFile->write(sb.length(), sb.str());
@@ -3667,7 +3664,7 @@ void CWsWuFileHelper::createWUZAPFile(IEspContext& context, Owned<IConstWorkUnit
 
     //create WU ZAP files
     inFileNamePrefixWithPath.set(folderToZIP.str()).append(PATHSEPCHAR).append(zapReportNameStr.str());
-    createZAPInfoFile(request.espIP.str(), request.thorIP.str(), request.problemDesc.str(), request.whatChanged.str(),
+    createZAPInfoFile(context, request.thorIP.str(), request.problemDesc.str(), request.whatChanged.str(),
         request.whereSlow.str(), cwu, inFileNamePrefixWithPath.str());
     createZAPECLQueryArchiveFiles(cwu, inFileNamePrefixWithPath.str());
 

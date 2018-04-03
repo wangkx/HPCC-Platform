@@ -452,6 +452,7 @@ bool CHttpThread::onRequest()
             return false;
         }
         DBGLOG("Accepted from secure socket");
+        m_apport->setIsSSL(true);
         httpserver.setown(new CEspHttpServer(*secure_sock.get(), m_apport, m_viewConfig, getMaxRequestEntityLength()));
     }
     else
@@ -513,6 +514,7 @@ void CPooledHttpThread::threadmain()
         {
             return;
         }
+        m_apport->setIsSSL(true);
         httpserver.setown(new CEspHttpServer(*secure_sock.get(), m_apport, false, getMaxRequestEntityLength()));
     }
     else

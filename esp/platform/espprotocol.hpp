@@ -91,6 +91,7 @@ class CEspApplicationPort
     StringBuffer titleBarHtml;
     StringBuffer appFrameHtml;
     const char *build_ver;
+    bool isSSL = false;
     bool viewConfig;
     bool rootAuth;
     bool navResize;
@@ -124,6 +125,8 @@ public:
     void appendBinding(CEspBindingEntry* entry, bool isdefault);
 
     bool rootAuthRequired(){return rootAuth;}
+    bool getIsSSL(){return isSSL;}
+    void setIsSSL(bool ssl){isSSL = ssl;}
 
     CEspBindingEntry* queryBindingItem(int item){return (item<bindingCount) ? bindings[item] : NULL;}
     CEspBindingEntry* getDefaultBinding(){return bindings[(defBinding>=0) ? defBinding : 0];}
