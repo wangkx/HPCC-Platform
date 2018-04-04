@@ -294,6 +294,7 @@ private:
     const char* gatherECLException(IArrayOf<IConstECLException> &exceptions, StringBuffer &exceptionMsg);
     void addEclDefinitionActionResult(const char *eclDefinition, const char *result, const char *wuid,
         const char *queryID, const char* strAction, bool logResult, IArrayOf<IConstWUEclDefinitionActionResult> &results);
+    void createAJIRA(StringBuffer& resq);
 
     unsigned awusCacheMinutes;
     StringBuffer queryDirectory;

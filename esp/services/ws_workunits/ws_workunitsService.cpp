@@ -4522,7 +4522,7 @@ bool CWsWorkunitsEx::onWUCreateZAPInfo(IEspContext &context, IEspWUCreateZAPInfo
         zapInfoReq.zapFileName = req.getZAPFileName();
         zapInfoReq.password = req.getZAPPassword();
     
-        StringBuffer zipFileName, zipFileNameWithPath;
+        /*StringBuffer zipFileName, zipFileNameWithPath;
         //CWsWuFileHelper may need ESP's <Directories> settings to locate log files. 
         CWsWuFileHelper helper(directories);
         helper.createWUZAPFile(context, cwu, zapInfoReq, zipFileName, zipFileNameWithPath);
@@ -4533,15 +4533,23 @@ bool CWsWorkunitsEx::onWUCreateZAPInfo(IEspContext &context, IEspWUCreateZAPInfo
         MemoryBuffer mb;
         void * data = mb.reserve((unsigned)io->size());
         size32_t read = io->read(0, (unsigned)io->size(), data);
-        mb.setLength(read);
-        resp.setThefile(mb);
+        mb.setLength(read);*/
+
+        //Create a JIRA issue if requested
+        ///if ()
+        {
+            StringBuffer resq;
+            createAJIRA(resq);
+        }
+
+        /*resp.setThefile(mb);
         resp.setThefile_mimetype(HTTP_TYPE_OCTET_STREAM);
         resp.setZAPFileName(zipFileName.str());
         StringBuffer headerStr("attachment;filename=");
         headerStr.append(zipFileName.str());
         context.addCustomerHeader("Content-disposition", headerStr.str());
         io->close();
-        f->remove();
+        f->remove();*/
     }
     catch(IException* e)
     {
@@ -4633,6 +4641,84 @@ bool CWsWorkunitsEx::onWUGetZAPInfo(IEspContext &context, IEspWUGetZAPInfoReques
         FORWARDEXCEPTION(context, e,  ECLWATCH_INTERNAL_ERROR);
     }
     return true;
+}
+
+bool execCommand(const char *cmd, StringBuffer &resq)
+{
+    char buffer[128];
+
+    // Open a pipe.
+    FILE *fp = popen(cmd, "r");
+    if (fp == nullptr)
+        return false;
+
+    while (!feof(fp))
+        if (fgets(buffer, 128, fp))
+            resq.append(buffer);
+
+    // Close a pipe.
+    pclose(fp);
+    return true;
+}
+
+int readJIRAResponseContent(__int64 textLength, const char* resq, StringBuffer& content)
+{
+    char oneLine[MAX_HTTP_HEADER_LEN + 2];
+    int oneLineLen = 0;
+    __int64 curPos = 0;
+    __int64 nextPos = Utils::getLine(textLength, curPos, resq, oneLineLen);
+    strncpy(oneLine, resq, oneLineLen);
+    oneLine[oneLineLen] = 0;
+
+    const char* ptr = oneLine;
+    StringBuffer method, respCode;
+    ptr = Utils::getWord(ptr, method);
+    ptr = Utils::getWord(ptr, respCode);
+    if (!strieq(respCode, "200"))
+        return -1;
+
+    //Skip header lines
+    while((nextPos < textLength) && (oneLineLen >= 2))
+        nextPos = Utils::getLine(textLength, nextPos, resq, oneLineLen);
+
+    if (nextPos < textLength)
+        content.set(resq + nextPos);
+    return content.length();
+}
+
+void CWsWorkunitsEx::createAJIRA(StringBuffer& resq)
+{
+//    curl -D- -u wangkx:1qaz2wsx -X GET -H "Content-Type: application/json" 'https://track.hpccsystems.com/rest/api/2/search?jql=assignee=wangkx&startAt=0&maxResults=3&fields=id,key'
+    const char* userID = "wangkx";
+    const char* passwd = "1qaz2wsx";
+    const char* method = "GET";
+    const char* baseUrl = "https://track.hpccsystems.com/rest/api/2/search";
+    const char* req = "assignee=wangkx&startAt=0&maxResults=3&fields=id,key,summary";
+    StringBuffer respContent, cmd("curl -D- -u ");
+    cmd.append(userID).append(':').append(passwd).append(" -X ").append(method);
+    if (strieq(method, "POST"))
+        cmd.append(" --data {see below}");
+    cmd.appendf(" -H \"Content-Type: application/json\" '%s?jql=%s'", baseUrl, req);
+    DBGLOG("Command in sendJIRA():<%s>", cmd.str());
+    if (!execCommand(cmd.str(), resq))
+        throw MakeStringException(ECLWATCH_INTERNAL_ERROR, "Failed in executing %s.", cmd.str());
+
+    if (resq.isEmpty())
+        DBGLOG("Empty response from sendJIRA()");
+    else
+        DBGLOG("Response from sendJIRA():<%s>", resq.str());
+
+    if (readJIRAResponseContent(resq.length(), resq.str(), respContent) > 0)
+    {
+        Owned<IPropertyTree> contentTree = createPTreeFromJSONString(respContent.str());
+        StringBuffer xml;
+        toXML(contentTree, xml);
+        DBGLOG("Response XML:<%s>", xml.str());
+    }
+    else
+    {
+        ;//TODO
+    }
 }
 
 bool CWsWorkunitsEx::onWUCheckFeatures(IEspContext &context, IEspWUCheckFeaturesRequest &req, IEspWUCheckFeaturesResponse &resp)
