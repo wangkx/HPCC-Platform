@@ -543,7 +543,8 @@
               viewTimeout="1000"
               warnIfCpuLoadOver="95"
               warnIfFreeMemoryUnder="5"
-              warnIfFreeStorageUnder="5">
+              warnIfFreeStorageUnder="5"
+              ZAPJIRAURL="">
    <Properties defaultPort="8010"
                defaultResourcesBasedn="ou=SMC,ou=EspServices,ou=ecl"
                defaultSecurePort="18010"

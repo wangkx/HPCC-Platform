@@ -1844,6 +1844,7 @@ ESPresponse [exceptions_inline] WUGetZAPInfoResponse
     string ThorIPAddress;
     string BuildVersion;
     string Archive;
+    [min_ver("1.72")] string JIRAServerURL;
 };
 
 ESPrequest [nil_remove] WUCreateZAPInfoRequest
@@ -1859,6 +1860,11 @@ ESPrequest [nil_remove] WUCreateZAPInfoRequest
     [min_ver("1.65")] string ZAPFileName;
     [min_ver("1.57")] bool IncludeThorSlaveLog(false);
     [min_ver("1.70")] string ZAPPassword;
+    [min_ver("1.72")] bool CreateJIRAIssue;
+    [min_ver("1.72")] string JIRAUserName;
+    [min_ver("1.72")] string JIRAPassword;
+    [min_ver("1.72")] string JIRAServerURL;
+    [min_ver("1.72")] string JIRASummary;
 };
 
 ESPresponse [exceptions_inline] WUCreateZAPInfoResponse

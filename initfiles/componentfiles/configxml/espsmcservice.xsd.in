@@ -124,6 +124,13 @@
                     </xs:appinfo>
                 </xs:annotation>
             </xs:attribute>
+            <xs:attribute name="ZAPJIRAURL" type="xs:string" use="optional">
+                <xs:annotation>
+                    <xs:appinfo>
+                        <tooltip>Default JIRA server URL to create JIRA ZAP issue</tooltip>
+                    </xs:appinfo>
+                </xs:annotation>
+            </xs:attribute>
             <xs:attribute name="defaultTargetCluster" type="topologyClusterType" use="optional">
                 <xs:annotation>
                     <xs:appinfo>

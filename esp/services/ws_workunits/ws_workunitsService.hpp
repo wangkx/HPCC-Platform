@@ -294,7 +294,7 @@ private:
     const char* gatherECLException(IArrayOf<IConstECLException> &exceptions, StringBuffer &exceptionMsg);
     void addEclDefinitionActionResult(const char *eclDefinition, const char *result, const char *wuid,
         const char *queryID, const char* strAction, bool logResult, IArrayOf<IConstWUEclDefinitionActionResult> &results);
-    void createAJIRA(StringBuffer& resq);
+    void createAJIRA(const char *attachedFile, IEspContext &context, IEspWUCreateZAPInfoRequest &req, IEspWUCreateZAPInfoResponse &resp);
 
     unsigned awusCacheMinutes;
     StringBuffer queryDirectory;
@@ -312,6 +312,7 @@ private:
     Owned<IPropertyTree> directories;
     int maxRequestEntityLength;
     Owned<IThreadPool> clusterQueryStatePool;
+    StringAttr zapJIRAServerURL;
 public:
     QueryFilesInUse filesInUse;
 };

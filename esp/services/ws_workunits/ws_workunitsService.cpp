@@ -388,6 +388,10 @@ void CWsWorkunitsEx::init(IPropertyTree *cfg, const char *process, const char *s
         sashaServerPort = cfg->getPropInt(xpath.str(), DEFAULT_SASHA_PORT);
     }
 
+    xpath.setf("Software/EspProcess[@name=\"%s\"]/EspService[@name=\"%s\"]/ZAPJIRA/@url", process, service);
+    if (cfg->hasProp(xpath.str()))
+        zapJIRAServerURL = cfg->queryProp(xpath.str());
+
     maxRequestEntityLength = cfg->getPropInt("Software[1]/EspProcess[1]/EspProtocol[@type='http_protocol'][1]/@maxRequestEntityLength");
     directories.set(cfg->queryPropTree("Software/Directories"));
 
@@ -4522,10 +4526,18 @@ bool CWsWorkunitsEx::onWUCreateZAPInfo(IEspContext &context, IEspWUCreateZAPInfo
         zapInfoReq.zapFileName = req.getZAPFileName();
         zapInfoReq.password = req.getZAPPassword();
     
-        /*StringBuffer zipFileName, zipFileNameWithPath;
+        StringBuffer zipFileName, zipFileNameWithPath;
         //CWsWuFileHelper may need ESP's <Directories> settings to locate log files. 
         CWsWuFileHelper helper(directories);
         helper.createWUZAPFile(context, cwu, zapInfoReq, zipFileName, zipFileNameWithPath);
+
+        //Create a JIRA issue if requested
+        //if (req.getCreateJIRAIssue())
+        {//TODO: create JIRA for UI after review: add CreateJIRAIssue checkbox,
+            //and edit boxes for JIRA Server URL, username, password, and JIRA Summary
+            createAJIRA(zipFileNameWithPath.str(), context, req, resp);
+            return true;
+        }
 
         //Download ZIP file to user
         Owned<IFile> f = createIFile(zipFileNameWithPath.str());
@@ -4533,23 +4545,16 @@ bool CWsWorkunitsEx::onWUCreateZAPInfo(IEspContext &context, IEspWUCreateZAPInfo
         MemoryBuffer mb;
         void * data = mb.reserve((unsigned)io->size());
         size32_t read = io->read(0, (unsigned)io->size(), data);
-        mb.setLength(read);*/
+        mb.setLength(read);
 
-        //Create a JIRA issue if requested
-        ///if ()
-        {
-            StringBuffer resq;
-            createAJIRA(resq);
-        }
-
-        /*resp.setThefile(mb);
+        resp.setThefile(mb);
         resp.setThefile_mimetype(HTTP_TYPE_OCTET_STREAM);
         resp.setZAPFileName(zipFileName.str());
         StringBuffer headerStr("attachment;filename=");
         headerStr.append(zipFileName.str());
         context.addCustomerHeader("Content-disposition", headerStr.str());
         io->close();
-        f->remove();*/
+        f->remove();
     }
     catch(IException* e)
     {
@@ -4635,6 +4640,10 @@ bool CWsWorkunitsEx::onWUGetZAPInfo(IEspContext &context, IEspWUGetZAPInfoReques
         }
         if (ThorIP.length())
             resp.setThorIPAddress(ThorIP.str());
+
+        double version = context.getClientVersion();
+        if (version >= 1.72)
+            resp.setJIRAServerURL(zapJIRAServerURL.get());
     }
     catch(IException* e)
     {
@@ -4661,13 +4670,15 @@ bool execCommand(const char *cmd, StringBuffer &resq)
     return true;
 }
 
-int readJIRAResponseContent(__int64 textLength, const char* resq, StringBuffer& content)
+int readJIRAResponseContent(StringBuffer &resp, StringBuffer &content)
 {
+    __int64 textLength = resp.length();
+    const char *respPtr = resp.str();
     char oneLine[MAX_HTTP_HEADER_LEN + 2];
     int oneLineLen = 0;
     __int64 curPos = 0;
-    __int64 nextPos = Utils::getLine(textLength, curPos, resq, oneLineLen);
-    strncpy(oneLine, resq, oneLineLen);
+    __int64 nextPos = Utils::getLine(textLength, curPos, respPtr, oneLineLen);
+    strncpy(oneLine, respPtr, oneLineLen);
     oneLine[oneLineLen] = 0;
 
     const char* ptr = oneLine;
@@ -4679,36 +4690,120 @@ int readJIRAResponseContent(__int64 textLength, const char* resq, StringBuffer& 
 
     //Skip header lines
     while((nextPos < textLength) && (oneLineLen >= 2))
-        nextPos = Utils::getLine(textLength, nextPos, resq, oneLineLen);
+        nextPos = Utils::getLine(textLength, nextPos, respPtr, oneLineLen);
 
     if (nextPos < textLength)
-        content.set(resq + nextPos);
+        content.set(respPtr + nextPos);
     return content.length();
 }
 
-void CWsWorkunitsEx::createAJIRA(StringBuffer& resq)
+const char *createAddJIRAIssueCommand(const char *url, const char *userName, const char *password,
+    const char *summary, const char *desc, const char *history, const char *timmings, StringBuffer &cmd)
 {
-//    curl -D- -u wangkx:1qaz2wsx -X GET -H "Content-Type: application/json" 'https://track.hpccsystems.com/rest/api/2/search?jql=assignee=wangkx&startAt=0&maxResults=3&fields=id,key'
-    const char* userID = "wangkx";
-    const char* passwd = "1qaz2wsx";
-    const char* method = "GET";
-    const char* baseUrl = "https://track.hpccsystems.com/rest/api/2/search";
-    const char* req = "assignee=wangkx&startAt=0&maxResults=3&fields=id,key,summary";
-    StringBuffer respContent, cmd("curl -D- -u ");
-    cmd.append(userID).append(':').append(passwd).append(" -X ").append(method);
-    if (strieq(method, "POST"))
-        cmd.append(" --data {see below}");
-    cmd.appendf(" -H \"Content-Type: application/json\" '%s?jql=%s'", baseUrl, req);
-    DBGLOG("Command in sendJIRA():<%s>", cmd.str());
-    if (!execCommand(cmd.str(), resq))
-        throw MakeStringException(ECLWATCH_INTERNAL_ERROR, "Failed in executing %s.", cmd.str());
+    //curl -D- -u admin:admin -X POST -H "Content-Type: application/json" 'https://track.hpccsystems.com/rest/api/2/issue'
+    cmd.set("curl -D- -u ").append(userName).append(':').append(password);
+    cmd.append(" -X POST --data {see below}");
+    cmd.append(" -H \"Content-Type: application/json\" '").append(url).append("/rest/api/2/");
+    cmd.append("issue/'");
+    cmd.append("\r\n");
+    cmd.append("{");
+    cmd.append("  \"fields\": {");
+    cmd.appendf("    \"summary\": \"%s\"", summary);
+    if (!isEmptyString(desc) || !isEmptyString(history) || !isEmptyString(timmings))
+    {
+        cmd.append(",    \"description\": \"");
+        if (!isEmptyString(desc))
+            cmd.append("  Description: ").append(desc).append("\r\n");
+        if (!isEmptyString(history))
+            cmd.append("  History: ").append(history).append("\r\n");
+        if (!isEmptyString(timmings))
+            cmd.append("  Timmings: ").append(timmings).append("\r\n");
+        cmd.append("\"");
+    }
+    cmd.append("  }");
+    cmd.append("}");
 
-    if (resq.isEmpty())
+    return cmd.str();
+}
+
+const char *createAddJIRAAttachmentCommand(const char *url, const char *userName, const char *password,
+    const char *issueID, const char *fileNameWithPath, StringBuffer &cmd)
+{
+    //curl -D- -u admin:admin -X POST -H "X-Atlassian-Token: no-check" -F "file=@myfile.txt" http://myhost/rest/api/2/issue/TEST-123/attachments
+    cmd.set("curl -D- -u ").append(userName).append(':').append(password);
+    cmd.append(" -X POST -H \"X-Atlassian-Token: no-check\"");
+    cmd.append(" -F \"file=@").append(fileNameWithPath).append("\" ");;
+    cmd.append(url).append("/rest/api/2/issue/").append(issueID).append("/attachments");
+
+    return cmd.str();
+}
+
+void CWsWorkunitsEx::createAJIRA(const char *attachedFile, IEspContext &context, IEspWUCreateZAPInfoRequest &req, IEspWUCreateZAPInfoResponse &resp)
+{
+#define TEST_JIRA
+#ifdef TEST_JIRA
+    const char* url = "https://track.hpccsystems.com";
+    const char *userName = "wangkx";
+    const char *password = "1qaz2wsx";
+#else
+    const char *url = req.getJIRAServerURL();
+    const char *userName = req.getJIRAUserName();
+    const char *password = req.getJIRAPassword();
+#endif
+    if (isEmptyString(url))
+        throw MakeStringException(ECLWATCH_INTERNAL_ERROR, "Empty JIRA Server URL.");
+    if (isEmptyString(userName) || isEmptyString(password))
+        throw MakeStringException(ECLWATCH_INTERNAL_ERROR, "Empty JIRA username or password.");
+
+#ifdef TEST_JIRA_GET
+    //    curl -D- -u admin:admin -X GET -H "Content-Type: application/json" 'https://track.hpccsystems.com/rest/api/2/search?jql=assignee=wangkx&startAt=0&maxResults=3&fields=id,key'
+    StringBuffer cmd("curl -D- -u ");
+    cmd.append(userName).append(':').append(password);
+    cmd.append(" -X GET");
+    cmd.append(" -H \"Content-Type: application/json\" '").append(url).append("/rest/api/2/");
+    cmd.append("search?jql=assignee=wangkx&startAt=0&maxResults=3&fields=id,key,summary'");
+#else
+#ifdef TEST_JIRA
+    const char *summary = "A Summary";
+#else
+    const char *summary = req.getJIRASummary();
+#endif
+    if (isEmptyString(summary))
+        throw MakeStringException(ECLWATCH_INTERNAL_ERROR, "Empty JIRA summary.");
+
+    StringBuffer cmd;
+    const char *desc = req.getProblemDescription();
+    const char *history = req.getWhatChanged();
+    const char *timmings = req.getWhereSlow();
+    createAddJIRAIssueCommand(url, userName, password, summary, desc, history, timmings, cmd);
+
+    //StringBuffer respWithHeaders;
+    //if (!execCommand(cmd.str(), respWithHeaders))
+    //    throw MakeStringException(ECLWATCH_INTERNAL_ERROR, "Failed in executing %s.", cmd.str());
+
+    //TODO: read repsonse respWithHeaders. If not successful, throw exception.
+
+    StringBuffer issueID;
+#ifdef TEST_JIRA
+    issueID.set("HPCC-12345");
+#else
+    //TODO: Read new issue ID
+#endif
+    createAddJIRAAttachmentCommand(url, userName, password, issueID, attachedFile, cmd);
+#endif
+    DBGLOG("Command in sendJIRA():<%s>", cmd.str());
+
+    StringBuffer respWithHeaders;
+    //if (!execCommand(cmd.str(), respWithHeaders))
+    //    throw MakeStringException(ECLWATCH_INTERNAL_ERROR, "Failed in executing %s.", cmd.str());
+
+    if (respWithHeaders.isEmpty())
         DBGLOG("Empty response from sendJIRA()");
     else
-        DBGLOG("Response from sendJIRA():<%s>", resq.str());
+        DBGLOG("Response from sendJIRA():<%s>", respWithHeaders.str());
 
-    if (readJIRAResponseContent(resq.length(), resq.str(), respContent) > 0)
+    StringBuffer respContent;
+    if (readJIRAResponseContent(respWithHeaders, respContent) > 0)
     {
         Owned<IPropertyTree> contentTree = createPTreeFromJSONString(respContent.str());
         StringBuffer xml;
