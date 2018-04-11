@@ -1227,6 +1227,7 @@ EspAuthState CEspHttpServer::authNewSession(EspAuthRequest& authReq, const char*
     addCookie(SESSION_TIMEOUT_COOKIE, cookieStr.str(), 0, false);
     clearCookie(SESSION_AUTH_MSG_COOKIE);
     clearCookie(SESSION_START_URL_COOKIE);
+    clearCookie(SESSION_AUTH_FAILED_COOKIE);
     if (authReq.ctx->getAuthError() == EspAuthErrorNotAuthorized)
     {
         sendAuthorizationMsg(authReq);
@@ -1240,6 +1241,31 @@ EspAuthState CEspHttpServer::authNewSession(EspAuthRequest& authReq, const char*
 
     m_response->redirect(*m_request, sessionStartURL);
     return authSucceeded;
+}
+
+void CEspHttpServer::sendAuthenticationMsg(EspAuthRequest& authReq)
+{
+    StringBuffer msg, resp;
+    const char* errMsg = authReq.ctx->getRespMsg();
+    if (isEmptyString(errMsg))
+        errMsg = "Authentication failed.";
+    ESPSerializationFormat format = m_request->queryContext()->getResponseFormat();
+    if (format == ESPSerializationJSON)
+    {
+        resp.set("{ ");
+        resp.append(" \"AuthenticationResponse\": { ");
+        resp.appendf("\"Error\": \"%s\"", errMsg);
+        resp.append(" }");
+        resp.append(" }");
+    }
+    else
+    {
+        resp.set("<AuthenticationResponse><Error>");
+        resp.append(errMsg);
+        resp.append("</Error></AuthenticationResponse>");
+    }
+    addCookie(SESSION_AUTH_FAILED_COOKIE, errMsg, 300, false);
+    sendMessage(resp.str(), (format == ESPSerializationJSON) ? "application/json" : "text/xml");
 }
 
 void CEspHttpServer::sendAuthorizationMsg(EspAuthRequest& authReq)
@@ -1601,7 +1627,7 @@ void CEspHttpServer::askUserLogin(EspAuthRequest& authReq, const char* msg)
     }
     if (!isEmptyString(msg))
         addCookie(SESSION_AUTH_MSG_COOKIE, msg, 0, false); //time out when browser is closed
-    m_response->redirect(*m_request, authReq.authBinding->queryLoginURL());
+    sendAuthenticationMsg(authReq);
 }
 
 unsigned CEspHttpServer::createHTTPSession(EspHttpBinding* authBinding, const char* userID, const char* sessionStartURL)
