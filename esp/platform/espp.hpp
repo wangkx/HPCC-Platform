@@ -63,8 +63,9 @@ private:
     Mutex abortMutex;
     bool m_SEHMappingEnabled;
     CEspConfig* m_config;
-    StringAttrMapping espCacheInitStrings;
-    
+    IArrayOf<IEspCache> espCacheClients;
+    MapStringTo<IEspCache*> cacheClientMap;
+
 public:
     IMPLEMENT_IINTERFACE;
 
@@ -258,19 +259,44 @@ public:
     }
     virtual void sendSnmpMessage(const char* msg) { throwUnexpected(); }
 
-    void addCacheInitString(const char* id, const char* initString)
+    virtual bool addCacheClient(const char *id, const char *cacheInitString)
     {
-        if (espCacheInitStrings.find(id))
-            return;
-        espCacheInitStrings.setValue(id, initString);
+        Owned<IEspCache> cacheClient = createESPCache(cacheInitString);
+        if (!cacheClient)
+            return false;
+        cacheClientMap.setValue(id, cacheClient);
+        espCacheClients.append(*cacheClient.getClear());
+        return true;
     }
-
-    virtual const StringAttr* queryCacheInitString(const char* id)
+    virtual bool hasCacheClient()
     {
-        const StringAttr* initString = espCacheInitStrings.getValue(id);
-        if (initString)
-            return initString;
-        return espCacheInitStrings.getValue("default");
+        return !espCacheClients.empty();
+    }
+    virtual const void *queryCacheClient(const char* id)
+    {
+        unsigned countCacheClients = espCacheClients.length();
+        if (countCacheClients > 1)
+            return cacheClientMap.getValue(id);
+        else if (countCacheClients > 0)
+            return &espCacheClients.item(0);
+        return nullptr;
+    }
+    virtual void clearCacheByGroupID(const char *ids, StringArray& errorMsgs)
+    {
+        StringArray idList;
+        idList.appendListUniq(ids, ",");
+        ForEachItemIn(i, idList)
+        {
+            const char *id = idList.item(i);
+            IEspCache* cacheClient = (IEspCache*) queryCacheClient(id);
+            if (cacheClient)
+                cacheClient->flush(0);
+            else
+            {
+                VStringBuffer msg("Failed to get ESPCache client %s.", id);
+                errorMsgs.append(msg);
+            }
+        }
     }
 };
 

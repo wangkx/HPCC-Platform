@@ -144,7 +144,6 @@ private:
     StringAttrMapping help_map;
 
     StringAttr cacheGroupID;
-    Owned<IEspCache> espCacheClient;
     unsigned cacheMethods = 0;
     MapStringTo<unsigned> cacheSecondsMap;
     MapStringTo<bool> cacheGlobalMap;
@@ -152,8 +151,8 @@ private:
     bool queryCacheSeconds(const char *method, unsigned& cacheSecond);
     bool queryCacheGlobal(const char *method);
     const char* createESPCacheID(CHttpRequest* request, StringBuffer& cacheID);
-    void addToESPCache(CHttpRequest* request, CHttpResponse* response, const char* cacheID);
-    bool sendFromESPCache(CHttpRequest* request, CHttpResponse* response, const char* cacheID);
+    void addToESPCache(IEspCache* cacheClient, CHttpRequest* request, CHttpResponse* response, const char* cacheID, unsigned cacheSecond);
+    bool sendFromESPCache(IEspCache* cacheClient, CHttpRequest* request, CHttpResponse* response, const char* cacheID);
 
     StringAttr              processName;
     StringAttr              domainName;

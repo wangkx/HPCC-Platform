@@ -883,17 +883,10 @@ void CEspConfig::checkESPCache(IEspServer& server)
     if (!espCacheCfg && isEmptyString(cacheInitString))
         return;
 
-    bool hasDefault = false;
-    bool ensureESPCache = m_cfg->getPropBool("@ensureESPCache", false);
     if (!espCacheCfg)
     {
-        server.addCacheInitString("default", cacheInitString);
-        if (ensureESPCache)
-        {
-            Owned<IEspCache> espCache = createESPCache(cacheInitString);
-            if (!espCache)
-                throw MakeStringException(-1, "Failed in checking ESP cache service using %s", cacheInitString);
-        }
+        if (!server.addCacheClient("default", cacheInitString))
+            throw MakeStringException(-1, "Failed in checking ESP cache service using %s", cacheInitString);
         return;
     }
     Owned<IPropertyTreeIterator> iter = espCacheCfg->getElements("Group");
@@ -902,20 +895,12 @@ void CEspConfig::checkESPCache(IEspServer& server)
         IPropertyTree& espCacheGroup = iter->query();
         const char* id = espCacheGroup.queryProp("@id");
         const char* initString = espCacheGroup.queryProp("@initString");
-        if (ensureESPCache)
-        {
-            Owned<IEspCache> espCache = createESPCache(initString);
-            if (!espCache)
-                throw MakeStringException(-1, "Failed in checking ESP cache service using %s", initString);
-        }
         if (isEmptyString(id))
-        {
-            if (hasDefault)
-                throw MakeStringException(-1, "Default ESP caches cannot have more than 1 ESP cache initStrings.");
-            id = "default";
-            hasDefault = true;
-        }
-        server.addCacheInitString(id, initString);
+            throw MakeStringException(-1, "ESP cache ID not defined");
+        if (isEmptyString(initString))
+            throw MakeStringException(-1, "ESP cache initStrings not defined");
+        if (!server.addCacheClient(id, initString))
+            throw MakeStringException(-1, "Failed in checking ESP cache service using %s", initString);
     }
 }
 

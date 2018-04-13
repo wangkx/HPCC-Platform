@@ -5748,6 +5748,13 @@ void EspServInfo::write_esp_binding()
 
         writeAccessMap(servicefeatureurl.str(),name_, 2);
 
+        StrBuffer clearCacheGroupIDs;
+        if (mthi->hasMetaTag("clear_cache_group"))
+        {
+            const char *cleanCG = mthi->getMetaString("clear_cache_group", "");
+            if (cacheDefined || (cleanCG && *cleanCG))
+                clearCacheGroupIDs.set((cleanCG && *cleanCG) ? cleanCG : serviceCacheGroupID.str());
+        }
         //begin try block
         if (bHandleExceptions)
         {
@@ -5768,6 +5775,8 @@ void EspServInfo::write_esp_binding()
                 outf("\t\t\tif( accessmap.ordinality() > 0 )\n\t\t\t\tonFeaturesAuthorize(context, accessmap, \"%s\", \"%s\");\n", name_, mthi->getName());
 
             outf("\t\t\tiserv->on%s(context, *esp_request, *esp_response);\n", mthi->getName());
+            if (clearCacheGroupIDs.length() > 0)
+                outf("\t\t\tclearCacheByGroupID(\"%s\");\n", clearCacheGroupIDs.str());
 
             outs("\t\t}\n");
             
@@ -5786,6 +5795,8 @@ void EspServInfo::write_esp_binding()
             if (servicefeatureurl.length() != 0)
                 outf("\t\tif( accessmap.ordinality() > 0 )\n\t\t\tonFeaturesAuthorize(context, accessmap, \"%s\", \"%s\");\n", name_, mthi->getName());
             outf("\t\tiserv->on%s(*rpc_call->queryContext(), *esp_request, *esp_response);\n", mthi->getName());
+            if (clearCacheGroupIDs.length() > 0)
+                outf("\t\tclearCacheByGroupID(\"%s\");\n", clearCacheGroupIDs.str());
             outs("\t\tresponse->set_status(SOAP_OK);\n");
         }
 
