@@ -84,6 +84,22 @@
             </xsl:attribute>
 
             <xsl:call-template name="addEnvironmentInfo"/>
+            <xsl:if test="ESPCacheGroup[1]">
+               <ESPCache>
+                  <xsl:for-each select="ESPCacheGroup">
+                     <xsl:value-of disable-output-escaping="yes" select="$break" />
+                     <xsl:value-of disable-output-escaping="yes" select="$indent" />
+                     <xsl:value-of disable-output-escaping="yes" select="$indent" />
+                     <xsl:value-of disable-output-escaping="yes" select="$indent" />
+                     <xsl:value-of disable-output-escaping="yes" select="$indent" />
+                     <xsl:copy-of select="."/>
+                  </xsl:for-each>
+                  <xsl:value-of disable-output-escaping="yes" select="$break" />
+                  <xsl:value-of disable-output-escaping="yes" select="$indent" />
+                  <xsl:value-of disable-output-escaping="yes" select="$indent" />
+                  <xsl:value-of disable-output-escaping="yes" select="$indent" />
+               </ESPCache>
+            </xsl:if>
 
             <xsl:if test="./Authentication/@method='ldap' or ./Authentication/@method='ldaps' or ./Authentication/@method='secmgrPlugin'">
               <xsl:value-of disable-output-escaping="yes" select="$break" />
@@ -353,6 +369,9 @@
 
     <!--don't produce in output -->
     <xsl:template match="EspProcess/AuthDomain"/>
+
+    <!--don't produce in output -->
+    <xsl:template match="EspProcess/ESPCacheGroup"/>
 
     <!--don't produce in output -->
     <xsl:template match="EspProcess/EspControlBinding"/>

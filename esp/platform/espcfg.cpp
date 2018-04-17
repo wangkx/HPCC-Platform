@@ -889,7 +889,7 @@ void CEspConfig::checkESPCache(IEspServer& server)
             throw MakeStringException(-1, "Failed in checking ESP cache service using %s", cacheInitString);
         return;
     }
-    Owned<IPropertyTreeIterator> iter = espCacheCfg->getElements("Group");
+    Owned<IPropertyTreeIterator> iter = espCacheCfg->getElements("ESPCacheGroup");
     ForEach(*iter)
     {
         IPropertyTree& espCacheGroup = iter->query();
@@ -900,7 +900,7 @@ void CEspConfig::checkESPCache(IEspServer& server)
         if (isEmptyString(initString))
             throw MakeStringException(-1, "ESP cache initStrings not defined");
         if (!server.addCacheClient(id, initString))
-            throw MakeStringException(-1, "Failed in checking ESP cache service using %s", initString);
+            throw MakeStringException(-1, "Failed to connect ESP cache service using %s", initString);
     }
 }
 

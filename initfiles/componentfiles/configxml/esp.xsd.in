@@ -362,6 +362,37 @@
                         </xs:attribute>
                     </xs:complexType>
                 </xs:element>
+	        <xs:element name="ESPCacheGroup"  maxOccurs="unbounded">
+	          <xs:annotation>
+	            <xs:appinfo>
+	              <title>ESPCacheGroup</title>
+	            </xs:appinfo>
+	          </xs:annotation>
+	          <!--DOC-Autobuild-code-->
+	          <xs:annotation>
+	            <xs:appinfo>
+	              <docid>ESP.t8</docid>
+	            </xs:appinfo>
+	          </xs:annotation>
+	          <xs:complexType>
+	            <xs:attribute name="id" type="xs:string" use="required">
+	              <xs:annotation>
+	                <xs:appinfo>
+	                  <tooltip>Unique string to identify an ESP cache group in case > 1 cache groups in an esp</tooltip>
+	                  <colIndex>1</colIndex>
+	                </xs:appinfo>
+	              </xs:annotation>
+	            </xs:attribute>
+                    <xs:attribute name="initString" type="xs:string" use="required">
+                      <xs:annotation>
+                        <xs:appinfo>
+                          <tooltip>??</tooltip>
+                          <colIndex>2</colIndex>
+                        </xs:appinfo>
+                      </xs:annotation>
+                    </xs:attribute>
+                  </xs:complexType>
+                </xs:element>
 	        <xs:element name="AuthDomain"  maxOccurs="unbounded">
 	          <xs:annotation>
 	            <xs:appinfo>
