@@ -50,7 +50,18 @@ IXRefNodeManager * CreateXRefNodeFactory()
     return new CXRefNodeManager();
 }
 
-
+EnumMapping DFUXRefSortFields[] =
+{
+        //TODO: add more from DFUXRefSortField
+   { DFUXRefSFpartmask, "Partmask" },
+   { DFUXRefSFsize, "Size" },
+   { DFUXRefSFsizeto, "Size" },
+   { DFUXRefSFmodified, "Modified" },
+   { DFUXRefSFmodifiedto, "Modified" },
+   { DFUXRefSFparts, "Numparts" },
+   { DFUXRefSFpartsto, "Numparts" },
+   { DFUXRefSFterm, NULL }
+};
 
 IXRefNode * CXRefNodeManager::getXRefNode(const char* NodeName)
 {
@@ -591,4 +602,110 @@ void CXRefNode::error(const char *text)
     DBGLOG("ERROR: %s\n",text);
     setStatus(text);
     commit();
+}
+
+IDFUXRefItemIterator *CXRefNode::getDFUXRefItemsSorted(const char *type,
+    DFUXRefSortField *sortOrder, // list of fields to sort by (terminated by DFUXRefSFterm)
+    DFUXRefSortField *filters,   // NULL or list of fields to filter on (terminated by DFUXRefSFterm)
+    const void *filterBuf,  // (appended) string values for filters
+    const unsigned pageStartFrom,
+    const unsigned pageSize,
+    unsigned *total,
+    __int64 *cacheHint)
+{
+    class CDFUXRefElementsPager : public CSimpleInterface, implements IElementsPager
+    {
+        IXRefNode* xrefNode;
+        StringAttr xrefBranch, sortOrder, filter;
+        IPropertyTree* xrefTree;
+    public:
+        IMPLEMENT_IINTERFACE_USING(CSimpleInterface);
+
+        CDFUXRefElementsPager(IXRefNode* _xrefNode, IPropertyTree* _xrefTree, const char *_xrefBranch, const char *_filter, const char *_sortOrder)
+            : xrefNode(_xrefNode), xrefTree(_xrefTree), xrefBranch(_xrefBranch), filter(_filter), sortOrder(_sortOrder)
+        {
+        }
+        virtual IRemoteConnection* getElements(IArrayOf<IPropertyTree> &elements)
+        {
+            StringArray unknownAttributes;
+            //Not sure what the commit() does. Copied from
+            IPropertyTree* foundBranch = xrefTree->queryPropTree(xrefBranch.get());
+            if (!foundBranch)
+            {
+                foundBranch = xrefTree->addPropTree(xrefBranch.get(), createPTree());
+                xrefNode->commit();
+            }
+
+            StringBuffer xml;
+            MemoryBuffer data;
+            foundBranch->getPropBin("data", data);
+            xml.append(data.length(), data.toByteArray());
+            //DBGLOG("******(%s)", xml.str());
+
+            StringBuffer xpath;
+            if (filter.isEmpty())
+                xpath.set("*");
+            else
+                xpath.set("File").append(filter.get());
+            Owned<IPropertyTree> dataTree = createPTreeFromXMLString(xml);
+            Owned<IPropertyTreeIterator> iter = dataTree->getElements(xpath.str());
+            if (!iter)
+                return NULL;
+
+            sortElements(iter, sortOrder.get(), NULL, NULL, unknownAttributes, elements);
+            return NULL;
+        }
+        virtual bool allMatchingElementsReceived() { return true; } //For now, always returns all of matched items.
+    };
+
+    StringBuffer so, filterXPath;
+    if (filters)
+    {
+        const char *fv = (const char *)filterBuf;
+        for (unsigned i=0; filters[i] != DFUXRefSFterm; i++)
+        {
+            int fmt = filters[i];
+            int subfmt = (fmt&0xff);
+            if ((subfmt==DFUXRefSFsize) || (subfmt==DFUXRefSFparts))
+                filterXPath.append('[').append(getEnumText(subfmt, DFUXRefSortFields)).append(">=").append(fv).append("]");
+            else if ((subfmt==DFUXRefSFsizeto) || (subfmt==DFUXRefSFpartsto))
+                filterXPath.append('[').append(getEnumText(subfmt, DFUXRefSortFields)).append("<=").append(fv).append("]");
+            else if (subfmt==DFUXRefSFmodified)
+                filterXPath.append('[').append(getEnumText(subfmt, DFUXRefSortFields)).append(">='").append(fv).append("']");
+            else if (subfmt==DFUXRefSFmodifiedto)
+                filterXPath.append('[').append(getEnumText(subfmt, DFUXRefSortFields)).append("<='").append(fv).append("']");
+            else
+            {
+                filterXPath.append('[').append(getEnumText(subfmt, DFUXRefSortFields)).append('=');
+                if (fmt&DFUXRefSFnocase)
+                    filterXPath.append('?');
+                if (fmt&DFUXRefSFnumeric)
+                    filterXPath.append('#');
+                if (fmt&DFUXRefSFwild)
+                    filterXPath.append('~');
+                filterXPath.append('"').append(fv).append("\"]");
+            }
+            fv = fv + strlen(fv)+1;
+        }
+    }
+    if (sortOrder)
+    {
+        for (unsigned i=0; sortOrder[i] != DFUXRefSFterm; i++)
+        {
+            if (so.length())
+                so.append(',');
+            int fmt = sortOrder[i];
+            if (fmt&DFUXRefSFreverse)
+                so.append('-');
+            if (fmt&DFUXRefSFnocase)
+                so.append('?');
+            if (fmt&DFUXRefSFnumeric)
+                so.append('#');
+            so.append(getEnumText(fmt&0xff, DFUXRefSortFields));
+        }
+    }
+    IArrayOf<IPropertyTree> results;
+    Owned<IElementsPager> elementsPager = new CDFUXRefElementsPager(this, m_XRefTree, type, filterXPath.str(), so.length()?so.str():NULL);
+    Owned<IRemoteConnection> conn=getElementsPaged(elementsPager, pageStartFrom, pageSize, NULL, "", cacheHint, results, total, NULL, false);
+    return new CDFUXRefItemIterator(results);
 }

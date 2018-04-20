@@ -141,11 +141,24 @@ DFUXRefDirectoriesQueryResponse
 
 ESPrequest 
 [
-    
+    nil_remove
 ]
 DFUXRefFoundFilesQueryRequest
 {
     string Cluster;
+    [min_ver("1.01")] string PartMask;
+    [min_ver("1.01")] string ModifiedTimeFrom;
+    [min_ver("1.01")] string ModifiedTimeTo;
+    [min_ver("1.01")] int64 FileSizeFrom;
+    [min_ver("1.01")] int64 FileSizeTo;
+    [min_ver("1.01")] nonNegativeInteger NumPartsFrom;
+    [min_ver("1.01")] nonNegativeInteger NumPartsTo;
+
+    [min_ver("1.01")] nonNegativeInteger PageSize;
+    [min_ver("1.01")] nonNegativeInteger PageStartFrom;
+    [min_ver("1.01")] string Sortby;
+    [min_ver("1.01")] bool Descending;
+    [min_ver("1.01")] int64 CacheHint;
 };
 
 ESPresponse 
@@ -155,6 +168,8 @@ ESPresponse
 DFUXRefFoundFilesQueryResponse
 {
     [json_inline(1)] string DFUXRefFoundFilesQueryResult;
+    [min_ver("1.01")] nonNegativeInteger NumberOfFiles;
+    [min_ver("1.01")] int64 CacheHint;
 };
 
 ESPrequest
@@ -221,7 +236,7 @@ ESPresponse [exceptions_inline] DFUXRefUnusedFilesResponse
 
 
 //  ===========================================================================
-ESPservice [auth_feature("DEFERRED"), exceptions_inline("./smc_xslt/exceptions.xslt")] WsDFUXRef
+ESPservice [auth_feature("DEFERRED"), version("1.01"), exceptions_inline("./smc_xslt/exceptions.xslt")] WsDFUXRef
 {
     ///ESPmethod [resp_xsl_default("./smc_xslt/xref_main.xslt")] DFUXRefList(DFUXRefListRequest, DFUXRefListResponse);
     ESPmethod [resp_xsl_default("/esp/xslt/xref_main.xslt")] DFUXRefList(DFUXRefListRequest, DFUXRefListResponse);

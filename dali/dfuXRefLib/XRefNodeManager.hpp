@@ -34,6 +34,80 @@
 
 #include "XRefFilesNode.hpp"
 
+enum DFUXRefSortField
+{
+    DFUXRefSFpartmask = 1,
+    DFUXRefSFsize = 2,
+    DFUXRefSFsizeto = 3,
+    DFUXRefSFmodified = 4,
+    DFUXRefSFmodifiedto = 5,
+    DFUXRefSFparts = 6,
+    DFUXRefSFpartsto = 7,
+    /*DFUXRefSFtotalparts = 6,
+    DFUXRefSFpartsfound = 7,
+    DFUXRefSFpartslost = 8,
+    DFUXRefSFprimarylost = 9,
+    DFUXRefSFreplicatedlost = 10,
+    DFUXRefSFfiles = 3,
+    DFUXRefSFdirectory = 11,
+    DFUXRefSFtotalsize = 12,
+    DFUXRefSFmaxsize = 13,
+    DFUXRefSFminsize = 14,
+    DFUXRefSFmaxnode = 15,
+    DFUXRefSFminnode = 16,
+    DFUXRefSFskewplus = 17,
+    DFUXRefSFskewminus = 18,
+    DFUXRefSFmessage = 19,
+    DFUXRefSFstatus = 20,
+    DFUXRefSFfile = 21,*/
+    DFUXRefSFterm = 0,
+    DFUXRefSFreverse = 256,
+    DFUXRefSFnocase = 512,
+    DFUXRefSFnumeric = 1024,
+    DFUXRefSFwild = 2048
+};
+
+typedef IIteratorOf<IPropertyTree> IDFUXRefItemIterator;
+
+class CDFUXRefItemIterator: public CInterfaceOf<IDFUXRefItemIterator>
+{
+    IArrayOf<IPropertyTree> attrs;
+    unsigned index;
+public:
+    CDFUXRefItemIterator(IArrayOf<IPropertyTree> &trees)
+    {
+        ForEachItemIn(t, trees)
+            attrs.append(*LINK(&trees.item(t)));
+        index = 0;
+    }
+
+    virtual ~CDFUXRefItemIterator()
+    {
+        attrs.kill();
+    }
+
+    bool  first()
+    {
+        index = 0;
+        return (attrs.ordinality()!=0);
+    }
+
+    bool  next()
+    {
+        index++;
+        return (index<attrs.ordinality());
+    }
+
+    bool  isValid()
+    {
+        return (index<attrs.ordinality());
+    }
+
+    IPropertyTree &  query()
+    {
+        return attrs.item(index);
+    }
+};
 
 interface IXRefProgressCallback: extends IInterface
 {
@@ -52,6 +126,14 @@ interface IConstXRefNode : extends IInterface
     virtual IXRefFilesNode* getLostFiles() = 0;
     virtual IXRefFilesNode* getFoundFiles() = 0;
     virtual IXRefFilesNode* getOrphanFiles() = 0;
+    virtual IDFUXRefItemIterator* getDFUXRefItemsSorted(const char* type,
+        DFUXRefSortField *sortOrder, // list of fields to sort by (terminated by DFUXRefSFterm)
+        DFUXRefSortField *filters,   // NULL or list of fields to filter on (terminated by DFUXRefSFterm)
+        const void *filterBuf,  // (appended) string values for filters
+        const unsigned pageStartFrom,
+        const unsigned pageSize,
+        unsigned *total,
+        __int64 *cacheHint) = 0;
     virtual StringBuffer& getCluster(StringBuffer& Cluster) = 0;
     virtual const char *queryRootDir() const = 0;
     virtual bool useSasha() = 0;
@@ -125,6 +207,14 @@ public:
     virtual IXRefFilesNode* getLostFiles() override;
     virtual IXRefFilesNode* getFoundFiles() override;
     virtual IXRefFilesNode* getOrphanFiles() override;
+    virtual IDFUXRefItemIterator* getDFUXRefItemsSorted(const char* type,
+        DFUXRefSortField* sortOrder, // list of fields to sort by (terminated by DFUXRefSFterm)
+        DFUXRefSortField* filters,   // NULL or list of fields to filter on (terminated by DFUXRefSFterm)
+        const void* filterBuf,  // (appended) string values for filters
+        const unsigned pageStartFrom,
+        const unsigned pageSize,
+        unsigned* total,
+        __int64* cacheHint);
     //IXRefNode
     virtual StringBuffer &serializeMessages(StringBuffer &buf) override;
     virtual void deserializeMessages(IPropertyTree& inTree) override;

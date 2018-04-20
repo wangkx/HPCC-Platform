@@ -21,6 +21,7 @@
 
 #include "dadfs.hpp"
 #include "daft.hpp"
+#include "dautils.hpp"
 #include "wshelpers.hpp"
 #include "exception_util.hpp"
 #include "package.h"
@@ -76,6 +77,33 @@ static void dfuXrefXMLToJSON(StringBuffer& buf)
         EXCLOG(e,"dfuXrefXMLToJSON() failed");
         e->Release();
     }
+}
+
+
+//TODO: move addDFUXRefFilter, ..., dfuXrefXMLToJSON to a util class
+bool addDFUXRefFilter(DFUXRefSortField *filters, unsigned short &count, MemoryBuffer &buff, const char* value, DFUXRefSortField name)
+{
+    if (isEmptyString(value))
+        return false;
+    filters[count++] = name;
+    buff.append(value);
+    return true;
+}
+
+bool addDFUXRefFilterInt(DFUXRefSortField *filters, unsigned short &count, MemoryBuffer &buff, int value, DFUXRefSortField name)
+{
+    VStringBuffer vBuf("%d", value);
+    filters[count++] = name;
+    buff.append(vBuf.str());
+    return true;
+}
+
+bool addDFUXRefFilterInt64(DFUXRefSortField *filters, unsigned short &count, MemoryBuffer &buff, __int64 value, DFUXRefSortField name)
+{
+    VStringBuffer vBuf("%" I64F "d", value);
+    filters[count++] = name;
+    buff.append(vBuf.str());
+    return true;
 }
 
 void CWsDfuXRefEx::init(IPropertyTree *cfg, const char *process, const char *service)
@@ -288,21 +316,99 @@ bool CWsDfuXRefEx::onDFUXRefFoundFiles(IEspContext &context, IEspDFUXRefFoundFil
         if (!req.getCluster() || !*req.getCluster())
             throw MakeStringExceptionDirect(ECLWATCH_INVALID_INPUT, "Cluster not defined.");
 
+        double version = context.getClientVersion();
+        DFUXRefSortField filters[16];
+        unsigned short filterCount = 0;
+        MemoryBuffer filterBuf;
+        addDFUXRefFilter(filters, filterCount, filterBuf, req.getPartMask(), (DFUXRefSortField) (DFUXRefSFpartmask | DFUXRefSFwild | DFUXRefSFnocase));
+        addDFUXRefFilter(filters, filterCount, filterBuf, req.getModifiedTimeFrom(), DFUXRefSFmodified);
+        addDFUXRefFilter(filters, filterCount, filterBuf, req.getModifiedTimeTo(), DFUXRefSFmodifiedto);
+        if (!req.getFileSizeFrom_isNull())
+            addDFUXRefFilterInt64(filters, filterCount, filterBuf, req.getFileSizeFrom(), (DFUXRefSortField) (DFUXRefSFsize | DFUXRefSFnumeric));
+        if (!req.getFileSizeTo_isNull())
+            addDFUXRefFilterInt64(filters, filterCount, filterBuf, req.getFileSizeTo(), (DFUXRefSortField) (DFUXRefSFsizeto | DFUXRefSFnumeric));
+        if (!req.getNumPartsFrom_isNull())
+            addDFUXRefFilterInt(filters, filterCount, filterBuf, req.getNumPartsFrom(), (DFUXRefSortField) (DFUXRefSFparts | DFUXRefSFnumeric));
+        if (!req.getNumPartsTo_isNull())
+            addDFUXRefFilterInt(filters, filterCount, filterBuf, req.getNumPartsTo(), (DFUXRefSortField) (DFUXRefSFpartsto | DFUXRefSFnumeric));
+        filters[filterCount] = DFUXRefSFterm;
+
+        bool allFiles = (filterCount == 0);
+
+        DFUXRefSortField sortOrder[2] = {(DFUXRefSortField) (DFUXRefSFpartmask | DFUXRefSFnocase), DFUXRefSFterm};
+        const char *sortBy =  req.getSortby();
+        if(!isEmptyString(sortBy))
+        {
+            allFiles = false;
+            if (strieq(sortBy, "Size"))
+                sortOrder[0] = DFUXRefSFsize;
+            else if (strieq(sortBy, "NumParts"))
+                sortOrder[0] = DFUXRefSFparts;
+            else if (strieq(sortBy, "ModifiedTime"))
+                sortOrder[0] = (DFUXRefSortField) (DFUXRefSFmodified | DFUXRefSFnocase);
+        }
+
+        if (!req.getDescending_isNull())
+        {
+            allFiles = false;
+            if (req.getDescending())
+                sortOrder[0] = (DFUXRefSortField) (sortOrder[0] | DFUXRefSFreverse);
+        }
+
+        unsigned pageSize = 50;
+        unsigned pageStartFrom = 0;
+        __int64 cacheHint = 0;
+        unsigned numberOfFiles;
+        if (!req.getPageSize_isNull() || !req.getPageStartFrom_isNull() || !req.getCacheHint_isNull())
+        {
+            allFiles = false;
+            if (!req.getPageSize_isNull())
+                pageSize = req.getPageSize();
+            if (!req.getPageStartFrom_isNull())
+                pageStartFrom = req.getPageStartFrom();
+            if (!req.getCacheHint_isNull())
+                cacheHint = req.getCacheHint();
+        }
+
         Owned<IXRefNode> xRefNode = XRefNodeManager->getXRefNode(req.getCluster());
         if (xRefNode.get() == 0)
             throw MakeStringExceptionDirect(ECLWATCH_CANNOT_FIND_IXREFFILESNODE, "XRefNode not found.");
 
         StringBuffer buf;
-        Owned<IXRefFilesNode> _found = xRefNode->getFoundFiles();
-        if (_found)
+        if (allFiles)
         {
-            _found->Serialize(buf);
-            if (!buf.isEmpty())
+            Owned<IXRefFilesNode> _found = xRefNode->getFoundFiles();
+            if (_found)
             {
-                ESPSerializationFormat fmt = context.getResponseFormat();
-                if (fmt == ESPSerializationJSON)
-                    dfuXrefXMLToJSON(buf);
+                _found.setown(xRefNode->getFoundFiles());
+                _found->Serialize(buf);
             }
+        }
+        else
+        {
+            buf.set("<Found>");
+            StringBuffer tmpbuf;
+            IDFUXRefItemIterator *iter = xRefNode->getDFUXRefItemsSorted("Found", sortOrder, filters, filterBuf.bufferBase(), pageStartFrom, pageSize, &numberOfFiles, &cacheHint);
+            ForEach (*iter)
+            {
+                IPropertyTree &e = iter->query();
+                toXML(&e, tmpbuf.clear());
+                buf.append(tmpbuf.str());
+            }
+            buf.appendf("<Cluster>%s</Cluster>", req.getCluster());
+            buf.append("</Found>");
+
+            if (version >= 1.01)
+            {
+                resp.setNumberOfFiles(numberOfFiles);
+                resp.setCacheHint(cacheHint);
+            }
+        }
+        if (!buf.isEmpty())
+        {
+            ESPSerializationFormat fmt = context.getResponseFormat();
+            if (fmt == ESPSerializationJSON)
+                dfuXrefXMLToJSON(buf);
         }
         resp.setDFUXRefFoundFilesQueryResult(buf.str());
     }
