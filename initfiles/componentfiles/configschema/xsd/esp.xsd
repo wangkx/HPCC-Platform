@@ -136,7 +136,8 @@
                                 </xs:attribute>
                                 <xs:attribute name="domainName" type="xs:string" use="optional" hpcc:displayName="Domain Name" hpcc:tooltip="Unique string to identify an auth domain in case > 1 domains in an esp"/>
                                 <xs:attribute name="logonURL" type="xs:string" use="optional" default="/esp/files/eclwatch/templates/Login.html" hpcc:displayName="Logon URL" hpcc:tooltip="Logon URL"/>
-                                <xs:attribute name="logoutURL" type="xs:string" use="optional" default="" hpcc:displayName="Logout URL" hpcc:tooltip="Logout URL"/>
+                                <xs:attribute name="logoutURL" type="xs:string" use="optional" default=""$
+                                <xs:attribute name="unlockURL" type="xs:string" use="optional" default="" hpcc:displayName="Unlock URL" hpcc:tooltip="Unlock URL"/>
                                 <xs:attribute name="sessionTimeoutMinutes" type="xs:integer" use="optional" default="60" hpcc:displayName="Session Timeout Minutes" hpcc:tooltip="Inactive session duration, in minutes. Specify 0 for default timeout, -1 for never timeout"/>
                                 <xs:attribute name="resourceURL" type="xs:string" use="optional" default="/favicon.ico,/esp/files/img/favicon.ico,/esp/files/eclwatch/img/Loginlogo.png,/esp/files/dojo/*,/esp/files/eclwatch/nls/*"
                                               hpcc:displayName="Resurce URL" hpcc:tooltip="??"/>

@@ -392,6 +392,13 @@ void EspHttpBinding::readAuthDomainCfg(IPropertyTree* procCfg)
             domainAuthResources.setValue(logoutURL.get(), true);
         }
 
+        const char* _unlockURL = authDomainTree->queryProp("@unlockURL");
+        if (!isEmptyString(_unlockURL))
+            unlockURL.set(_unlockURL);
+        else
+            unlockURL.set(DEFAULT_UNLOCK_URL);
+        domainAuthResources.setValue(unlockURL.get(), true);
+
         //Read pre-configured 'invalidURLsAfterAuth'. Separate the comma separated string to a
         //list. Store them into BoolHash for quick lookup.
         setABoolHash(authDomainTree->queryProp("@invalidURLsAfterAuth"), invalidURLsAfterAuth);
@@ -401,6 +408,8 @@ void EspHttpBinding::readAuthDomainCfg(IPropertyTree* procCfg)
         domainAuthType = AuthTypeMixed;
         readUnrestrictedResources(DEFAULT_UNRESTRICTED_RESOURCES);
         loginURL.set(DEFAULT_LOGIN_URL);
+        unlockURL.set(DEFAULT_UNLOCK_URL);
+        domainAuthResources.setValue(unlockURL.get(), true);
     }
 
     if (!loginURL.isEmpty())

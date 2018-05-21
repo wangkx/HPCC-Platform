@@ -163,8 +163,7 @@ private:
     StringBuffer            sessionIDCookieName;
     AuthType                domainAuthType;
 
-    StringAttr              loginURL;
-    StringAttr              logoutURL;
+    StringAttr              loginURL, logoutURL, unlockURL;
     int                     clientSessionTimeoutSeconds = 60 * ESP_SESSION_TIMEOUT;
     int                     serverSessionTimeoutSeconds = 120 * ESP_SESSION_TIMEOUT;
     int                     checkSessionTimeoutSeconds = ESP_CHECK_SESSION_TIMEOUT; //the duration to clean timed out sesssions
@@ -366,6 +365,7 @@ public:
     AuthType getDomainAuthType() const { return domainAuthType; }
     const char* queryLoginURL() const { return loginURL.get(); }
     const char* queryLogoutURL() const { return logoutURL.get(); }
+    const char* queryUnlockURL() const { return unlockURL.get(); }
     int getClientSessionTimeoutSeconds() const { return clientSessionTimeoutSeconds; }
     int getServerSessionTimeoutSeconds() const { return serverSessionTimeoutSeconds; }
     int getCheckSessionTimeoutSeconds() const { return checkSessionTimeoutSeconds; }

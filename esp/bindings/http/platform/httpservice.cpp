@@ -1166,7 +1166,17 @@ EspAuthState CEspHttpServer::checkUserAuthPerSession(EspAuthRequest& authReq)
     const char* userName = (authReq.requestParams) ? authReq.requestParams->queryProp("username") : NULL;
     const char* password = (authReq.requestParams) ? authReq.requestParams->queryProp("password") : NULL;
     if (!isEmptyString(userName) && !isEmptyString(password))
+    {
+        StringBuffer clientLockedCookie;
+        readCookie(SESSION_LOCK_COOKIE, clientLockedCookie);
+        if (!clientLockedCookie.isEmpty() && !streq(userName, clientLockedCookie.str()))
+        {
+            VStringBuffer msg("Session locked by %s. Please unlock first.", clientLockedCookie.str());
+            ESPLOG(LogMin, "Session locked by %s. %s cannot unlock.", clientLockedCookie.str(), userName);
+            return handleAuthFailed(true, authReq, false, msg.str());
+        }
         return authNewSession(authReq, userName, password, urlCookie.isEmpty() ? "/" : urlCookie.str(), unlock);
+    }
 
     authReq.ctx->setAuthStatus(AUTH_STATUS_FAIL);
     if (unlock)
@@ -1257,6 +1267,7 @@ EspAuthState CEspHttpServer::authNewSession(EspAuthRequest& authReq, const char*
     authReq.ctx->setAuthStatus(AUTH_STATUS_OK); //May be changed to AUTH_STATUS_NOACCESS if failed in feature level authorization.
     if (unlock)
     {
+        addCookie(SESSION_LOCK_COOKIE, "", 0, true);
         sendLockResponse(false, false, "Unlocked");
         return authTaskDone;
     }
@@ -1581,6 +1592,7 @@ EspAuthState CEspHttpServer::authExistingSession(EspAuthRequest& authReq, unsign
 void CEspHttpServer::logoutSession(EspAuthRequest& authReq, unsigned sessionID, IPropertyTree* espSessions, bool lock)
 {
     //delete this session before logout
+    StringAttr logoutUserID;
     VStringBuffer path("%s[@port=\"%d\"]", PathSessionApplication, authReq.authBinding->getPort());
     IPropertyTree* sessionTree = espSessions->queryBranch(path.str());
     if (sessionTree)
@@ -1606,6 +1618,8 @@ void CEspHttpServer::logoutSession(EspAuthRequest& authReq, unsigned sessionID, 
                     //inform security manager that user is logged out
                     Owned<ISecUser> secUser = secmgr->createUser(user);
                     secmgr->logoutUser(*secUser);
+                    if (logoutUserID.isEmpty())
+                        logoutUserID.set(user);
                 }
             }
 
@@ -1624,7 +1638,10 @@ void CEspHttpServer::logoutSession(EspAuthRequest& authReq, unsigned sessionID, 
     if (!isEmptyString(logoutURL) && !lock)
         m_response->redirect(*m_request, authReq.authBinding->queryLogoutURL());
     else if (lock)
+    {
+        addCookie(SESSION_LOCK_COOKIE, logoutUserID.get(), 0, true);
         sendLockResponse(true, false, "Locked");
+    }
     else
         sendMessage(nullptr, "text/html; charset=UTF-8");
 }
@@ -1666,6 +1683,19 @@ EspAuthState CEspHttpServer::handleAuthFailed(bool sessionAuth, EspAuthRequest& 
 
 void CEspHttpServer::askUserLogin(EspAuthRequest& authReq, const char* msg)
 {
+    /*StringBuffer clientLockedCookie;
+    readCookie(SESSION_LOCK_COOKIE, clientLockedCookie);
+    if (!clientLockedCookie.isEmpty())
+    {
+        VStringBuffer msgStr("Session locked by %s. Please unlock first.", clientLockedCookie.str());
+        addCookie(SESSION_AUTH_MSG_COOKIE, msgStr.str(), 0, false);
+        ESPLOG(LogMin, "%s", msgStr.str());
+
+        const char* unlockURL = authReq.authBinding->queryUnlockURL();
+        m_response->redirect(*m_request, unlockURL);
+        return;
+    }*/
+
     StringBuffer urlCookie;
     readCookie(SESSION_START_URL_COOKIE, urlCookie);
     if (urlCookie.isEmpty())

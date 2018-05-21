@@ -449,6 +449,14 @@
 	                </xs:appinfo>
 	              </xs:annotation>
 	            </xs:attribute>
+                    <xs:attribute name="unlockURL" type="xs:string" use="optional" default="">
+                      <xs:annotation>
+                        <xs:appinfo>
+                          <tooltip>URL to an html page for unlock session</tooltip>
+                          <colIndex>9</colIndex>
+                        </xs:appinfo>
+                      </xs:annotation>
+                    </xs:attribute>
 	          </xs:complexType>
 	        </xs:element>
                 <xs:element name="HTTPS" minOccurs="0">
