@@ -40,7 +40,7 @@ enum ESPLogContentGroup
 
 static const char * const espLogContentGroupNames[] = { "ESPContext", "UserContext", "UserRequest", "UserResponse",
     "LogDatasets", "BackEndResponse", "", NULL };
-
+/*
 class CTransIDBuilder : public CInterface, implements IInterface
 {
     StringAttr seed;
@@ -118,7 +118,7 @@ public:
             id.append(seed.get()).append('-').append(++seq);
     };
 };
-
+*/
 class CESPLogContentGroupFilters : public CInterface, implements IInterface
 {
     ESPLogContentGroup group;

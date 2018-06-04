@@ -25,6 +25,7 @@
 #include "datafieldmap.hpp"
 #include "ws_loggingservice_esp.ipp"
 #include "loggingcommon.hpp"
+#include "LoggingErrors.hpp"
 
 #define UPDATELOGTHREADWAITINGTIME 3000
 
@@ -33,6 +34,84 @@
 static const char* sTransactionDateTime = "TransactionDateTime";
 static const char* sTransactionMethod = "TransactionMethod";
 static const char* sTransactionIdentifier = "TransactionIdentifier";
+
+class CTransIDBuilder : public CInterface, implements IInterface
+{
+    StringAttr seed;
+    bool localSeed;
+    unsigned __int64 seq = 0;
+
+    unsigned maxLength = 0;
+    unsigned maxSeq = 0;
+    unsigned seedExpiredSeconds = 0;
+    time_t createTime;
+
+    void add(StringAttrMapping* transIDFields, const char* key, StringBuffer& id)
+    {
+        StringAttr* value = transIDFields->getValue(key);
+        if (value)
+            id.append(value->get()).append('-');
+        else
+        {
+            const char* ptr = key;
+            if (strlen(key) > 11) //skip the "transaction" prefix of the key
+                ptr += 11;
+            id.append('?').append(ptr).append('-');
+        }
+    }
+
+public:
+    IMPLEMENT_IINTERFACE;
+    CTransIDBuilder(const char* _seed, bool _localSeed, unsigned _maxLength, unsigned _maxSeq, unsigned _seedExpiredSeconds)
+        : seed(_seed), localSeed(_localSeed), maxLength(_maxLength), maxSeq(_maxSeq), seedExpiredSeconds(_seedExpiredSeconds)
+    {
+        CDateTime now;
+        now.setNow();
+        createTime = now.getSimple();
+    };
+    virtual ~CTransIDBuilder() {};
+
+    bool checkMaxSequenceNumber() { return (maxSeq == 0) || (seq < maxSeq); };
+    bool checkMaxLength(unsigned length) { return (maxLength == 0) || (length <= maxLength); };
+    bool checkTimeout()
+    {
+        if (seedExpiredSeconds ==0)
+            return true;
+
+        CDateTime now;
+        now.setNow();
+        return now.getSimple() < createTime + seedExpiredSeconds;
+    };
+    bool isLocalSeed() { return localSeed; };
+    void resetTransSeed(const char* newSeed)
+    {
+        if (isEmptyString(newSeed))
+            throw MakeStringException(EspLoggingErrors::GetTransactionSeedFailed, "TransactionSeed cannot be empty.");
+        seed.set(newSeed);
+        seq = 0;
+
+        CDateTime now;
+        now.setNow();
+        createTime = now.getSimple();
+    };
+
+    virtual const char* getTransSeed() { return seed.get(); };
+    virtual void getTransID(StringAttrMapping* transIDFields, StringBuffer& id)
+    {
+        id.clear();
+
+        if (transIDFields)
+        {
+            add(transIDFields, sTransactionDateTime, id);
+            add(transIDFields, sTransactionMethod, id);
+            add(transIDFields, sTransactionIdentifier, id);
+        }
+        if (localSeed)
+            id.append(seed.get()).append("-X").append(++seq);
+        else
+            id.append(seed.get()).append('-').append(++seq);
+    };
+};
 
 interface IEspUpdateLogRequestWrap : extends IInterface
 {
