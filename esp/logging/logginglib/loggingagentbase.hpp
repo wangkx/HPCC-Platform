@@ -244,6 +244,46 @@ interface IEspLogAgent : extends IInterface
     virtual void filterLogContent(IEspUpdateLogRequestWrap* req) = 0;
 };
 
+class CESPLogContentGroupFilters : public CInterface, implements IInterface
+{
+    ESPLogContentGroup group;
+    StringArray filters;
+
+public:
+    IMPLEMENT_IINTERFACE;
+
+    CESPLogContentGroupFilters(ESPLogContentGroup _group) : group(_group) {};
+    ESPLogContentGroup getGroup() { return group; };
+    StringArray& getFilters() { return filters; };
+    void clearFilters() { filters.clear(); };
+    unsigned getFilterCount() { return filters.length(); };
+    void addFilter(const char* filter)
+    {
+        if (filter && *filter)
+            filters.append(filter);
+    };
+};
+
+class LOGGINGCOMMON_API CLogContentFilter : public CInterface
+{
+    bool            logBackEndResp;
+    StringArray     logContentFilters;
+    CIArrayOf<CESPLogContentGroupFilters> groupFilters;
+
+    bool readLogFilters(IPropertyTree* cfg, unsigned groupID);
+    void filterLogContentTree(StringArray& filters, IPropertyTree* originalContentTree, IPropertyTree* newLogContentTree, bool& logContentEmpty);
+    void filterAndAddLogContentBranch(StringArray& branchNamesInFilter, unsigned idx, StringArray& branchNamesInLogContent,
+        IPropertyTree* in, IPropertyTree* updateLogRequestTree, bool& logContentEmpty);
+    void addLogContentBranch(StringArray& branchNames, IPropertyTree* contentToLogBranch, IPropertyTree* updateLogRequestTree);
+public:
+    IMPLEMENT_IINTERFACE;
+
+    CLogContentFilter() {};
+
+    void readAllLogFilters(IPropertyTree* cfg);
+    void filterLogContent(IEspUpdateLogRequestWrap* req);
+};
+
 class LOGGINGCOMMON_API CDBLogAgentBase : public CInterface, implements IEspLogAgent
 {
 protected:

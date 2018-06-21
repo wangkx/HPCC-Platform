@@ -27,44 +27,16 @@
     #define ESPSERVERLOGGINGAGENT_API DECL_IMPORT
 #endif
 
-class CESPLogContentGroupFilters : public CInterface, implements IInterface
-{
-    ESPLogContentGroup group;
-    StringArray filters;
-
-public:
-    IMPLEMENT_IINTERFACE;
-
-    CESPLogContentGroupFilters(ESPLogContentGroup _group) : group(_group) {};
-    ESPLogContentGroup getGroup() { return group; };
-    StringArray& getFilters() { return filters; };
-    void clearFilters() { filters.clear(); };
-    unsigned getFilterCount() { return filters.length(); };
-    void addFilter(const char* filter)
-    {
-        if (filter && *filter)
-            filters.append(filter);
-    };
-};
-
 class CESPServerLoggingAgent : public CInterface, implements IEspLogAgent
 {
     StringBuffer serviceName, loggingAgentName, defaultGroup;
     StringBuffer serverUrl, serverUserID, serverPassword;
     unsigned maxServerWaitingSeconds; //time out value for HTTP connection to logging server
     unsigned maxGTSRetries;
-    StringArray     logContentFilters;
-    CIArrayOf<CESPLogContentGroupFilters> groupFilters;
-    bool logBackEndResp;
+    CLogContentFilter logContentFilter;
     MapStringToMyClass<CTransIDBuilder> transIDMap;
     MapStringToMyClass<CLogSource> logSources;
 
-    void readAllLogFilters(IPropertyTree* cfg);
-    bool readLogFilters(IPropertyTree* cfg, unsigned groupID);
-    void filterLogContentTree(StringArray& filters, IPropertyTree* originalContentTree, IPropertyTree* newLogContentTree, bool& logContentEmpty);
-    void filterAndAddLogContentBranch(StringArray& branchNamesInFilter, unsigned idx, StringArray& branchNamesInLogContent,
-        IPropertyTree* in, IPropertyTree* updateLogRequestTree, bool& logContentEmpty);
-    void addLogContentBranch(StringArray& branchNames, IPropertyTree* contentToLogBranch, IPropertyTree* updateLogRequestTree);
     bool sendHTTPRequest(StringBuffer& req, StringBuffer& resp, StringBuffer& status);
     int getTransactionSeed(const char* source, StringBuffer& transactionSeed, StringBuffer& statusMessage);
     bool getTransactionSeed(StringBuffer& soapreq, int& statusCode, StringBuffer& statusMessage, StringBuffer& seedID);
