@@ -582,7 +582,7 @@ public:
 struct CWsWuZAPInfoReq
 {
     StringBuffer wuid, espIP, thorIP, problemDesc, whatChanged, whereSlow, includeThorSlaveLog, zapFileName, password;
-    StringBuffer emailSender, emailTo, emailServer, emailSubject, emailBody;
+    StringBuffer emailFrom, emailTo, emailServer, emailSubject, emailBody;
     bool sendEmail, attachZAPReportToEmail;
     unsigned maxAttachmentSize, port;
 };

@@ -1882,8 +1882,7 @@ ESPresponse [exceptions_inline] WUGetZAPInfoResponse
     string BuildVersion;
     string Archive;
     [min_ver("1.73")] string EmailTo;
-    [min_ver("1.73")] string EmailServer;
-    [min_ver("1.73")] int EmailServerPort;
+    [min_ver("1.73")] string EmailFrom;
 };
 
 ESPrequest [nil_remove] WUCreateZAPInfoRequest
@@ -1901,7 +1900,7 @@ ESPrequest [nil_remove] WUCreateZAPInfoRequest
     [min_ver("1.70")] string ZAPPassword;
     [min_ver("1.73")] bool SendEmail(false);
     [min_ver("1.73")] bool AttachZAPReportToEmail(false);
-    [min_ver("1.73")] string EmailSender;
+    [min_ver("1.73")] string EmailFrom;
     [min_ver("1.73")] string EmailSubject;
     [min_ver("1.73")] string EmailBody;
 };

@@ -3782,14 +3782,14 @@ IFileIOStream* CWsWuFileHelper::createWUZAPFileIOStream(IEspContext& context, Ow
 
     if (request.sendEmail)
     {
-        CWsWuEmailHelper emailHelper(request.emailSender.str(), request.emailTo.str(), request.emailServer.str(), request.port);
+        CWsWuEmailHelper emailHelper(request.emailFrom.str(), request.emailTo.str(), request.emailServer.str(), request.port);
 
         StringBuffer subject = request.emailSubject.str();
         if (subject.isEmpty())
             subject.append(request.wuid.str()).append(" ZAP Report");
         emailHelper.setSubject(subject.str());
 
-        PROGLOG("Sending WU ZAP email (%s): from %s to %s", request.emailServer.str(), request.emailSender.str(), request.emailTo.str());
+        PROGLOG("Sending WU ZAP email (%s): from %s to %s", request.emailServer.str(), request.emailFrom.str(), request.emailTo.str());
 
         StringArray warnings;
         if (!request.attachZAPReportToEmail)

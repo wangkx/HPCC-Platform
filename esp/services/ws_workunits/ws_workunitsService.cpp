@@ -402,6 +402,9 @@ void CWsWorkunitsEx::init(IPropertyTree *cfg, const char *process, const char *s
         zapEmailTo = zapEmail->queryProp("@to");
         if (zapEmailTo.isEmpty())
             throw MakeStringException(-1, "ZAPEmail: EmailTo not specified.");
+        zapEmailFrom = zapEmail->queryProp("@from");
+        if (zapEmailFrom.isEmpty())
+            throw MakeStringException(-1, "ZAPEmail: EmailFrom not specified.");
         zapEmailServer = zapEmail->queryProp("@serverURL");
         if (zapEmailServer.isEmpty())
             throw MakeStringException(-1, "ZAPEmail: EmailServer not specified.");
@@ -4775,8 +4778,7 @@ bool CWsWorkunitsEx::onWUGetZAPInfo(IEspContext &context, IEspWUGetZAPInfoReques
         if (version >= 1.73)
         {
             resp.setEmailTo(zapEmailTo.get());
-            resp.setEmailServer(zapEmailServer.get());
-            resp.setEmailServerPort(zapEmailServerPort);
+            resp.setEmailFrom(zapEmailFrom.get());
         }
     }
     catch(IException* e)

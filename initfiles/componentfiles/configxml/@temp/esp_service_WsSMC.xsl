@@ -251,9 +251,10 @@ This is required by its binding with ESP service '<xsl:value-of select="$espServ
             <xsl:if test="string(@ZAPEmailServer) != ''">
                 <xsl:variable name="emailServer" select="@ZAPEmailServer"/>
                 <xsl:variable name="emailTo" select="@ZAPEmailTo"/>
+                <xsl:variable name="emailFrom" select="@ZAPEmailFrom"/>
                 <xsl:variable name="emailServerPort" select="@ZAPEmailServerPort"/>
                 <xsl:variable name="emailMaxAttachment" select="@ZAPEmailMaxAttachmentSize"/>
-                <ZAPEmail serverURL="{$emailServer}" serverPort="{$emailServerPort}" to="{$emailTo}" maxAttachmentSize="{$emailMaxAttachment}"/>
+                <ZAPEmail serverURL="{$emailServer}" serverPort="{$emailServerPort}" to="{$emailTo}" from="{$emailFrom}" maxAttachmentSize="{$emailMaxAttachment}"/>
             </xsl:if>
             <StyleSheets>
                 <xslt name="atts">/esp/xslt/atts.xslt</xslt>

@@ -1415,7 +1415,6 @@ void CWsWorkunitsSoapBindingEx::createAndDownloadWUZAPFile(IEspContext& context,
         request->getParameter("AttachZAPReportToEmail", attachZAPReportToEmailStr);
         zapInfoReq.attachZAPReportToEmail = atoi(attachZAPReportToEmailStr.str()) ? true : false;
 
-        request->getParameter("EmailSender", zapInfoReq.emailSender);
         request->getParameter("EmailSubject", zapInfoReq.emailSubject);
         request->getParameter("EmailBody", zapInfoReq.emailBody);
         //Read maxAttachmentSize from setting.
@@ -1424,8 +1423,9 @@ void CWsWorkunitsSoapBindingEx::createAndDownloadWUZAPFile(IEspContext& context,
         zapInfoReq.port = wswService->zapEmailServerPort;
         zapInfoReq.emailTo.set(wswService->zapEmailTo.str());
 
-        if (zapInfoReq.emailSender.isEmpty())
-            zapInfoReq.emailSender.set(zapInfoReq.emailTo.str());
+        request->getParameter("EmailFrom", zapInfoReq.emailFrom);
+        if (zapInfoReq.emailFrom.isEmpty())
+            zapInfoReq.emailFrom.set(wswService->zapEmailFrom.str());
     }
 
     double version = context.getClientVersion();

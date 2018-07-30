@@ -345,7 +345,7 @@ private:
 
 public:
     QueryFilesInUse filesInUse;
-    StringAttr zapEmailTo, zapEmailServer;
+    StringAttr zapEmailTo, zapEmailFrom, zapEmailServer;
     unsigned zapEmailMaxAttachmentSize = 0;
     unsigned zapEmailServerPort = 0;
 };

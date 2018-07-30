@@ -141,7 +141,14 @@
             <xs:attribute name="ZAPEmailTo" type="xs:string" use="optional">
                 <xs:annotation>
                     <xs:appinfo>
-                        <tooltip>Default address to receive ZAP Report email</tooltip>
+                        <tooltip>Default email address to receive ZAP Report email</tooltip>
+                    </xs:appinfo>
+                </xs:annotation>
+            </xs:attribute>
+            <xs:attribute name="ZAPEmailFrom" type="xs:string" use="optional">
+                <xs:annotation>
+                    <xs:appinfo>
+                        <tooltip>Default email address to send ZAP Report email from</tooltip>
                     </xs:appinfo>
                 </xs:annotation>
             </xs:attribute>

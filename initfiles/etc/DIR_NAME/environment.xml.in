@@ -633,6 +633,7 @@
               warnIfFreeMemoryUnder="5"
               warnIfFreeStorageUnder="5"
               ZAPEmailTo=""
+              ZAPEmailFrom=""
               ZAPEmailServer=""
               ZAPEmailServerPort=""
               ZAPEmailMaxAttachmentSize="">
