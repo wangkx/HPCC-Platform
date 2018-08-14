@@ -113,7 +113,10 @@ public:
     virtual void getTransID(StringAttrMapping* transIDFields, StringBuffer& id)
     {
         id.clear();
-
+#define HARDCODE_SCAPPS_TRAN_ID
+#ifdef HARDCODE_SCAPPS_TRAN_ID
+        id.set(seed.get()).append('P').append(++seq);
+#else
         if (transIDFields)
         {
             add(transIDFields, sTransactionDateTime, id);
@@ -124,6 +127,7 @@ public:
             id.append(seed.get()).append("-X").append(++seq);
         else
             id.append(seed.get()).append('-').append(++seq);
+#endif
     };
 };
 
