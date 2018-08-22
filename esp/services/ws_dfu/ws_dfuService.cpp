@@ -58,6 +58,18 @@
 #include "package.h"
 #include "daaudit.hpp"
 
+#ifdef _USE_OPENSSL
+#include <openssl/evp.h>
+#include <openssl/rsa.h>
+#include <openssl/err.h>
+
+#include "jflz.hpp"
+#include "pke.hpp"
+
+using namespace cryptohelper;
+#endif
+
+
 #define     Action_Delete           "Delete"
 #define     Action_AddtoSuperfile   "Add To Superfile"
 static const char* FEATURE_URL="DfuAccess";
@@ -5885,26 +5897,6 @@ int CWsDfuEx::GetIndexData(IEspContext &context, bool bSchemaOnly, const char* i
     return iRet;
 }
 
-bool CWsDfuEx::createDigitalSignature(const char *scope, IUserDescriptor *udesc, unsigned expirationMinutes, StringBuffer &b64sig)
-{
-    /*IDigitalSignatureManager *pDSM = queryDigitalSignatureManagerInstanceFromEnv();
-    if (!pDSM || !pDSM->isDigiSignerConfigured())
-        return false;
-
-    StringBuffer username;
-    if (udesc)
-        udesc->getUserName(username);
-    StringBuffer timeStr;
-    CDateTime expiration;
-    expiration.setNow();
-    expiration.adjustTime(expirationMinutes);
-    expiration.getString(timeStr, false);//get UTC timestamp
-
-    VStringBuffer toSign("%s;%s;%s", scope, username.str(), timeStr.str());
-    pDSM->digiSign(toSign.str(), b64sig);//Sign "scope;username;timeStamp"*/
-    return true;
-}
-
 unsigned CWsDfuEx::getFilePartsInfo(IEspContext &context, IDistributedFile *df, const char *clusterName,
     IArrayOf<IEspDFUPartLocations> &dfuPartLocations, IArrayOf<IEspDFUPartCopies> &dfuPartCopies)
 {
@@ -5947,96 +5939,161 @@ unsigned CWsDfuEx::getFilePartsInfo(IEspContext &context, IDistributedFile *df, 
     return df->numParts();
 }
 
-void CWsDfuEx::getReadAccess(IEspContext &context, IUserDescriptor *udesc, DFUReadAccessRequest &req, DFUReadAccessResponse &resp)
+static const char *securityInfoVersion="1";
+void getFileMeta(IPropertyTree &metaInfo, IDistributedFile &file, IUserDescriptor *user, const char *keyPairName, IConstDFUReadAccessRequest &req)
 {
-    Owned<IDistributedFile> df = queryDistributedFileDirectory().lookup(req.logicalName, udesc, false, false, true); // lock super-owners
-    if(!df)
-        throw MakeStringException(ECLWATCH_FILE_NOT_EXIST,"Cannot find file %s.", req.logicalName);
+    metaInfo.setProp("version", securityInfoVersion);
+    metaInfo.setProp("logicalFilename", file.queryLogicalName());
+    metaInfo.setProp("jobId", req.getJobId());
+    metaInfo.setProp("accessType", req.getAccessTypeAsString());
+    StringBuffer userStr;
+    if (user)
+        metaInfo.setProp("user", user->getUserName(userStr).str());
 
-    StringArray clusters;
-    df->getClusterNames(clusters);
-    if (!FindInStringArray(clusters, req.clusterName))
-        throw MakeStringException(ECLWATCH_FILE_NOT_EXIST,"Cannot find file %s on %s.", req.logicalName, req.clusterName);
+    const char *clusterName = req.getCluster(); // can be null
+    Owned<IFileDescriptor> fDesc = file.getFileDescriptor(clusterName);
 
-    if (!req.refresh)
+#ifdef _USE_OPENSSL
+    if (keyPairName) // without it, meta data is not encrypted
     {
-        resp.numParts = getFilePartsInfo(context, df, req.clusterName, resp.dfuPartLocations, resp.dfuPartCopies);
-        if (req.returnJsonTypeInfo || req.returnBinTypeInfo)
+        metaInfo.setProp("keyPairName", keyPairName);
+
+        unsigned expirySecs = req.getExpirySeconds();
+
+        // JCSMORE - make this configurable
+        if (expirySecs > 86400)
+            expirySecs = 86400; //24 hours
+
+        // setup "expiryTime"
+        time_t simple;
+        time(&simple);
+        simple += expirySecs;
+        CDateTime expiryDt;
+        expiryDt.set(simple);
+        StringBuffer expiryTimeStr;
+        expiryDt.getString(expiryTimeStr);
+        Owned<IPropertyTree> secureMetaInfo = createPTreeFromIPT(&metaInfo);
+        secureMetaInfo->setProp("expiryTime", expiryTimeStr);
+
+        extractFilePartInfo(*secureMetaInfo, *fDesc);
+
+        // create random AES key and IV
+        char randomAesKey[aesKeySize];
+        char randomIV[aesBlockSize];
+        fillRandomData(aesKeySize, randomAesKey);
+        fillRandomData(aesBlockSize, randomIV);
+
+        // 1st serialize to JSON
+        StringBuffer secureMetaInfoJson;
+        toJSON(secureMetaInfo, secureMetaInfoJson);
+
+        // 2nd compress
+        MemoryBuffer compressedSecureMetaInfoMb;
+        fastLZCompressToBuffer(compressedSecureMetaInfoMb, secureMetaInfoJson.length(), secureMetaInfoJson.str());
+
+        // 3rd encrypt with AES key
+        MemoryBuffer encryptedSecureMetaInfoMb;
+        aesKeyEncrypt(encryptedSecureMetaInfoMb, compressedSecureMetaInfoMb.length(), compressedSecureMetaInfoMb.bytes(), randomAesKey, randomIV);
+
+        metaInfo.setPropBin("secureInfo", encryptedSecureMetaInfoMb.length(), encryptedSecureMetaInfoMb.bytes());
+
+        // 4th encrypt AES key with public *DAFILESRV* key
+        VStringBuffer publicKeyFName("%s.pub.pem", keyPairName); // JCSMORE - could cache loaded keys
+        Owned<CLoadedKey> publicKey = loadPublicKeyFromFile(publicKeyFName, nullptr);
+        MemoryBuffer encryptedAesKeyMb;
+        publicKeyEncrypt(encryptedAesKeyMb, aesKeySize, randomAesKey, *publicKey);
+
+        /* perhaps should combine into single prob..
+         * Does IV need to be generated/sent each time?
+         */
+        metaInfo.setPropBin("securityKey", encryptedAesKeyMb.length(), encryptedAesKeyMb.bytes());
+        metaInfo.setPropBin("securityIV", aesBlockSize, randomIV);
+    }
+    else
+#endif
+        extractFilePartInfo(metaInfo, *fDesc);
+}
+
+const char *getFileDafilesrvKeyName(IDistributedFile &file)
+{
+    /* JCSMORE - key needs to be looked up..
+     * potentially different per target group, but must be same for all dafilesrv's related to a file.
+     * [ unless we change scheme so that there is a separate encrypted blob per part - then we could have a different key per dafilesrv. ]
+     */
+    const char *keyPairName = "/home/jsmith/.ssh/id_rsa";
+
+    // JCSMORE - option to have authorization disabled in configuration
+    //keyPairName = nullptr;
+
+    return keyPairName;
+}
+
+void CWsDfuEx::getReadAccess(IEspContext &context, IUserDescriptor *udesc, IEspDFUReadAccessRequest &req, IEspDFUReadAccessResponse &resp)
+{
+    Owned<IDistributedFile> df = queryDistributedFileDirectory().lookup(req.getName(), udesc, false, false, true); // lock super-owners
+    if (!df)
+        throw MakeStringException(ECLWATCH_FILE_NOT_EXIST,"Cannot find file %s.", req.getName());
+
+    if (!isEmptyString(req.getCluster()))
+    {
+        StringArray clusters;
+        df->getClusterNames(clusters);
+        if (!FindInStringArray(clusters, req.getCluster()))
+            throw MakeStringException(ECLWATCH_FILE_NOT_EXIST,"Cannot find file %s on %s.", req.getName(), req.getCluster());
+    }
+
+    if (req.getReturnFileInfo())
+    {
+        IArrayOf<IEspDFUPartLocations> dfuPartLocations;
+        IArrayOf<IEspDFUPartCopies> dfuPartCopies;
+        resp.setNumParts(getFilePartsInfo(context, df, req.getCluster(), dfuPartLocations, dfuPartCopies));
+        resp.setFilePartLocations(dfuPartLocations);
+        resp.setFileParts(dfuPartCopies);
+        if (req.getReturnJsonTypeInfo() || req.getReturnJsonTypeInfo())
         {
-            if (!getRecordFormatFromRtlType(resp.binLayout, resp.jsonLayout, df->queryAttributes(), req.returnBinTypeInfo, req.returnJsonTypeInfo))
-                getRecordFormatFromECL(resp.binLayout.clear(), resp.jsonLayout.clear(), df->queryAttributes(), req.returnBinTypeInfo, req.returnJsonTypeInfo);
+            MemoryBuffer binLayout;
+            StringBuffer jsonLayout;
+            if (!getRecordFormatFromRtlType(binLayout, jsonLayout, df->queryAttributes(), req.getReturnJsonTypeInfo(), req.getReturnJsonTypeInfo()))
+                getRecordFormatFromECL(binLayout, jsonLayout, df->queryAttributes(), req.getReturnJsonTypeInfo(), req.getReturnJsonTypeInfo());
+            if (req.getReturnJsonTypeInfo() && jsonLayout.length())
+                resp.setRecordTypeInfoJson(jsonLayout.str());
+            if (req.getReturnBinTypeInfo() && binLayout.length())
+                resp.setRecordTypeInfoBin(binLayout);
         }
     }
 
-    //TODO: Still not decide what kind of string should be used for createDigitalSignature? scope, file name,
-    //the xml string of the IDistributedFile, or the xml string of the FileDetail?
-    /*StringBuffer scopes, accessToken;
-    CDfsLogicalFileName dlfn;
-    dlfn.set(logicalName);
-    dlfn.getScopes(scopes);
-    if (createDigitalSignature(scopes.str(), userDesc, expiry, accessToken))
-        resp.setAccessToken(accessToken.str());*/
+    const char *keyPairName = getFileDafilesrvKeyName(*df);
 
+    Owned<IPropertyTree> metaInfo = createPTree();
+    getFileMeta(*metaInfo, *df, udesc, keyPairName, req);
+    StringBuffer metaInfoJsonBlob;
+    toJSON(metaInfo, metaInfoJsonBlob);
+    resp.setMetaInfoBlob(metaInfoJsonBlob);
+    resp.setKeyName(keyPairName);
 }
 
 bool CWsDfuEx::onDFUReadAccess(IEspContext &context, IEspDFUReadAccessRequest &req, IEspDFUReadAccessResponse &resp)
 {
     try
     {
-        if (!context.validateFeatureAccess(FEATURE_URL, SecAccess_Read, false))
+        if (!context.validateFeatureAccess(FEATURE_URL, SecAccess_Read, false) || req.getAccessType() != CSecAccessType_Read)
             throw MakeStringException(ECLWATCH_DFU_ACCESS_DENIED, "Failed to CreateAndPublish. Permission denied.");
 
-        DFUReadAccessRequest dfuReadAccessReq;
-        dfuReadAccessReq.logicalName = req.getName();
-        dfuReadAccessReq.clusterName = req.getCluster();
-        if (isEmptyString(dfuReadAccessReq.logicalName))
+        if (isEmptyString(req.getName()))
              throw MakeStringException(ECLWATCH_INVALID_INPUT, "No Name defined.");
-        if (isEmptyString(dfuReadAccessReq.clusterName))
-             throw MakeStringException(ECLWATCH_INVALID_INPUT, "No Cluster defined.");
-        dfuReadAccessReq.accessType = req.getAccessType();
-        if (dfuReadAccessReq.accessType == SecAccessType_Undefined)
-            throw MakeStringException(ECLWATCH_INVALID_INPUT,"AccessType not defined.");
 
         StringBuffer userID;
         context.getUserID(userID);
 
         Owned<IUserDescriptor> userDesc;
-        if(!userID.isEmpty())
+        if (!userID.isEmpty())
         {
             userDesc.setown(createUserDescriptor());
             userDesc->set(userID.str(), context.queryPassword(), context.querySignature());
         }
-
-        dfuReadAccessReq.refresh = req.getRefresh();
-        if (!dfuReadAccessReq.refresh)
-        {
-            dfuReadAccessReq.returnJsonTypeInfo = req.getReturnJsonTypeInfo();
-            dfuReadAccessReq.returnBinTypeInfo = req.getReturnBinTypeInfo();
-        }
-        dfuReadAccessReq.expiry = req.getExpiryMinutes();
-        if (dfuReadAccessReq.expiry > 1440)
-            dfuReadAccessReq.expiry = 1440; //24 hours
-
-        DFUReadAccessResponse dfuReadAccessResp;
-        getReadAccess(context, userDesc, dfuReadAccessReq, dfuReadAccessResp);
-
-        if (!dfuReadAccessReq.refresh)
-        {
-            resp.setNumParts(dfuReadAccessResp.numParts);
-            resp.setFilePartLocations(dfuReadAccessResp.dfuPartLocations);
-            resp.setFileParts(dfuReadAccessResp.dfuPartCopies);
-            if (dfuReadAccessReq.returnJsonTypeInfo && dfuReadAccessResp.jsonLayout.length())
-                resp.setRecordTypeInfoJson(dfuReadAccessResp.jsonLayout.str());
-            if (dfuReadAccessReq.returnBinTypeInfo && dfuReadAccessResp.binLayout.length())
-                resp.setRecordTypeInfoBin(dfuReadAccessResp.binLayout);
-        }
-
-        ///    resp.setAccessToken(accessToken.str());
-        ///resp.setKeyName(keyName);
-        ///resp.setAccessType(accessType);
-        resp.setExpiryMinutes(dfuReadAccessReq.expiry);
+        getReadAccess(context, userDesc, req, resp);
     }
-    catch(IException *e)
+    catch (IException *e)
     {
         FORWARDEXCEPTION(context, e,  ECLWATCH_INTERNAL_ERROR);
     }

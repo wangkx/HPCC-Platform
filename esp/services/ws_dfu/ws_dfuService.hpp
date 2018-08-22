@@ -253,10 +253,9 @@ private:
     void queryFieldNames(IEspContext &context, const char *fileName, const char *cluster,
         unsigned __int64 fieldMask, StringArray &fieldNames);
     void parseFieldMask(unsigned __int64 fieldMask, unsigned &fieldCount, IntArray &fieldIndexArray);
-    bool createDigitalSignature(const char *scope, IUserDescriptor *udesc, unsigned expirationMinutes, StringBuffer &b64sig);
     unsigned getFilePartsInfo(IEspContext &context, IDistributedFile *df, const char *clusterName,
         IArrayOf<IEspDFUPartLocations> &dfuPartLocations, IArrayOf<IEspDFUPartCopies> &dfuPartCopies);
-    void getReadAccess(IEspContext &context, IUserDescriptor *udesc, DFUReadAccessRequest &req, DFUReadAccessResponse &resp);
+    void getReadAccess(IEspContext &context, IUserDescriptor *udesc, IEspDFUReadAccessRequest &req, IEspDFUReadAccessResponse &resp);
 
     bool attachServiceToDali() override
     {
