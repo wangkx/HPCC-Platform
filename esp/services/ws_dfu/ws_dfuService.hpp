@@ -95,27 +95,6 @@ public:
     CThorNodeGroup *lookup(const char* groupName, unsigned timeOutMinutes);
 };
 
-struct DFUReadAccessRequest
-{
-    const char *logicalName = nullptr;
-    const char *clusterName = nullptr;
-    IUserDescriptor *udesc  = nullptr;
-    CSecAccessType accessType;
-    unsigned expiry = 1;
-    bool refresh = false;
-    bool returnJsonTypeInfo = false;
-    bool returnBinTypeInfo = false;
-};
-
-struct DFUReadAccessResponse
-{
-    unsigned numParts = 0;
-    IArrayOf<IEspDFUPartLocations> dfuPartLocations;
-    IArrayOf<IEspDFUPartCopies> dfuPartCopies;
-    MemoryBuffer binLayout;
-    StringBuffer jsonLayout;
-};
-
 class CWsDfuSoapBindingEx : public CWsDfuSoapBinding
 {
 private:
@@ -255,7 +234,7 @@ private:
     void parseFieldMask(unsigned __int64 fieldMask, unsigned &fieldCount, IntArray &fieldIndexArray);
     unsigned getFilePartsInfo(IEspContext &context, IDistributedFile *df, const char *clusterName,
         IArrayOf<IEspDFUPartLocations> &dfuPartLocations, IArrayOf<IEspDFUPartCopies> &dfuPartCopies);
-    void getReadAccess(IEspContext &context, IUserDescriptor *udesc, IEspDFUReadAccessRequest &req, IEspDFUReadAccessResponse &resp);
+    void getReadAccess(IEspContext &context, IUserDescriptor *udesc, const char *jobId, bool returnFileInfo, IConstDFUReadAccess &req, IEspDFUReadAccessInfo &accessInfo);
 
     bool attachServiceToDali() override
     {

@@ -5940,11 +5940,11 @@ unsigned CWsDfuEx::getFilePartsInfo(IEspContext &context, IDistributedFile *df, 
 }
 
 static const char *securityInfoVersion="1";
-void getFileMeta(IPropertyTree &metaInfo, IDistributedFile &file, IUserDescriptor *user, const char *keyPairName, IConstDFUReadAccessRequest &req)
+void getFileMeta(IPropertyTree &metaInfo, IDistributedFile &file, IUserDescriptor *user, const char *jobId, const char *keyPairName, IConstDFUReadAccess &req)
 {
     metaInfo.setProp("version", securityInfoVersion);
     metaInfo.setProp("logicalFilename", file.queryLogicalName());
-    metaInfo.setProp("jobId", req.getJobId());
+    metaInfo.setProp("jobId", jobId);
     metaInfo.setProp("accessType", req.getAccessTypeAsString());
     StringBuffer userStr;
     if (user)
@@ -6028,7 +6028,7 @@ const char *getFileDafilesrvKeyName(IDistributedFile &file)
     return keyPairName;
 }
 
-void CWsDfuEx::getReadAccess(IEspContext &context, IUserDescriptor *udesc, IEspDFUReadAccessRequest &req, IEspDFUReadAccessResponse &resp)
+void CWsDfuEx::getReadAccess(IEspContext &context, IUserDescriptor *udesc, const char *jobId, bool returnFileInfo, IConstDFUReadAccess &req, IEspDFUReadAccessInfo &accessInfo)
 {
     Owned<IDistributedFile> df = queryDistributedFileDirectory().lookup(req.getName(), udesc, false, false, true); // lock super-owners
     if (!df)
@@ -6042,13 +6042,13 @@ void CWsDfuEx::getReadAccess(IEspContext &context, IUserDescriptor *udesc, IEspD
             throw MakeStringException(ECLWATCH_FILE_NOT_EXIST,"Cannot find file %s on %s.", req.getName(), req.getCluster());
     }
 
-    if (req.getReturnFileInfo())
+    if (returnFileInfo)
     {
         IArrayOf<IEspDFUPartLocations> dfuPartLocations;
         IArrayOf<IEspDFUPartCopies> dfuPartCopies;
-        resp.setNumParts(getFilePartsInfo(context, df, req.getCluster(), dfuPartLocations, dfuPartCopies));
-        resp.setFilePartLocations(dfuPartLocations);
-        resp.setFileParts(dfuPartCopies);
+        accessInfo.setNumParts(getFilePartsInfo(context, df, req.getCluster(), dfuPartLocations, dfuPartCopies));
+        accessInfo.setFilePartLocations(dfuPartLocations);
+        accessInfo.setFileParts(dfuPartCopies);
         if (req.getReturnJsonTypeInfo() || req.getReturnJsonTypeInfo())
         {
             MemoryBuffer binLayout;
@@ -6056,30 +6056,30 @@ void CWsDfuEx::getReadAccess(IEspContext &context, IUserDescriptor *udesc, IEspD
             if (!getRecordFormatFromRtlType(binLayout, jsonLayout, df->queryAttributes(), req.getReturnJsonTypeInfo(), req.getReturnJsonTypeInfo()))
                 getRecordFormatFromECL(binLayout, jsonLayout, df->queryAttributes(), req.getReturnJsonTypeInfo(), req.getReturnJsonTypeInfo());
             if (req.getReturnJsonTypeInfo() && jsonLayout.length())
-                resp.setRecordTypeInfoJson(jsonLayout.str());
+                accessInfo.setRecordTypeInfoJson(jsonLayout.str());
             if (req.getReturnBinTypeInfo() && binLayout.length())
-                resp.setRecordTypeInfoBin(binLayout);
+                accessInfo.setRecordTypeInfoBin(binLayout);
         }
     }
 
     const char *keyPairName = getFileDafilesrvKeyName(*df);
 
     Owned<IPropertyTree> metaInfo = createPTree();
-    getFileMeta(*metaInfo, *df, udesc, keyPairName, req);
+    getFileMeta(*metaInfo, *df, udesc, jobId, keyPairName, req);
     StringBuffer metaInfoJsonBlob;
     toJSON(metaInfo, metaInfoJsonBlob);
-    resp.setMetaInfoBlob(metaInfoJsonBlob);
-    resp.setKeyName(keyPairName);
+    accessInfo.setMetaInfoBlob(metaInfoJsonBlob);
+    accessInfo.setKeyName(keyPairName);
 }
 
 bool CWsDfuEx::onDFUReadAccess(IEspContext &context, IEspDFUReadAccessRequest &req, IEspDFUReadAccessResponse &resp)
 {
     try
     {
-        if (!context.validateFeatureAccess(FEATURE_URL, SecAccess_Read, false) || req.getAccessType() != CSecAccessType_Read)
+        if (!context.validateFeatureAccess(FEATURE_URL, SecAccess_Read, false) || req.getRequests().getAccessType() != CSecAccessType_Read)
             throw MakeStringException(ECLWATCH_DFU_ACCESS_DENIED, "Failed to CreateAndPublish. Permission denied.");
 
-        if (isEmptyString(req.getName()))
+        if (isEmptyString(req.getRequests().getName()))
              throw MakeStringException(ECLWATCH_INVALID_INPUT, "No Name defined.");
 
         StringBuffer userID;
@@ -6091,7 +6091,7 @@ bool CWsDfuEx::onDFUReadAccess(IEspContext &context, IEspDFUReadAccessRequest &r
             userDesc.setown(createUserDescriptor());
             userDesc->set(userID.str(), context.queryPassword(), context.querySignature());
         }
-        getReadAccess(context, userDesc, req, resp);
+        getReadAccess(context, userDesc, req.getJobId(), req.getReturnFileInfo(), req.getRequests(), resp.updateAccessInfo());
     }
     catch (IException *e)
     {

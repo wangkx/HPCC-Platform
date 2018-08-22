@@ -833,19 +833,17 @@ ESPStruct DFUPartCopies
     ESParray<string> LocationIndexes;
 };
 
-ESPrequest DFUReadAccessRequest
+ESPStruct DFUReadAccess
 {
     string Name;
     string Cluster;
     int ExpirySeconds(60);
     ESPenum SecAccessType AccessType;
-    string JobId;
-    bool ReturnFileInfo(false);
     bool ReturnJsonTypeInfo(false);
     bool ReturnBinTypeInfo(false);
 };
 
-ESPresponse [exceptions_inline] DFUReadAccessResponse
+ESPStruct DFUReadAccessInfo
 {
     string MetaInfoBlob;
     string KeyName;         // name of key used to encrypt
@@ -857,6 +855,18 @@ ESPresponse [exceptions_inline] DFUReadAccessResponse
     
     binary RecordTypeInfoBin;   // optional
     string RecordTypeInfoJson;  // optional
+};
+
+ESPrequest DFUReadAccessRequest
+{
+    EspStruct DFUReadAccess Requests;
+    string JobId;
+    bool ReturnFileInfo(false);
+};
+
+ESPresponse [exceptions_inline] DFUReadAccessResponse
+{
+    EspStruct DFUReadAccessInfo AccessInfo;
 };
 
 //  ===========================================================================

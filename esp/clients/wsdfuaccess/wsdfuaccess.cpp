@@ -40,6 +40,7 @@ bool WsDfuAccess_getMetaInfo(StringBuffer &metaInfoResult, const char *jobId, co
 
     Owned<IClientDFUReadAccessRequest> dfuReq = dfuClient->createDFUReadAccessRequest();
 
+    IEspDFUReadAccess &requests = dfuReq->updateRequests();
     CDfsLogicalFileName lfn;
     lfn.set(logicalName);
 
@@ -47,13 +48,13 @@ bool WsDfuAccess_getMetaInfo(StringBuffer &metaInfoResult, const char *jobId, co
     lfn.getCluster(cluster);
     lfn.get(lfnName); // remove cluster if present
 
-    dfuReq->setName(lfnName);
-    dfuReq->setCluster(cluster);
-    dfuReq->setExpirySeconds(expirySecs);
-    dfuReq->setAccessType(CSecAccessType_Read);
+    requests.setName(lfnName);
+    requests.setCluster(cluster);
+    requests.setExpirySeconds(expirySecs);
+    requests.setAccessType(CSecAccessType_Read);
+    requests.setReturnBinTypeInfo(true);
     dfuReq->setJobId(jobId);
     dfuReq->setReturnFileInfo(true); // tmp test
-    dfuReq->setReturnBinTypeInfo(true);
 
     Owned<IClientDFUReadAccessResponse> dfuResp = dfuClient->DFUReadAccess(dfuReq);
 
@@ -61,6 +62,6 @@ bool WsDfuAccess_getMetaInfo(StringBuffer &metaInfoResult, const char *jobId, co
     if (excep->ordinality() > 0)
         throw LINK((IMultiException *)excep); // JCSMORE - const IException.. not caught in general..
 
-    metaInfoResult.append(dfuResp->getMetaInfoBlob());
+    metaInfoResult.append(dfuResp->getAccessInfo().getMetaInfoBlob());
     return true;
 }
