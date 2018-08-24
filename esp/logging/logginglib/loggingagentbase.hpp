@@ -51,7 +51,7 @@ static const char* sTransactionIdentifier = "TransactionIdentifier";
 
 class CTransIDBuilder : public CInterface, implements IInterface
 {
-    StringAttr seed;
+    StringAttr seed, seedType;
     bool localSeed;
     unsigned __int64 seq = 0;
 
@@ -76,8 +76,8 @@ class CTransIDBuilder : public CInterface, implements IInterface
 
 public:
     IMPLEMENT_IINTERFACE;
-    CTransIDBuilder(const char* _seed, bool _localSeed, unsigned _maxLength, unsigned _maxSeq, unsigned _seedExpiredSeconds)
-        : seed(_seed), localSeed(_localSeed), maxLength(_maxLength), maxSeq(_maxSeq), seedExpiredSeconds(_seedExpiredSeconds)
+    CTransIDBuilder(const char* _seed, bool _localSeed, const char* _seedType, unsigned _maxLength, unsigned _maxSeq, unsigned _seedExpiredSeconds)
+        : seed(_seed), localSeed(_localSeed), seedType(_seedType), maxLength(_maxLength), maxSeq(_maxSeq), seedExpiredSeconds(_seedExpiredSeconds)
     {
         CDateTime now;
         now.setNow();
@@ -97,11 +97,12 @@ public:
         return now.getSimple() < createTime + seedExpiredSeconds;
     };
     bool isLocalSeed() { return localSeed; };
-    void resetTransSeed(const char* newSeed)
+    void resetTransSeed(const char* newSeed, const char* newSeedType)
     {
-        if (isEmptyString(newSeed))
+    	if (isEmptyString(newSeed))
             throw MakeStringException(EspLoggingErrors::GetTransactionSeedFailed, "TransactionSeed cannot be empty.");
         seed.set(newSeed);
+        seedType.set(newSeedType);
         seq = 0;
 
         CDateTime now;
@@ -112,22 +113,17 @@ public:
     virtual const char* getTransSeed() { return seed.get(); };
     virtual void getTransID(StringAttrMapping* transIDFields, StringBuffer& id)
     {
-        id.clear();
-#define HARDCODE_SCAPPS_TRAN_ID
-#ifdef HARDCODE_SCAPPS_TRAN_ID
-        id.set(seed.get()).append('P').append(++seq);
-#else
+    	id.clear();
         if (transIDFields)
         {
             add(transIDFields, sTransactionDateTime, id);
             add(transIDFields, sTransactionMethod, id);
             add(transIDFields, sTransactionIdentifier, id);
         }
-        if (localSeed)
-            id.append(seed.get()).append("-X").append(++seq);
-        else
-            id.append(seed.get()).append('-').append(++seq);
-#endif
+        id.append(seed.get());
+        if (seedType.length())
+            id.append(seedType.get());
+        id.append(++seq);
     };
 };
 

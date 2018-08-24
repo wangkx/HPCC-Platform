@@ -36,6 +36,8 @@ class CESPServerLoggingAgent : public CInterface, implements IEspLogAgent
     CLogContentFilter logContentFilter;
     MapStringToMyClass<CTransIDBuilder> transIDMap;
     MapStringToMyClass<CLogSource> logSources;
+    StringAttr transactionSeedType;
+    StringAttr alternativeTransactionSeedType;
 
     bool sendHTTPRequest(StringBuffer& req, StringBuffer& resp, StringBuffer& status);
     int getTransactionSeed(const char* source, StringBuffer& transactionSeed, StringBuffer& statusMessage);
