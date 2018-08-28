@@ -720,7 +720,7 @@ StringBuffer& CHttpMessage::constructHeaderBuffer(StringBuffer& headerbuf, bool 
     return headerbuf;
 }
 
-void CHttpMessage::logMessage(const char* message, const char* prefix, const char* find, const char* replace)
+void CHttpMessage::logMessage(const char* message, const char* prefix, const char* find, const char* replace, const char* replaceBefore)
 {
     if (!message || !*message)
         return;
@@ -737,8 +737,32 @@ void CHttpMessage::logMessage(const char* message, const char* prefix, const cha
 
     RegExpr auth(find, true);
     StringBuffer messageToLog = message;
-    if (auth.find(messageToLog.str()))
-        auth.replace(replace, messageToLog.length() + strlen(replace) - strlen(find));
+    const char* findPtr = auth.find(messageToLog.str());
+    if (findPtr)
+    {
+        if (isEmptyString(replaceBefore))
+        {
+            messageToLog.replaceString(findPtr, replace);
+//            messageToLog.setLength(findPtr - messageToLog.str());
+  //          messageToLog.append(replace);
+        }
+        else
+        {
+            RegExpr regExpr(replaceBefore, true);
+            const char* findReplaceBefore = strstr(findPtr + strlen(find), replaceBefore);
+            if (!findReplaceBefore)
+                messageToLog.replaceString(findPtr, replace);
+            else
+            {
+                StringBuffer toReplace;
+                toReplace.append(findPtr, 0, findReplaceBefore - findPtr);
+                messageToLog.replaceString(toReplace, replace);
+                /*messageToLog.setLength(findPtr - messageToLog.str());
+                messageToLog.append(replace);
+                messageToLog.append(findReplaceBefore);*/
+            }
+        }
+    }
 
     if (prefix && *prefix)
         DBGLOG("%s%s", prefix, messageToLog.str());
@@ -778,10 +802,16 @@ void CHttpMessage::logMessage(MessageLogFlag messageLogFlag, const char *prefix)
             {
                 StringBuffer httpPath;
                 getPath(httpPath);
-                if (!strieq(httpPath.str(), "/esp/login"))
-                    logMessage(m_content.str(), prefix);
+                if (strieq(httpPath.str(), "/esp/login"))
+                    logMessage(m_content.str(), prefix, "password=", "password=(hidden)", "&");
+                else if (strnicmp(httpPath.str(), "/esp/unlock", 11) == 0)
+                    logMessage(m_content.str(), prefix, "password=", "password=(hidden)", "&");
                 else
-                    logMessage(m_content.str(), prefix, "password=*", "password=(hidden)");
+                    logMessage(m_content.str(), prefix);
+                //if (!strieq(httpPath.str(), "/esp/login"))
+                  //  logMessage(m_content.str(), prefix);
+                //else
+                  //  logMessage(m_content.str(), prefix, "password=*", "password=(hidden)");
             }
         }
     }

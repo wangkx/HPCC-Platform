@@ -120,7 +120,7 @@ public:
     const char *queryContent(){return m_content.str();}
     const char *queryHeader() { return m_header.str(); }
     void logSOAPMessage(const char* message, const char* prefix = NULL);
-    void logMessage(const char *message, const char *prefix = NULL, const char *find = NULL, const char *replace = NULL);
+    void logMessage(const char *message, const char *prefix = NULL, const char *find = NULL, const char *replace = NULL, const char *replaceBefore = NULL);
     void logMessage(MessageLogFlag logFlag, const char *prefix = NULL);
 
     virtual StringBuffer& getContent(StringBuffer& content);
