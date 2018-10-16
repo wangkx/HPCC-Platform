@@ -110,7 +110,7 @@ bool CLoggingManager::updateLog(IEspContext* espContext, const char* option, con
     {
         Owned<IEspUpdateLogRequestWrap> req =  new CUpdateLogRequestWrap(nullptr, option, logContent);
         Owned<IEspUpdateLogResponse> resp =  createUpdateLogResponse();
-        bRet = updateLog(espContext, *req, *resp, status);
+        bRet = updateLog(espContext, req, *resp, status);
     }
     catch (IException* e)
     {
@@ -133,7 +133,7 @@ bool CLoggingManager::updateLog(IEspContext* espContext, const char* option, IPr
     {
         Owned<IEspUpdateLogRequestWrap> req =  new CUpdateLogRequestWrap(nullptr, option, LINK(logInfo), LINK(extraLog));
         Owned<IEspUpdateLogResponse> resp =  createUpdateLogResponse();
-        bRet = updateLog(espContext, *req, *resp, status);
+        bRet = updateLog(espContext, req, *resp, status);
     }
     catch (IException* e)
     {
@@ -171,10 +171,10 @@ bool CLoggingManager::updateLog(IEspContext* espContext, const char* option, IPr
 
             espContextTree->addProp("ResponseTime", VStringBuffer("%.4f", (msTick()-espContext->queryCreationTime())/1000.0));
         }
-        Owned<IEspUpdateLogRequestWrap> req =  new CUpdateLogRequestWrap(nullptr, option, espContextTree.getClear(), LINK(userContext), LINK(userRequest),
+        Owned<IEspUpdateLogRequestWrap> req =  new CUpdateLogRequestWrap(nullptr, option, espContextTree.getLink(), LINK(userContext), LINK(userRequest),
             backEndResp, userResp, logDatasets);
         Owned<IEspUpdateLogResponse> resp =  createUpdateLogResponse();
-        bRet = updateLog(espContext, *req, *resp, status);
+        bRet = updateLog(espContext, req, *resp, status);
     }
     catch (IException* e)
     {
@@ -186,7 +186,7 @@ bool CLoggingManager::updateLog(IEspContext* espContext, const char* option, IPr
     return bRet;
 }
 
-bool CLoggingManager::updateLog(IEspContext* espContext, IEspUpdateLogRequestWrap& req, IEspUpdateLogResponse& resp, StringBuffer& status)
+bool CLoggingManager::updateLog(IEspContext* espContext, Owned<IEspUpdateLogRequestWrap>& req, IEspUpdateLogResponse& resp, StringBuffer& status)
 {
     bool bRet = updateLog(espContext, req, resp);
     if (bRet)
@@ -202,7 +202,7 @@ bool CLoggingManager::updateLog(IEspContext* espContext, IEspUpdateLogRequestWra
     return bRet;
 }
 
-bool CLoggingManager::updateLog(IEspContext* espContext, IEspUpdateLogRequestWrap& req, IEspUpdateLogResponse& resp)
+bool CLoggingManager::updateLog(IEspContext* espContext, Owned<IEspUpdateLogRequestWrap>& req, IEspUpdateLogResponse& resp)
 {
     if (!initialized)
         throw MakeStringException(-1,"LoggingManager not initialized");
@@ -212,13 +212,27 @@ bool CLoggingManager::updateLog(IEspContext* espContext, IEspUpdateLogRequestWra
     {
         if (espContext)
             espContext->addTraceSummaryTimeStamp(LogMin, "LMgr:startQLog");
-        for (unsigned int x = 0; x < loggingAgentThreads.size(); x++)
+
+        unsigned count = countAgentThreadHasService(LGSTUpdateLOG);
+        if (count > 0)
         {
-            IUpdateLogThread* loggingThread = loggingAgentThreads[x];
-            if (loggingThread->hasService(LGSTUpdateLOG))
+            IArrayOf<IEspUpdateLogRequestWrap> reqCopies;
+            while (count > 1)
             {
-                loggingThread->queueLog(&req);
-                bRet = true;
+                cloneUpdateLogRequest(req, reqCopies);
+                count--;
+            }
+            reqCopies.append(*req.getClear());
+
+            count = 0;
+            for (unsigned int x = 0; x < loggingAgentThreads.size(); x++)
+            {
+                IUpdateLogThread* loggingThread = loggingAgentThreads[x];
+                if (loggingThread->hasService(LGSTUpdateLOG))
+                {
+                    loggingThread->queueLog(&reqCopies.item(count++));
+                    bRet = true;
+                }
             }
         }
         if (espContext)
@@ -234,6 +248,51 @@ bool CLoggingManager::updateLog(IEspContext* espContext, IEspUpdateLogRequestWra
         e->Release();
     }
     return bRet;
+}
+
+unsigned CLoggingManager::countAgentThreadHasService(LOGServiceType service)
+{
+    unsigned count = 0;
+    for (unsigned int x = 0; x < loggingAgentThreads.size(); x++)
+    {
+        IUpdateLogThread* loggingThread = loggingAgentThreads[x];
+        if (loggingThread->hasService(service))
+            count++;
+    }
+    return count;
+}
+
+void CLoggingManager::cloneUpdateLogRequest(Owned<IEspUpdateLogRequestWrap>& req, IArrayOf<IEspUpdateLogRequestWrap>& reqCopies)
+{
+    Owned<IEspUpdateLogRequestWrap> reqCopy;
+    Owned<IPropertyTree> logRequestTree = req->getLogRequestTree();
+    if (logRequestTree)
+    {
+        reqCopy.setown(new CUpdateLogRequestWrap(req->getGUID(), req->getOption(), logRequestTree, req->getExtraLog()));
+        reqCopies.append(*reqCopy.getClear());
+        return;
+    }
+
+    const char* logContent = req->getUpdateLogRequest();
+    if (!isEmptyString(logContent))
+    {
+        reqCopy.setown(new CUpdateLogRequestWrap(req->getGUID(), req->getOption(), logContent));
+        reqCopies.append(*reqCopy.getClear());
+        return;
+    }
+
+    Owned<IPropertyTree> espContext = req->getESPContext();
+    Owned<IPropertyTree> userContext = req->getUserContext();
+    Owned<IPropertyTree> userRequest = req->getUserRequest();
+    const char* userResp = req->getUserResponse();
+    const char* logDatasets = req->getLogDatasets();
+    const char* backEndResp = req->getBackEndResponse();
+    if (!espContext && !userContext && !userRequest && isEmptyString(userResp) && isEmptyString(backEndResp))
+        throw MakeStringException(EspLoggingErrors::UpdateLogFailed, "Failed to read log content");
+
+    reqCopy.setown(new CUpdateLogRequestWrap(req->getGUID(), req->getOption(), LINK(espContext), LINK(userContext),
+        LINK(userRequest), backEndResp, userResp, logDatasets));
+    reqCopies.append(*reqCopy.getClear());
 }
 
 bool CLoggingManager::getTransactionSeed(StringBuffer& transactionSeed, StringBuffer& status)

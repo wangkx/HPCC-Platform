@@ -76,9 +76,11 @@ class CLoggingManager : implements ILoggingManager, public CInterface
     bool initialized;
 
     IEspLogAgent* loadLoggingAgent(const char* name, const char* dll, const char* type, IPropertyTree* cfg);
+    unsigned countAgentThreadHasService(LOGServiceType service);
+    void cloneUpdateLogRequest(Owned<IEspUpdateLogRequestWrap>& req, IArrayOf<IEspUpdateLogRequestWrap>& reqCopies);
     bool updateLogImpl(IEspUpdateLogRequestWrap& req, IEspUpdateLogResponse& resp);
 
-    bool updateLog(IEspContext* espContext, IEspUpdateLogRequestWrap& req, IEspUpdateLogResponse& resp, StringBuffer& status);
+    bool updateLog(IEspContext* espContext, Owned<IEspUpdateLogRequestWrap>& req, IEspUpdateLogResponse& resp, StringBuffer& status);
     bool updateLog(IEspContext* espContext, const char* option, IPropertyTree* userContext, IPropertyTree* userRequest,
         const char* backEndResp, const char* userResp, const char* logDatasets, StringBuffer& status);
     bool updateLog(IEspContext* espContext, const char* option, const char* logContent, StringBuffer& status);
@@ -93,7 +95,7 @@ public:
     virtual bool init(IPropertyTree* cfg, const char* service);
 
     virtual IEspLogEntry* createLogEntry();
-    virtual bool updateLog(IEspContext* espContext, IEspUpdateLogRequestWrap& req, IEspUpdateLogResponse& resp);
+    virtual bool updateLog(IEspContext* espContext, Owned<IEspUpdateLogRequestWrap>& req, IEspUpdateLogResponse& resp);
     virtual bool updateLog(IEspLogEntry* entry, StringBuffer& status);
     virtual bool getTransactionSeed(StringBuffer& transactionSeed, StringBuffer& status);
     virtual bool getTransactionSeed(IEspGetTransactionSeedRequest& req, IEspGetTransactionSeedResponse& resp);

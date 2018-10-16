@@ -55,7 +55,7 @@ interface ILoggingManager : implements IInterface
     virtual bool init(IPropertyTree* loggingConfig, const char* service) = 0;
     virtual IEspLogEntry* createLogEntry() = 0;
     virtual bool updateLog(IEspLogEntry* entry, StringBuffer& status) = 0;
-    virtual bool updateLog(IEspContext* espContext, IEspUpdateLogRequestWrap& req, IEspUpdateLogResponse& resp) = 0;
+    virtual bool updateLog(IEspContext* espContext, Owned<IEspUpdateLogRequestWrap>& req, IEspUpdateLogResponse& resp) = 0;
     virtual bool getTransactionSeed(StringBuffer& transactionSeed, StringBuffer& status) = 0;
     virtual bool getTransactionSeed(IEspGetTransactionSeedRequest& req, IEspGetTransactionSeedResponse& resp) = 0;
     virtual bool getTransactionID(StringAttrMapping* transFields, StringBuffer& transactionID, StringBuffer& status) = 0;
