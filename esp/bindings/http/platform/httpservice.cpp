@@ -1023,6 +1023,7 @@ EspAuthState CEspHttpServer::preCheckAuth(EspAuthRequest& authReq)
 {
     if (!isAuthRequiredForBinding(authReq))
     {
+        addCookie(SESSION_NO_AUTH_COOKIE, "true", 0, false);
         if (!authReq.httpMethod.isEmpty() && !authReq.serviceName.isEmpty() && !authReq.methodName.isEmpty()
             && strieq(authReq.httpMethod.str(), GET_METHOD) && strieq(authReq.serviceName.str(), "esp") && strieq(authReq.methodName.str(), "getauthtype"))
         {
@@ -1078,6 +1079,7 @@ EspAuthState CEspHttpServer::preCheckAuth(EspAuthRequest& authReq)
         return authSucceeded;
     }
 
+    clearCookie(SESSION_NO_AUTH_COOKIE);
     if (!m_apport->rootAuthRequired() && strieq(authReq.httpMethod.str(), GET_METHOD) &&
         ((authReq.stype == sub_serv_root) || (!authReq.serviceName.isEmpty() && strieq(authReq.serviceName.str(), "esp"))))
         return authSucceeded;
