@@ -1580,6 +1580,7 @@ int EsdlBindingImpl::onGetInstantQuery(IEspContext &context,
                     generateNamespace(context, request, srvdef->queryName(), mthdef->queryName(), ns);
 
                     getSchemaLocation(context, request, schemaLocation);
+                    context.setESDLBindingID(m_bindingId.get());
                     m_pESDLService->handleServiceRequest(context, *srvdef, *mthdef, tgtcfg, tgtctx, ns.str(), schemaLocation.str(), req_pt.get(), out, logdata, 0);
 
                     response->setContent(out.str());
@@ -1881,7 +1882,8 @@ int EsdlBindingImpl::HandleSoapRequest(CHttpRequest* request,
             generateNamespace(*ctx, request, srvdef->queryName(), mthdef->queryName(), ns);
             getSchemaLocation(*ctx, request, schemaLocation);
 
-             m_pESDLService->handleServiceRequest(*ctx, *srvdef, *mthdef, tgtcfg, tgtctx, ns.str(),
+            ctx->setESDLBindingID(m_bindingId.get());
+            m_pESDLService->handleServiceRequest(*ctx, *srvdef, *mthdef, tgtcfg, tgtctx, ns.str(),
                                        schemaLocation.str(), pt, baseout, logdata, 0);
 
             StringBuffer out;
@@ -2602,6 +2604,7 @@ void EsdlBindingImpl::handleJSONPost(CHttpRequest *request, CHttpResponse *respo
                         generateNamespace(*ctx, request, serviceName, methodName, ns);
                         getSchemaLocation(*ctx, request, schemaLocation);
 
+                        ctx->setESDLBindingID(m_bindingId.get());
                         m_pESDLService->handleServiceRequest(*ctx, *srvdef, *mthdef, tgtcfg, tgtctx, ns.str(), schemaLocation.str(), reqTree.get(), jsonresp, logdata, ESDL_BINDING_RESPONSE_JSON);
 
                         jsonresp.append("}");
