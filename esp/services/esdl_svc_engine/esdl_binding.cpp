@@ -889,6 +889,52 @@ void EsdlServiceImpl::handleFinalRequest(IEspContext &context,
                    "No target URL configured for %s!", mthdef.queryMethodName());
     }
 
+    try
+    {
+        Owned<IPTree> responseTree = createPTreeFromXMLString(out);
+        auto responseResult = responseTree->queryBranch("//Results/Result");
+
+        if (responseResult)
+        {
+            auto replaceTag = [](StringBuffer& xml, const char* tag, const char* var)
+            {
+                VStringBuffer replaceThis("<%s>", tag);
+                VStringBuffer withThat("<%s name=\"%s\">", var, tag);
+
+                xml.replaceString(replaceThis, withThat);
+
+                replaceThis.insert(1, '/');
+                withThat.setLength(strlen(var) + 1);
+                withThat.insert(1, '/');
+                withThat.append('>');
+
+                xml.replaceString(replaceThis, withThat);
+            };
+
+            if (isroxie && tgtcfg->hasProp("@queryname"))
+                replaceTag(soapmsg, tgtcfg->queryProp("@queryname"), "roxiequery");
+            replaceTag(soapmsg, mthdef.queryRequestType(), "esprequest");
+            soapmsg.replaceString("xsdl:", "xsdl_");
+
+            Owned<IPTree> requestTree = createPTreeFromXMLString(soapmsg);
+            auto bodyTree = requestTree->queryBranch("soap:Body");
+
+            if (bodyTree)
+            {
+                auto dsTree = responseResult->addPropTree("Dataset");
+                auto rowTree = dsTree->addPropTree("Row", LINK(bodyTree));
+
+                dsTree->addProp("@name", "DESDLRequestEcho");
+                toXML(responseTree, out.clear());
+                DBGLOG("%s", out.str());
+            }
+        }
+    }
+    catch (...)
+    {
+        ESPLOG(LogMax, "Unable to echo request to response");
+    }
+
     processResponse(context,srvdef,mthdef,ns,out);
 }
 
