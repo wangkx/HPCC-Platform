@@ -913,7 +913,7 @@ void EsdlServiceImpl::handleFinalRequest(IEspContext &context,
 
     try
     {
-        Owned<IPTree> responseTree = createPTreeFromXMLString(out);
+        Owned<IPTree> responseTree = createPTreeFromXMLString(out, ipt_ordered);
         auto responseResult = responseTree->queryBranch("//Results/Result");
 
         if (responseResult)
@@ -938,7 +938,7 @@ void EsdlServiceImpl::handleFinalRequest(IEspContext &context,
             replaceTag(soapmsg, mthdef.queryRequestType(), "esprequest");
             soapmsg.replaceString("xsdl:", "xsdl_");
 
-            Owned<IPTree> requestTree = createPTreeFromXMLString(soapmsg);
+            Owned<IPTree> requestTree = createPTreeFromXMLString(soapmsg, ipt_ordered);
             auto bodyTree = requestTree->queryBranch("soap:Body");
 
             if (bodyTree)
@@ -948,7 +948,6 @@ void EsdlServiceImpl::handleFinalRequest(IEspContext &context,
 
                 dsTree->addProp("@name", "DESDLRequestEcho");
                 toXML(responseTree, out.clear());
-                DBGLOG("%s", out.str());
             }
         }
     }
