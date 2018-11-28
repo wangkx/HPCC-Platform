@@ -946,7 +946,7 @@ void EsdlServiceImpl::handleFinalRequest(IEspContext &context,
                 auto dsTree = responseResult->addPropTree("Dataset");
                 auto rowTree = dsTree->addPropTree("Row", LINK(bodyTree));
 
-                dsTree->addProp("@name", "DESDLRequestEcho");
+                dsTree->addProp("@name", "DesdlSoapRequestEcho");
                 toXML(responseTree, out.clear());
             }
         }
