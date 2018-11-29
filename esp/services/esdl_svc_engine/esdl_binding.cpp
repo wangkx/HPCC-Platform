@@ -889,49 +889,96 @@ void EsdlServiceImpl::handleFinalRequest(IEspContext &context,
                    "No target URL configured for %s!", mthdef.queryMethodName());
     }
 
-    try
-    {
-        Owned<IPTree> responseTree = createPTreeFromXMLString(out, ipt_ordered);
-        auto responseResult = responseTree->queryBranch("//Results/Result");
+    auto echoInsertionPoint = strstr(out, "</Result></Results>");
 
-        if (responseResult)
+    if (echoInsertionPoint)
+    {
+        try
         {
-            auto replaceTag = [](StringBuffer& xml, const char* tag, const char* var)
+            auto queryname = (isroxie ? tgtcfg->queryProp("@queryname") : nullptr);
+            auto requestname = mthdef.queryRequestType();
+            const char* qname = nullptr;
+            const char* content = nullptr;
+            StringBuffer encodedContent;
+            StringBuffer tmpOut;
+
+            XmlPullParser xpp(soapmsg.str(), soapmsg.length());
+            StartTag stag;
+            EndTag etag;
+            int type = XmlPullParser::END_DOCUMENT;
+
+            tmpOut.ensureCapacity(out.length() + soapmsg.length());
+            tmpOut.append(echoInsertionPoint - out.str(), out);
+            xpp.setSupportNamespaces(false); // parser throws exceptions when it encounters undefined namespace prefixes, such as CRT's 'xsdl'
+            while ((type = xpp.next()) != XmlPullParser::END_DOCUMENT)
             {
-                VStringBuffer replaceThis("<%s>", tag);
-                VStringBuffer withThat("<%s name=\"%s\">", var, tag);
+                switch (type)
+                {
+                case XmlPullParser::START_TAG:
+                    xpp.readStartTag(stag);
+                    qname = stag.getQName();
+                    if (strcmp(qname, "soap:Envelope") == 0)
+                        tmpOut << "<Dataset name=\"DesdlSoapRequestEcho\">";
+                    else if (strcmp(qname, "soap:Body") == 0)
+                        tmpOut << "<Row>";
+                    else if (queryname && strcmp(qname, queryname) == 0)
+                        tmpOut << "<roxierequest name=\"" << queryname << "\">";
+                    else if (strcmp(qname, requestname) == 0)
+                        tmpOut << "<esprequest name=\"" << requestname << "\">";
+                    else
+                    {
+                        tmpOut << '<';
+                        if (strncmp(qname, "xsdl:", 5) == 0)
+                            tmpOut << "xsdl_" << qname + 5; // eliminate problematic namespace prefix
+                        else
+                            tmpOut << qname;
+                        for (int idx = 0; idx < stag.getLength(); idx++)
+                        {
+                            encodeXML(stag.getValue(idx), encodedContent.clear());
+                            tmpOut << ' ' << stag.getRawName(idx) << "=\"" << encodedContent << '"';
+                        }
+                        tmpOut << '>';
+                    }
+                    break;
 
-                xml.replaceString(replaceThis, withThat);
+                case XmlPullParser::END_TAG:
+                    xpp.readEndTag(etag);
+                    qname = etag.getQName();
+                    if (strcmp(qname, "soap:Envelope") == 0)
+                        tmpOut << "</Dataset>";
+                    else if (strcmp(qname, "soap:Body") == 0)
+                        tmpOut << "</Row>";
+                    else if (queryname && strcmp(qname, queryname) == 0)
+                        tmpOut << "</roxierequest>";
+                    else if (strcmp(qname, requestname) == 0)
+                        tmpOut << "</esprequest>";
+                    else if (strncmp(qname, "xsdl:", 5) == 0)
+                        tmpOut << "</xsdl_" << qname + 5 << '>'; // eliminate problematic namespace prefix
+                    else
+                        tmpOut << "</" << qname << '>';
+                    break;
 
-                replaceThis.insert(1, '/');
-                withThat.setLength(strlen(var) + 1);
-                withThat.insert(1, '/');
-                withThat.append('>');
-
-                xml.replaceString(replaceThis, withThat);
-            };
-
-            if (isroxie && tgtcfg->hasProp("@queryname"))
-                replaceTag(soapmsg, tgtcfg->queryProp("@queryname"), "roxiequery");
-            replaceTag(soapmsg, mthdef.queryRequestType(), "esprequest");
-            soapmsg.replaceString("xsdl:", "xsdl_");
-
-            Owned<IPTree> requestTree = createPTreeFromXMLString(soapmsg, ipt_ordered);
-            auto bodyTree = requestTree->queryBranch("soap:Body");
-
-            if (bodyTree)
-            {
-                auto dsTree = responseResult->addPropTree("Dataset");
-                auto rowTree = dsTree->addPropTree("Row", LINK(bodyTree));
-
-                dsTree->addProp("@name", "DesdlSoapRequestEcho");
-                toXML(responseTree, out.clear());
+                case XmlPullParser::CONTENT:
+                    content = xpp.readContent();
+                    if (!isEmptyString(content))
+                    {
+                        encodeXML(content, encodedContent.clear());
+                        tmpOut << encodedContent;
+                    }
+                    break;
+                }
             }
+            tmpOut.append(echoInsertionPoint);
+            out.swapWith(tmpOut);
         }
-    }
-    catch (...)
-    {
-        ESPLOG(LogMax, "Unable to echo request to response");
+        catch (XmlPullParserException& xppe)
+        {
+            ERRLOG("Unable to echo transformed request to response: %s", xppe.what());
+        }
+        catch (...)
+        {
+            ERRLOG("Unable to echo transformed request to response");
+        }
     }
 
     processResponse(context,srvdef,mthdef,ns,out);
