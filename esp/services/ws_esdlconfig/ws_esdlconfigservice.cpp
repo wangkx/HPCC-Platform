@@ -139,7 +139,7 @@ IPropertyTree * fetchConfigInfo(const char * config,
     }
     else
     {
-        Owned<IPropertyTree>  configTree = createPTreeFromXMLString(config, ipt_caseInsensitive);
+        Owned<IPropertyTree>  configTree = createPTreeFromXMLString(config, ipt_caseInsensitive | ipt_ordered);
         //Now let's figure out the structure of the configuration passed in...
 
         StringBuffer rootname;
@@ -977,9 +977,7 @@ bool CWsESDLConfigEx::onConfigureESDLBindingLogTransform(IEspContext &context, I
         const char* logTransformName = req.getLogTransformName();
         StringBuffer espProcName;
         StringBuffer espBindingName;
-        StringBuffer espPort;
         StringBuffer esdlServiceName;
-        StringBuffer espServiceName;
         StringBuffer esdlDefIdSTR;
         StringBuffer config(req.getConfig());
         if (config.isEmpty())
@@ -989,9 +987,9 @@ bool CWsESDLConfigEx::onConfigureESDLBindingLogTransform(IEspContext &context, I
         Owned<IPropertyTree> bindingtree = m_esdlStore->getBindingTree(bindingId, msg);
         if(!bindingtree)
             throw MakeStringException(-1, "Can't find esdl binding for id %s", bindingId);
+
         bindingtree->getProp("@espprocess", espProcName);
         bindingtree->getProp("@espbinding", espBindingName);
-        bindingtree->getProp("@port", espPort);
         bindingtree->getProp("Definition[1]/@esdlservice", esdlServiceName);
         bindingtree->getProp("Definition[1]/@id", esdlDefIdSTR);
 
@@ -999,20 +997,18 @@ bool CWsESDLConfigEx::onConfigureESDLBindingLogTransform(IEspContext &context, I
         if (!logTransformTree || logTransformTree->getCount("LogTransform") <= 0)
             throw MakeStringException(-1, "Could not find any LogTransform configuration entries.");
 
-        bool override = req.getOverwrite();
-
-        StringBuffer esdlDefinitionName;
-        int esdlver = 0;
         const char *esdlDefId = esdlDefIdSTR.str();
         if (isEmptyString(esdlDefId))
             throw MakeStringException(-1, "Can't find esdl definition for binding %s", bindingId);
 
+        StringBuffer esdlDefinitionName;
         while (esdlDefId && *esdlDefId != '.')
             esdlDefinitionName.append(*esdlDefId++);
 
         if (isEmptyString(esdlDefId))
             throw MakeStringException(-1, "Invalid ESDL Definition ID format detected: '%s'. Expected format: <esdldefname>.<ver>", esdlDefIdSTR.str());
 
+        int esdlver = 0;
         esdlDefId++;
         if (esdlDefId)
             esdlver = atoi(esdlDefId);
@@ -1020,6 +1016,7 @@ bool CWsESDLConfigEx::onConfigureESDLBindingLogTransform(IEspContext &context, I
         if (esdlver <= 0)
             throw MakeStringException(-1, "Invalid ESDL Definition version detected: %d", esdlver);
 
+        bool override = req.getOverwrite();
         if (m_esdlStore->definitionExists(esdlDefIdSTR.str()))
         {
             StringBuffer logTransformXPath;

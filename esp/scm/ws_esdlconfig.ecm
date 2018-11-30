@@ -218,7 +218,6 @@ ESPrequest [nil_remove] ConfigureESDLBindingLogTransformRequest
                    //              or  <Definition name=xx id=xx.yy><LogTransforms><LogTransform>...
                    //              or  <LogTransforms><LogTransform>....
                    //<LogTransforms><LogTransform name="name">...</LogTransform><LogTransforms>
-    ///ESPStruct LogTransformConfig LogTransformStructure;
     boolean EchoBinding;
 };
 
