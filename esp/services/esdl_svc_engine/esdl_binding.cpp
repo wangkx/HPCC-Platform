@@ -1905,8 +1905,7 @@ int EsdlBindingImpl::HandleSoapRequest(CHttpRequest* request,
             getSchemaLocation(*ctx, request, schemaLocation);
 
             ctx->setESDLBindingID(m_bindingId.get());
-            m_pESDLService->handleServiceRequest(*ctx, *srvdef, *mthdef, tgtcfg, tgtctx, ns.str(),
-                                       schemaLocation.str(), pt, baseout, logdata, 0);
+            m_pESDLService->handleServiceRequest(*ctx, *srvdef, *mthdef, tgtcfg, tgtctx, ns.str(), schemaLocation.str(), pt, baseout, logdata, 0);
 
             StringBuffer out;
             out.append(

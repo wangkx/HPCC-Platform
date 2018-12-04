@@ -139,7 +139,11 @@ IPropertyTree * fetchConfigInfo(const char * config,
     }
     else
     {
+        DBGLOG("@@@@1'%s'", config);
         Owned<IPropertyTree>  configTree = createPTreeFromXMLString(config, ipt_caseInsensitive | ipt_ordered);
+        StringBuffer testStr;
+        toXML(configTree, testStr);
+        DBGLOG("@@@@2'%s'", testStr.str());
         //Now let's figure out the structure of the configuration passed in...
 
         StringBuffer rootname;
@@ -160,7 +164,7 @@ IPropertyTree * fetchConfigInfo(const char * config,
         if (deftree)
             retTree = deftree->getBranch(treeName.get());
 
-        if (!retTree) //if we didn't already find the methods section of the config, let's look at the root
+        if (!retTree) //if we didn't already find the methods or log-transforms section of the config, let's look at the root
         {
             if (stricmp(rootname.str(), treeName.get()) == 0)
                 retTree = configTree.getLink();
@@ -975,13 +979,28 @@ bool CWsESDLConfigEx::onConfigureESDLBindingLogTransform(IEspContext &context, I
 
         const char* bindingId = req.getEsdlBindingId();
         const char* logTransformName = req.getLogTransformName();
+        if (isEmptyString(logTransformName))
+            throw MakeStringException(-1, "LogTransformName not defined");
+
+        const char* logTransform = req.getConfig();
+        if (isEmptyString(logTransform))
+            throw MakeStringException(-1, "Config not defined.");
+
         StringBuffer espProcName;
         StringBuffer espBindingName;
         StringBuffer esdlServiceName;
         StringBuffer esdlDefIdSTR;
-        StringBuffer config(req.getConfig());
-        if (config.isEmpty())
-            throw MakeStringException(-1, "Config not defined.");
+        StringBuffer config;
+        if (strncmp(logTransform, "<LogTransforms>", 15) == 0)
+            config.set(logTransform);
+        else
+        {
+            StringBuffer encodedLogTransform;
+            encodeXML(logTransform, encodedLogTransform);
+            config.appendf("<LogTransforms><LogTransform name='%s'>", logTransformName);
+            config.append(encodedLogTransform.str());
+            config.append("</LogTransform></LogTransforms>");
+        }
 
         StringBuffer msg;
         Owned<IPropertyTree> bindingtree = m_esdlStore->getBindingTree(bindingId, msg);
@@ -1016,23 +1035,26 @@ bool CWsESDLConfigEx::onConfigureESDLBindingLogTransform(IEspContext &context, I
         if (esdlver <= 0)
             throw MakeStringException(-1, "Invalid ESDL Definition version detected: %d", esdlver);
 
+        if (!m_esdlStore->definitionExists(esdlDefIdSTR.str()))
+            throw MakeStringException(-1, "Invalid ESDL Definition: %s", esdlDefIdSTR.str());
+
         bool override = req.getOverwrite();
-        if (m_esdlStore->definitionExists(esdlDefIdSTR.str()))
+        StringBuffer status;
+        StringBuffer logTransformXPath;
+        if (!isEmptyString(logTransformName))
+            logTransformXPath.appendf("LogTransform[@name='%s']", logTransformName);
+        else
+            logTransformXPath.append("LogTransform");
+        Owned<IPropertyTreeIterator> iter = logTransformTree->getElements(logTransformXPath.str());
+        ForEach(*iter)
         {
-            StringBuffer logTransformXPath;
-            if (!isEmptyString(logTransformName))
-                logTransformXPath.appendf("LogTransform[@name='%s']", logTransformName);
-            else
-                logTransformXPath.append("LogTransform");
-            Owned<IPropertyTreeIterator> iter = logTransformTree->getElements(logTransformXPath.str());
-            ForEach(*iter)
-            {
-                IPropertyTree &item = iter->query();
-                StringBuffer msg;
-                success = m_esdlStore->configureLogTransform(bindingId, logTransformName, LINK(&item), override, msg);
-                resp.updateStatus().setDescription(msg.str());
-            }
+            IPropertyTree &item = iter->query();
+            const char* ltName = item.queryProp("@name");
+            StringBuffer msg;
+            success = m_esdlStore->configureLogTransform(bindingId, logTransformName, LINK(&item), override, msg);
+            status.appendf("%s: %s; ", ltName, msg.str());
         }
+        resp.updateStatus().setDescription(status.str());
 
         resp.setEspProcName(espProcName.str());
         resp.setEspBindingName(espBindingName.str());

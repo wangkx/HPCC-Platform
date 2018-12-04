@@ -456,7 +456,12 @@ public:
         }
         catch (ISDSException * e)
         {
-            message.setf("Unable to operate on Dali path: %s", rxpath.str());
+            StringBuffer msg;
+            e->errorMessage(msg);
+            if (msg.isEmpty())
+                message.setf("Unable to operate on Dali path: %s", rxpath.str());
+            else
+                message.setf("Unable to operate on Dali path: %s. %s", rxpath.str(), msg.str());
             e->Release();
             return -1;
         }

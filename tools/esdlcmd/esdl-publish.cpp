@@ -1132,12 +1132,12 @@ public:
     void usage()
     {
         printf( "\nUsage:\n\n"
-                "esdl bind-log-transform <TargetESDLBindingID> <TargetLogTransformName> [command options]\n\n"
+                "esdl bind-log-transform <TargetESDLBindingID> <TargetLogTransformName> --config <file|xml> [command options]\n\n"
                 "   TargetESDLBindingID                              The id of the target ESDL binding (must exist in dali)\n"
-                "   TargetLogTransformName                                 The name of the target LogTransform (must exist in the service ESDL definition)\n"
+                "   TargetLogTransformName                           The name of the target LogTransform (must exist in the service ESDL definition)\n"
+                "   --config <file|xml>                              Configuration XML for all LogTransforms associated with the target Service\n"
 
                 "\nOptions (use option flag followed by appropriate value):\n"
-                "   --config <file|xml>                              Configuration XML for all LogTransforms associated with the target Service\n"
                 "   --overwrite                                      Overwrite binding if it already exists\n");
 
                 EsdlPublishCmdCommon::usage();
@@ -1165,7 +1165,7 @@ public:
             return false;
         }
 
-        //First 5 parameter order is fixed.
+        //First 2 parameter order is fixed.
         for (int cur = 0; cur < 2 && !iter.done(); cur++)
         {
            const char *arg = iter.query();
@@ -1256,7 +1256,7 @@ public:
         const char * currentconfig = getresp->getConfigXML();
         if (currentconfig && *currentconfig)
         {
-            Owned<IPropertyTree> currconfigtree = createPTreeFromXMLString(currentconfig);
+            Owned<IPropertyTree> currconfigtree = createPTreeFromXMLString(currentconfig, ipt_caseInsensitive | ipt_ordered);
             if (currconfigtree)
             {
                 VStringBuffer xpath("Definition[1]/LogTransforms/LogTransform[@name='%s']", optLogTransform.get());
@@ -1335,7 +1335,7 @@ public:
             return false;
         }
 
-        //First 4 parameter order is fixed.
+        //First 2 parameter order is fixed.
         for (int cur = 0; cur < 2 && !iter.done(); cur++)
         {
            const char *arg = iter.query();
