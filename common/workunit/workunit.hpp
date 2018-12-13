@@ -1585,7 +1585,7 @@ extern WORKUNIT_API void setWorkUnitFactory(IWorkUnitFactory *_factory);
 extern WORKUNIT_API IWorkUnitFactory * getWorkUnitFactory();
 extern WORKUNIT_API IWorkUnitFactory * getWorkUnitFactory(ISecManager *secmgr, ISecUser *secuser);
 extern WORKUNIT_API ILocalWorkUnit* createLocalWorkUnit(const char *XML);
-extern WORKUNIT_API IConstWorkUnitInfo *createConstWorkUnitInfo(IPropertyTree &p);
+extern WORKUNIT_API IConstWorkUnitInfo *createConstWorkUnitInfo(IPropertyTree &p, IPropertyTree *workUnitAbortsPTree);
 extern WORKUNIT_API StringBuffer &exportWorkUnitToXML(const IConstWorkUnit *wu, StringBuffer &str, bool unpack, bool includeProgress, bool hidePasswords);
 extern WORKUNIT_API void exportWorkUnitToXMLFile(const IConstWorkUnit *wu, const char * filename, unsigned extraXmlFlags, bool unpack, bool includeProgress, bool hidePasswords, bool splitStats);
 extern WORKUNIT_API void submitWorkUnit(const char *wuid, const char *username, const char *password);
@@ -1631,7 +1631,7 @@ extern WORKUNIT_API IPropertyTree * resolveDefinitionInArchive(IPropertyTree * a
 inline bool isLibrary(IConstWorkUnit * wu) { return wu->getApplicationValueInt("LibraryModule", "interfaceHash", 0) != 0; }
 extern WORKUNIT_API bool looksLikeAWuid(const char * wuid, const char firstChar);
 
-extern WORKUNIT_API IConstWorkUnitIterator *createSecureConstWUIterator(IPropertyTreeIterator *iter, ISecManager *secmgr, ISecUser *secuser);
+extern WORKUNIT_API IConstWorkUnitIterator *createSecureConstWUIterator(IPropertyTreeIterator *iter, IPropertyTree *workUnitAbortsPTree, ISecManager *secmgr, ISecUser *secuser);
 extern WORKUNIT_API IConstWorkUnitIterator *createSecureConstWUIterator(IConstWorkUnitIterator *iter, ISecManager *secmgr, ISecUser *secuser);
 
 enum WUQueryActivationOptions

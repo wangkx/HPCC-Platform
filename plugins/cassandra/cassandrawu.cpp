@@ -1841,7 +1841,7 @@ public:
             }
             if (!postFiltered)
             {
-                current.setown(createConstWorkUnitInfo(*wuXML));
+                current.setown(createConstWorkUnitInfo(*wuXML, nullptr));
                 lastThorTime.set(wuXML->queryProp("@totalThorTime"));
                 rowNum++;
                 return true;
@@ -2140,7 +2140,7 @@ public:
             }
             if (!postFiltered)
             {
-                current.setown(createConstWorkUnitInfo(*wuXML));
+                current.setown(createConstWorkUnitInfo(*wuXML, nullptr));
                 ForEachItemIn(idx2, inputs)
                 {
                     if (!inputs.item(idx2).nextRow())

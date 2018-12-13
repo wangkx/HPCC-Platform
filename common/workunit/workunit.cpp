@@ -3119,8 +3119,39 @@ WUAction getWorkunitAction(const char *actionStr)
 
 class CLightweightWorkunitInfo : public CInterfaceOf<IConstWorkUnitInfo>
 {
+    bool aborting(const char *wuid, IPropertyTree *workUnitAbortsPTree)
+    {
+        if (!workUnitAbortsPTree)
+            return false;
+
+        IPropertyTree *wu = workUnitAbortsPTree->queryPropTree(wuid);
+        if (!wu)
+            return false;
+
+        return wu->getPropInt(NULL) != 0;;
+    }
+
+    WUState checkAbortWUState(const char *wuid, IPropertyTree *workUnitAbortsPTree, WUState &state)
+    {
+        switch (state)
+        {
+        case WUStateRunning:
+        case WUStateDebugPaused:
+        case WUStateDebugRunning:
+        case WUStateBlocked:
+        case WUStateCompiling:
+            if (aborting(wuid, workUnitAbortsPTree))
+                state = WUStateAborting;
+            break;
+        case WUStateSubmitted:
+            if (aborting(wuid, workUnitAbortsPTree))
+                state = WUStateAborted;
+            break;
+        }
+        return state;
+    }
 public:
-    CLightweightWorkunitInfo(IPropertyTree &p)
+    CLightweightWorkunitInfo(IPropertyTree &p, IPropertyTree *workUnitAbortsPTree)
     {
         wuid.set(p.queryName());
         user.set(p.queryProp("@submitID"));
@@ -3128,6 +3159,7 @@ public:
         clusterName.set(p.queryProp("@clusterName"));
         timeScheduled.set(p.queryProp("@timeScheduled"));
         state = (WUState) getEnum(&p, "@state", states);
+        state = checkAbortWUState(wuid.get(), workUnitAbortsPTree, state);
         action = (WUAction) getEnum(&p, "Action", actions);
         priority = (WUPriorityClass) getEnum(&p, "@priorityClass", priorityClasses);
         priorityLevel = calcPriorityValue(&p);
@@ -3169,9 +3201,9 @@ protected:
     bool _isProtected;
 };
 
-extern IConstWorkUnitInfo *createConstWorkUnitInfo(IPropertyTree &p)
+extern IConstWorkUnitInfo *createConstWorkUnitInfo(IPropertyTree &p, IPropertyTree *workUnitAbortsPTree)
 {
-    return new CLightweightWorkunitInfo(p);
+    return new CLightweightWorkunitInfo(p, workUnitAbortsPTree);
 }
 
 class CDaliWuGraphStats : public CWuGraphStats
@@ -4179,14 +4211,16 @@ class CConstWUArrayIterator : implements IConstWorkUnitIterator, public CInterfa
     unsigned curTreeNum;
     IArrayOf<IPropertyTree> trees;
     Owned<IConstWorkUnitInfo> cur;
+    Owned<IPropertyTree> workUnitAbortsPTree;
 
     void setCurrent()
     {
-        cur.setown(new CLightweightWorkunitInfo(trees.item(curTreeNum)));
+        cur.setown(new CLightweightWorkunitInfo(trees.item(curTreeNum), workUnitAbortsPTree));
     }
 public:
     IMPLEMENT_IINTERFACE;
-    CConstWUArrayIterator(IArrayOf<IPropertyTree> &_trees)
+    CConstWUArrayIterator(IArrayOf<IPropertyTree> &_trees, IPropertyTree *_workUnitAbortsPTree)
+        : workUnitAbortsPTree(_workUnitAbortsPTree)
     {
         ForEachItemIn(t, _trees)
             trees.append(*LINK(&_trees.item(t)));
@@ -4442,8 +4476,8 @@ class CConstWUIterator : implements IConstWorkUnitIterator, public CInterface
 {
 public:
     IMPLEMENT_IINTERFACE;
-    CConstWUIterator(IPropertyTreeIterator *_ptreeIter)
-        : ptreeIter(_ptreeIter)
+    CConstWUIterator(IPropertyTreeIterator *_ptreeIter, IPropertyTree *_workUnitAbortsPTree)
+        : ptreeIter(_ptreeIter), workUnitAbortsPTree(_workUnitAbortsPTree)
     {
     }
     bool first()
@@ -4453,7 +4487,7 @@ public:
             cur.clear();
             return false;
         }
-        cur.setown(new CLightweightWorkunitInfo(ptreeIter->query()));
+        cur.setown(new CLightweightWorkunitInfo(ptreeIter->query(), workUnitAbortsPTree));
         return true;
     }
     bool isValid()
@@ -4467,13 +4501,14 @@ public:
             cur.clear();
             return false;
         }
-        cur.setown(new CLightweightWorkunitInfo(ptreeIter->query()));
+        cur.setown(new CLightweightWorkunitInfo(ptreeIter->query(), workUnitAbortsPTree));
         return true;
     }
     IConstWorkUnitInfo & query() { return *cur; }
 private:
     Owned<IConstWorkUnitInfo> cur;
     Owned<IPropertyTreeIterator> ptreeIter;
+    Owned<IPropertyTree> workUnitAbortsPTree;
 
 };
 
@@ -5435,7 +5470,9 @@ public:
         IArrayOf<IPropertyTree> results;
         Owned<IElementsPager> elementsPager = new CWorkUnitsPager(query.str(), orFilter.getClear(), so.length()?so.str():NULL, namefilterlo.get(), namefilterhi.get(), unknownAttributes);
         Owned<IRemoteConnection> conn=getElementsPaged(elementsPager,startoffset,maxnum,secmgr?sc:NULL,"",cachehint,results,total,NULL);
-        return new CConstWUArrayIterator(results);
+
+        Owned<IRemoteConnection> conWorkUnitAborts = querySDS().connect("/WorkUnitAborts/", myProcessSession(), 0, SDS_LOCK_TIMEOUT);
+        return new CConstWUArrayIterator(results, conWorkUnitAborts ? conWorkUnitAborts->queryRoot() : nullptr);
     }
 
     virtual WUState waitForWorkUnit(const char * wuid, unsigned timeout, bool compiled, bool returnOnWaitState)
@@ -5579,7 +5616,7 @@ protected:
             Owned<IPropertyTreeIterator> iter(queryDaliServerVersion().compare(serverVersionNeeded) < 0 ?
                 conn->queryRoot()->getElements(xpath) :
                 conn->getElements(xpath));
-            return createSecureConstWUIterator(iter.getClear(), secmgr, secuser);
+            return createSecureConstWUIterator(iter.getClear(), nullptr, secmgr, secuser);
         }
         else
             return NULL;
@@ -5597,12 +5634,12 @@ extern WORKUNIT_API IConstWorkUnitIterator *createSecureConstWUIterator(IConstWo
         return iter;
 }
 
-extern WORKUNIT_API IConstWorkUnitIterator *createSecureConstWUIterator(IPropertyTreeIterator *iter, ISecManager *secmgr, ISecUser *secuser)
+extern WORKUNIT_API IConstWorkUnitIterator *createSecureConstWUIterator(IPropertyTreeIterator *iter, IPropertyTree *workUnitAbortsPTree, ISecManager *secmgr, ISecUser *secuser)
 {
     if (secmgr)
-        return new CSecureConstWUIterator(new CConstWUIterator(iter), secmgr, secuser);
+        return new CSecureConstWUIterator(new CConstWUIterator(iter, workUnitAbortsPTree), secmgr, secuser);
     else
-        return new CConstWUIterator(iter);
+        return new CConstWUIterator(iter, workUnitAbortsPTree);
 }
 
 
