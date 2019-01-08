@@ -109,7 +109,13 @@ public:
     {
         ReadLockBlock rblock(m_rwlock);
         if (m_xpathContext)
-            return (const char *)xmlXPathCastToString(xmlXPathVariableLookup(m_xpathContext, (const xmlChar *)name));
+        {
+            StringAttr v;
+            xmlXPathObjectPtr ptr = xmlXPathVariableLookup(m_xpathContext, (const xmlChar *)name);
+            v.set((const char *) ptr->stringval);
+            xmlXPathFreeObject(ptr);
+            return v.get();
+        }
         else
             return nullptr;
     }
