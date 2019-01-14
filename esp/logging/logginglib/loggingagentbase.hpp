@@ -276,6 +276,7 @@ class LOGGINGCOMMON_API CLogContentFilter : public CInterface
     void filterAndAddLogContentBranch(StringArray& branchNamesInFilter, unsigned idx, StringArray& branchNamesInLogContent,
         IPropertyTree* in, IPropertyTree* updateLogRequestTree, bool& logContentEmpty);
     void addLogContentBranch(StringArray& branchNames, IPropertyTree* contentToLogBranch, IPropertyTree* updateLogRequestTree);
+    void removeXMLNSAttributes(IPropertyTree* tree);
 public:
     IMPLEMENT_IINTERFACE;
 

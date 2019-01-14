@@ -143,6 +143,17 @@ void CLogContentFilter::filterLogContentTree(StringArray& filters, IPropertyTree
     }
 }
 
+void CLogContentFilter::removeXMLNSAttributes(IPropertyTree* tree)
+{
+    Owned<IAttributeIterator> attrs = tree->getAttributes();
+    ForEach(*attrs)
+    {
+        const char* aName = attrs->queryName();
+        if (strnicmp(aName, "@xmlns:", 7) == 0)
+            tree->removeProp(aName);
+    }
+}
+
 IEspUpdateLogRequestWrap* CLogContentFilter::filterLogContent(IEspUpdateLogRequestWrap* req)
 {
     const char* logContent = req->getUpdateLogRequest();
@@ -193,7 +204,8 @@ IEspUpdateLogRequestWrap* CLogContentFilter::filterLogContent(IEspUpdateLogReque
             if (userResp && *userResp)
             {
                 IPropertyTree* pTree = ensurePTree(logContentTree, espLogContentGroupNames[ESPLCGUserResp]);
-                Owned<IPropertyTree> userRespTree = createPTreeFromXMLString(userResp);
+                Owned<IPropertyTree> userRespTree = createPTreeFromXMLString(userResp, ipt_none, (PTreeReaderOptions)(ptr_ignoreWhiteSpace | ptr_ignoreNameSpaces));
+                removeXMLNSAttributes(userRespTree);
                 pTree->addPropTree(userRespTree->queryName(), LINK(userRespTree));
             }
             if (logDatasets && *logDatasets)
@@ -246,6 +258,7 @@ IEspUpdateLogRequestWrap* CLogContentFilter::filterLogContent(IEspUpdateLogReque
                     if (!resp || !*resp)
                         continue;
                     originalContentTree.setown(createPTreeFromXMLString(resp));
+                    removeXMLNSAttributes(originalContentTree);
                 }
                 if (!originalContentTree)
                     continue;
