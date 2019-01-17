@@ -5412,6 +5412,36 @@ public:
             StringArray unknownAttributes;
             Owned<CQueryOrFilter> orFilter;
 
+            void updateWUState(IPropertyTreeIterator* wuIter)
+            {
+                Owned<IRemoteConnection> conWorkUnitAborts = querySDS().connect("/WorkUnitAborts/", myProcessSession(), 0, SDS_LOCK_TIMEOUT);
+                IPropertyTree* WUAbortPTree = conWorkUnitAborts->queryRoot();
+                if (!WUAbortPTree)
+                    return;
+
+                ForEach(*wuIter)
+                {
+                    IPropertyTree& wu = wuIter->query();
+                    const char* wuid = wu.queryName();
+                    if (isEmptyString(wuid) || !WUAbortPTree->queryPropTree(wuid))
+                        continue;
+
+                    WUState state = (WUState) getEnum(&wu, "@state", states);
+                    switch (state)
+                    {
+                    case WUStateRunning:
+                    case WUStateDebugPaused:
+                    case WUStateDebugRunning:
+                    case WUStateBlocked:
+                    case WUStateCompiling:
+                        wu.setState(WUStateAborting);
+                        break;
+                    case WUStateSubmitted:
+                        wu.setState(WUStateAborted);
+                        break;
+                    }
+                }
+            }
         public:
             IMPLEMENT_IINTERFACE_USING(CSimpleInterface);
 
@@ -5458,6 +5488,8 @@ public:
                 }
                 if (!iter)
                     return NULL;
+
+                updateWUState(iter);
                 sortElements(iter, sortOrder.get(), nameFilterLo.get(), nameFilterHi.get(), unknownAttributes, elements);
                 return conn.getClear();
             }
