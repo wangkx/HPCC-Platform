@@ -38,6 +38,22 @@
 
 const unsigned DefaultMaxJobQueueItemsInWUGetJobQueueResponse = 1000;
 
+void setCDateTimeFromString(CDateTime& dtime, const char* dtimeStr)
+{
+    try
+    {
+        dtime.setString(dtimeStr, NULL, false);
+    }
+    catch(IException* e)
+    {
+        StringBuffer msg;
+        e->errorMessage(msg);
+        e->Release();
+        msg.append(" - required format: yyyy-mm-ddThh:mm:ss.");
+        throw MakeStringException(ECLWATCH_INVALID_INPUT, "%s", msg.str());
+    }
+}
+
 bool getClusterJobQueueXLS(StringBuffer &xml, const char* cluster, const char* startDate, const char* endDate, const char* showType)
 {
     CDateTime fromTime;
@@ -1795,20 +1811,27 @@ bool CWsWorkunitsEx::onWUGetThorJobQueue(IEspContext &context, IEspWUGetThorJobQ
         getUserWuAccessFlags(context, accessOwn, accessOthers, true);
 
         const char *cluster = req.getCluster();
-        const char *startDate = req.getStartDate();
-        const char *endDate = req.getEndDate();
+        StringBuffer startDate = req.getStartDate();
+        StringBuffer endDate = req.getEndDate();
         unsigned maxJobQueueItemsToReturn = req.getMaxJobQueueItemsToReturn();
         if (maxJobQueueItemsToReturn == 0)
             maxJobQueueItemsToReturn = DefaultMaxJobQueueItemsInWUGetJobQueueResponse;
 
         CDateTime fromTime, toTime;
-        StringBuffer fromstr, tostr;
-        if (!isEmptyString(startDate))
-            fromTime.setString(startDate, NULL, false);
+        if (!startDate.isEmpty())
+        {
+            if (startDate.length() == 10)
+                startDate.append("T00:00:00");
+            setCDateTimeFromString(fromTime, startDate);
+        }
         if (isEmptyString(endDate))
             toTime.setNow();
         else
-            toTime.setString(endDate, NULL, false);
+        {
+            if (endDate.length() == 10)
+                endDate.append("T23:59:59");
+            setCDateTimeFromString(toTime, endDate);
+        }
 
         StringBuffer filter("ThorQueueMonitor");
         if (!isEmptyString(cluster))
@@ -1832,16 +1855,15 @@ bool CWsWorkunitsEx::onWUGetThorJobQueue(IEspContext &context, IEspWUGetThorJobQ
                 idx < lastLineID ? 1 : 2, queues);
 
             if (queues.length() > maxJobQueueItemsToReturn)
+            {
+                queues.pop();
+                VStringBuffer msg("More than %u job queues are found. Only %u job queues are returned.",
+                    maxJobQueueItemsToReturn, maxJobQueueItemsToReturn);
+                resp.setWarning(msg.str());
                 break;
+            }
         }
 
-        if (queues.length() > maxJobQueueItemsToReturn)
-        {
-            queues.pop();
-            VStringBuffer msg("More than %u job queues are found. Only %u job queues are returned.",
-                maxJobQueueItemsToReturn, maxJobQueueItemsToReturn);
-            resp.setWarning(msg.str());
-        }
         resp.setLongestQueue(longestQueue);
         resp.setMaxThorConnected(maxConnected);
         resp.setQueueList(queues);
