@@ -24,6 +24,7 @@
 #include "loggingagentbase.hpp"
 #include "logthread.hpp"
 #include "loggingmanager.h"
+#include "LogFailSafe.hpp"
 
 #ifdef LOGGINGMANAGER_EXPORTS
     #define LOGGINGMANAGER_API DECL_EXPORT
@@ -75,10 +76,14 @@ class CLoggingManager : implements ILoggingManager, public CInterface
 {
     typedef std::vector<IUpdateLogThread*> LOGGING_AGENTTHREADS;
     LOGGING_AGENTTHREADS  loggingAgentThreads;
-    bool initialized;
+    Owned<ILogFailSafe> logFailSafe;
+    bool oneTankFile = false, initialized;
 
     IEspLogAgent* loadLoggingAgent(const char* name, const char* dll, const char* type, IPropertyTree* cfg);
     bool updateLogImpl(IEspUpdateLogRequestWrap& req, IEspUpdateLogResponse& resp);
+    bool saveToTankFile(IEspUpdateLogRequestWrap& req, CLogContentInFile* contentInFile);
+    void filterLogContent(IEspUpdateLogRequestWrap* req);
+    unsigned serializeLogRequestContent(IEspUpdateLogRequestWrap* request, const char* GUID, StringBuffer& logData);
 
     bool updateLog(IEspContext* espContext, IEspUpdateLogRequestWrap& req, IEspUpdateLogResponse& resp, StringBuffer& status);
     bool updateLog(IEspContext* espContext, const char* option, IPropertyTree* userContext, IPropertyTree* userRequest,

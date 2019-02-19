@@ -29,6 +29,27 @@
 typedef std::set<std::string> GuidSet;//
 typedef std::map<std::string, std::string> GuidMap;
 
+class CLogContentInFile : public CSimpleInterface
+{
+    StringAttr GUID;
+    StringAttr fileName;
+    offset_t pos;
+    unsigned size;
+public:
+    IMPLEMENT_IINTERFACE_USING(CSimpleInterface);
+
+    CLogContentInFile() { };
+
+    const char* getFileName() { return fileName.get(); };
+    void setFileName(const char* _fileName) { fileName.set(_fileName); };
+    const char* getGUID() { return GUID.get(); };
+    void setGUID(const char* _GUID) { GUID.set(_GUID); };
+    const offset_t getPos() { return pos; };
+    void setPos(offset_t _pos) { pos = _pos; };
+    const unsigned getSize() { return size; };
+    void setSize(unsigned _size) { size = _size; };
+};
+
 class CLogSerializer : public CInterface
 {
     __int64 m_bytesWritten;
@@ -54,7 +75,7 @@ public:
     void Close();
     void Remove();
     void Rollover(const char* ClosedPrefix);
-    void Append(const char* GUID, const char* Data);
+    void Append(const char* GUID, const char* Data, CLogContentInFile* contentInFile);
     void Remove(const char* GUID);
     virtual void SplitRecord(StringBuffer& FullStr, StringBuffer& GUID, StringBuffer& Cache){}
     static void splitLogRecord(MemoryBuffer& rawdata,StringBuffer& GUID, StringBuffer& data);//
