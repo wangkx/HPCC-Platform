@@ -21,6 +21,7 @@
 #include "LoggingErrors.hpp"
 #include "LogSerializer.hpp"
 #include "logthread.hpp"
+#include "compressutil.hpp"
 
 const char* const PropMaxLogQueueLength = "MaxLogQueueLength";
 const char* const PropQueueSizeSignal = "QueueSizeSignal";
@@ -146,7 +147,7 @@ bool CLogThread::enqueue(IEspUpdateLogRequestWrap* logRequest)
         logFailSafe->GenerateGUID(GUID, NULL);
         logRequest->setGUID(GUID.str());
         if (serializeLogRequestContent(logRequest, reqBuf))
-            logFailSafe->Add(GUID, reqBuf.str());
+            logFailSafe->Add(GUID, reqBuf.str(), nullptr);
         ESPLOG(LogNormal, "LThread:addToFailSafe: %dms\n", msTick() -  startTime);
     }
 
@@ -175,11 +176,16 @@ void CLogThread::sendLog()
             if ((!GUID || !*GUID) && ensureFailSafe && logFailSafe.get())
                 continue;
 
+            Owned<IEspUpdateLogRequestWrap> logRequestInFile = checkAndReadLogRequestFromSharedTankFile(logRequest);
+
             try
             {
                 unsigned startTime = (getEspLogLevel()>=LogNormal) ? msTick() : 0;
                 Owned<IEspUpdateLogResponse> logResponse = createUpdateLogResponse();
-                logAgent->updateLog(*logRequest, *logResponse);
+                if (logRequestInFile)
+                    logAgent->updateLog(*logRequestInFile, *logResponse);
+                else
+                    logAgent->updateLog(*logRequest, *logResponse);
                 if (!logResponse)
                     throw MakeStringException(EspLoggingErrors::UpdateLogFailed, "no response");
                 if (logResponse->getStatusCode())
@@ -206,6 +212,9 @@ void CLogThread::sendLog()
                 errorMessage.appendf("Failed to update log for %s: error code %d, error message %s", GUID, e->errorCode(), e->errorMessage(errorStr).str());
                 e->Release();
 
+                if (logRequestInFile)
+                    logRequest->setNoResend(logRequestInFile->getNoResend());
+
                 bool willRetry = false;
                 if (!logRequest->getNoResend() && (maxLogRetries != 0))
                 {
@@ -219,6 +228,7 @@ void CLogThread::sendLog()
                         errorMessage.appendf(" Adding back to logging queue for retrying %d.", retry);
                     }
                 }
+
                 if (!willRetry)
                 {
                     logRequest->Release();
@@ -240,6 +250,75 @@ void CLogThread::sendLog()
     }
 
     return;
+}
+
+//At first, we check whether the logRequest contains the information about original log Request
+//in shared tank file created by logging manager. If yes, try to read the original log Request
+//based on the information. If the original log Request is found and unserialized, return new
+//IEspUpdateLogRequestWrap which contains original log Request.
+IEspUpdateLogRequestWrap* CLogThread::checkAndReadLogRequestFromSharedTankFile(IEspUpdateLogRequestWrap* logRequest)
+{
+    //Read LogRequestInFile info if exists.
+    Owned<IPropertyTree> logInFle = createPTreeFromXMLString(logRequest->getUpdateLogRequest());
+    if (!logInFle)
+        return nullptr;
+
+    const char* GUID = logInFle->queryProp(LOGREQUEST_GUID);
+    if (isEmptyString(GUID))
+        return nullptr;
+
+    const char* fileName = logInFle->queryProp(LOGCONTENTINFILE_FILENAME);
+    if (isEmptyString(fileName))
+        return nullptr;
+
+    __int64 pos = logInFle->getPropInt64(LOGCONTENTINFILE_FILEPOS, -1);
+    if (pos < 0)
+        return nullptr;
+
+    int size = logInFle->getPropInt64(LOGCONTENTINFILE_FILESIZE, -1);
+    if (size < 0)
+        return nullptr;
+
+    Owned<CLogRequestInFile> reqInFile = new CLogRequestInFile();
+    reqInFile->setGUID(GUID);
+    reqInFile->setFileName(fileName);
+    reqInFile->setPos(pos);
+    reqInFile->setSize(size);
+
+    //Read Log Request from the file
+    StringBuffer logRequestStr;
+    CLogSerializer logSerializer;
+    if (!logSerializer.readLogRequest(reqInFile, logRequestStr))
+    {
+        ERRLOG("Failed to read Log Request from %s", fileName);
+        return nullptr;
+    }
+
+    try
+    {
+        Owned<IPropertyTree> logRequestTree = createPTreeFromXMLString(logRequestStr.str());
+        if (!logRequestTree)
+            return nullptr;
+
+        const char* guid = logRequestTree->queryProp("GUID");
+        const char* opt = logRequestTree->queryProp("Option");
+        const char* reqBuf = logRequestTree->queryProp("LogRequest");
+        if (isEmptyString(reqBuf))
+            return nullptr;
+
+        StringBuffer decoded, req;
+        JBASE64_Decode(reqBuf, decoded);
+        LZWExpand(decoded, decoded.length(), req);
+
+        return new CUpdateLogRequestWrap(guid, opt, req.str());
+    }
+    catch(IException* e)
+    {
+        StringBuffer errorStr;
+        ERRLOG("Exception when unserializing Log Request Content: %d %s", e->errorCode(), e->errorMessage(errorStr).str());
+        e->Release();
+    }
+    return nullptr;
 }
 
 //////////////////////////FailSafe////////////////////////////
@@ -286,7 +365,7 @@ void CLogThread::checkRollOver()
             StringBuffer reqBuf;
             const char* GUID = pEspRequest->getGUID();
             if(GUID && *GUID && serializeLogRequestContent(pEspRequest, reqBuf))
-                logFailSafe->Add(GUID, reqBuf.str());
+                logFailSafe->Add(GUID, reqBuf.str(), nullptr);
         }
         ESPLOG(LogNormal, "LThread:AddFailSafe: %dms\n", msTick() -  startTime);
     }

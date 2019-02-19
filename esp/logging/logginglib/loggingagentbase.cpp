@@ -151,14 +151,14 @@ void CLogContentFilter::filterLogContentTree(StringArray& filters, IPropertyTree
     }
 }
 
-IEspUpdateLogRequestWrap* CLogContentFilter::filterLogContent(IEspUpdateLogRequestWrap* req)
+IEspUpdateLogRequestWrap* CLogContentFilter::filterLogContent(IEspUpdateLogRequestWrap* req, bool newReq)
 {
     const char* logContent = req->getUpdateLogRequest();
     Owned<IPropertyTree> logRequestTree = req->getLogRequestTree();
     Owned<IPropertyTree> updateLogRequestTree = createPTree("UpdateLogRequest");
 
     StringBuffer source;
-    if (groupFilters.length() < 1)
+    if (logBackEndReq && logBackEndResp && groupFilters.length() < 1)
     {//No filter
         if (logRequestTree)
         {
@@ -233,7 +233,7 @@ IEspUpdateLogRequestWrap* CLogContentFilter::filterLogContent(IEspUpdateLogReque
         }
         else
         {
-            for (unsigned group = 0; group < ESPLCGBackEndResp; group++)
+            for (unsigned group = 0; group < ESPLCGBackEndReq; group++)
             {
                 Owned<IPropertyTree> originalContentTree;
                 if (group == ESPLCGESPContext)
@@ -261,24 +261,30 @@ IEspUpdateLogRequestWrap* CLogContentFilter::filterLogContent(IEspUpdateLogReque
                 if (!originalContentTree)
                     continue;
 
-                IPropertyTree* newContentTree = ensurePTree(logContentTree, espLogContentGroupNames[group]);
-                bool hasFilters = false;
+                bool foundGroupFilters = false;
                 ForEachItemIn(i, groupFilters)
                 {
                     CESPLogContentGroupFilters& filtersGroup = groupFilters.item(i);
                     if (filtersGroup.getGroup() == group)
                     {
+                        IPropertyTree* newContentTree = ensurePTree(logContentTree, espLogContentGroupNames[group]);
                         if (group != ESPLCGESPContext)//For non ESPLCGESPContext, we want to keep the root of original tree.
                             newContentTree = ensurePTree(newContentTree, originalContentTree->queryName());
                         filterLogContentTree(filtersGroup.getFilters(), originalContentTree, newContentTree, logContentEmpty);
-                        hasFilters =  true;
+                        foundGroupFilters =  true;
                         break;
                     }
                 }
 
-                if (!hasFilters)
+                if (!foundGroupFilters)
                 {
-                    newContentTree->addPropTree(originalContentTree->queryName(), LINK(originalContentTree));
+                    if (group == ESPLCGESPContext)
+                        logContentTree->addPropTree(originalContentTree->queryName(), LINK(originalContentTree));
+                    else
+                    {
+                        IPropertyTree* newContentTree = ensurePTree(logContentTree, espLogContentGroupNames[group]);
+                        newContentTree->addPropTree(originalContentTree->queryName(), LINK(originalContentTree));
+                    }
                     logContentEmpty = false;
                 }
             }
@@ -315,6 +321,12 @@ IEspUpdateLogRequestWrap* CLogContentFilter::filterLogContent(IEspUpdateLogReque
     toXML(updateLogRequestTree, updateLogRequestXML);
     ESPLOG(LogMax, "filtered content and option: <%s>", updateLogRequestXML.str());
 
+    if (!newReq)
+    {
+        req->clearOriginalContent();
+        req->setUpdateLogRequest(updateLogRequestXML.str());
+        return req;
+    }
     return new CUpdateLogRequestWrap(req->getGUID(), req->getOption(), updateLogRequestXML.str());
 }
 

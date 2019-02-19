@@ -27,6 +27,14 @@
 #include "loggingcommon.hpp"
 #include "LoggingErrors.hpp"
 
+#define LOGREQUEST "LogRequest"
+#define LOGREQUEST_GUID "GUID"
+#define LOGREQUEST_OPTION "option"
+#define LOGCONTENTINFILE "LogContentInFile"
+#define LOGCONTENTINFILE_FILENAME "FileName"
+#define LOGCONTENTINFILE_FILEPOS "Pos"
+#define LOGCONTENTINFILE_FILESIZE "Size"
+
 enum ESPLogContentGroup
 {
     ESPLCGESPContext = 0,
@@ -289,7 +297,7 @@ public:
     CLogContentFilter() {};
 
     void readAllLogFilters(IPropertyTree* cfg);
-    IEspUpdateLogRequestWrap* filterLogContent(IEspUpdateLogRequestWrap* req);
+    IEspUpdateLogRequestWrap* filterLogContent(IEspUpdateLogRequestWrap* req, bool newReq = true);
 };
 
 class LOGGINGCOMMON_API CLogAgentBase : public CInterface, implements IEspLogAgent
