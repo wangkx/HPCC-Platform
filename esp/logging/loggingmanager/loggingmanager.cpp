@@ -39,6 +39,10 @@ bool CLoggingManager::init(IPropertyTree* cfg, const char* service)
         return false;
     }
 
+    oneTankFile = cfg->queryPropBool("FailSafe");
+    if (oneTankFile)
+        logFailSafe.setown(createFailSafeLogger(cfg, service, cfg->queryProp("@name")));
+
     Owned<IPTreeIterator> loggingAgentSettings = cfg->getElements("LogAgent");
     ForEach(*loggingAgentSettings)
     {
@@ -218,6 +222,15 @@ bool CLoggingManager::updateLog(IEspContext* espContext, IEspUpdateLogRequestWra
     {
         if (espContext)
             espContext->addTraceSummaryTimeStamp(LogMin, "LMgr:startQLog");
+
+        if (oneTankFile)
+        {
+            Owned<CLogRequestInFile> reqInFile = new CLogRequestInFile();
+            if (!saveToTankFile(req, reqInFile))
+                ERRLOG("LoggingManager: failed in saveToTankFile().");
+            //The contentInFile will be sent to logging agents for retrieving the log content.
+        }
+
         for (unsigned int x = 0; x < loggingAgentThreads.size(); x++)
         {
             IUpdateLogThread* loggingThread = loggingAgentThreads[x];
@@ -240,6 +253,144 @@ bool CLoggingManager::updateLog(IEspContext* espContext, IEspUpdateLogRequestWra
         e->Release();
     }
     return bRet;
+}
+
+bool CLoggingManager::saveToTankFile(IEspUpdateLogRequestWrap& logRequest, CLogRequestInFile* reqInFile)
+{
+    if (!logFailSafe.get())
+    {
+        ERRLOG("CLoggingManager::saveToTankFile: logFailSafe not configured.");
+        return false;
+    }
+
+    unsigned startTime = (getEspLogLevel()>=LogNormal) ? msTick() : 0;
+
+    StringBuffer GUID;
+    logFailSafe->GenerateGUID(GUID, NULL);
+    reqInFile->setGUID(GUID);
+    reqInFile->setOption(logRequest.getOption());
+
+    StringBuffer reqBuf;
+    filterLogContent(&logRequest);
+    if (!serializeLogRequestContent(&logRequest, GUID, reqBuf))
+    {
+        ERRLOG("CLoggingManager::saveToTankFile: failed in serializeLogRequestContent().");
+        return false;
+    }
+
+    logFailSafe->AddACK(GUID);//Ack this logging request since the task will be done as soon as the next line is called.
+    logFailSafe->Add(GUID, reqBuf, reqInFile);
+
+    ESPLOG(LogNormal, "LThread:saveToTankFile: %dms\n", msTick() - startTime);
+    return true;
+}
+
+void CLoggingManager::filterLogContent(IEspUpdateLogRequestWrap* req)
+{
+    const char* logContent = req->getUpdateLogRequest();
+    Owned<IPropertyTree> logRequestTree = req->getLogRequestTree();
+    Owned<IPropertyTree> updateLogRequestTree = createPTree("UpdateLogRequest");
+
+    StringBuffer source;
+    ///if (groupFilters.length() < 1) //TODO: the filters will be re-designed 
+    {//No filter
+        if (logRequestTree)
+        {
+            updateLogRequestTree->addPropTree(logRequestTree->queryName(), LINK(logRequestTree));
+        }
+        else if (!isEmptyString(logContent))
+        {
+            Owned<IPropertyTree> pTree = createPTreeFromXMLString(logContent);
+            source = pTree->queryProp("Source");
+            updateLogRequestTree->addPropTree(pTree->queryName(), LINK(pTree));
+        }
+        else
+        {
+            Owned<IPropertyTree> espContext = req->getESPContext();
+            Owned<IPropertyTree> userContext = req->getUserContext();
+            Owned<IPropertyTree> userRequest = req->getUserRequest();
+            const char* userResp = req->getUserResponse();
+            const char* logDatasets = req->getLogDatasets();
+            const char* backEndReq = req->getBackEndRequest();
+            const char* backEndResp = req->getBackEndResponse();
+            if (!espContext && !userContext && !userRequest && isEmptyString(userResp) && isEmptyString(logDatasets)
+                && isEmptyString(backEndResp) && isEmptyString(backEndResp))
+                throw MakeStringException(EspLoggingErrors::UpdateLogFailed, "Failed to read log content");
+            source = userContext->queryProp("Source");
+
+            StringBuffer espContextXML, userContextXML, userRequestXML;
+            IPropertyTree* logContentTree = ensurePTree(updateLogRequestTree, "LogContent");
+            if (espContext)
+            {
+                logContentTree->addPropTree(espContext->queryName(), LINK(espContext));
+            }
+            if (userContext)
+            {
+                IPropertyTree* pTree = ensurePTree(logContentTree, espLogContentGroupNames[ESPLCGUserContext]);
+                pTree->addPropTree(userContext->queryName(), LINK(userContext));
+            }
+            if (userRequest)
+            {
+                IPropertyTree* pTree = ensurePTree(logContentTree, espLogContentGroupNames[ESPLCGUserReq]);
+                pTree->addPropTree(userRequest->queryName(), LINK(userRequest));
+            }
+            if (!isEmptyString(userResp))
+            {
+                IPropertyTree* pTree = ensurePTree(logContentTree, espLogContentGroupNames[ESPLCGUserResp]);
+                Owned<IPropertyTree> userRespTree = createPTreeFromXMLString(userResp);
+                pTree->addPropTree(userRespTree->queryName(), LINK(userRespTree));
+            }
+            if (!isEmptyString(logDatasets))
+            {
+                IPropertyTree* pTree = ensurePTree(logContentTree, espLogContentGroupNames[ESPLCGLogDatasets]);
+                Owned<IPropertyTree> logDatasetTree = createPTreeFromXMLString(logDatasets);
+                pTree->addPropTree(logDatasetTree->queryName(), LINK(logDatasetTree));
+            }
+            if (!isEmptyString(backEndReq))
+                logContentTree->addProp(espLogContentGroupNames[ESPLCGBackEndReq], backEndReq);
+            if (!isEmptyString(backEndResp))
+                logContentTree->addProp(espLogContentGroupNames[ESPLCGBackEndResp], backEndResp);
+        }
+    }
+
+    if (!source.isEmpty())
+        updateLogRequestTree->addProp("LogContent/Source", source.str());
+
+    const char* option = req->getOption();
+    if (!isEmptyString(option))
+        updateLogRequestTree->addProp("Option", option);
+
+    StringBuffer updateLogRequestXML;
+    toXML(updateLogRequestTree, updateLogRequestXML);
+    ESPLOG(LogMax, "filtered content and option: <%s>", updateLogRequestXML.str());
+
+    req->clearOriginalContent();
+    req->setUpdateLogRequest(updateLogRequestXML.str());
+}
+
+unsigned CLoggingManager::serializeLogRequestContent(IEspUpdateLogRequestWrap* request, const char* GUID, StringBuffer& logData)
+{
+    logData.appendf("<%s>", LOGREQUEST_GUID);
+    logData.append(GUID);
+    logData.appendf("</%s>", LOGREQUEST_GUID);
+
+    const char* option = request->getOption();
+    if (!isEmptyString(option))
+    {
+        logData.appendf("<%s>", LOGREQUEST_OPTION);
+        logData.append(option);
+        logData.appendf("</%s>", LOGREQUEST_OPTION);
+    }
+
+    StringBuffer buffer;
+    const char* logRequest = request->getUpdateLogRequest();
+    JBASE64_Encode(logRequest, strlen(logRequest), buffer);
+
+    logData.appendf("<%s>", LOGREQUEST);
+    logData.append(buffer);
+    logData.appendf("</%s>", LOGREQUEST);
+
+    return logData.length();
 }
 
 bool CLoggingManager::getTransactionSeed(StringBuffer& transactionSeed, StringBuffer& status)

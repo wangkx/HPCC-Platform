@@ -27,6 +27,10 @@
 #include "loggingcommon.hpp"
 #include "LoggingErrors.hpp"
 
+#define LOGREQUEST "LogRequest"
+#define LOGREQUEST_GUID "GUID"
+#define LOGREQUEST_OPTION "option"
+
 enum ESPLogContentGroup
 {
     ESPLCGESPContext = 0,
