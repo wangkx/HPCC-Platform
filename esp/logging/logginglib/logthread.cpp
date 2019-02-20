@@ -157,6 +157,74 @@ bool CLogThread::enqueue(IEspUpdateLogRequestWrap* logRequest)
     return true;
 }
 
+//At first, we check whether the logRequest contains the information about original log Request
+//in shared tank file created by logging manager. If yes, try to read the original log Request
+//based on the information. If the original log Request is found and unserialized, return new
+//IEspUpdateLogRequestWrap which contains original log Request.
+IEspUpdateLogRequestWrap* CLogThread::checkAndReadLogRequestFromSharedTankFile(IEspUpdateLogRequestWrap* logRequest)
+{
+    //Read LogRequestInFile info if exists.
+    Owned<IPropertyTree> logInFle = createPTreeFromXMLString(logRequest->getUpdateLogRequest());
+    if (!logInFle)
+        return nullptr;
+
+    const char* GUID = logInFle->queryProp(LOGREQUEST_GUID);
+    if (isEmptyString(GUID))
+        return nullptr;
+
+    const char* fileName = logInFle->queryProp(LOGCONTENTINFILE_FILENAME);
+    if (isEmptyString(fileName))
+        return nullptr;
+
+    __int64 pos = logInFle->getPropInt64(LOGCONTENTINFILE_FILEPOS, -1);
+    if (pos < 0)
+        return nullptr;
+
+    int size = logInFle->getPropInt64(LOGCONTENTINFILE_FILESIZE, -1);
+    if (size < 0)
+        return nullptr;
+
+    Owned<CLogRequestInFile> reqInFile = new CLogRequestInFile();
+    reqInFile->setGUID(GUID);
+    reqInFile->setFileName(fileName);
+    reqInFile->setPos(pos);
+    reqInFile->setSize(size);
+
+    //Read Log Request from the file
+    StringBuffer logRequestStr;
+    CLogSerializer logSerializer;
+    if (!logSerializer.readLogRequest(reqInFile, logRequestStr))
+    {
+        ERRLOG("Failed to read Log Request from %s", fileName);
+        return nullptr;
+    }
+
+    try
+    {
+        Owned<IPropertyTree> logRequestTree = createPTreeFromXMLString(logRequestStr);
+        if (!logRequestTree)
+            return nullptr;
+
+        const char* guid = logRequestTree->queryProp("GUID");
+        const char* opt = logRequestTree->queryProp("Option");
+        const char* req = logRequestTree->queryProp("LogRequest");
+        if (isEmptyString(req))
+            return nullptr;
+
+        StringBuffer buffer;
+        JBASE64_Decode(req, buffer);
+
+        return new CUpdateLogRequestWrap(guid, opt, buffer.str());
+    }
+    catch(IException* e)
+    {
+        StringBuffer errorStr;
+        ERRLOG("Exception when unserializing Log Request Content: %d %s", e->errorCode(), e->errorMessage(errorStr).str());
+        e->Release();
+    }
+    return nullptr;
+}
+
 void CLogThread::sendLog()
 {
     try
@@ -175,11 +243,16 @@ void CLogThread::sendLog()
             if ((!GUID || !*GUID) && ensureFailSafe && logFailSafe.get())
                 continue;
 
+            Owned<IEspUpdateLogRequestWrap> logRequestInFile = checkAndReadLogRequestFromSharedTankFile(logRequest);
+
             try
             {
                 unsigned startTime = (getEspLogLevel()>=LogNormal) ? msTick() : 0;
                 Owned<IEspUpdateLogResponse> logResponse = createUpdateLogResponse();
-                logAgent->updateLog(*logRequest, *logResponse);
+                if (logRequestInFile)
+                    logAgent->updateLog(*logRequestInFile, *logResponse);
+                else
+                    logAgent->updateLog(*logRequest, *logResponse);
                 if (!logResponse)
                     throw MakeStringException(EspLoggingErrors::UpdateLogFailed, "no response");
                 if (logResponse->getStatusCode())
@@ -206,6 +279,9 @@ void CLogThread::sendLog()
                 errorMessage.appendf("Failed to update log for %s: error code %d, error message %s", GUID, e->errorCode(), e->errorMessage(errorStr).str());
                 e->Release();
 
+                if (logRequestInFile)
+                    logRequest->setNoResend(logRequestInFile->getNoResend());
+
                 bool willRetry = false;
                 if (!logRequest->getNoResend() && (maxLogRetries != 0))
                 {
@@ -219,6 +295,7 @@ void CLogThread::sendLog()
                         errorMessage.appendf(" Adding back to logging queue for retrying %d.", retry);
                     }
                 }
+
                 if (!willRetry)
                 {
                     logRequest->Release();

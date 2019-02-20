@@ -30,6 +30,10 @@
 #define LOGREQUEST "LogRequest"
 #define LOGREQUEST_GUID "GUID"
 #define LOGREQUEST_OPTION "option"
+#define LOGCONTENTINFILE "LogContentInFile"
+#define LOGCONTENTINFILE_FILENAME "FileName"
+#define LOGCONTENTINFILE_FILEPOS "Pos"
+#define LOGCONTENTINFILE_FILESIZE "Size"
 
 enum ESPLogContentGroup
 {

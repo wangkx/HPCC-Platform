@@ -39,7 +39,7 @@ bool CLoggingManager::init(IPropertyTree* cfg, const char* service)
         return false;
     }
 
-    oneTankFile = cfg->queryPropBool("FailSafe");
+    oneTankFile = cfg->getPropBool("FailSafe");
     if (oneTankFile)
         logFailSafe.setown(createFailSafeLogger(cfg, service, cfg->queryProp("@name")));
 
@@ -223,21 +223,58 @@ bool CLoggingManager::updateLog(IEspContext* espContext, IEspUpdateLogRequestWra
         if (espContext)
             espContext->addTraceSummaryTimeStamp(LogMin, "LMgr:startQLog");
 
+        bool savedToTankFile = false;
         if (oneTankFile)
         {
             Owned<CLogRequestInFile> reqInFile = new CLogRequestInFile();
             if (!saveToTankFile(req, reqInFile))
                 ERRLOG("LoggingManager: failed in saveToTankFile().");
-            //The contentInFile will be sent to logging agents for retrieving the log content.
+            else
+            {
+                savedToTankFile = true;
+
+                //Build new log request for logging agents 
+                StringBuffer logContent;
+                logContent.appendf("<%s>", LOGCONTENTINFILE);
+                logContent.appendf("<%s>", LOGCONTENTINFILE_FILENAME);
+                logContent.append(reqInFile->getFileName());
+                logContent.appendf("</%s>", LOGCONTENTINFILE_FILENAME);
+                logContent.appendf("<%s>", LOGCONTENTINFILE_FILEPOS);
+                logContent.append(reqInFile->getPos());
+                logContent.appendf("</%s>", LOGCONTENTINFILE_FILEPOS);
+                logContent.appendf("<%s>", LOGCONTENTINFILE_FILESIZE);
+                logContent.append(reqInFile->getSize());
+                logContent.appendf("</%s>", LOGCONTENTINFILE_FILESIZE);
+                logContent.appendf("<%s>", LOGREQUEST_GUID);
+                logContent.append(reqInFile->getGUID());
+                logContent.appendf("</%s>", LOGREQUEST_GUID);
+                logContent.appendf("</%s>", LOGCONTENTINFILE);
+
+                Owned<IEspUpdateLogRequest> logRequest = new CUpdateLogRequest("", "");
+                logRequest->setOption(reqInFile->getOption());
+                logRequest->setLogContent(logContent);
+                for (unsigned int x = 0; x < loggingAgentThreads.size(); x++)
+                {
+                    IUpdateLogThread* loggingThread = loggingAgentThreads[x];
+                    if (loggingThread->hasService(LGSTUpdateLOG))
+                    {
+                        loggingThread->queueLog(logRequest);
+                        bRet = true;
+                    }
+                }
+            }
         }
 
-        for (unsigned int x = 0; x < loggingAgentThreads.size(); x++)
+        if (!savedToTankFile)
         {
-            IUpdateLogThread* loggingThread = loggingAgentThreads[x];
-            if (loggingThread->hasService(LGSTUpdateLOG))
+            for (unsigned int x = 0; x < loggingAgentThreads.size(); x++)
             {
-                loggingThread->queueLog(&req);
-                bRet = true;
+                IUpdateLogThread* loggingThread = loggingAgentThreads[x];
+                if (loggingThread->hasService(LGSTUpdateLOG))
+                {
+                    loggingThread->queueLog(&req);
+                    bRet = true;
+                }
             }
         }
         if (espContext)
