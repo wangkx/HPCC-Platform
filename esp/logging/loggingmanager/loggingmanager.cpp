@@ -18,6 +18,7 @@
 #include "LoggingErrors.hpp"
 #include "loggingcommon.hpp"
 #include "loggingmanager.hpp"
+#include "compressutil.hpp"
 
 CLoggingManager::~CLoggingManager(void)
 {
@@ -236,18 +237,10 @@ bool CLoggingManager::updateLog(IEspContext* espContext, IEspUpdateLogRequestWra
                 //Build new log request for logging agents 
                 StringBuffer logContent;
                 logContent.appendf("<%s>", LOGCONTENTINFILE);
-                logContent.appendf("<%s>", LOGCONTENTINFILE_FILENAME);
-                logContent.append(reqInFile->getFileName());
-                logContent.appendf("</%s>", LOGCONTENTINFILE_FILENAME);
-                logContent.appendf("<%s>", LOGCONTENTINFILE_FILEPOS);
-                logContent.append(reqInFile->getPos());
-                logContent.appendf("</%s>", LOGCONTENTINFILE_FILEPOS);
-                logContent.appendf("<%s>", LOGCONTENTINFILE_FILESIZE);
-                logContent.append(reqInFile->getSize());
-                logContent.appendf("</%s>", LOGCONTENTINFILE_FILESIZE);
-                logContent.appendf("<%s>", LOGREQUEST_GUID);
-                logContent.append(reqInFile->getGUID());
-                logContent.appendf("</%s>", LOGREQUEST_GUID);
+                addXMLItemToBuf(LOGCONTENTINFILE_FILENAME, reqInFile->getFileName(), logContent);
+                addXMLItemToBuf(LOGCONTENTINFILE_FILEPOS, reqInFile->getPos(), logContent);
+                addXMLItemToBuf(LOGCONTENTINFILE_FILESIZE, reqInFile->getSize(), logContent);
+                addXMLItemToBuf(LOGREQUEST_GUID, reqInFile->getGUID(), logContent);
                 logContent.appendf("</%s>", LOGCONTENTINFILE);
 
                 Owned<IEspUpdateLogRequest> logRequest = new CUpdateLogRequest("", "");
@@ -407,27 +400,36 @@ void CLoggingManager::filterLogContent(IEspUpdateLogRequestWrap* req)
 
 unsigned CLoggingManager::serializeLogRequestContent(IEspUpdateLogRequestWrap* request, const char* GUID, StringBuffer& logData)
 {
-    logData.appendf("<%s>", LOGREQUEST_GUID);
-    logData.append(GUID);
-    logData.appendf("</%s>", LOGREQUEST_GUID);
+    addXMLItemToBuf(LOGREQUEST_GUID, GUID, logData);
 
     const char* option = request->getOption();
     if (!isEmptyString(option))
-    {
-        logData.appendf("<%s>", LOGREQUEST_OPTION);
-        logData.append(option);
-        logData.appendf("</%s>", LOGREQUEST_OPTION);
-    }
+        addXMLItemToBuf(LOGREQUEST_OPTION, option, logData);
 
-    StringBuffer buffer;
+    logData.append("<").append(LOGREQUEST).append(">");
+
     const char* logRequest = request->getUpdateLogRequest();
-    JBASE64_Encode(logRequest, strlen(logRequest), buffer);
+    MemoryBuffer memBuf;
+    LZWCompress(logRequest, strlen(logRequest), memBuf, 0x100);
+    JBASE64_Encode(memBuf.toByteArray(), memBuf.length(), logData);
 
-    logData.appendf("<%s>", LOGREQUEST);
-    logData.append(buffer);
-    logData.appendf("</%s>", LOGREQUEST);
+    logData.append("</").append(LOGREQUEST).append(">");
 
     return logData.length();
+}
+
+void CLoggingManager::addXMLItemToBuf(const char* tag, int value, StringBuffer& buf)
+{
+    buf.append("<").append(tag).append(">");
+    buf.append(value);
+    buf.append("</").append(tag).append(">");
+}
+
+void CLoggingManager::addXMLItemToBuf(const char* tag, const char* value, StringBuffer& buf)
+{
+    buf.append("<").append(tag).append(">");
+    buf.append(value);
+    buf.append("</").append(tag).append(">");
 }
 
 bool CLoggingManager::getTransactionSeed(StringBuffer& transactionSeed, StringBuffer& status)

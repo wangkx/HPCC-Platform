@@ -84,6 +84,8 @@ class CLoggingManager : implements ILoggingManager, public CInterface
     bool saveToTankFile(IEspUpdateLogRequestWrap& req, CLogRequestInFile* reqInFile);
     void filterLogContent(IEspUpdateLogRequestWrap* req);
     unsigned serializeLogRequestContent(IEspUpdateLogRequestWrap* request, const char* GUID, StringBuffer& logData);
+    void addXMLItemToBuf(const char* tag, const char* value, StringBuffer& buf);
+    void addXMLItemToBuf(const char* tag, int value, StringBuffer& buf);
 
     bool updateLog(IEspContext* espContext, IEspUpdateLogRequestWrap& req, IEspUpdateLogResponse& resp, StringBuffer& status);
     bool updateLog(IEspContext* espContext, const char* option, IPropertyTree* userContext, IPropertyTree* userRequest,
