@@ -78,11 +78,11 @@ class CLoggingManager : implements ILoggingManager, public CInterface
     LOGGING_AGENTTHREADS  loggingAgentThreads;
     Owned<ILogFailSafe> logFailSafe;
     bool oneTankFile = false, initialized;
+    CLogContentFilter logContentFilter;
 
     IEspLogAgent* loadLoggingAgent(const char* name, const char* dll, const char* type, IPropertyTree* cfg);
     bool updateLogImpl(IEspUpdateLogRequestWrap& req, IEspUpdateLogResponse& resp);
     bool saveToTankFile(IEspUpdateLogRequestWrap& req, CLogRequestInFile* reqInFile);
-    void filterLogContent(IEspUpdateLogRequestWrap* req);
     unsigned serializeLogRequestContent(IEspUpdateLogRequestWrap* request, const char* GUID, StringBuffer& logData);
     void addXMLItemToBuf(const char* tag, const char* value, StringBuffer& buf);
     void addXMLItemToBuf(const char* tag, int value, StringBuffer& buf);

@@ -297,7 +297,7 @@ public:
     CLogContentFilter() {};
 
     void readAllLogFilters(IPropertyTree* cfg);
-    IEspUpdateLogRequestWrap* filterLogContent(IEspUpdateLogRequestWrap* req);
+    IEspUpdateLogRequestWrap* filterLogContent(IEspUpdateLogRequestWrap* req, bool newReq = true);
 };
 
 class LOGGINGCOMMON_API CLogAgentBase : public CInterface, implements IEspLogAgent

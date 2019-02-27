@@ -80,6 +80,11 @@
                     <xsl:if test="string($managerNode/@SafeRolloverThreshold) != ''">
                         <SafeRolloverThreshold><xsl:value-of select="$managerNode/@SafeRolloverThreshold"/></SafeRolloverThreshold>
                     </xsl:if>
+                    <Filters>
+                        <xsl:for-each select="$managerNode/Filter">
+                            <Filter value="{current()/@filter}" type="{current()/@type}"/>
+                        </xsl:for-each>
+                    </Filters>
                     <xsl:for-each select="$managerNode/ESPLoggingAgent">
                         <xsl:variable name="agentName" select="@ESPLoggingAgent"/>
                         <xsl:variable name="espLoggingAgentNode" select="/Environment/Software/ESPLoggingAgent[@name=$agentName]"/>
