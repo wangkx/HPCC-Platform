@@ -227,21 +227,48 @@ bool CLoggingManager::updateLog(IEspContext* espContext, IEspUpdateLogRequestWra
         if (espContext)
             espContext->addTraceSummaryTimeStamp(LogMin, "LMgr:startQLog");
 
+        bool savedToTankFile = false;
         if (oneTankFile)
         {
             Owned<CLogRequestInFile> reqInFile = new CLogRequestInFile();
-            if (!saveToTankFile(req, reqInFile))
-                ERRLOG("LoggingManager: failed in saveToTankFile().");
-            //The reqInFile may be used for passing information to log agents in another PR.
+            if (saveToTankFile(req, reqInFile))
+            {
+                savedToTankFile = true;
+
+                //Build new log request for logging agents
+                StringBuffer logContent;
+                logContent.appendf("<%s>", LOGCONTENTINFILE);
+                addXMLItemToBuf(LOGCONTENTINFILE_FILENAME, reqInFile->getFileName(), logContent);
+                addXMLItemToBuf(LOGCONTENTINFILE_FILEPOS, reqInFile->getPos(), logContent);
+                addXMLItemToBuf(LOGCONTENTINFILE_FILESIZE, reqInFile->getSize(), logContent);
+                addXMLItemToBuf(LOGREQUEST_GUID, reqInFile->getGUID(), logContent);
+                logContent.appendf("</%s>", LOGCONTENTINFILE);
+
+                Owned<IEspUpdateLogRequest> logRequest = new CUpdateLogRequest("", "");
+                logRequest->setOption(reqInFile->getOption());
+                logRequest->setLogContent(logContent);
+                for (unsigned int x = 0; x < loggingAgentThreads.size(); x++)
+                {
+                    IUpdateLogThread* loggingThread = loggingAgentThreads[x];
+                    if (loggingThread->hasService(LGSTUpdateLOG))
+                    {
+                        loggingThread->queueLog(logRequest);
+                        bRet = true;
+                    }
+                }
+            }
         }
 
-        for (unsigned int x = 0; x < loggingAgentThreads.size(); x++)
+        if (!savedToTankFile)
         {
-            IUpdateLogThread* loggingThread = loggingAgentThreads[x];
-            if (loggingThread->hasService(LGSTUpdateLOG))
+            for (unsigned int x = 0; x < loggingAgentThreads.size(); x++)
             {
-                loggingThread->queueLog(&req);
-                bRet = true;
+                IUpdateLogThread* loggingThread = loggingAgentThreads[x];
+                if (loggingThread->hasService(LGSTUpdateLOG))
+                {
+                    loggingThread->queueLog(&req);
+                    bRet = true;
+                }
             }
         }
         if (espContext)
