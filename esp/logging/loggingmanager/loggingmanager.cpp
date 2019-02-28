@@ -309,7 +309,6 @@ bool CLoggingManager::saveToTankFile(IEspUpdateLogRequestWrap& logRequest, CLogR
         return false;
     }
 
-    logFailSafe->AddACK(GUID);//Ack this logging request since the task will be done as soon as the next line is called.
     logFailSafe->Add(GUID, reqBuf, reqInFile);
 
     ESPLOG(LogNormal, "LThread:saveToTankFile: %dms\n", msTick() - startTime);

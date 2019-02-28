@@ -340,7 +340,7 @@ void CLogThread::checkRollOver()
             return;
 
         //Rename .log files to .old files
-        logFailSafe->SafeRollover();
+        logFailSafe->RolloverAllLogs();
 
         CriticalBlock b(logQueueCrit);
 
@@ -429,7 +429,7 @@ void CLogThread::checkPendingLogs(bool bOneRecOnly)
         }
         //if everything went ok then we should be able to rollover the old logs.
         if (!queueLogError && !bOneRecOnly)
-            logFailSafe->RolloverAllLogs();
+            logFailSafe->rolloverOldLogs();
     }
     catch(IException* ex)
     {

@@ -153,29 +153,34 @@ void CLogFailSafe::LoadOldLogs(StringArray& oldLogData)
 
 void CLogFailSafe::loadPendingLogReqsFromExistingLogFiles()
 {
-    VStringBuffer fileName("%s%s%s*.log", m_LogService.str(), m_LogType.str(), SENDING);
+    //Read acked LogReqs from all of ack files.
+    //Filter out those acked LogReqs from all of sending files.
+    //Non-acked LogReqs are added into m_PendingLogs.
+    //The LogReqs in the m_PendingLogs will be added to queue and
+    //new tank files through the enqueue() in the checkPendingLogs().
+    //After that, the oldLogs will be renamed to .log file.
+    GuidSet ackedSet;
+    VStringBuffer fileName("%s%s%s*.log", m_LogService.str(), m_LogType.str(), RECEIVING);
+    Owned<IDirectoryIterator> it = createDirectoryIterator(m_logsdir.str(), fileName.str());
+    ForEach (*it)
+    {
+        IFile &file = it->query();
+        CLogSerializer ackedLog(file.queryFilename());
+        ackedLog.loadAckedLogs(ackedSet);
+        oldLogs.append(file.queryFilename());
+    }
+
+    fileName.setf("%s%s%s*.log", m_LogService.str(), m_LogType.str(), SENDING);
     Owned<IDirectoryIterator> di = createDirectoryIterator(m_logsdir.str(), fileName.str());
     ForEach (*di)
     {
         IFile &file = di->query();
-
-        StringBuffer ackedName;
-        GuidSet ackedSet;
-        getReceiveFileName(file.queryFilename(),ackedName);
-        CLogSerializer ackedLog(ackedName.str());
-        ackedLog.loadAckedLogs(ackedSet);
-
+        oldLogs.append(file.queryFilename());
         CLogSerializer sendLog(file.queryFilename());
         unsigned long total_missed = 0;
         {//scope needed for critical block below
             CriticalBlock b(m_critSec); //since we plan to use m_PendingLogs
             sendLog.loadSendLogs(ackedSet, m_PendingLogs, total_missed);
-        }
-
-        if (total_missed == 0)
-        {
-            ackedLog.Rollover(RolloverExt);
-            sendLog.Rollover(RolloverExt);
         }
     }
 }
@@ -328,27 +333,18 @@ void CLogFailSafe::SafeRollover()
 
     // Rolling over m_Added first is desirable here beccause requests being written to the new tank file before
     // m_Cleared finishes rolling all haven't been sent yet (because the sending thread is here busy rolling).
-    m_Added.SafeRollover  (m_logsdir.str(), send.str(), NULL,   RolloverExt);
-    m_Cleared.SafeRollover(m_logsdir.str(), receive.str(), NULL, RolloverExt);
+    m_Added.SafeRollover  (m_logsdir.str(), send.str(), NULL,   nullptr);
+    m_Cleared.SafeRollover(m_logsdir.str(), receive.str(), NULL,nullptr);
 }
 
-void CLogFailSafe::RollOldLogs()
+void CLogFailSafe::rolloverOldLogs()
 {
-    StringBuffer filesToFind;
-    filesToFind.appendf("%s*.log",m_LogType.str());
-
-    Owned<IDirectoryIterator> di = createDirectoryIterator(m_logsdir.str(), filesToFind.str());
-    ForEach (*di)
+    ForEachItemIn(i, oldLogs)
     {
-        IFile &file = di->query();
-
-        StringBuffer fileName;
-        ExtractFileName(file.queryFilename(),fileName);
-        if (fileName.length() && strcmp(fileName.str(),m_Added.queryFileName()) != 0 &&  strcmp(fileName.str(),m_Cleared.queryFileName()) != 0 )
-        {
-            fileName.replaceString(".log", RolloverExt);
-            file.rename(fileName.str());
-        }
+        StringBuffer fileName = oldLogs.item(i);
+        Owned<IFile> file = createIFile(fileName);
+        fileName.replaceString(".log", RolloverExt);
+        file->rename(fileName.str());
     }
 }
 

@@ -37,13 +37,13 @@ interface ILogFailSafe : IInterface
     virtual StringBuffer& GenerateGUID(StringBuffer& GUID,const char* seed="") = 0;
     virtual void AddACK(const char* GUID)=0;
     virtual void RollCurrentLog()=0;
-    virtual void RollOldLogs()=0;
     virtual bool FindOldLogs() = 0;
     virtual void LoadOldLogs(StringArray& oldLogData) = 0;
     virtual void SplitLogRecord(const char* requestStr,StringBuffer& GUID, StringBuffer& Cache)=0;
     virtual void SafeRollover() = 0;
 
     virtual void RolloverAllLogs()=0;//
+    virtual void rolloverOldLogs()=0;
     virtual bool PopPendingLogRecord(StringBuffer& GUID, StringBuffer& cache) = 0;//
     virtual bool canRollCurrentLog() = 0;
 };
@@ -60,6 +60,7 @@ class CLogFailSafe : implements ILogFailSafe, public CInterface
     StringArray m_UnsentLogs;
     StringBuffer m_logsdir;
     StringBuffer m_LogService;//
+    StringArray oldLogs;
 
     CriticalSection m_critSec;//
     GuidMap m_PendingLogs;//
@@ -87,7 +88,6 @@ public:
     virtual void Add(const char*,IInterface& pIn, CLogRequestInFile* reqInFile);
     virtual void AddACK(const char* GUID);
     virtual void RollCurrentLog();
-    virtual void RollOldLogs();
     virtual bool FindOldLogs();
     virtual void LoadOldLogs(StringArray& oldLogData);
     virtual void SplitLogRecord(const char* requestStr,StringBuffer& GUID, StringBuffer& Cache);
@@ -95,6 +95,7 @@ public:
     virtual void SafeRollover();
 
     virtual void RolloverAllLogs();//
+    virtual void rolloverOldLogs();
     virtual bool PopPendingLogRecord(StringBuffer& GUID, StringBuffer& cache);//
     virtual bool canRollCurrentLog() { return m_Added.getItemCount() == m_Cleared.getItemCount(); };
 };

@@ -161,6 +161,9 @@ void CLogSerializer::Close()
 void CLogSerializer::Rollover(const char* ClosedPrefix)
 {
     Close();
+    if (isEmptyString(ClosedPrefix))
+        return;
+
     Owned<IFile> file = createIFile(m_FilePath.str());
     if(file.get() && file->exists() == true)
     {
