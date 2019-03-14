@@ -5434,10 +5434,12 @@ public:
                     case WUStateDebugRunning:
                     case WUStateBlocked:
                     case WUStateCompiling:
-                        wu.setState(WUStateAborting);
+                        ///setEnum(&wu, "@state", WUStateAborting, states);
+                        DBGLOG("##1##WUID(%s)", wuid);
                         break;
                     case WUStateSubmitted:
-                        wu.setState(WUStateAborted);
+                        ///setEnum(&wu, "@state", WUStateAborted, states);
+                        DBGLOG("##2##WUID(%s)", wuid);
                         break;
                     }
                 }
