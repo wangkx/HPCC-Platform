@@ -207,14 +207,8 @@ static void setServerAccess(CClientFileSpray &server, IConstWorkUnit * wu)
     server.setUsernameToken(wu->queryUser(), token.str(), "");//use workunit token as password
 }
 
-static StringArray availableWsFS;
+static std::vector<std::string> availableWsFS;
 static CriticalSection espURLcrit;
-
-static void addConfiguredWsFSUrl(const char * url)
-{
-    CriticalBlock b(espURLcrit);
-    availableWsFS.appendUniq(url);
-}
 
 static bool contactWsFS(const char * espurl, IConstWorkUnit * wu)
 {
@@ -244,92 +238,33 @@ static bool contactWsFS(const char * espurl, IConstWorkUnit * wu)
     return false;
 }
 
-static const char * getNextAliveWsFSURL(IConstWorkUnit * wu)
-{
-    CriticalBlock b(espURLcrit);
-
-    for (int index = 0; index < availableWsFS.length(); index++)
-    {
-        const char * currentUrl = availableWsFS.item(index);
-        if (contactWsFS(currentUrl, wu))
-            return currentUrl;
-    }
-
-    return nullptr;
-}
-
-static bool isUrlListEmpty()
-{
-    CriticalBlock b(espURLcrit);
-    return availableWsFS.length() == 0;
-}
-
 static const char *getAccessibleEspServerURL(const char *param, IConstWorkUnit * wu)
 {
     if (param&&*param)
         return param;
 
     CriticalBlock b(espURLcrit);
-    if (isUrlListEmpty())
+    if (availableWsFS.empty())
     {
-        Owned<IConstEnvironment> daliEnv = openDaliEnvironment();
-        Owned<IPropertyTree> env = getEnvironmentTree(daliEnv);
+        getAccessibleServiceURLList("WsSMC", availableWsFS);
+        getAccessibleServiceURLList("FileSpray_Serv", availableWsFS);
 
-        if (env.get())
-        {
-            StringBuffer wsFSUrl;
-            StringBuffer espInstanceComputerName;
-            StringBuffer bindingProtocol;
-            StringBuffer xpath;
-            StringBuffer instanceAddress;
-            StringBuffer espServiceType;
-
-            Owned<IPropertyTreeIterator> espProcessIter = env->getElements("Software/EspProcess");
-            ForEach(*espProcessIter)
-            {
-                Owned<IPropertyTreeIterator> espBindingIter = espProcessIter->query().getElements("EspBinding");
-                ForEach(*espBindingIter)
-                {
-                    espBindingIter->query().getProp("@service",wsFSUrl.clear());
-                    xpath.setf("Software/EspService[@name=\"%s\"]/Properties/@type", wsFSUrl.str());
-
-                    if(env->getProp(xpath.str(), espServiceType.clear()))
-                    {
-                        if (!espServiceType.isEmpty() && (strieq(espServiceType.str(),"WsSMC")|| strieq(espServiceType.str(),"FileSpray_Serv")))
-                        {
-                            if (espBindingIter->query().getProp("@protocol",bindingProtocol.clear()))
-                            {
-                                Owned<IPropertyTreeIterator> espInstanceIter = espProcessIter->query().getElements("Instance");
-                                ForEach(*espInstanceIter)
-                                {
-                                    if (espInstanceIter->query().getProp("@computer",espInstanceComputerName.clear()))
-                                    {
-                                        xpath.setf("Hardware/Computer[@name=\"%s\"]/@netAddress",espInstanceComputerName.str());
-                                        if (env->getProp(xpath.str(),instanceAddress.clear()))
-                                        {
-                                            wsFSUrl.setf("%s://%s:%d/FileSpray", bindingProtocol.str(), instanceAddress.str(), espBindingIter->query().getPropInt("@port",8010)); // FileSpray seems to be fixed
-                                            addConfiguredWsFSUrl(wsFSUrl.str());
-                                        }
-                                    }
-                                }
-                            }
-                        }//EclWatch || ws_fs binding
-                    }
-                }//ESPBinding
-            }//ESPProcess
-        }
-
-        if (isUrlListEmpty())
+        if (availableWsFS.empty())
             throw MakeStringException(-1,"Could not find any WS FileSpray in the target HPCC configuration.");
     }
 
-    const char * nextWsFSUrl = getNextAliveWsFSURL(wu);
-    if (!nextWsFSUrl||!*nextWsFSUrl)
-        throw MakeStringException(-1,"Could not contact any of the configured WS FileSpray instances, check HPCC configuration and system health.");
+    for (unsigned idx=0; idx < availableWsFS.size(); idx++)
+    {
+        const char *nextWsFSUrl = availableWsFS.at(idx).c_str();
+        if (contactWsFS(nextWsFSUrl, wu))
+        {
+            PROGLOG("FileServices: Targeting ESP WsFileSpray URL: %s", nextWsFSUrl);
+            return nextWsFSUrl;
+        }
+    }
 
-    PROGLOG("FileServices: Targeting ESP WsFileSpray URL: %s", nextWsFSUrl);
-
-    return nextWsFSUrl;
+    throw MakeStringException(-1,"Could not contact any of the configured WS FileSpray instances, check HPCC configuration and system health.");
+    return nullptr;
 }
 
 StringBuffer & constructLogicalName(IConstWorkUnit * wu, const char * partialLogicalName, StringBuffer & result)
