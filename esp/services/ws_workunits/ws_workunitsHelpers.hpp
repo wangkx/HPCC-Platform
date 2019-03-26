@@ -59,6 +59,8 @@ const unsigned AWUS_CACHE_SIZE = 16;
 const unsigned AWUS_CACHE_MIN_DEFAULT = 15;
 const unsigned WUDEFAULT_ZAPEMAILSERVER_PORT = 25;
 
+static const unsigned THOR_SLAVE_LOG_THREAD_POOL_SIZE = 100;
+
 inline bool notEmpty(const char *val){return (val && *val);}
 inline bool isEmpty(const char *val){return (!val || !*val);}
 
@@ -139,8 +141,8 @@ class WsWuInfo
     IEspWUArchiveModule* readArchiveModuleAttr(IPropertyTree& moduleTree, const char* path);
     void readArchiveFiles(IPropertyTree* archiveTree, const char* path, IArrayOf<IEspWUArchiveFile>& files);
     void outputALine(size32_t len, const char* content, MemoryBuffer& outputBuf, IFileIOStream* outIOS);
-    bool readLogLineID(char* linePtr, unsigned long& lineID);
-    void readWorkunitLog(OwnedIFileIOStream ios, MemoryBuffer& buf, const char* outFile);
+    unsigned readLogProcessID(const char* linePtr);
+    void readWorkunitLog(IBufferedFileIOStream* ios, MemoryBuffer& buf, const char* outFile);
 public:
     WsWuInfo(IEspContext &ctx, IConstWorkUnit *cw_) :
       context(ctx), cw(cw_)
@@ -593,6 +595,7 @@ struct CWsWuZAPInfoReq
 class CWsWuFileHelper
 {
     IPropertyTree* directories;
+    unsigned thorSlaveLogThreadPoolSize = THOR_SLAVE_LOG_THREAD_POOL_SIZE;
 
     void cleanFolder(IFile *folder, bool removeFolder);
     int zipAFolder(const char *folder, const char *passwordReq, const char *zipFileNameWithPath);
@@ -607,20 +610,21 @@ class CWsWuFileHelper
         StringBuffer &namePrefixStr, StringBuffer &folderName);
 
     void createZAPInfoFile(const char *url, const char *espIP, const char *thorIP, const char *problemDesc,
-        const char *whatChanged, const char *timing, Owned<IConstWorkUnit> &cwu, const char *pathNameStr);
+        const char *whatChanged, const char *timing, IConstWorkUnit *cwu, const char *pathNameStr);
     void createZAPWUXMLFile(WsWuInfo &winfo, const char *pathNameStr);
-    void createZAPECLQueryArchiveFiles(Owned<IConstWorkUnit> &cwu, const char *pathNameStr);
+    void createZAPECLQueryArchiveFiles(IConstWorkUnit *cwu, const char *pathNameStr);
     void createZAPWUGraphProgressFile(const char *wuid, const char *pathNameStr);
-    void createProcessLogfile(Owned<IConstWorkUnit> &cwu, WsWuInfo &winfo, const char *process, const char *path);
-    void createThorSlaveLogfile(Owned<IConstWorkUnit> &cwu, WsWuInfo &winfo, const char *path);
+    void createProcessLogfile(IConstWorkUnit *cwu, WsWuInfo &winfo, const char *process, const char *path);
+    void createThorSlaveLogfile(IConstWorkUnit *cwu, WsWuInfo &winfo, const char *path);
     void writeZAPWUInfoToIOStream(IFileIOStream *outFile, const char *name, SCMStringBuffer &value);
     void writeZAPWUInfoToIOStream(IFileIOStream *outFile, const char *name, const char *value);
 public:
     CWsWuFileHelper(IPropertyTree *_directories) : directories(_directories) {};
 
-    void createWUZAPFile(IEspContext &context, Owned<IConstWorkUnit> &cwu, CWsWuZAPInfoReq &request,
-        StringBuffer &zipFileName, StringBuffer &zipFileNameWithPath);
-    IFileIOStream* createWUZAPFileIOStream(IEspContext &context, Owned<IConstWorkUnit> &cwu, CWsWuZAPInfoReq &request);
+    void createWUZAPFile(IEspContext &context, IConstWorkUnit* cwu, CWsWuZAPInfoReq &request,
+        StringBuffer &zipFileName, StringBuffer &zipFileNameWithPath, unsigned _thorSlaveLogThreadPoolSize);
+    IFileIOStream* createWUZAPFileIOStream(IEspContext &context, IConstWorkUnit *cwu,
+        CWsWuZAPInfoReq &request, unsigned _thorSlaveLogThreadPoolSize);
 
     IFileIOStream* createWUFileIOStream(IEspContext &context, const char *wuid, IArrayOf<IConstWUFileOption> &wuFileOptions,
         CWUFileDownloadOption &downloadOptions, StringBuffer &contentType);
@@ -644,47 +648,31 @@ public:
     void send(const char *body, const void *attachment, size32_t lenAttachment, StringArray &warnings);
 };
 
-class CThorSlaveLogFileItem : public CSimpleInterface
-{
-public:
-    CThorSlaveLogFileItem(const char*_groupName, const char*_logDate, const char*_logDir,
-        unsigned _slaveNum, const char*_fileName)
-        : groupName(_groupName), logDate(_logDate), logDir(_logDir), slaveNum(_slaveNum),
-        fileName(_fileName) { };
-
-    StringAttr groupName, logDate, logDir, fileName;
-    unsigned slaveNum;
-};
-
 class CGetThorSlaveLogToFileThreadParam : public CInterface
 {
-    Owned<CThorSlaveLogFileItem> logFile;
     WsWuInfo* wuInfo;
+    unsigned slaveNum;
+    StringAttr groupName, logDate, logDir, fileName;
 
 public:
     IMPLEMENT_IINTERFACE;
 
-    CGetThorSlaveLogToFileThreadParam(WsWuInfo* _wuInfo, CThorSlaveLogFileItem* _logFile)
-        : wuInfo(_wuInfo)
-    {
-        logFile.setown(_logFile);
-    }
+    CGetThorSlaveLogToFileThreadParam(WsWuInfo* _wuInfo, const char*_groupName,
+        const char*_logDate, const char*_logDir, unsigned _slaveNum, const char* _fileName)
+        : wuInfo(_wuInfo), groupName(_groupName), logDate(_logDate), logDir(_logDir),
+          slaveNum(_slaveNum), fileName(_fileName) { };
 
     virtual void doWork()
     {
         MemoryBuffer dummy;
-        wuInfo->getWorkunitThorSlaveLog(logFile->groupName.get(), nullptr, logFile->logDate.str(),
-            logFile->logDir.get(), logFile->slaveNum, dummy, logFile->fileName.get(), false);;
+        wuInfo->getWorkunitThorSlaveLog(groupName.get(), nullptr, logDate.get(),
+            logDir.get(), slaveNum, dummy, fileName.get(), false);;
     }
 };
 
-class CGetThorSlaveLogToFileThread : public CInterface, implements IPooledThread
+class CGetThorSlaveLogToFileThread : public CSimpleInterfaceOf<IPooledThread>
 {
 public:
-    IMPLEMENT_IINTERFACE;
-
-    CGetThorSlaveLogToFileThread() {};
-
     virtual void init(void* _param) override
     {
         param.setown((CGetThorSlaveLogToFileThreadParam*)_param);

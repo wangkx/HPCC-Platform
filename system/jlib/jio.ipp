@@ -99,6 +99,82 @@ protected:
         curBufferOffset += sizeGot;
         return sizeGot;
     }
+    inline bool readLineFromBuffer(bool keepCRLF, StringBuffer & outBuffer) 
+    {
+        if ((numInBuffer == curBufferOffset) && !fillBuffer())
+            return true;
+
+        bool eof = false;
+        bool foundCRLF = false;
+        while (true)
+        {
+            const char * bufStartFrom = (const char *) buffer;
+            const char * outStartFrom = bufStartFrom + curBufferOffset;
+            const char * ptr = outStartFrom;
+            while (ptr - bufStartFrom < numInBuffer)
+            {
+                if (*ptr == '\r') // standard case, \r\n marks a new header line.
+                {
+                    foundCRLF = true;
+                    ptr++;
+
+                    //check \n
+                    if (ptr - bufStartFrom < numInBuffer)
+                    {
+                        if (*ptr == '\n')
+                        {
+                            ptr++;
+                            if(keepCRLF)
+                                outBuffer.append(ptr - outStartFrom, outStartFrom);
+                            else
+                                outBuffer.append(ptr - outStartFrom - 2, outStartFrom);
+                        }
+                        curBufferOffset = ptr - bufStartFrom;
+                    }
+                    else
+                    {
+                        if(keepCRLF)
+                            outBuffer.append(ptr - outStartFrom, outStartFrom);
+                        else
+                            outBuffer.append(ptr - outStartFrom - 1, outStartFrom);
+
+                        eof = !fillBuffer();
+                        if (!eof && (buffer[0] == '\n'))
+                        {
+                            if(keepCRLF)
+                                outBuffer.append(buffer[0]);
+                            curBufferOffset++;
+                        }
+                    }
+                    break;
+                }
+                else if (*ptr == '\n') // deal with non-standard case, when only a \n marks a new line.
+                {
+                    foundCRLF = true;
+                    ptr++;
+
+                    if(keepCRLF)
+                        outBuffer.append(ptr - outStartFrom, outStartFrom);
+                    else
+                        outBuffer.append(ptr - outStartFrom - 1, outStartFrom);
+                    curBufferOffset = ptr - bufStartFrom;
+                    break;
+                }
+
+                ptr++;
+            }
+
+            if(foundCRLF)
+                break;
+
+            outBuffer.append(ptr - outStartFrom, outStartFrom);
+            eof = !fillBuffer();
+            if (eof)
+                break;
+        }
+
+        return eof;
+    }
 
     virtual bool fillBuffer()=0;
     virtual size32_t directRead(size32_t len, void * data)=0;
