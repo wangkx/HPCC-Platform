@@ -395,6 +395,9 @@ void CWsWorkunitsEx::init(IPropertyTree *cfg, const char *process, const char *s
         sashaServerPort = cfg->getPropInt(xpath.str(), DEFAULT_SASHA_PORT);
     }
 
+    xpath.setf("Software/EspProcess[@name=\"%s\"]/EspService[@name=\"%s\"]/ThorSlaveLogThreadPoolSize", process, service);
+    thorSlaveLogThreadPoolSize = cfg->getPropInt(xpath, THOR_SLAVE_LOG_THREAD_POOL_SIZE);
+
     xpath.setf("Software/EspProcess[@name=\"%s\"]/EspService[@name=\"%s\"]/ZAPEmail", process, service);
     IPropertyTree *zapEmail = cfg->queryPropTree(xpath.str());
     if (zapEmail)
@@ -4723,7 +4726,7 @@ bool CWsWorkunitsEx::onWUCreateZAPInfo(IEspContext &context, IEspWUCreateZAPInfo
         StringBuffer zipFileName, zipFileNameWithPath;
         //CWsWuFileHelper may need ESP's <Directories> settings to locate log files. 
         CWsWuFileHelper helper(directories);
-        helper.createWUZAPFile(context, cwu, zapInfoReq, zipFileName, zipFileNameWithPath);
+        helper.createWUZAPFile(context, cwu, zapInfoReq, zipFileName, zipFileNameWithPath, thorSlaveLogThreadPoolSize);
 
         //Download ZIP file to user
         Owned<IFile> f = createIFile(zipFileNameWithPath.str());
