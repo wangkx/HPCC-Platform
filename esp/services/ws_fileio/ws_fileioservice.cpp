@@ -32,84 +32,64 @@ void CWsFileIOEx::init(IPropertyTree *cfg, const char *process, const char *serv
 {
 }
 
-bool CWsFileIOEx::CheckServerAccess(const char* targetDZNameOrAddress, const char* relPath, StringBuffer& netAddr, StringBuffer& absPath)
+bool CWsFileIOEx::getDropZoneInfo(const char* dropZoneName, const char* dropzoneServer, const char* file,
+    StringBuffer& dropZoneMachineNetAddress, StringBuffer& fileWithFullPath)
 {
-    if (!targetDZNameOrAddress || (targetDZNameOrAddress[0] == 0) || !relPath || (relPath[0] == 0))
-        return false;
+    Owned<IEnvironmentFactory> envFactory = getEnvironmentFactory(true);
+    Owned<IConstEnvironment> constEnv = envFactory->openEnvironment();
+    Owned<IConstDropZoneInfo> dropZoneInfo = constEnv->getDropZone(dropZoneName);
+    if (!dropZoneInfo)
+        throw MakeStringException(ECLWATCH_INVALID_INPUT, "DropZone %s not found.", dropZoneName);
 
-    netAddr.clear();
-    Owned<IEnvironmentFactory> factory = getEnvironmentFactory(true);
-    Owned<IConstEnvironment> env = factory->openEnvironment();
-    Owned<IConstDropZoneInfo> dropZoneInfo = env->getDropZone(targetDZNameOrAddress);
-    if (!dropZoneInfo || !dropZoneInfo->isECLWatchVisible())
+    SCMStringBuffer directory, computerName;
+    dropZoneInfo->getDirectory(directory);
+    if (!directory.length())
+        throw MakeStringException(ECLWATCH_INVALID_INPUT, "DropZone Directory not found for %s.", dropZoneName);
+
+    fileWithFullPath.set(directory.str());
+    addPathSepChar(fileWithFullPath);
+    if (!isPathSepChar(file[0]))
+        fileWithFullPath.append(file);
+    else
+        fileWithFullPath.append(file+1);
+
+    dropZoneInfo->getComputerName(computerName);
+    if (computerName.length() != 0) //legacy env
     {
-        if (stricmp(targetDZNameOrAddress, "localhost")==0)
-            targetDZNameOrAddress = ".";
+        Owned<IConstMachineInfo> machineInfo = constEnv->getMachine(computerName.str());
+        if (!machineInfo)
+            throw MakeStringException(ECLWATCH_INVALID_INPUT, "DropZone Machine %s not found.", computerName.str());
 
-        Owned<IConstDropZoneInfoIterator> dropZoneItr = env->getDropZoneIteratorByAddress(targetDZNameOrAddress);
-        ForEach(*dropZoneItr)
-        {
-            IConstDropZoneInfo & dz = dropZoneItr->query();
-            if (dz.isECLWatchVisible())
-            {
-                dropZoneInfo.set(&dropZoneItr->query());
-                netAddr.set(targetDZNameOrAddress);
-                break;
-            }
-        }
+        SCMStringBuffer netAddress;
+        machineInfo->getNetAddress(netAddress);
+        dropZoneMachineNetAddress.set(netAddress.str());
+        return true;
     }
 
-    if (dropZoneInfo)
-    {
-        SCMStringBuffer directory, computerName, computerAddress;
-        if (netAddr.isEmpty())
-        {
-            dropZoneInfo->getComputerName(computerName); //legacy structure
-            if(computerName.length() != 0)
-            {
-                Owned<IConstMachineInfo> machine = env->getMachine(computerName.str());
-                if (machine)
-                {
-                    machine->getNetAddress(computerAddress);
-                    if (computerAddress.length() != 0)
-                    {
-                        netAddr.set(computerAddress.str());
-                    }
-                }
-            }
-            else
-            {
-                Owned<IConstDropZoneServerInfoIterator> serverIter = dropZoneInfo->getServers();
-                ForEach(*serverIter)
-                {
-                    IConstDropZoneServerInfo &serverElem = serverIter->query();
-                    serverElem.getServer(netAddr.clear());
-                    if (!netAddr.isEmpty())
-                        break;
-                }
-            }
-        }
+    if (isEmptyString(dropzoneServer))
+        throw MakeStringException(ECLWATCH_INVALID_INPUT, "DropZone Server not specified.");
 
-        dropZoneInfo->getDirectory(directory);
-        if (directory.length() != 0)
+    IpAddress ipToMatch;
+    ipToMatch.ipset(dropzoneServer);
+
+    Owned<IConstDropZoneServerInfoIterator> dropZoneServerItr = dropZoneInfo->getServers();
+    ForEach(*dropZoneServerItr)
+    {
+        IConstDropZoneServerInfo& dropZoneServer = dropZoneServerItr->query();
+
+        StringBuffer name, server;
+        dropZoneServer.getName(name);
+        dropZoneServer.getServer(server);
+        if (name.isEmpty() || server.isEmpty())
+            continue;
+
+        IpAddress ipAddr;
+        ipAddr.ipset(server.str());
+        if (ipAddr.ipequals(ipToMatch))
         {
-            const char ch = getPathSepChar(directory.str());
-            if (relPath[0] != ch)
-            {
-                absPath.appendf("%s%c%s", directory.str(), ch, relPath);
-            }
-            else
-            {
-                absPath.appendf("%s%s", directory.str(), relPath);
-            }
+            ipAddr.getIpText(dropZoneMachineNetAddress);
             return true;
         }
-        else
-        {
-            SCMStringBuffer dropZoneName;
-            ESPLOG(LogMin, "Found LZ '%s' without a directory attribute!", dropZoneInfo->getName(dropZoneName).str());
-        }
-
     }
 
     return false;
@@ -120,28 +100,33 @@ bool CWsFileIOEx::onCreateFile(IEspContext &context, IEspCreateFileRequest &req,
     context.ensureFeatureAccess(FILE_IO_URL, SecAccess_Write, ECLWATCH_ACCESS_TO_FILE_DENIED, "WsFileIO::CreateFile: Permission denied");
 
     StringBuffer result;
-    const char* server = req.getDestDropZone();
-    if (!server || (server[0] == 0))
+    const char* dropzone = req.getDestDropZone();
+    if (isEmptyString(dropzone))
     {
-        resp.setResult("Destination not specified");
+        resp.setResult("Destination DropZone not specified");
         return true;
     }
 
     const char* destRelativePath = req.getDestRelativePath();
-    if (!destRelativePath || (destRelativePath[0] == 0))
+    if (isEmptyString(destRelativePath))
     {
         resp.setResult("Destination path not specified");
         return true;
     }
 
-    resp.setDestDropZone(server);
+    double version = context.getClientVersion();
+    const char* server = req.getDropZoneServer();
+    if (!isEmptyString(server) && (version >= 1.01))
+        resp.setDropZoneServer(server);
+
+    resp.setDestDropZone(dropzone);
     resp.setDestRelativePath(destRelativePath);
 
     StringBuffer destAbsPath;
     StringBuffer destNetAddr;
-    if (!CheckServerAccess(server, destRelativePath, destNetAddr, destAbsPath))
+    if (!getDropZoneInfo(dropzone, server, destRelativePath, destNetAddr, destAbsPath))
     {
-        result.appendf("Failed to access the destination: %s %s.", server, destRelativePath);
+        result.appendf("Failed to access the destination: %s %s.", dropzone, destRelativePath);
         resp.setResult(result.str());
         return true;
     }
@@ -178,28 +163,33 @@ bool CWsFileIOEx::onReadFileData(IEspContext &context, IEspReadFileDataRequest &
     context.ensureFeatureAccess(FILE_IO_URL, SecAccess_Read, ECLWATCH_ACCESS_TO_FILE_DENIED, "WsFileIO::ReadFileData: Permission denied");
 
     StringBuffer result;
-    const char* server = req.getDestDropZone();
-    if (!server || (server[0] == 0))
+    const char* dropzone = req.getDestDropZone();
+    if (isEmptyString(dropzone))
     {
-        resp.setResult("Destination not specified");
+        resp.setResult("Destination DropZone not specified");
         return true;
     }
 
     const char* destRelativePath = req.getDestRelativePath();
-    if (!destRelativePath || (destRelativePath[0] == 0))
+    if (isEmptyString(destRelativePath))
     {
         resp.setResult("Destination path not specified");
         return true;
     }
 
-    resp.setDestDropZone(server);
+    double version = context.getClientVersion();
+    const char* server = req.getDropZoneServer();
+    if (!isEmptyString(server) && (version >= 1.01))
+        resp.setDropZoneServer(server);
+
+    resp.setDestDropZone(dropzone);
     resp.setDestRelativePath(destRelativePath);
 
     StringBuffer destAbsPath;
     StringBuffer destNetAddr;
-    if (!CheckServerAccess(server, destRelativePath, destNetAddr, destAbsPath))
+    if (!getDropZoneInfo(dropzone, server, destRelativePath, destNetAddr, destAbsPath))
     {
-        result.appendf("Failed to access the destination: %s %s.", server, destRelativePath);
+        result.appendf("Failed to access the destination: %s %s.", dropzone, destRelativePath);
         resp.setResult(result.str());
         return true;
     }
@@ -254,13 +244,15 @@ bool CWsFileIOEx::onReadFileData(IEspContext &context, IEspReadFileDataRequest &
     if (io->read(offset, (int)dataToRead, buf) != dataToRead)
     {
         resp.setResult("ReadFileData error.");
-        LOG(MCprogress, unknownJob, "ReadFileData error: %s: %s %s", context.getUserID(user).str(), server, destRelativePath);
+        LOG(MCprogress, unknownJob, "ReadFileData error: %s: %s %s", context.getUserID(user).str(),
+            dropzone, destRelativePath);
     }
     else
     {
         resp.setData(membuf);
         resp.setResult("ReadFileData done.");
-        LOG(MCprogress, unknownJob, "ReadFileData done: %s: %s %s", context.getUserID(user).str(), server, destRelativePath);
+        LOG(MCprogress, unknownJob, "ReadFileData done: %s: %s %s", context.getUserID(user).str(),
+            dropzone, destRelativePath);
     }
 
     return true;
@@ -271,15 +263,15 @@ bool CWsFileIOEx::onWriteFileData(IEspContext &context, IEspWriteFileDataRequest
     context.ensureFeatureAccess(FILE_IO_URL, SecAccess_Write, ECLWATCH_ACCESS_TO_FILE_DENIED, "WsFileIO::WriteFileData: Permission denied");
 
     StringBuffer result;
-    const char* server = req.getDestDropZone();
-    if (!server || (server[0] == 0))
+    const char* dropzone = req.getDestDropZone();
+    if (isEmptyString(dropzone))
     {
-        resp.setResult("Destination not specified");
+        resp.setResult("Destination DropZone not specified");
         return true;
     }
 
     const char* destRelativePath = req.getDestRelativePath();
-    if (!destRelativePath || (destRelativePath[0] == 0))
+    if (isEmptyString(destRelativePath))
     {
         resp.setResult("Destination path not specified");
         return true;
@@ -303,14 +295,19 @@ bool CWsFileIOEx::onWriteFileData(IEspContext &context, IEspWriteFileDataRequest
         resp.setOffset(offset);
     }
 
-    resp.setDestDropZone(server);
+    double version = context.getClientVersion();
+    const char* server = req.getDropZoneServer();
+    if (!isEmptyString(server) && (version >= 1.01))
+        resp.setDropZoneServer(server);
+
+    resp.setDestDropZone(dropzone);
     resp.setDestRelativePath(destRelativePath);
 
     StringBuffer destAbsPath;
     StringBuffer destNetAddr;
-    if (!CheckServerAccess(server, destRelativePath, destNetAddr, destAbsPath))
+    if (!getDropZoneInfo(dropzone, server, destRelativePath, destNetAddr, destAbsPath))
     {
-        result.appendf("Failed to access the destination: %s %s.", server, destRelativePath);
+        result.appendf("Failed to access the destination: %s %s.", dropzone, destRelativePath);
         resp.setResult(result.str());
         return true;
     }
@@ -340,12 +337,14 @@ bool CWsFileIOEx::onWriteFileData(IEspContext &context, IEspWriteFileDataRequest
     if (fileio->write(offset, len, srcdata.readDirect(len)) != len)
     {
         resp.setResult("WriteFileData error.");
-        LOG(MCprogress, unknownJob, "WriteFileData error: %s: %s %s", context.getUserID(user).str(), server, destRelativePath);
+        LOG(MCprogress, unknownJob, "WriteFileData error: %s: %s %s", context.getUserID(user).str(),
+            dropzone, destRelativePath);
     }
     else
     {
         resp.setResult("WriteFileData done.");
-        LOG(MCprogress, unknownJob, "WriteFileData done: %s: %s %s", context.getUserID(user).str(), server, destRelativePath);
+        LOG(MCprogress, unknownJob, "WriteFileData done: %s: %s %s", context.getUserID(user).str(),
+            dropzone, destRelativePath);
     }
 
     return true;

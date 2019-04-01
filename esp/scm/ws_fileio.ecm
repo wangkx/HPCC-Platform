@@ -19,7 +19,8 @@
 
 ESPrequest CreateFileRequest
 {
-    string DestDropZone;        //name or IP address
+    string DestDropZone;
+    [min_ver("1.01")] string DropZoneServer;
     string DestRelativePath;    //file name and/or path; related to the predefined directory of the dropzone
     bool   Overwrite(false);
 };
@@ -28,6 +29,7 @@ ESPresponse [nil_remove, exceptions_inline]
 CreateFileResponse 
 {
     string DestDropZone;        //echo back from request
+    [min_ver("1.01")] string DropZoneServer; //echo back from request
     string DestRelativePath;    //echo back from request
     bool   Overwrite;           //echo back from request
     string Result;
@@ -36,7 +38,8 @@ CreateFileResponse
 ESPrequest WriteFileDataRequest
 {
     binary Data;
-    string DestDropZone;        //name or IP address; 
+    string DestDropZone;
+    [min_ver("1.01")] string DropZoneServer;
     string DestRelativePath;    //file name and/or path;
     int64  Offset(0);
     bool   Append(false);
@@ -46,6 +49,7 @@ ESPresponse [nil_remove, exceptions_inline]
 WriteFileDataResponse 
 {
     string DestDropZone;        //echo back from request
+    [min_ver("1.01")] string DropZoneServer; //echo back from request
     string DestRelativePath;    //echo back from request
     int64  Offset;              //echo back from request
     bool   Append;              //echo back from request
@@ -54,7 +58,8 @@ WriteFileDataResponse
 
 ESPrequest ReadFileDataRequest
 {
-    string DestDropZone;        //name or IP address; 
+    string DestDropZone;
+    [min_ver("1.01")] string DropZoneServer;
     string DestRelativePath;    //file name and/or path;
     int64  Offset(0);
     int64  DataSize;        
@@ -65,6 +70,7 @@ ReadFileDataResponse
 {
     binary Data;
     string DestDropZone;        //echo back from request
+    [min_ver("1.01")] string DropZoneServer; //echo back from request
     string DestRelativePath;    //echo back from request
     int64  Offset;              //echo back from request
     int64  DataSize;            //echo back from request
@@ -72,7 +78,7 @@ ReadFileDataResponse
 };
 
 
-ESPservice [auth_feature("DEFERRED"), exceptions_inline("./smc_xslt/exceptions.xslt")] WsFileIO
+ESPservice [auth_feature("DEFERRED"), version("1.01"), exceptions_inline("./smc_xslt/exceptions.xslt")] WsFileIO
 {
     ESPmethod CreateFile(CreateFileRequest, CreateFileResponse);
     ESPmethod WriteFileData(WriteFileDataRequest, WriteFileDataResponse);

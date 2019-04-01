@@ -40,7 +40,7 @@ public:
     virtual bool onReadFileData(IEspContext &context,     IEspReadFileDataRequest &req,   IEspReadFileDataResponse &resp);
 
 protected:
-    bool CheckServerAccess(const char* server, const char* relPath, StringBuffer& netAddr, StringBuffer& absPath);
+    bool getDropZoneInfo(const char* dropzone, const char* dropzoneServer, const char* relPath, StringBuffer& netAddr, StringBuffer& absPath);
 };
 
 #endif //_ESPWIZ_WsFileIO_HPP__
