@@ -439,6 +439,33 @@ void CWsWorkunitsEx::init(IPropertyTree *cfg, const char *process, const char *s
     Owned<CClusterQueryStateThreadFactory> threadFactory = new CClusterQueryStateThreadFactory();
     clusterQueryStatePool.setown(createThreadPool("CheckAndSetClusterQueryState Thread Pool", threadFactory, NULL,
             cfg->getPropInt(xpath.str(), CHECK_QUERY_STATUS_THREAD_POOL_SIZE)));
+#ifdef TEST_LOGGING
+    xpath.setf("Software/EspProcess[@name=\"%s\"]/EspService[@name=\"%s\"]/LoggingManager", process, service);
+    IPropertyTree* loggingConfig = cfg->queryPropTree(xpath);
+    if (loggingConfig)
+    {
+        ESPLOG(LogMin, "ESP Service %s attempting to load configured logging manager.", service);
+        if (!m_oLoggingManager)
+        {
+            StringBuffer realName;
+            realName.append(SharedObjectPrefix).append(LOGGINGMANAGERLIB).append(SharedObjectExtension);
+
+            HINSTANCE loggingManagerLib = LoadSharedObject(realName.str(), true, false);
+
+            if(loggingManagerLib == NULL)
+                throw MakeStringException(-1, "ESP service %s: cannot load logging manager library(%s)", service, realName.str());
+
+            newLoggingManager_t_ xproc = NULL;
+            xproc = (newLoggingManager_t_)GetSharedProcedure(loggingManagerLib, "newLoggingManager");
+
+            if (!xproc)
+                throw MakeStringException(-1, "ESP service %s: procedure newLogggingManager of %s can't be loaded", service, realName.str());
+
+            m_oLoggingManager.setown((ILoggingManager*) xproc());
+            m_oLoggingManager->init(loggingConfig, service);
+        }
+    }
+#endif
 }
 
 void CWsWorkunitsEx::refreshValidClusters()
@@ -1545,6 +1572,54 @@ void getArchivedWUInfo(IEspContext &context, const char* sashaServerIP, unsigned
 
 bool CWsWorkunitsEx::onWUInfo(IEspContext &context, IEspWUInfoRequest &req, IEspWUInfoResponse &resp)
 {
+#ifdef TEST_LOGGING
+    {
+        bool success = true;
+        if (m_oLoggingManager)
+        {
+            StringBuffer wuid = req.getWuid();
+            WsWuHelpers::checkAndTrimWorkunit("WUInfo", wuid);
+
+            StringBuffer rawreq, rawresp, finalresp;
+            rawreq.append("<WUInfoRequest>");
+            rawreq.appendf("<WUID>%s</WUID>", wuid.str());
+            rawreq.append("</WUInfoRequest>");
+
+            Owned<IPropertyTree> reqcontext = createPTreeFromXMLString(rawreq);
+            reqcontext->addProp("User", "test_user");
+
+            Owned<IPropertyTree> request = createPTreeFromXMLString(rawreq);
+            request->addProp("Date", "2019-04-15");
+
+            rawresp.append("<WUInfoResponse>");
+            rawresp.append("<WUID>W2019-04-16 010203</WUID>");
+            rawresp.append("<Job>job1</Job>");
+            rawresp.append("<Status>OK</Status>");
+            rawresp.append("</WUInfoResponse>");
+
+            finalresp.append("<WUInfoResponse>");
+            rawreq.appendf("<WUID>%s</WUID>", wuid.str());
+            rawresp.append("<Job>job1</Job>");
+            finalresp.append("</WUInfoResponse>");
+
+            Owned<IEspLogEntry> entry = m_oLoggingManager->createLogEntry();
+            entry->setOption(LOGGINGDBSINGLEINSERT);
+            entry->setOwnEspContext(LINK(&context));
+            entry->setOwnUserContextTree(LINK(reqcontext));
+            entry->setOwnUserRequestTree(LINK(request));
+            entry->setUserResp(finalresp);
+            entry->setBackEndReq(rawreq);
+            entry->setBackEndResp(rawresp);
+//            entry->setLogDatasets(logdata);
+
+            StringBuffer logresp;
+            success = m_oLoggingManager->updateLog(entry, logresp);
+            ESPLOG(LogMin,"ESDLService: Attempted to log ESP transaction: %s", logresp.str());
+        }
+
+        return success;
+    }
+#endif
     try
     {
         StringBuffer wuid = req.getWuid();

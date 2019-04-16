@@ -27,6 +27,12 @@
 #endif
 #include "referencedfilelist.hpp"
 
+#define TEST_LOGGING
+#ifdef TEST_LOGGING
+#include "loggingagentbase.hpp"
+#include "loggingmanager.h"
+#endif
+
 #define UFO_DIRTY                                0x01
 #define UFO_RELOAD_TARGETS_CHANGED_PMID          0x02
 #define UFO_RELOAD_MAPPED_QUERIES                0x04
@@ -360,6 +366,10 @@ public:
     StringAttr zapEmailTo, zapEmailFrom, zapEmailServer;
     unsigned zapEmailMaxAttachmentSize = 0;
     unsigned zapEmailServerPort = 0;
+
+#ifdef TEST_LOGGING
+    Owned<ILoggingManager> m_oLoggingManager;
+#endif
 };
 
 class CWsWorkunitsSoapBindingEx : public CWsWorkunitsSoapBinding

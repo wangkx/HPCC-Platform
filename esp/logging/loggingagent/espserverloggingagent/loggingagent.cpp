@@ -335,6 +335,12 @@ IEspUpdateLogRequestWrap* CESPServerLoggingAgent::filterLogContent(IEspUpdateLog
 
 bool CESPServerLoggingAgent::sendHTTPRequest(StringBuffer& req, StringBuffer &resp, StringBuffer &status)
 {
+#define TEST_LOGGING
+#ifdef TEST_LOGGING
+    DBGLOG("####req(%s)", req.str());
+    status.set("200 OK");
+    return true;
+#endif
     Owned<IHttpClientContext> httpctx = getHttpClientContext();
     Owned <IHttpClient> httpclient = httpctx->createHttpClient(NULL, serverUrl.str());
     if (serverUserID.length() && serverPassword.length())

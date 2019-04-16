@@ -83,6 +83,8 @@ include_directories (
          ./../../bindings/SOAP/xpp
          ${HPCC_SOURCE_DIR}/dali/dfu
          ./../../../testing/unittests
+         ${HPCC_SOURCE_DIR}/esp/logging/logginglib
+         ${HPCC_SOURCE_DIR}/esp/logging/loggingmanager
     )
 
 ADD_DEFINITIONS( -D_USRDLL -DWS_WORKUNITS_EXPORTS )
