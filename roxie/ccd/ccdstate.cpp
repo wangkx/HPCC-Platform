@@ -2441,6 +2441,52 @@ private:
             {
                 getQueryInfo(control, reply, false, logctx);
             }
+            else if (stricmp(queryName, "control:queryAggregates_test")==0)
+            {
+                struct tm tmStruct;
+                        tmStruct.tm_isdst = 0;
+                        tmStruct.tm_hour = 12;
+                        tmStruct.tm_min = 34;
+                        tmStruct.tm_sec = 56;
+                        tmStruct.tm_mday = 14;
+                        tmStruct.tm_mon = 3;
+                        tmStruct.tm_year = 2005-1900;
+                        Owned<IQueryStatsAggregator> s = createQueryStatsAggregator("TestQuery", 0);
+                        // MORE - scope for much more testing here...
+                        for (unsigned i = 0; i < 100; i++)
+                        {
+                            s->noteQuery(mktime(&tmStruct), false, i, 8000, 10000, 55);
+                            tmStruct.tm_sec++;
+                        }
+                        tmStruct.tm_hour = 11;
+                        s->noteQuery(mktime(&tmStruct), false, 80000, 4000, 5000, 66);
+
+                        tmStruct.tm_hour = 0; 
+                        tmStruct.tm_min = 0;
+                        tmStruct.tm_sec = 0;
+                        time_t start = mktime(&tmStruct);
+                        tmStruct.tm_hour = 24; 
+                        time_t end = mktime(&tmStruct);
+                        {
+                            Owned<IPropertyTree> p = s->getStats(start, end);
+                            StringBuffer stats; 
+                            toXML(p, stats);
+                            DBGLOG("%s", stats.str());
+                        }
+                        {
+                            Owned<IPropertyTree> p = getAllQueryStats(true, false, start, end);
+                            StringBuffer stats; 
+                            toXML(p, stats);
+                            DBGLOG("%s", stats.str());
+                        }
+                        {
+                            Owned<IPropertyTree> p = getAllQueryStats(true, true, start, end);
+                            StringBuffer stats; 
+                            toXML(p, stats);
+                            DBGLOG("%s", stats.str());
+                        }
+                        s.clear();
+            }
             else if (stricmp(queryName, "control:queryAggregates")==0)
             {
                 time_t from;

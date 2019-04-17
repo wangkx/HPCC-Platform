@@ -3308,14 +3308,15 @@ void getSummaryStatsByQueryId(const char *target, const char *queryId, const cha
 {
     if (!target || !*target)
         throw MakeStringException(ECLWATCH_MISSING_PARAMS, "Target name required");
-    if (!queryId || !*queryId)
-        throw MakeStringException(ECLWATCH_MISSING_PARAMS, "Query Id required");
 
     Owned<IConstWUClusterInfo> info = getTargetClusterInfo(target);
     if (!info || (info->getPlatform()!=RoxieCluster)) //Only support roxie for now
         throw MakeStringException(ECLWATCH_INVALID_CLUSTER_NAME, "Invalid Roxie name");
 
-    PROGLOG("getSummaryStatsByQueryId: target %s, query %s", target, queryId);
+    if (!isEmptyString(queryId))
+        PROGLOG("getSummaryStatsByQueryId: target %s, query %s", target, queryId);
+    else
+        PROGLOG("getSummaryStatsByQueryId: target %s", target);
 
     const SocketEndpointArray &eps = info->getRoxieServers();
     if (eps.empty())
@@ -3326,7 +3327,10 @@ void getSummaryStatsByQueryId(const char *target, const char *queryId, const cha
         control.appendf(" from='%s'", fromTime);
     if (!isEmpty(toTime))
         control.appendf(" to='%s'", toTime);
-    control.appendf("><Query id='%s'/></control:queryAggregates>", queryId);
+    if (!isEmptyString(queryId))
+        control.appendf("><Query id='%s'/></control:queryAggregates>", queryId);
+    else
+        control.append("></control:queryAggregates>");
     Owned<IPropertyTree> queryAggregates = sendRoxieControlAllNodes(eps.item(0), control.str(), false, ROXIELOCKCONNECTIONTIMEOUT);
     if (!queryAggregates)
         return;
@@ -3349,6 +3353,9 @@ void getSummaryStatsByQueryId(const char *target, const char *queryId, const cha
             continue;
 
         IPropertyTree *query = aggregate.queryPropTree("Query");
+        if (!query)
+            continue;
+
         Owned<IEspQuerySummaryStats> querySummaryStats = createQuerySummaryStats();
         querySummaryStats->setEndpoint(ep);
         if (query->hasProp("countFailed"))
