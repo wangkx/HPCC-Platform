@@ -983,6 +983,7 @@ private:
     bool readComponentUsageCache(IEspContext& context, const char* id, IEspGetComponentUsageResponse& resp);
     bool readTargetClusterUsageCache(IEspContext& context, const char* id, IEspGetTargetClusterUsageResponse& resp);
     bool readNodeGroupUsageCache(IEspContext& context, const char* id, IEspGetNodeGroupUsageResponse& resp);
+    void updateResponse(StringBuffer& response, const int exitCode);
 
     //Still used in StartStop/Rexec, so keep them for now.
     enum OpSysType { OS_Windows, OS_Solaris, OS_Linux };

@@ -1151,20 +1151,36 @@ int Cws_machineEx::runCommand(IEspContext& context, const char* sAddress, const 
         if (command.length() < 1)
             return exitCode;
 
-        Owned<IFRunSSH> connection = createFRunSSH();
-        connection->init(command.str(),NULL,NULL,NULL,m_SSHConnectTimeoutSeconds,0);
-        // executed as single connection
-        connection->exec(IpAddress(sAddress),NULL,false);
-        response.append(connection->getReplyText()[0]);
-        exitCode = connection->getReply()[0];
-        int len = response.length();
-        if (len > 0 && response.charAt(--len) == '\n') // strip newline
-          response.setLength(len);
-        if (response.length() && !exitCode)
-          response.insert(0, "Response: ");
-        else if (!exitCode)
-          response.insert(0, "No response recieved.\n");
+        IpAddress ip;
+        ip.ipset(sAddress);
+        if (!ip.isLocal())
+        {
+            Owned<IFRunSSH> connection = createFRunSSH();
+            connection->init(command.str(),NULL,NULL,NULL,m_SSHConnectTimeoutSeconds,0);
+            // executed as single connection
+            connection->exec(IpAddress(sAddress),NULL,false);
+            response.append(connection->getReplyText()[0]);
+            exitCode = connection->getReply()[0];
+            updateResponse(response, exitCode);
+        }
+        else
+        {
+            exitCode = invokeProgram(command, response);
+            if (exitCode != -1)
+            {   //Success
+                exitCode = 0;
+                updateResponse(response, exitCode);
+            }
+            else
+            {
+                int len = response.length();
+                if (len > 0 && response.charAt(--len) == '\n') // strip newline
+                    response.setLength(len-1);
 
+                VStringBuffer msg("pclose error: %s. ", strerror(errno));
+                response.insert(0, msg);
+            }
+        }
     }
     // CFRunSSH uses a MakeStringExceptionDirect throw to pass code and result string
     catch(IException* e)
@@ -1176,14 +1192,7 @@ int Cws_machineEx::runCommand(IEspContext& context, const char* sAddress, const 
         StringBuffer buf;
         e->errorMessage(buf);
         response.append(buf.str());
-        int len = response.length();
-        if (len > 0 && response.charAt(--len) == '\n') // strip newline
-            response.setLength(len);
-        // on successful connection
-        if (response.length() && !exitCode)
-            response.insert(0,"Response: ");
-        else if (!exitCode)
-            response.insert(0, "No response recieved.\n");
+        updateResponse(response, exitCode);
         e->Release();
     }
 #ifndef NO_CATCHALL
@@ -1195,6 +1204,21 @@ int Cws_machineEx::runCommand(IEspContext& context, const char* sAddress, const 
 #endif
 
     return exitCode;
+}
+
+void Cws_machineEx::updateResponse(StringBuffer& response, const int exitCode)
+{
+    int len = response.length();
+    if (len > 0 && response.charAt(--len) == '\n') // strip newline
+        response.setLength(len-1);
+    if (exitCode)
+        return;
+
+    // on successful connection
+    if (response.isEmpty())
+        response.append("No response recieved.");
+    else
+        response.insert(0, "Response: ");
 }
 
 int Cws_machineEx::invokeProgram(const char *command_line, StringBuffer& response)
