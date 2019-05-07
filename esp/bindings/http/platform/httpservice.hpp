@@ -97,6 +97,8 @@ protected:
     EspAuthState checkUserAuthPerSession(EspAuthRequest& authReq, StringBuffer& authorizationHeader);
     EspAuthState authNewSession(EspAuthRequest& authReq, const char* _userName, const char* _password, const char* sessionStartURL, bool unlock);
     EspAuthState authExistingSession(EspAuthRequest& req, unsigned sessionID);
+    EspAuthState checkLoginWithSession(EspAuthRequest& authReq, unsigned sessionID, IPropertyTree* sessionTree,
+        const char* userName, const char* peer);
     void logoutSession(EspAuthRequest& authReq, unsigned sessionID, IPropertyTree* domainSessions, bool lock);
     void askUserLogin(EspAuthRequest& authReq, const char* msg);
     EspAuthState handleUserNameOnlyMode(EspAuthRequest& authReq);

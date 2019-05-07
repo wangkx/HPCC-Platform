@@ -1883,11 +1883,14 @@ EspAuthState CEspHttpServer::authExistingSession(EspAuthRequest& authReq, unsign
         return authFailed;
     }
 
-    authOptionalGroups(authReq);
-
     //The UserID has to be set before the populateRequest() because the UserID is used to create the user object.
     //After the user object is created, we may call addSessionToken().
     StringAttr userName = sessionTree->queryProp(PropSessionUserID);
+    if (isServiceMethodReq(authReq, "esp", "login"))
+        return checkLoginWithSession(authReq, sessionID, sessionTree, userName.get(), peer.str());
+
+    authOptionalGroups(authReq);
+
     authReq.ctx->setUserID(userName.str());
     authReq.authBinding->populateRequest(m_request.get());
     authReq.ctx->setSessionToken(sessionID);
@@ -1895,12 +1898,6 @@ EspAuthState CEspHttpServer::authExistingSession(EspAuthRequest& authReq, unsign
     authReq.ctx->setAuthStatus(AUTH_STATUS_OK); //May be changed to AUTH_STATUS_NOACCESS if failed in feature level authorization.
 
     ESPLOG(LogMax, "Authenticated for %s<%u> %s@%s", PropSessionID, sessionID, userName.str(), sessionTree->queryProp(PropSessionNetworkAddress));
-    if (!authReq.serviceName.isEmpty() && !authReq.methodName.isEmpty() && strieq(authReq.serviceName.str(), "esp") && strieq(authReq.methodName.str(), "login"))
-    {
-        VStringBuffer msg("User %s has logged into this session. If you want to login as a different user, please logout and login again.", userName.str());
-        sendMessage(msg.str(), "text/html; charset=UTF-8");
-        return authTaskDone;
-    }
     if (!authReq.serviceName.isEmpty() && !authReq.methodName.isEmpty() && strieq(authReq.serviceName.str(), "esp") && strieq(authReq.methodName.str(), "lock"))
     {
         logoutSession(authReq, sessionID, espSessions, true);
@@ -1937,6 +1934,67 @@ EspAuthState CEspHttpServer::authExistingSession(EspAuthRequest& authReq, unsign
     if (!authReq.authBinding->canRedirectAfterAuth(authReq.httpPath.str()))
         m_response->redirect(*m_request, "/");
 
+    return authSucceeded;
+}
+
+EspAuthState CEspHttpServer::checkLoginWithSession(EspAuthRequest& authReq, unsigned sessionID, IPropertyTree* sessionTree,
+    const char* userName, const char* peer)
+{
+    const char* userNameReq = (authReq.requestParams) ? authReq.requestParams->queryProp("username") : nullptr;
+    if (!streq(userNameReq, userName))
+    {
+        VStringBuffer msg("User %s has logged into this session. If you want to login as a different user, please logout and login again.", userName);
+        sendMessage(msg.str(), "text/html; charset=UTF-8");
+        return authTaskDone;
+    }
+
+    //This may happen when a user opens >1 tabs. The user refreshes tab A
+    //after the tabs are locked. The user unlocks from tab B. Then, the user
+    //trys to login from tab A. We should allow the user to login.
+    const char* password = (authReq.requestParams) ? authReq.requestParams->queryProp("password") : nullptr;
+    if (isEmptyString(password))
+    {
+        authReq.ctx->setAuthStatus(AUTH_STATUS_FAIL);
+        ESPLOG(LogMin, "Authentication failed for %s@%s", userNameReq, peer);
+        //askUserLogin(authReq, "Invalid password");
+        //return authFailed;
+        VStringBuffer msg("Authentication failed for %s@%s: invalid password", userNameReq, peer);
+        sendMessage(msg.str(), "text/html; charset=UTF-8");
+        return authTaskDone;
+    }
+
+    authReq.ctx->setUserID(userNameReq);
+    authReq.ctx->setPassword(password);
+    authReq.authBinding->populateRequest(m_request.get());
+    if (!authReq.authBinding->doAuth(authReq.ctx) && (authReq.ctx->getAuthError() != EspAuthErrorNotAuthorized))
+    {
+        authReq.ctx->setAuthStatus(AUTH_STATUS_FAIL);
+        ESPLOG(LogMin, "###Authentication failed for %s@%s", userNameReq, password);
+        askUserLogin(authReq, "Invalid password");
+        return authFailed;
+        //VStringBuffer msg("Authentication failed for %s@%s: invalid password", userNameReq, peer);
+        //sendMessage(msg.str(), "text/html; charset=UTF-8");
+        //return authTaskDone;
+    }
+
+    ESPLOG(LogMax, "Authenticated for %s<%u> %s@%s", PropSessionID, sessionID, userName, peer);
+
+    CDateTime now;
+    now.setNow();
+    time_t createTime = now.getSimple();
+    sessionTree->setPropInt64(PropSessionLastAccessed, createTime);
+    if (!sessionTree->getPropBool(PropSessionTimeoutByAdmin, false))
+    {
+        time_t timeoutAt = createTime + authReq.authBinding->getServerSessionTimeoutSeconds();
+        sessionTree->setPropInt64(PropSessionTimeoutAt, timeoutAt);
+        ESPLOG(LogMin, "Updated %s for (/%s/%s) : %ld", PropSessionTimeoutAt, authReq.serviceName.isEmpty() ? "" : authReq.serviceName.str(),
+            authReq.methodName.isEmpty() ? "" : authReq.methodName.str(), timeoutAt);
+    }
+
+    VStringBuffer sessionIDStr("%u", sessionID);
+    addCookie(authReq.authBinding->querySessionIDCookieName(), sessionIDStr.str(), 0, true);
+    addCookie(SESSION_AUTH_OK_COOKIE, "true", 0, false); //client can access this cookie.
+    m_response->redirect(*m_request, "/");
     return authSucceeded;
 }
 
