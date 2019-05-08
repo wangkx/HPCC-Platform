@@ -1865,6 +1865,14 @@ EspAuthState CEspHttpServer::authExistingSession(EspAuthRequest& authReq, unsign
         }
     }
 
+    if (isServiceMethodReq(authReq, "esp", "test"))
+    {
+        authReq.ctx->setAuthStatus(AUTH_STATUS_FAIL);
+        clearSessionCookies(authReq);
+        sendSessionReloadHTMLPage(m_request->queryContext(), authReq, "Authentication failed: invalid session.");
+        ESPLOG(LogMin, "Authentication failed: invalid session ID '%u'. clearSessionCookies() called for the session.", sessionID);
+        return authFailed;
+    }
     if (!sessionTree)
     {
         authReq.ctx->setAuthStatus(AUTH_STATUS_FAIL);
