@@ -5173,6 +5173,31 @@ static void asyncRemoveFile(const char * ip, const char * name)
     deleteDllWorkQ->post(new asyncRemoveRemoteFileWorkItem(ip, name));
 }
 
+//extern WUState getWUState(const IPropertyTree * p, bool (* aborting) ())
+///extern WUState getWUState(const IPropertyTree * p, std::function<bool()> aborting)
+extern WUState getWUState(const IPropertyTree * p, std::function<bool()> aborting, std::function<void(WUState&)> checkAgentRunning)
+{
+    ///CriticalBlock block(crit);
+    WUState state = (WUState) getEnum(p, "@state", states);
+    switch (state)
+    {
+    case WUStateRunning:
+    case WUStateDebugPaused:
+    case WUStateDebugRunning:
+    case WUStateBlocked:
+    case WUStateCompiling:
+        if (aborting)
+            state = WUStateAborting;
+        break;
+    case WUStateSubmitted:
+        if (aborting)
+            state = WUStateAborted;
+        break;
+    }
+    checkAgentRunning(state);
+    return state;
+}
+
 class CDaliWorkUnitFactory : public CWorkUnitFactory, implements IDaliClientShutdown
 {
 public:
@@ -5415,6 +5440,9 @@ public:
             StringAttr nameFilterHi;
             StringArray unknownAttributes;
             Owned<CQueryOrFilter> orFilter;
+            IPropertyTree* wuAbortsPTree;
+            mutable CriticalSection crit;
+            StringAttr curWUID;
 
         public:
             IMPLEMENT_IINTERFACE_USING(CSimpleInterface);
@@ -5462,8 +5490,52 @@ public:
                 }
                 if (!iter)
                     return NULL;
-                sortElements(iter, sortOrder.get(), nameFilterLo.get(), nameFilterHi.get(), unknownAttributes, elements);
+
+                Owned<IPropertyTreeIterator> lWWUPTreeIter = createWorkunitPTreeIterator(iter);
+                sortElements(lWWUPTreeIter ? lWWUPTreeIter : iter, sortOrder.get(), nameFilterLo.get(), nameFilterHi.get(), unknownAttributes, elements);
                 return conn.getClear();
+            }
+            IPropertyTreeIterator* createWorkunitPTreeIterator(IPropertyTreeIterator* originalIter)
+            {
+                Owned<IRemoteConnection> conWorkUnitAborts = querySDS().connect("/WorkUnitAborts/", myProcessSession(), 0, SDS_LOCK_TIMEOUT);
+                if (!conWorkUnitAborts)
+                    return originalIter;
+
+                bool stateUpdated = false;
+                wuAbortsPTree = conWorkUnitAborts->queryRoot();
+                Owned<IPropertyTree> lWWUPTreeRoot = createPTree();
+                Owned<IPropertyTreeIterator> lWWUPTreeIter = createNullPTreeIterator();
+                ForEach(*originalIter)
+                {
+                    IPropertyTree& wuTree = originalIter->query();
+                    Owned<IPropertyTree> lWWUPtree = createLightWeitghtWorkunitPTree(&wuTree, wuAbortsPTree, stateUpdated);
+                    lWWUPTreeRoot->addPropTree(lWWUPtree->queryName(), lWWUPtree.getClear());
+                }
+                return stateUpdated ? lWWUPTreeRoot->getElements("*") : nullptr;
+            }
+            bool aborting()
+            {
+                return wuAbortsPTree->queryPropTree(curWUID.get());
+            }
+            void checkAgentRunning(WUState & state)
+            {//TODO
+                ;
+            }
+            WUState getState(IPropertyTree* originalWUTree)
+            {
+                CriticalBlock block(crit);
+                using std::placeholders::_1;
+                curWUID.set(originalWUTree->queryName());
+                return getWUState(originalWUTree, std::bind(&CWorkUnitsPager::aborting, this), std::bind(&CWorkUnitsPager::checkAgentRunning, this, _1));
+            }
+            IPropertyTree* createLightWeitghtWorkunitPTree(IPropertyTree* originalWUTree, IPropertyTree* wuAbortsPTree, bool& stateUpdated)
+            {
+                Owned<IPropertyTree> lwwuTree = createPTree(originalWUTree->queryName());
+                lwwuTree->setProp("@submitID", originalWUTree->queryProp("@submitID"));
+                //TODO
+                setEnum(lwwuTree, "State", getState(originalWUTree), states);
+                //TODO
+                return lwwuTree.getClear();
             }
             virtual bool allMatchingElementsReceived() { return true; }//For now, dali always returns all of matched WUs.
         };
@@ -6778,7 +6850,7 @@ void CLocalWorkUnit::checkAgentRunning(WUState & state)
 WUState CLocalWorkUnit::getState() const 
 {
     CriticalBlock block(crit);
-    WUState state = (WUState) getEnum(p, "@state", states);
+    /*WUState state = (WUState) getEnum(p, "@state", states);
     switch (state)
     {
     case WUStateRunning:
@@ -6793,9 +6865,13 @@ WUState CLocalWorkUnit::getState() const
         if (aborting())
             state = WUStateAborted;
         break;
-    }
-    const_cast<CLocalWorkUnit *>(this)->checkAgentRunning(state); //need const_cast as will change state if agent has died
-    return state;
+    }*/
+    ///WUState state = getWUState(p, std::bind(&CLocalWorkUnit::aborting, this));
+    ///const_cast<CLocalWorkUnit *>(this)->checkAgentRunning(state); //need const_cast as will change state if agent has died
+    //return state;
+//    return getWUState(p, std::bind(&CLocalWorkUnit::aborting, this), std::bind(&(const_cast<CLocalWorkUnit *>(this)->checkAgentRunning), this));
+    using std::placeholders::_1;
+    return getWUState(p, std::bind(&CLocalWorkUnit::aborting, this), std::bind(&CLocalWorkUnit::checkAgentRunning, const_cast<CLocalWorkUnit *>(this), _1));
 }
 
 IStringVal& CLocalWorkUnit::getStateEx(IStringVal & str) const 
