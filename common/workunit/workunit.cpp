@@ -5440,9 +5440,9 @@ public:
             StringAttr nameFilterHi;
             StringArray unknownAttributes;
             Owned<CQueryOrFilter> orFilter;
-            IPropertyTree* wuAbortsPTree;
-            mutable CriticalSection crit;
-            StringAttr curWUID;
+            //IPropertyTree* wuAbortsPTree;
+            //mutable CriticalSection crit;
+            //StringAttr curWUID;
 
         public:
             IMPLEMENT_IINTERFACE_USING(CSimpleInterface);
@@ -5502,7 +5502,7 @@ public:
                     return originalIter;
 
                 bool stateUpdated = false;
-                wuAbortsPTree = conWorkUnitAborts->queryRoot();
+                IPropertyTree* wuAbortsPTree = conWorkUnitAborts->queryRoot();
                 Owned<IPropertyTree> lWWUPTreeRoot = createPTree();
                 Owned<IPropertyTreeIterator> lWWUPTreeIter = createNullPTreeIterator();
                 ForEach(*originalIter)
@@ -5513,27 +5513,34 @@ public:
                 }
                 return stateUpdated ? lWWUPTreeRoot->getElements("*") : nullptr;
             }
-            bool aborting()
+            /*bool aborting()
             {
                 return wuAbortsPTree->queryPropTree(curWUID.get());
-            }
+            }*/
             void checkAgentRunning(WUState & state)
             {//TODO
                 ;
             }
-            WUState getState(IPropertyTree* originalWUTree)
+            WUState getState(IPropertyTree* originalWUTree, IPropertyTree* wuAbortsPTree)
             {
-                CriticalBlock block(crit);
+                ///CriticalBlock block(crit);
                 using std::placeholders::_1;
-                curWUID.set(originalWUTree->queryName());
-                return getWUState(originalWUTree, std::bind(&CWorkUnitsPager::aborting, this), std::bind(&CWorkUnitsPager::checkAgentRunning, this, _1));
+                //curWUID.set(originalWUTree->queryName());
+                //return getWUState(originalWUTree, std::bind(&CWorkUnitsPager::aborting, this), std::bind(&CWorkUnitsPager::checkAgentRunning, this, _1));
+                const char* wuid = originalWUTree->queryName();
+                return getWUState(originalWUTree, [wuid, wuAbortsPTree] ()
+                {
+                    return wuAbortsPTree->queryPropTree(wuid);
+                },
+                std::bind(&CWorkUnitsPager::checkAgentRunning, this, _1));
+
             }
             IPropertyTree* createLightWeitghtWorkunitPTree(IPropertyTree* originalWUTree, IPropertyTree* wuAbortsPTree, bool& stateUpdated)
             {
                 Owned<IPropertyTree> lwwuTree = createPTree(originalWUTree->queryName());
                 lwwuTree->setProp("@submitID", originalWUTree->queryProp("@submitID"));
                 //TODO
-                setEnum(lwwuTree, "State", getState(originalWUTree), states);
+                setEnum(lwwuTree, "State", getState(originalWUTree, wuAbortsPTree), states);
                 //TODO
                 return lwwuTree.getClear();
             }
