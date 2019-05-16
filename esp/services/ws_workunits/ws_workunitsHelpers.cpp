@@ -3648,14 +3648,110 @@ void CWsWuFileHelper::createZAPECLQueryArchiveFiles(IConstWorkUnit* cwu, const c
     }
 }
 
+//Copy from workunit.cpp
+void expandStats(IPropertyTree * target, IStatisticCollection & collection)
+{
+    StringBuffer formattedValue;
+    unsigned numStats = collection.getNumStatistics();
+    for (unsigned i=0; i < numStats; i++)
+    {
+        StatisticKind kind;
+        unsigned __int64 value;
+        collection.getStatistic(kind, value, i);
+        formatStatistic(formattedValue.clear(), value, kind);
+        target->setProp(queryTreeTag(kind), formattedValue);
+    }
+}
+
+//Copy from workunit.cpp
+void expandProcessTreeFromStats(IPropertyTree * rootTarget, IPropertyTree * target, IStatisticCollection * collection)
+{
+    expandStats(target, *collection);
+
+    StringBuffer scopeName;
+    Owned<IStatisticCollectionIterator> activityIter = &collection->getScopes(NULL, false);
+    ForEach(*activityIter)
+    {
+        IStatisticCollection & cur = activityIter->query();
+        cur.getScope(scopeName.clear());
+        const char * id = scopeName.str();
+        const char * tag;
+        IPropertyTree * curTarget = target;
+        switch (cur.queryScopeType())
+        {
+        case SSTedge:
+            tag = "edge";
+            id += strlen(EdgeScopePrefix);
+            break;
+        case SSTactivity:
+            tag = "node";
+            id += strlen(ActivityScopePrefix);
+            break;
+        case SSTsubgraph:
+            //All subgraphs are added a root elements in the progress tree
+            curTarget = rootTarget;
+            tag = "node";
+            id += strlen(SubGraphScopePrefix);
+            break;
+        case SSTchildgraph:
+        case SSTworkflow:
+        case SSTgraph:
+            // SSTworkflow and SSTgraph may be safely ignored.  They are not required to produce the statistics.
+            continue;
+        case SSTfunction:
+            //MORE:Should function scopes be included in the graph scope somehow, and if so how?
+            continue;
+        default:
+            throwUnexpected();
+        }
+
+        IPropertyTree * next = curTarget->addPropTree(tag);
+        next->setProp("@id", id);
+        expandProcessTreeFromStats(rootTarget, next, &cur);
+    }
+}
+
 void CWsWuFileHelper::createZAPWUGraphProgressFile(const char* wuid, const char* pathNameStr)
 {
     Owned<IPropertyTree> graphProgress = getWUGraphProgress(wuid, true);
     if (!graphProgress)
         return;
 
+    StringBuffer stats;
+    MemoryBuffer serialized, compressed;
+    Owned<IPropertyTree> root = createPTreeFromIPT(graphProgress);
+    Owned<IPropertyTreeIterator> iter = root->getElements("graph*/sg*");
+    ForEach(*iter)
+    {
+        IPropertyTree &node = iter->query();
+
+        node.getPropBin("Stats", compressed.clear());
+        //Don't crash on old format progress...
+        if (compressed.length() == 0)
+            continue;
+
+        IPropertyTree* statsTree = node.queryPropTree("Stats");
+        node.removeTree(statsTree);
+
+        Owned<IPropertyTree> newStats = createPTree();
+
+        decompressToBuffer(serialized.clear(), compressed);
+        Owned<IStatisticCollection> collection = createStatisticCollection(serialized);
+
+        //Test code:
+        StringBuffer stats;
+        Owned<IPropertyTree> progressTree = createPTree();
+        expandProcessTreeFromStats(progressTree, progressTree, collection);
+        toXML(progressTree, stats);
+        DBGLOG("###2(%s)", stats.str());
+        newStats->setProp(nullptr, stats.str());
+
+        //expandProcessTreeFromStats(newStats, newStats, collection);
+        node.addPropTree("Stats", newStats.getClear());
+    }
+
     StringBuffer graphProgressXML;
-    toXML(graphProgress, graphProgressXML, 1, XML_Format);
+    toXML(root, graphProgressXML, 1, XML_Format);
 
     VStringBuffer fileName("%s.graphprogress", pathNameStr);
     writeToFile(fileName.str(), graphProgressXML.length(), graphProgressXML.str());
