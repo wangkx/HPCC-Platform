@@ -42,6 +42,9 @@
 
 #define MAX_HTTP_HEADER_LEN 4094
 
+#define CONTENT_ENCODING "Content-Encoding"
+#define ACCEPT_ENCODING "Accept-Encoding"
+
 enum MessageLogFlag
 {
     LOGALL = 0,
@@ -76,6 +79,10 @@ protected:
     Owned<IProperties> m_queryparams;
     MapStrToBuf  m_attachments;
     StringArray  m_headers;
+#ifdef _USE_ZLIB
+    StringBuffer contentEncodingToSent, acceptEncodingType;
+    MemoryBuffer contentEncoded;
+#endif
     StringBuffer allParameterString;
 
     Owned<IEspContext> m_context;
@@ -86,8 +93,14 @@ protected:
     int parseOneHeader(char* oneline);
     virtual void parseCookieHeader(char* cookiestr);
     virtual int parseFirstLine(char* oneline);
-    int readContent();  
-    int readContentTillSocketClosed();
+    int readContent(StringBuffer& content);  
+    int readContentTillSocketClosed(StringBuffer& content);
+#ifdef _USE_ZLIB
+    void checkContentEncodingType(StringBuffer& contentEncodingType);
+    void decodeContent(StringBuffer& content, StringBuffer& contentEncodingType, StringBuffer& decodedContent);
+    const char* selectContentEncoding();
+    void checkAndEncodeContent(unsigned len, const char* content);
+#endif
     virtual void addParameter(const char* paramname, const char *value);
     virtual void addAttachment(const char* name, StringBuffer& value);
 
@@ -255,6 +268,8 @@ public:
     }
     const char* queryAllParameterString() { return allParameterString.str(); }
 
+    virtual void setAcceptEncodingType(const char* type) { acceptEncodingType.set(type); }
+    virtual const char* getAcceptEncodingType() { return acceptEncodingType.str(); }
     virtual void setPersistentEligible(bool eligible) { m_persistentEligible = eligible; }
     virtual bool getPersistentEligible() { return m_persistentEligible; }
     virtual void setPersistentEnabled(bool enabled) { m_persistentEnabled = enabled; }

@@ -29,6 +29,9 @@
 //ESP Binidings
 #include "http/platform/httptransport.ipp"
 #include "bindutil.hpp"
+#ifdef _USE_ZLIB
+#include "zcrypt.hpp"
+#endif
 
 bool httpContentFromFile(const char *filepath, StringBuffer &mimetype, MemoryBuffer &fileContents, bool &checkModifiedTime, StringBuffer &lastModified, StringBuffer &etag)
 {
@@ -509,7 +512,7 @@ int CHttpMessage::processHeaders(IMultiException *me)
     return 0;
 }
 
-int CHttpMessage::readContent()
+int CHttpMessage::readContent(StringBuffer& content)
 {
     char buf[1024 + 1];
     int buflen = 1024;
@@ -531,7 +534,7 @@ int CHttpMessage::readContent()
             if(readlen == 0)
                 break;
             buf[readlen] = 0;
-            m_content.append(readlen, buf);
+            content.append(readlen, buf);
             totallen -= readlen;
             if(totallen <= 0)
                 break;
@@ -544,7 +547,7 @@ int CHttpMessage::readContent()
     return 0;
 }
 
-int CHttpMessage::readContentTillSocketClosed()
+int CHttpMessage::readContentTillSocketClosed(StringBuffer& content)
 {
     const int buflen = 1024;
     char buf[buflen + 1];
@@ -573,7 +576,7 @@ int CHttpMessage::readContentTillSocketClosed()
                 if(readlen <= 0)
                     break;
                 chunkSize -= readlen;
-                m_content.append(readlen, buf);
+                content.append(readlen, buf);
             }
 
             if (m_bufferedsocket->read(buf, 2) <= 0)//CR/LF
@@ -588,7 +591,7 @@ int CHttpMessage::readContentTillSocketClosed()
             if(readlen <= 0)
                 break;
             buf[readlen] = 0;
-            m_content.append(readlen, buf);
+            content.append(readlen, buf);
         }
     }
     return 0;
@@ -615,25 +618,156 @@ int CHttpMessage::receive(bool alwaysReadContent, IMultiException *me)
     if (isUpload())
         return 0;
 
+#ifdef _USE_ZLIB
+    StringBuffer contentEncodingType, contentEncoded;
+    checkContentEncodingType(contentEncodingType);
+#endif
+
     m_context->addTraceSummaryValue(LogMin, "contLen", m_content_length);
     if(m_content_length > 0)
     {
-        readContent();
+#ifndef _USE_ZLIB
+        readContent(m_content);
         if (getEspLogLevel()>LogNormal)
             DBGLOG("length of content read = %d", m_content.length());
+#else
+        if (contentEncodingType.isEmpty())
+        {
+            readContent(m_content);
+            if (getEspLogLevel()>LogNormal)
+                DBGLOG("length of content read = %d", m_content.length());
+        }
+        else
+        {
+            readContent(contentEncoded);
+            if (getEspLogLevel()>LogNormal)
+                DBGLOG("length of content read = %d", contentEncoded.length());
+        }
+#endif
     }
     else if (alwaysReadContent && m_content_length == -1)
     {
         //HTTP protocol does not require a content length: read until socket closed
-        readContentTillSocketClosed();
+#ifndef _USE_ZLIB
+        readContentTillSocketClosed(m_content);
         if (getEspLogLevel()>LogNormal)
             DBGLOG("length of content read = %d", m_content.length());
+#else
+        if (contentEncodingType.isEmpty())
+        {
+            readContentTillSocketClosed(m_content);
+            if (getEspLogLevel()>LogNormal)
+                DBGLOG("length of content read = %d", m_content.length());
+        }
+        else
+        {
+            readContentTillSocketClosed(contentEncoded);
+            if (getEspLogLevel()>LogNormal)
+                DBGLOG("length of content read = %d", contentEncoded.length());
+        }
+#endif
     }
+
+#ifdef _USE_ZLIB
+    if (!contentEncodingType.isEmpty())
+        decodeContent(contentEncoded, contentEncodingType, m_content);
+#endif
 
     if (getEspLogRequests() == LogRequestsAlways)
         logMessage(LOGCONTENT, "HTTP content received:\n");
     return 0;
 }
+
+#ifdef _USE_ZLIB
+bool checkContentEncodingSupported(const char* encoding)
+{
+    if (strieq(encoding, "gzip"))
+        return true;
+    if (strieq(encoding, "deflate"))
+        return true;
+    if (strieq(encoding, "x-deflate"))
+        return true;
+    return false;
+}
+
+ZlibCompressionType getEncodeFormat(const char *name)
+{
+    if (strieq(name, "gzip"))
+        return ZlibCompressionType::GZIP;
+    if (strieq(name, "x-deflate"))
+        return ZlibCompressionType::ZLIB_DEFLATE;
+    if (strieq(name, "deflate"))
+        return ZlibCompressionType::DEFLATE;
+    return ZlibCompressionType::GZIP; //already checked above, shouldn't be here
+}
+
+void CHttpMessage::checkContentEncodingType(StringBuffer& contentEncodingType)
+{
+    getHeader(CONTENT_ENCODING, contentEncodingType);
+    if (contentEncodingType.isEmpty())
+        return;
+
+    if (!checkContentEncodingSupported(contentEncodingType.str()))
+        throw MakeStringException(-1, "Content-Encoding:%s not supported", contentEncodingType.str());
+}
+
+void CHttpMessage::decodeContent(StringBuffer& content, StringBuffer& contentEncodingType, StringBuffer& contentDecoded)
+{
+    unsigned contentLength = content.length();
+    httpInflate((const byte*)content.str(), contentLength, contentDecoded, strieq(contentEncodingType, "gzip"));
+    PROGLOG("Content decoded from %d bytes to %d bytes", contentLength, contentDecoded.length());
+}
+
+const char* CHttpMessage::selectContentEncoding()
+{
+    if (acceptEncodingType.isEmpty())
+        return nullptr;
+    //Image files are compressed.
+    if (m_content_type.get() && !strncmp(m_content_type.get(), "image/", 6))
+        return nullptr;
+
+    StringArray types;
+    types.appendListUniq(acceptEncodingType.str(), ",");
+
+    BoolHash uniqueTypes;
+    ForEachItemIn(i, types)
+    {
+        const char* type = types.item(i);
+        bool* found = uniqueTypes.getValue(type);
+        if (found && *found)
+            continue;
+        uniqueTypes.setValue(type, true);
+    }
+
+    bool* found = uniqueTypes.getValue("gzip");
+    if (found && *found)
+        return "gzip";
+
+    found = uniqueTypes.getValue("x-deflate");
+    if (found && *found)
+        return "x-deflate";
+
+    found = uniqueTypes.getValue("deflate");
+    if (found && *found)
+        return "deflate";
+    return nullptr;
+}
+
+void CHttpMessage::checkAndEncodeContent(unsigned len, const char* content)
+{
+    contentEncodingToSent = selectContentEncoding();
+    if (contentEncodingToSent.isEmpty())
+    {
+        m_content_length = len;
+    }
+    else
+    {
+        zlib_deflate(contentEncoded, content, len, GZ_BEST_SPEED, getEncodeFormat(contentEncodingToSent));
+        PROGLOG("Content encoded from %d bytes to %d bytes", len, contentEncoded.length());
+        m_content_length = contentEncoded.length();
+    }
+}
+#endif
 
 StringBuffer& CHttpMessage::getContent(StringBuffer& content)
 {
@@ -796,9 +930,15 @@ void CHttpMessage::logMessage(MessageLogFlag messageLogFlag, const char *prefix)
 
 int CHttpMessage::send()
 {
+    if (m_content.length() > 0)
+    {
+        //Now, the content and content type can be used for checkAndEncodeContent().
+        checkAndEncodeContent(m_content.length(), m_content);
+    }
+
     StringBuffer headers;
     constructHeaderBuffer(headers, true);
-    
+
     int retcode = 0;
 
     // If m_content is empty but m_content_stream is set, the stream will not be logged here.
@@ -813,7 +953,16 @@ int CHttpMessage::send()
     {
         m_socket.write(headers.str(), headers.length());
         if(m_content_length > 0 && m_content.length() > 0)
+        {
+#ifndef _USE_ZLIB
             m_socket.write(m_content.str(), m_content.length());
+#else
+            if (contentEncodingToSent.isEmpty())
+                m_socket.write(m_content.str(), m_content.length());
+            else
+                m_socket.write((const char*) contentEncoded.bufferBase(), contentEncoded.length());
+#endif
+        }
     }
     catch (IException *e) 
     {
@@ -1816,6 +1965,12 @@ StringBuffer& CHttpRequest::constructHeaderBuffer(StringBuffer& headerbuf, bool 
         headerbuf.append("\r\n");
     }
 
+#ifdef _USE_ZLIB
+    headerbuf.append(ACCEPT_ENCODING).append(": gzip, deflate\r\n");
+    if (!contentEncodingToSent.isEmpty())
+        headerbuf.appendf("%s: %s\r\n", CONTENT_ENCODING, contentEncodingToSent.str());
+#endif
+
     headerbuf.append("Content-Type: ");
     if(m_content_type.length() > 0)
         headerbuf.append(m_content_type.get());
@@ -2135,7 +2290,13 @@ StringBuffer& CHttpResponse::constructHeaderBuffer(StringBuffer& headerbuf, bool
     else
         headerbuf.append(HTTP_STATUS_OK);
     headerbuf.append("\r\n");
-    
+
+#ifdef _USE_ZLIB
+    headerbuf.append(ACCEPT_ENCODING).append(": gzip, deflate\r\n");
+    if (!contentEncodingToSent.isEmpty())
+        headerbuf.appendf("%s: %s\r\n", CONTENT_ENCODING, contentEncodingToSent.str());
+#endif
+
     headerbuf.append("Content-Type: ");
     if(m_content_type.length() > 0)
         headerbuf.append(m_content_type.get());
@@ -2438,25 +2599,65 @@ int CHttpResponse::receive(bool alwaysReadContent, IMultiException *me)
 
     if (getEspLogLevel()>LogNormal)
         DBGLOG("Response headers processed! content_length = %" I64F "d", m_content_length);
-    
+
+#ifdef _USE_ZLIB
+    StringBuffer contentEncodingType, contentEncoded;
+    checkContentEncodingType(contentEncodingType);
+#endif
+
     char status_class = '2';
     if(m_status.length() > 0)
         status_class = *(m_status.get());
 
     if(m_content_length > 0)
     {
-        readContent();
+#ifdef _USE_ZLIB
+        readContent(m_content);
         if (getEspLogLevel()>LogNormal)
             DBGLOG("length of response content read = %d", m_content.length());
+#else
+        if (contentEncodingType.isEmpty())
+        {
+            readContent(m_content);
+            if (getEspLogLevel()>LogNormal)
+                DBGLOG("length of content read = %d", m_content.length());
+        }
+        else
+        {
+            readContent(contentEncoded);
+            if (getEspLogLevel()>LogNormal)
+                DBGLOG("length of content read = %d", contentEncoded.length());
+        }
+#endif
     }
     else if(alwaysReadContent && status_class != '4' && status_class != '5' && m_content_length == -1)
     {
+#ifdef _USE_ZLIB
         //HTTP protocol does not require a content length: read until socket closed
-        readContentTillSocketClosed();
+        readContentTillSocketClosed(m_content);
         if (getEspLogLevel()>LogNormal)
             DBGLOG("length of content read = %d", m_content.length());
+#else
+        if (contentEncodingType.isEmpty())
+        {
+            readContentTillSocketClosed(m_content);
+            if (getEspLogLevel()>LogNormal)
+                DBGLOG("length of content read = %d", m_content.length());
+        }
+        else
+        {
+            readContentTillSocketClosed(contentEncoded);
+            if (getEspLogLevel()>LogNormal)
+                DBGLOG("length of content read = %d", contentEncoded.length());
+        }
+#endif
     }
-    
+
+#ifdef _USE_ZLIB
+    if (!contentEncodingType.isEmpty())
+        decodeContent(contentEncoded, contentEncodingType, m_content);
+#endif
+
     if (getEspLogRequests() == LogRequestsAlways)
         logMessage(LOGCONTENT, "HTTP response content received:\n");
     return 0;
