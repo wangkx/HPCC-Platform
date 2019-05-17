@@ -1050,6 +1050,20 @@ inline int getWindowBits(ZlibCompressionType zltype)
     return -15;
 }
 
+#define ZS_DF_BUFSIZE 16
+inline int deflateToBuffer(z_stream& zs, MemoryBuffer& mb, int flag)
+{
+    zs.avail_out = mb.length() - zs.total_out;
+    if (zs.avail_out == 0) //Need more space
+    {
+        mb.reserveTruncate(ZS_DF_BUFSIZE);
+        zs.avail_out = ZS_DF_BUFSIZE;
+    }
+
+    zs.next_out = (Bytef*) mb.bufferBase() + zs.total_out;
+    return deflate(&zs, flag);
+}
+
 // Compress a character buffer using zlib in gzip/zlib_deflate format with given compression level
 //
 void zlib_deflate(MemoryBuffer &mb, const char* inputBuffer, unsigned int inputSize, int compressionLevel, ZlibCompressionType zltype)
@@ -1104,42 +1118,31 @@ void zlib_deflate(MemoryBuffer &mb, const char* inputBuffer, unsigned int inputS
     zs.next_in = (Bytef*)inputBuffer;
     zs.avail_in = inputSize;
 
-    // Create output memory buffer for compressed data. The zlib documentation states that
-    // destination buffer size must be at least 0.1% larger than avail_in plus 12 bytes.
-    const unsigned long outsize = (unsigned long) inputSize + inputSize / 1000 + 13;
-    Bytef* outbuf = (Bytef*) mb.reserveTruncate(outsize);
-
-    do
+    mb.reserveTruncate(inputSize + ZS_DF_BUFSIZE);
+    while ((ret == Z_OK) && (zs.avail_in != 0))
     {
-        // Store location where next byte should be put in next_out
-        zs.next_out = outbuf + zs.total_out;
+        ret = deflateToBuffer(zs, mb, Z_NO_FLUSH);
+    }
 
-        // Calculate the amount of remaining free space in the output buffer
-        // by subtracting the number of bytes that have been written so far
-        // from the buffer's total capacity
-        zs.avail_out = outsize - zs.total_out;
+    while (ret == Z_OK)
+    { //Complete  the compressed output stream until Z_STREAM_END or error
+        ret = deflateToBuffer(zs, mb, Z_FINISH);
+    }
 
-        /* deflate() compresses as much data as possible, and stops/returns when
-        the input buffer becomes empty or the output buffer becomes full. If
-        deflate() returns Z_OK, it means that there are more bytes left to
-        compress in the input buffer but the output buffer is full; the output
-        buffer should be expanded and deflate should be called again (i.e., the
-        loop should continue to rune). If deflate() returns Z_STREAM_END, the
-        end of the input stream was reached (i.e.g, all of the data has been
-        compressed) and the loop should stop. */
-        ret = deflate(&zs, Z_FINISH);
-    } while (ret == Z_OK);
+    if (ret == Z_STREAM_END)
+        mb.setLength(zs.total_out);
 
     // Free data structures that were dynamically created for the stream.
     deflateEnd(&zs);
 
     if (ret != Z_STREAM_END)          // an error occurred that was not EOS
     {
+        VStringBuffer msg("compression");
+        if (ret == Z_BUF_ERROR)
+            msg.appendf(" (Input size=%u; Buffer size=%u) ", inputSize, mb.length());
         mb.clear();
-        throwZlibException("compression", ret, zltype);
+        throwZlibException(msg, ret, zltype);
     }
-
-    mb.setLength(zs.total_out);
 }
 
 // Compress a character buffer using zlib in gzip format with given compression level
