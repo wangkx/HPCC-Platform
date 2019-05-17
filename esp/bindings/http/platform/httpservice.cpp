@@ -204,6 +204,10 @@ int CEspHttpServer::processRequest()
         return 0;
     }
 
+#ifdef _USE_ZLIB
+    StringBuffer acceptEncodingType;
+    m_response->setAcceptEncodingType(m_request->getHeader(ACCEPT_ENCODING, acceptEncodingType).str());
+#endif
     m_response->setPersistentEligible(m_request->getPersistentEligible());
 
     try

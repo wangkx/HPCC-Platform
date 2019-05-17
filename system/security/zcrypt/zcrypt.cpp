@@ -1106,7 +1106,11 @@ void zlib_deflate(MemoryBuffer &mb, const char* inputBuffer, unsigned int inputS
 
     // Create output memory buffer for compressed data. The zlib documentation states that
     // destination buffer size must be at least 0.1% larger than avail_in plus 12 bytes.
-    const unsigned long outsize = (unsigned long) inputSize + inputSize / 1000 + 13;
+    unsigned long outsize = inputSize + 13;
+    if (inputSize < 100)
+        outsize += inputSize;
+    else
+        outsize += inputSize / 1000;
     Bytef* outbuf = (Bytef*) mb.reserveTruncate(outsize);
 
     do
@@ -1135,8 +1139,11 @@ void zlib_deflate(MemoryBuffer &mb, const char* inputBuffer, unsigned int inputS
 
     if (ret != Z_STREAM_END)          // an error occurred that was not EOS
     {
+        VStringBuffer msg("compression");
+        if (ret == Z_BUF_ERROR)
+            msg.appendf(" (Input size=%u; Buffer size=%lu) ", inputSize, outsize);
         mb.clear();
-        throwZlibException("compression", ret, zltype);
+        throwZlibException(msg, ret, zltype);
     }
 
     mb.setLength(zs.total_out);
