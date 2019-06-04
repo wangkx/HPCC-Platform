@@ -1600,6 +1600,7 @@ public:
 
         unsigned numStats;
         in.read(numStats);
+        DBGLOG("### -- numStats(%u)", numStats);
         stats.ensure(numStats);
         while (numStats-- > 0)
         {
@@ -1609,10 +1610,13 @@ public:
 
         unsigned numChildren;
         in.read(numChildren);
+        DBGLOG("### -- numChildren(%u)", numChildren);
         children.ensure(numChildren);
         while (numChildren-- > 0)
         {
             CStatisticCollection * next = deserializeCollection(this, in, version);
+            StringBuffer str;
+            DBGLOG("### -- Child (%u)(%s)", numChildren, next->toXML(str).str());
             children.add(*next);
         }
     }

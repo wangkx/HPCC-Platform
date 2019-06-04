@@ -30,6 +30,9 @@
 #include "wujobq.hpp"
 #include "hqlexpr.hpp"
 #include "rmtsmtp.hpp"
+#include "rtlconst.hpp"
+#include "eclrtl.hpp"
+#include "workunit.ipp"
 
 #ifndef _NO_LDAP
 #include "ldapsecurity.ipp"
@@ -192,7 +195,7 @@ WsWUExceptions::WsWUExceptions(IConstWorkUnit& wu): numerr(0), numwrn(0), numinf
     }
 }
 
-#define SDS_LOCK_TIMEOUT 30000
+///#define SDS_LOCK_TIMEOUT 30000
 
 void getSashaNode(SocketEndpoint &ep)
 {
@@ -3717,9 +3720,24 @@ void CWsWuFileHelper::createZAPWUGraphProgressFile(const char* wuid, const char*
     if (!graphProgress)
         return;
 
+    StringBuffer debugStr;
+    toXML(graphProgress, debugStr.clear());
+    DBGLOG("###1(%s)", debugStr.str());
+    Owned<IPropertyTreeIterator> iter = graphProgress->getElements("graph*");
+    ForEach(*iter)
+    {
+        IPropertyTree &node = iter->query();
+        const char* graphName = node.queryName();
+        Owned<IConstWUGraphProgress> graphProgress = createConstGraphProgress(wuid, graphName, &node);
+        Owned<IPropertyTree> progressTree = graphProgress->getProgressTree();
+        toXML(progressTree, debugStr.clear());
+        DBGLOG("###2(%s)", debugStr.str());
+    }
+
     StringBuffer stats;
     MemoryBuffer serialized, compressed;
     Owned<IPropertyTree> root = createPTreeFromIPT(graphProgress);
+#ifdef KW_TEST
     Owned<IPropertyTreeIterator> iter = root->getElements("graph*/sg*");
     ForEach(*iter)
     {
@@ -3749,6 +3767,7 @@ void CWsWuFileHelper::createZAPWUGraphProgressFile(const char* wuid, const char*
         //expandProcessTreeFromStats(newStats, newStats, collection);
         node.addPropTree("Stats", newStats.getClear());
     }
+#endif
 
     StringBuffer graphProgressXML;
     toXML(root, graphProgressXML, 1, XML_Format);

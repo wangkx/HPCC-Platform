@@ -258,6 +258,7 @@ protected:
     {
         StringBuffer formattedValue;
         unsigned numStats = collection.getNumStatistics();
+        DBGLOG("###numStats(%u)", numStats);
         for (unsigned i=0; i < numStats; i++)
         {
             StatisticKind kind;
@@ -299,6 +300,7 @@ protected:
             case SSTchildgraph:
             case SSTworkflow:
             case SSTgraph:
+                DBGLOG("###ScopeType(%d)", cur.queryScopeType());
                 // SSTworkflow and SSTgraph may be safely ignored.  They are not required to produce the statistics.
                 continue;
             case SSTfunction:
@@ -323,6 +325,7 @@ protected:
         ForEach(*iter)
         {
             IPropertyTree & curSubGraph = iter->query();
+            DBGLOG("###sg(%s)", curSubGraph.queryName());
             curSubGraph.getPropBin("Stats", compressed.clear());
             //Protect against updates that delete the stats while we are iterating
             if (compressed.length())
