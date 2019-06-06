@@ -3729,15 +3729,30 @@ void CWsWuFileHelper::createZAPWUGraphProgressFile(const char* wuid, const char*
         IPropertyTree &node = iter->query();
         const char* graphName = node.queryName();
         Owned<IConstWUGraphProgress> graphProgress = createConstGraphProgress(wuid, graphName, &node);
-        Owned<IPropertyTree> progressTree = graphProgress->getProgressTree();
-        toXML(progressTree, debugStr.clear());
+        Owned<IPropertyTree> newStatsTree = graphProgress->getProgressTree();
+        toXML(newStatsTree, debugStr.clear());
         DBGLOG("###2(%s)", debugStr.str());
+
+        Owned<IPropertyTreeIterator> iter1 = node.getElements("sg*");
+        ForEach(*iter1)
+        {
+            IPropertyTree &node1 = iter1->query();
+            VStringBuffer xpath("node[@id='%s']", node1.queryName() + 2);
+            IPropertyTree* statsTreeForSubGraph = newStatsTree->queryPropTree(xpath.str());
+            if (statsTreeForSubGraph)
+            {
+                IPropertyTree* statsTree = node1.queryPropTree("Stats");
+                node1.removeTree(statsTree);
+                node1.addPropTree("Stats", LINK(statsTreeForSubGraph));
+            }
+        }
     }
 
-    StringBuffer stats;
-    MemoryBuffer serialized, compressed;
     Owned<IPropertyTree> root = createPTreeFromIPT(graphProgress);
 #ifdef KW_TEST
+    StringBuffer stats;
+    MemoryBuffer serialized, compressed;
+
     Owned<IPropertyTreeIterator> iter = root->getElements("graph*/sg*");
     ForEach(*iter)
     {

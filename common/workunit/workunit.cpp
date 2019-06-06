@@ -302,6 +302,11 @@ protected:
             case SSTgraph:
                 DBGLOG("###ScopeType(%d)", cur.queryScopeType());
                 // SSTworkflow and SSTgraph may be safely ignored.  They are not required to produce the statistics.
+                {
+                    IPropertyTree * next1 = curTarget->addPropTree("tag");
+                    next1->setProp("@id", id);
+                    expandProcessTreeFromStats(rootTarget, next1, &cur);
+                }
                 continue;
             case SSTfunction:
                 //MORE:Should function scopes be included in the graph scope somehow, and if so how?
