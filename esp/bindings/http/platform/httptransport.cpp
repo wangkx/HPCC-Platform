@@ -1895,7 +1895,10 @@ int CHttpRequest::processHeaders(IMultiException *me)
         m_header.append('\n').append(oneline);
         parseOneHeader(oneline);
         lenread = m_bufferedsocket->readline(oneline, MAX_HTTP_HEADER_LEN + 1, me);
+        DBGLOG("####(%s)", oneline);
     }
+    //StringBuffer aLine("Authorization: Basic a3dhbmc6TmluZW5pbmUw");
+    //parseOneHeader((char*) aLine.str());
 
     if (getEspLogRequests() || getEspLogLevel()>LogNormal)
         logMessage(LOGHEADERS, "HTTP request headers received:\n");

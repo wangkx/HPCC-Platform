@@ -1409,6 +1409,25 @@ EspAuthState CEspHttpServer::checkUserAuthPerSession(EspAuthRequest& authReq, St
     if (authReq.authBinding->isDomainAuthResources(authReq.httpPath.str()))
         return authSucceeded;//Give the permission to send out some pages used for login or logout.
 
+    StringBuffer userid;
+    authReq.ctx->getUserID(userid);
+    if (!userid.isEmpty())
+    {
+        authReq.authBinding->populateRequest(m_request.get());
+        ISecUser* user = authReq.ctx->queryUser();
+        if (user)
+        {
+            const char* pwd = user->credentials().getPassword();
+            if (!isEmptyString(pwd))
+            {
+                DBGLOG("####(%s)(%s)", userid.str(), pwd);
+                StringBuffer urlCookie;
+                readCookie(SESSION_START_URL_COOKIE, urlCookie);
+                return authNewSession(authReq, userid, pwd, urlCookie.isEmpty() ? "/" :
+                    urlCookie.str(), isServiceMethodReq(authReq, "esp", "unlock"));
+            }
+        }
+    }
     if (!authorizationHeader.isEmpty() && !isServiceMethodReq(authReq, "esp", "login")
         && !isServiceMethodReq(authReq, "esp", "unlock"))
         return authUnknown;
