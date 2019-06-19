@@ -762,9 +762,74 @@ void CHttpMessage::checkAndEncodeContent(unsigned len, const char* content)
     }
     else
     {
+///#define KW_TEST
+#ifdef KW_TEST
+#define KW_TEST_REPEAT 1000
+        StringBuffer s;
+        PROGLOG("###Start Content encoding test.");
+        for (unsigned i = 0; i<KW_TEST_REPEAT; i++)
+        {
+            MemoryBuffer contentEncoded0;
+            StringBuffer contentEncodingToSent0, contentDecoded;
+            s.append("abc");
+            zlib_deflate(contentEncoded0, s, s.length(), GZ_BEST_SPEED, getEncodeFormat(contentEncodingToSent0));
+            //PROGLOG("###Content encoded from %d bytes to %d bytes", s.length(), contentEncoded0.length());
+
+            httpInflate((const byte*)contentEncoded0.bufferBase(), contentEncoded0.length(), contentDecoded, strieq(contentEncodingToSent, "gzip"));
+            if (!streq(s.str(), contentDecoded.str()))
+                PROGLOG("###Wrong contents(%s),(%s)", s.str(), contentDecoded.str());
+        }
+        for (unsigned i1 = 0; i1<KW_TEST_REPEAT; i1++)
+        {
+            MemoryBuffer contentEncoded0;
+            StringBuffer contentEncodingToSent0, contentDecoded;
+            s.append("abcdefghijklmnopqrstuvwxyz12345678901234567890");
+            zlib_deflate(contentEncoded0, s, s.length(), GZ_BEST_SPEED, getEncodeFormat(contentEncodingToSent0));
+            //PROGLOG("###Content encoded from %d bytes to %d bytes", s.length(), contentEncoded0.length());
+
+            httpInflate((const byte*)contentEncoded0.bufferBase(), contentEncoded0.length(), contentDecoded, strieq(contentEncodingToSent, "gzip"));
+            if (!streq(s.str(), contentDecoded.str()))
+                PROGLOG("###Wrong contents !!!");
+        }
+        contentEncoded.clear();
+        PROGLOG("###Content encoding test done.");
+#endif
+#define KW_TEST2
+#ifdef KW_TEST2
+        PROGLOG("###Start Content encoding test 2.");
+        PROGLOG("Before encoding(%s)", content);
+
+//#define KW_TEST3
+#ifdef KW_TEST3
+        contentEncoded.clear();
+        zlib_deflate_old(contentEncoded, content, len, GZ_BEST_SPEED, getEncodeFormat(contentEncodingToSent));
+        PROGLOG("OLD: Content encoded from %d bytes to %d bytes.", len, contentEncoded.length());
+
+        const byte *ptr1 = contentEncoded.readDirect(0);
+        StringBuffer msg1;
+        for (unsigned i = 0; i<contentEncoded.length(); i++)
+        {
+            msg1.appendf(" %2x", (int) ptr1[i]);
+        }
+        PROGLOG("OLD: encoded(%s)", msg1.str());
+#endif
+#endif
+        contentEncoded.clear();
         zlib_deflate(contentEncoded, content, len, GZ_BEST_SPEED, getEncodeFormat(contentEncodingToSent));
-        PROGLOG("Content encoded from %d bytes to %d bytes", len, contentEncoded.length());
+        PROGLOG("Content encoded from %d bytes to %d bytes.", len, contentEncoded.length());
         m_content_length = contentEncoded.length();
+
+#ifdef KW_TEST2
+        //const char* ptr = contentEncoded.toByteArray();
+        const byte *ptr = contentEncoded.readDirect(0);
+        StringBuffer msg;
+        for (unsigned i = 0; i<contentEncoded.length(); i++)
+        {
+            msg.appendf(" %2x", (int) ptr[i]);
+        }
+        PROGLOG("encoded(%s)", msg.str());
+        PROGLOG("###Content encoding test 2 done.");
+#endif
     }
 }
 #endif
