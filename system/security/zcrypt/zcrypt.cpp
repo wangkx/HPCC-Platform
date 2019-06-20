@@ -1050,14 +1050,17 @@ inline int getWindowBits(ZlibCompressionType zltype)
     return -15;
 }
 
-#define ZS_BUFSIZE 256
+#define ZS_DF_BUFSIZE 16
 inline int deflateToBuffer(z_stream& zs, MemoryBuffer& mb, int flag)
 {
+    zs.avail_out = mb.length() - zs.total_out;
     if (zs.avail_out == 0) //Need more space
     {
-        mb.reserveTruncate(ZS_BUFSIZE);
-        zs.avail_out = ZS_BUFSIZE;
+        mb.reserveTruncate(ZS_DF_BUFSIZE);
+        zs.avail_out = ZS_DF_BUFSIZE;
     }
+
+    zs.next_out = (Bytef*) mb.bufferBase() + zs.total_out;
     return deflate(&zs, flag);
 }
 
@@ -1115,11 +1118,7 @@ void zlib_deflate(MemoryBuffer &mb, const char* inputBuffer, unsigned int inputS
     zs.next_in = (Bytef*)inputBuffer;
     zs.avail_in = inputSize;
 
-    // set the z_stream's output
-    unsigned long outsize = inputSize + ZS_BUFSIZE;
-    zs.next_out = (Bytef*) mb.reserveTruncate(outsize);
-    zs.avail_out = outsize;
-
+    mb.reserveTruncate(inputSize + ZS_DF_BUFSIZE);
     while ((ret == Z_OK) && (zs.avail_in != 0))
     {
         ret = deflateToBuffer(zs, mb, Z_NO_FLUSH);
@@ -1140,7 +1139,7 @@ void zlib_deflate(MemoryBuffer &mb, const char* inputBuffer, unsigned int inputS
     {
         VStringBuffer msg("compression");
         if (ret == Z_BUF_ERROR)
-            msg.appendf(" (Input size=%u; Buffer size=%lu) ", inputSize, outsize);
+            msg.appendf(" (Input size=%u; Buffer size=%u) ", inputSize, mb.length());
         mb.clear();
         throwZlibException(msg, ret, zltype);
     }
