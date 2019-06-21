@@ -766,7 +766,7 @@ void CHttpMessage::checkAndEncodeContent(unsigned len, const char* content)
 #ifdef KW_TEST
 #define KW_TEST_REPEAT 1000
         StringBuffer s;
-        PROGLOG("###Start Content encoding test.");
+        PROGLOG("###Start Content encoding test: source from 3 bytes up.");
         for (unsigned i = 0; i<KW_TEST_REPEAT; i++)
         {
             MemoryBuffer contentEncoded0;
@@ -794,7 +794,8 @@ void CHttpMessage::checkAndEncodeContent(unsigned len, const char* content)
         contentEncoded.clear();
         PROGLOG("###Content encoding test done.");
 #endif
-#define KW_TEST2
+
+//#define KW_TEST2
 #ifdef KW_TEST2
         PROGLOG("###Start Content encoding test 2.");
         PROGLOG("Before encoding(%s)", content);
