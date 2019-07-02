@@ -138,6 +138,8 @@ private:
 
 class WsWuInfo
 {
+    SCMStringBuffer debugImportedStr;
+
     IEspWUArchiveFile* readArchiveFileAttr(IPropertyTree& fileTree, const char* path);
     IEspWUArchiveModule* readArchiveModuleAttr(IPropertyTree& moduleTree, const char* path);
     void readArchiveFiles(IPropertyTree* archiveTree, const char* path, IArrayOf<IEspWUArchiveFile>& files);
@@ -148,12 +150,19 @@ class WsWuInfo
         const char* sourceAlias, MemoryBuffer &mb, bool forDownload);
     void copyContentFromRemoteFile(const char* sourceFileName, const char* sourceIPAddress,
         const char* sourceAlias, const char *outFileName);
+    void readDebugImportedStr()
+    {
+        Owned<IStringIterator> debugValues(&cw->getDebugValues("imported"));
+        if (debugValues->first())
+            debugValues->str(debugImportedStr);
+    }
 public:
     WsWuInfo(IEspContext &ctx, IConstWorkUnit *cw_) :
       context(ctx), cw(cw_)
     {
         version = context.getClientVersion();
         wuid.set(cw->queryWuid());
+        readDebugImportedStr();
     }
 
     WsWuInfo(IEspContext &ctx, const char *wuid_) :
@@ -165,6 +174,8 @@ public:
         cw.setown(factory->openWorkUnit(wuid_));
         if(!cw)
             throw MakeStringException(ECLWATCH_CANNOT_OPEN_WORKUNIT,"Cannot open workunit %s.", wuid_);
+
+        readDebugImportedStr();
     }
 
     bool getResourceInfo(StringArray &viewnames, StringArray &urls, unsigned long flags);
@@ -219,6 +230,11 @@ public:
     void getWorkunitCpp(const char* cppname, const char* description, const char* ipAddress, MemoryBuffer& buf, bool forDownload, const char* outFile);
     void getEventScheduleFlag(IEspECLWorkunit &info);
     unsigned getWorkunitThorLogInfo(IArrayOf<IEspECLHelpFile>& helpers, IEspECLWorkunit &info, unsigned long flags, unsigned& helpersCount);
+    StringBuffer& getWorkunitProcessLogPath(const char* process, StringBuffer& path);
+    unsigned getNumberOfSlavesByClusterName();
+    unsigned getNumberOfSlavesFromZAPFiles();
+    void getWorkunitLogFromZAPFile(IFile* iFile, const char* fileName, MemoryBuffer& buf, const char* outFile);
+    void getWorkunitThorSlaveLogFromZAPFile(const char* thorProcess, const char* logDate, int slaveNum, MemoryBuffer& buf, const char* outFile);
     IDistributedFile* getLogicalFileData(IEspContext& context, const char* logicalName, bool& showFileContent);
 
     IPropertyTree* getWorkunitArchive();
