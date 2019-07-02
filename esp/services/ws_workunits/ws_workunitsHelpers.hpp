@@ -137,6 +137,8 @@ private:
 
 class WsWuInfo
 {
+    bool dedicatedLogFiles = false;
+
     IEspWUArchiveFile* readArchiveFileAttr(IPropertyTree& fileTree, const char* path);
     IEspWUArchiveModule* readArchiveModuleAttr(IPropertyTree& moduleTree, const char* path);
     void readArchiveFiles(IPropertyTree* archiveTree, const char* path, IArrayOf<IEspWUArchiveFile>& files);
@@ -153,6 +155,7 @@ public:
     {
         version = context.getClientVersion();
         wuid.set(cw->queryWuid());
+        dedicatedLogFiles = cw->usingDedicatedLogFiles();
     }
 
     WsWuInfo(IEspContext &ctx, const char *wuid_) :
@@ -164,6 +167,8 @@ public:
         cw.setown(factory->openWorkUnit(wuid_));
         if(!cw)
             throw MakeStringException(ECLWATCH_CANNOT_OPEN_WORKUNIT,"Cannot open workunit %s.", wuid_);
+
+        dedicatedLogFiles = cw->usingDedicatedLogFiles();
     }
 
     bool getResourceInfo(StringArray &viewnames, StringArray &urls, unsigned long flags);
@@ -201,10 +206,7 @@ public:
 
     void getWorkunitEclAgentLog(const char* eclAgentInstance, const char* agentPid, MemoryBuffer& buf, const char* outFile);
     void getWorkunitThorLog(const char *processName, MemoryBuffer& buf, const char* outFile);
-    void getWorkunitThorSlaveLog(IGroup *nodeGroup, const char *ipAddress, const char* logDate,
-        const char* logDir, int slaveNum, MemoryBuffer& buf, const char* outIOS, bool forDownload);
-    void getWorkunitThorSlaveLog(IPropertyTree* directories, const char *process, const char* instanceName,
-        const char *ipAddress, const char* logDate, int slaveNum,
+    void getWorkunitThorSlaveLog(const char *process, const char *ipAddress, int slaveNum,
         MemoryBuffer& buf, const char* outFile, bool forDownload);
     void getWorkunitResTxt(MemoryBuffer& buf);
     void getWorkunitArchiveQuery(IStringVal& str);
@@ -218,6 +220,9 @@ public:
     void getWorkunitCpp(const char* cppname, const char* description, const char* ipAddress, MemoryBuffer& buf, bool forDownload, const char* outFile);
     void getEventScheduleFlag(IEspECLWorkunit &info);
     unsigned getWorkunitThorLogInfo(IArrayOf<IEspECLHelpFile>& helpers, IEspECLWorkunit &info, unsigned long flags, unsigned& helpersCount);
+    StringBuffer& getWorkunitProcessLogPath(const char* process, StringBuffer& path);
+    void getWorkunitLogSingleFile(IFile* iFile, const char* fileName, MemoryBuffer& buf, const char* outFile);
+    void getWorkunitThorSlaveLogSingleFile(const char* thorProcess, int slaveNum, MemoryBuffer& buf, const char* outFile);
     IDistributedFile* getLogicalFileData(IEspContext& context, const char* logicalName, bool& showFileContent);
 
     IPropertyTree* getWorkunitArchive();
@@ -660,23 +665,19 @@ public:
 class CGetThorSlaveLogToFileThreadParam : public CInterface
 {
     WsWuInfo* wuInfo;
-    Linked<IGroup> nodeGroup;
     unsigned slaveNum;
-    StringAttr logDate, logDir, fileName;
+    StringAttr process, fileName;
 
 public:
     IMPLEMENT_IINTERFACE;
 
-    CGetThorSlaveLogToFileThreadParam(WsWuInfo* _wuInfo, IGroup* _nodeGroup,
-        const char*_logDate, const char*_logDir, unsigned _slaveNum, const char* _fileName)
-        : wuInfo(_wuInfo), nodeGroup(_nodeGroup), logDate(_logDate), logDir(_logDir),
-          slaveNum(_slaveNum), fileName(_fileName) { };
+    CGetThorSlaveLogToFileThreadParam(WsWuInfo* _wuInfo, const char*_process, unsigned _slaveNum, const char* _fileName)
+        : wuInfo(_wuInfo), process(_process), slaveNum(_slaveNum), fileName(_fileName) { };
 
     virtual void doWork()
     {
         MemoryBuffer dummy;
-        wuInfo->getWorkunitThorSlaveLog(nodeGroup, nullptr, logDate.get(),
-            logDir.get(), slaveNum, dummy, fileName.get(), false);;
+        wuInfo->getWorkunitThorSlaveLog(process.get(), nullptr, slaveNum, dummy, fileName.get(), false);;
     }
 };
 
