@@ -327,13 +327,16 @@ void CJobManager::fatal(IException *e)
 
 void CJobManager::updateWorkUnitLog(IWorkUnit &workunit)
 {
-    StringBuffer log, logUrl;
+    StringBuffer log, logUrl, slaveLogPattern;
     logHandler->getLogName(log);
     createUNCFilename(log, logUrl, false);
-    workunit.addProcess("Thor", globals->queryProp("@name"), 0, logUrl.str());
+
+    //Not sure whether this is the correct way to set the slaveLogPattern or not:
+    slaveLogPattern.set("thorslave.").append(SLAVEIDSTR);
+    slaveLogPattern.append(strstr(log, "/thormaster.") + strlen("/thormaster"));
+    unsigned numberOfSlaves = getTargetClusterInfo(workunit.queryClusterName())->getNumberOfSlaveLogs();
+    workunit.addProcess("Thor", globals->queryProp("@name"), 0, numberOfSlaves, slaveLogPattern, logUrl.str());
 }
-
-
 
 
 #define IDLE_RESTART_PERIOD (8*60) // 8 hours

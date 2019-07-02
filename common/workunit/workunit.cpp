@@ -167,6 +167,29 @@ void doDescheduleWorkkunit(char const * wuid)
     do more = root->removeProp(xpath.str()); while(more);
 }
 
+StringBuffer & getThorLogDateFromLogFileName(const char * logFileName, const char * masterLogKeyWord, StringBuffer & logDate)
+{
+    //The existing thor master stores the information about a WU into thor master logs
+    //which are named like '...thormaster.yyyy_mm_dd.log'. The datePtr is pointed at
+    //the end of the 'thormaster.'. After that, there is the 'yyyy_mm_dd' part which 
+    //is 10 bytes long. The strlen(datePtr) should >= 10.
+    //If thor master stores all of its log lines for a WU into one log file, there is
+    //no need for the log file name to have the 'yyyy_mm_dd' part. The log name may
+    //look like '...thormaster.log'. The datePtr is pointed at the end of the 'thormaster.'.
+    //The strlen(datePtr) should = 3.
+    //So, if (strlen(datePtr) >= 10), we read the logDate (10 bytes) at the datePtr.
+    const char * datePtr = strstr(logFileName, masterLogKeyWord);
+    if (!datePtr)
+        return logDate;
+
+    datePtr += strlen(masterLogKeyWord);
+    if (strlen(datePtr) < 10)
+        return logDate;
+
+    logDate.append(10, datePtr);
+    return logDate;
+}
+
 //======================================================
 /*
  * Graph progress support
@@ -3754,6 +3777,21 @@ public:
     {
         return new CDaliWuGraphStats(getWritableProgressConnection(graphName, _wfid), creatorType, creator, _wfid, graphName, subgraph);
     }
+    virtual void import(IPropertyTree *wuTree, IPropertyTree *graphProgressTree)
+    {
+        connection->queryRoot()->setPropTree(nullptr, LINK(wuTree));
+        loadPTree(connection->getRoot());
+
+        if (!graphProgressTree)
+            return;
+
+        VStringBuffer xpath("/GraphProgress/%s", queryWuid());
+        Owned<IRemoteConnection> progressConn = querySDS().connect(xpath, myProcessSession(), RTM_LOCK_WRITE|RTM_CREATE, SDS_LOCK_TIMEOUT);
+        if (!progressConn)
+            throw MakeStringException(0, "Failed to access %s.", xpath.str());
+
+        progressConn->queryRoot()->setPropTree(nullptr, LINK(graphProgressTree));
+    }
 
 protected:
     IRemoteConnection *getProgressConnection() const
@@ -4041,6 +4079,22 @@ public:
             { return c->getAbortBy(str); }
     virtual unsigned __int64 getAbortTimeStamp() const
             { return c->getAbortTimeStamp(); }
+    virtual StringBuffer & getProcessLogPattern(const char * type, const char *instance, StringBuffer & pattern) const
+            { return c->getProcessLogPattern(type, instance, pattern); }
+    virtual void setProcessLogPattern(const char * type, const char *instance, const char * pattern)
+            { return c->setProcessLogPattern(type, instance, pattern); }
+    virtual bool usingDedicatedLogFiles() const
+            { return c->usingDedicatedLogFiles(); }
+    virtual unsigned getNumberOfThorSlaves(const char *processName) const
+            { return c->getNumberOfThorSlaves(processName); }
+    virtual StringBuffer & getSlaveLogFileName(const char * thorProcess, int slaveNum, const char *ipAddress, StringBuffer & logFileName, bool withPath) const
+            { return c->getSlaveLogFileName(thorProcess, slaveNum, ipAddress, logFileName, withPath); }
+    virtual void getWUThorLogInfo(IArrayOf<IConstWUThorLogInfo> &wuThorLogs) const
+            { c->getWUThorLogInfo(wuThorLogs); }
+    virtual void getWUThorLogInfoLW(IArrayOf<IConstWUThorLogInfo> &wuThorLogs) const
+            { c->getWUThorLogInfoLW(wuThorLogs); }
+    virtual void import(IPropertyTree *wuTree, IPropertyTree *graphProgressTree)
+            { return c->import(wuTree, graphProgressTree); }
 
 
     virtual void clearExceptions()
@@ -4049,8 +4103,8 @@ public:
             { c->commit(); }
     virtual IWUException * createException()
             { return c->createException(); }
-    virtual void addProcess(const char *type, const char *instance, unsigned pid, const char *log)
-            { c->addProcess(type, instance, pid, log); }
+    virtual void addProcess(const char *type, const char *instance, unsigned pid, unsigned max, const char *pattern, const char *log)
+            { c->addProcess(type, instance, pid, max, pattern, log); }
     virtual void protect(bool protectMode)
             { c->protect(protectMode); }
     virtual void setAction(WUAction action)
@@ -5060,6 +5114,228 @@ bool CWorkUnitFactory::restoreWorkUnit(const char *base, const char *wuid, bool 
     return true;
 }
 
+IWorkUnit *CWorkUnitFactory::importWorkUnit(const char *zapReportFileName, const char *zapReportFilePath,
+    const char *zapReportPassword, const char *importDir, const char *app, const char *user, ISecManager *secMgr, ISecUser *secUser)
+{
+    class CImportWorkUnitHelper
+    {
+        StringAttr zapReportFileName, user, wuid;
+        StringAttr scope;
+        SCMStringBuffer distributedAccessToken;
+        StringBuffer unzipDir, unzipDateTime;
+        Owned<IPTree> wuTree, graphProgressTree;
+
+        bool findZAPFile(const char *mask, bool optional, StringBuffer &fileName)
+        {
+            Owned<IFile> d = createIFile(unzipDir);
+            if (!d->exists())
+                throw MakeStringException(WUERR_InvalidUserInput, "%s not found.", unzipDir.str());
+
+            Owned<IDirectoryIterator> di = d->directoryFiles(mask, false, false);
+            if (!di->first())
+            {
+                if (optional)
+                    return false;
+                throw MakeStringException(WUERR_InvalidUserInput, "Failed to found %s in %s.", mask, unzipDir.str());
+            }
+
+            fileName.set(unzipDir).append(PATHSEPSTR);
+            di->getName(fileName);
+            return true;
+        }
+        void readWUXMLFileToPTree(Owned<IPTree> &tree, const char *pattern, bool optional)
+        {
+            StringBuffer fileName;
+            if (!findZAPFile(pattern, optional, fileName))
+                return;
+
+            tree.setown(createPTreeFromXMLFile(fileName));
+            if (!tree)
+                throw MakeStringException(WUERR_InvalidUserInput, "Failed to retrieving %s.", pattern);
+
+            Owned<IFile> f = createIFile(fileName);
+            f->remove();
+        }
+        void updateWUProcessLogAttrs(const char *xpath, const char *unzipDirWithIP, bool thorCluster)
+        { 
+            Owned<IPropertyTreeIterator> it = wuTree->getElements(xpath);
+            ForEach (*it)
+            {
+                StringBuffer process, logSpec;
+                IPropertyTree &proc = it->query();
+                proc.getName(process);
+                proc.getProp("@log", logSpec);
+                if (process.isEmpty() || logSpec.isEmpty())
+                    continue;
+
+                //Match the path and the name of the log files from ZAP report.
+                StringBuffer newLogAttr(unzipDirWithIP);
+                newLogAttr.append(process).append('_').append(pathTail(logSpec));
+                proc.setProp("@log", newLogAttr);
+                proc.setPropBool("@singleLog", true);
+
+                if (!thorCluster)
+                    continue;
+
+                StringBuffer slaveLogPattern;
+                slaveLogPattern.set(process).append("_");
+                if (proc.hasProp("@pattern"))
+                {
+                    proc.getProp("@pattern", slaveLogPattern);
+                }
+                else
+                {   //legacy WU
+                    setSlaveLogPatternForLegacyWU(logSpec, slaveLogPattern);
+                }
+                proc.setProp("@pattern", slaveLogPattern);
+
+                if (!proc.hasProp("@max"))
+                    proc.setPropInt("@max", findNumberOfThorSlavesForLegacyWU(unzipDirWithIP));
+            }
+        }
+        void setSlaveLogPatternForLegacyWU(const char *logSpec, StringBuffer &slaveLogPattern)
+        {
+            StringBuffer logDate;
+            getThorLogDateFromLogFileName(logSpec, "/thormaster.", logDate);
+
+            slaveLogPattern.append("thorslave.").append(SLAVEIDSTR);
+            if (!logDate.isEmpty()) //Should not happen
+                slaveLogPattern.append(".").append(logDate);
+            slaveLogPattern.append(".log");
+        }
+        unsigned findNumberOfThorSlavesForLegacyWU(const char *zapWUFolderPath)
+        {
+            unsigned numberOfThorSlaves = 0;
+            const char *slaveLogKeyWord = "_thorslave.";
+            Owned<IFile> zapFileFolder = createIFile(zapWUFolderPath);
+            Owned<IDirectoryIterator> thorSlaveFiles = zapFileFolder->directoryFiles("*_thorslave.*");
+            ForEach(*thorSlaveFiles)
+            {
+                const char *pStr = strstr(thorSlaveFiles->query().queryFilename(), slaveLogKeyWord);
+                pStr += strlen(slaveLogKeyWord);
+                const char *slaveNumStrEnd = strchr(pStr, '.');
+                if (!slaveNumStrEnd)
+                    continue;
+
+                StringBuffer slaveNumStr;
+                slaveNumStr.append(slaveNumStrEnd - pStr, pStr);
+                unsigned slaveNum = atoi(slaveNumStr);
+                if (slaveNum > numberOfThorSlaves)
+                    numberOfThorSlaves = slaveNum;
+            }
+            return numberOfThorSlaves;
+        }
+        void updateWUQueryAssociatedFilesAttrs(const char *localIP)
+        {
+            Owned<IPropertyTreeIterator> itr = wuTree->getElements("Query/Associated/File");
+            ForEach (*itr)
+            {
+                IPropertyTree &fileTree = itr->query();
+
+                StringBuffer fileNameWithPath(unzipDir);
+                fileNameWithPath.append(PATHSEPSTR).append(pathTail(fileTree.queryProp("@filename")));
+                if (checkFileExists(fileNameWithPath)) //Check if the ZAP report contains this file.
+                {
+                    fileTree.setProp("@ip", localIP);
+                    fileTree.setProp("@filename", fileNameWithPath);
+                }
+            }
+        }
+    public:
+        CImportWorkUnitHelper(const char *_zapReportFileName, const char *_user)
+            : zapReportFileName(_zapReportFileName), user(_user) { };
+
+        void getWUAttributes(IWorkUnit *workunit)
+        {
+            wuid.set(workunit->queryWuid());
+            scope.set(workunit->queryWuScope());
+            workunit->getWorkunitDistributedAccessToken(distributedAccessToken);
+        }
+        IPTree *queryWUPTree()
+        {
+            return wuTree;
+        }
+        IPTree *querygraphProgressPTree()
+        {
+            return graphProgressTree;
+        }
+        void setUNZIPDir(const char *importDir)
+        {   //Set a unique unzip folder inside the component's data folder
+            unzipDir.append(importDir).append(PATHSEPSTR).append(wuid.get());
+        }
+        int unzipZAPReport(const char *zapReportFilePath, const char *zapReportPassword)
+        {
+            Owned<IFile> unzipFolder = createIFile(unzipDir);
+            if (!unzipFolder->exists())
+                unzipFolder->createDirectory();
+            else
+            {//This should not happen. Just in case.
+                Owned<IDirectoryIterator> iter = unzipFolder->directoryFiles(nullptr, false, false);
+                ForEach(*iter)
+                {
+                    OwnedIFile thisFile = createIFile(iter->query().queryFilename());
+                    if (thisFile->isFile() == foundYes)
+                        thisFile->remove();
+                }
+            }
+
+            CDateTime dt;
+            dt.setNow();
+            dt.getString(unzipDateTime);
+
+            //Unzip ZAP Report
+            StringBuffer zipCommand("unzip ");
+            if (!isEmptyString(zapReportFilePath))
+                zipCommand.append(zapReportFilePath);
+            if (isEmptyString(zapReportPassword))
+                zipCommand.appendf("%s -d %s", zapReportFileName.get(), unzipDir.str());
+            else
+                zipCommand.appendf("%s -P %s -d %s", zapReportFileName.get(), zapReportPassword, unzipDir.str());
+            return (system(zipCommand.str()));
+        }
+        void buildPTreesFromZAPReport()
+        {
+            readWUXMLFileToPTree(wuTree, "ZAPReport_*.xml", false);
+            wuTree->setProp("@scope", scope);
+            wuTree->setProp("@distributedAccessToken", distributedAccessToken.str());
+
+            StringBuffer localIP, unzipDirWithIP("//");
+            IpAddress ipaddr = queryHostIP();
+            ipaddr.getIpText(localIP);
+            unzipDirWithIP.append(localIP).append(unzipDir).append(PATHSEPSTR);
+
+            //update log entries in WU XML;
+            updateWUProcessLogAttrs("Process/EclAgent/*", unzipDirWithIP, false);
+            updateWUProcessLogAttrs("Process/Thor/*", unzipDirWithIP, true);
+
+            //update QueryAssociatedFiles in WU XML;
+            updateWUQueryAssociatedFilesAttrs(localIP);
+
+            readWUXMLFileToPTree(graphProgressTree, "ZAPReport_*.graphprogress", true);
+        }
+        void setImportDebugAttribute(IWorkUnit *workunit)
+        {
+            StringBuffer attr;
+            attr.append("FromWUID=").append(wuid.get()).append(",");
+            attr.append("ImportDT=").append(unzipDateTime).append(",");
+            attr.append("ZAPReport=").append(zapReportFileName);
+            workunit->setDebugValue("imported", attr, true);
+        }
+    };
+
+    CImportWorkUnitHelper helper(zapReportFileName, user);
+    Owned<IWorkUnit> newWU = createWorkUnit(app, user, secMgr, secUser);
+    helper.getWUAttributes(newWU);
+    helper.setUNZIPDir(importDir);
+    helper.unzipZAPReport(zapReportFilePath, zapReportPassword);
+    helper.buildPTreesFromZAPReport();
+    newWU->import(helper.queryWUPTree(), helper.querygraphProgressPTree());
+    helper.setImportDebugAttribute(newWU);
+
+    Owned<IFile> zapReportFile = createIFile(zapReportFileName);
+    zapReportFile->remove();
+    return newWU.getClear();
+}
 
 int CWorkUnitFactory::setTracingLevel(int newLevel)
 {
@@ -6068,6 +6344,11 @@ public:
     {
         return baseFactory->restoreWorkUnit(base, wuid, restoreAssociated);
     }
+    virtual IWorkUnit * importWorkUnit(const char *zapReportFileName, const char *zapReportFilePath, const char *zapReportPassword,
+        const char *importDir, const char *app, const char *user, ISecManager *secMgr, ISecUser *secUser)
+    {
+        return baseFactory->importWorkUnit(zapReportFileName, zapReportFilePath, zapReportPassword, importDir, app, user, secMgr, secUser);
+    }
     virtual IWorkUnit * getGlobalWorkUnit(ISecManager *secMgr, ISecUser *secUser)
     {
         if (!secMgr) secMgr = defaultSecMgr.get();
@@ -6200,6 +6481,55 @@ public:
     virtual bool isValid() { return it->isValid(); }
     virtual IStringVal & str(IStringVal &s) { s.set(it->query().queryProp(name)); return s; }
 };
+
+//==========================================================================================
+
+class CWUThorLogInfo: public CSimpleInterfaceOf<IConstWUThorLogInfo>
+{
+    StringAttr processName;
+    StringAttr groupName;
+    StringAttr logName;
+    StringAttr logDate;
+    StringAttr pattern;
+    unsigned numberOfThorSlaves = 0;
+    bool singleLog = false;
+
+public:
+    CWUThorLogInfo(const char *_logName, const char *_processName, const char *_groupName,
+        const char *_logDate, const char *_pattern, unsigned _numberOfThorSlaves, bool _singleLog)
+        : logName(_logName), processName(_processName), groupName(_groupName), logDate(_logDate),
+          pattern(_pattern), numberOfThorSlaves(_numberOfThorSlaves), singleLog(_singleLog) {};
+
+    virtual const char *getLogName() const
+    {
+        return logName.get();
+    }
+    virtual const char *getProcessName() const
+    {
+        return processName.get();
+    }
+    virtual const char *getGroupName() const
+    {
+        return groupName.get();
+    }
+    virtual const char *getLogDate() const
+    {
+        return logDate.get();
+    }
+    virtual const char *getPattern() const
+    {
+        return pattern.get();
+    }
+    virtual unsigned getNumberOfThorSlaves() const
+    {
+        return numberOfThorSlaves;
+    }
+    virtual bool getSingleLog() const
+    {
+        return singleLog;
+    }
+};
+
 //==========================================================================================
 
 CLocalWorkUnit::CLocalWorkUnit(ISecManager *secmgr, ISecUser *secuser)
@@ -8414,7 +8744,8 @@ IStringIterator *CLocalWorkUnit::getProcesses(const char *type) const
     return new CStringPTreeTagIterator(p->getElements(xpath.str()));
 }
 
-void CLocalWorkUnit::addProcess(const char *type, const char *instance, unsigned pid, const char *log)
+void CLocalWorkUnit::addProcess(const char *type, const char *instance, unsigned pid,
+    unsigned max, const char *pattern, const char *log)
 {
     VStringBuffer processType("Process/%s", type);
     VStringBuffer xpath("%s/%s", processType.str(), instance);
@@ -8427,7 +8758,79 @@ void CLocalWorkUnit::addProcess(const char *type, const char *instance, unsigned
         node = node->addPropTree(instance);
         node->setProp("@log", log);
         node->setPropInt("@pid", pid);
+        if (max > 0)
+            node->setPropInt("@max", max);
+        if (!isEmptyString(pattern))
+            node->setProp("@pattern", pattern);
     }
+}
+
+void CLocalWorkUnit::setProcessLogPattern(const char *type, const char *instance, const char *pattern)
+{
+    VStringBuffer xpath("Process/%s/%s", type, instance);
+    CriticalBlock block(crit);
+    IPropertyTree *proc = p->queryPropTree(xpath);
+    if (proc)
+        proc->setProp("@pattern", pattern);
+}
+
+StringBuffer &CLocalWorkUnit::getProcessLogPattern(const char *type, const char *instance, StringBuffer &pattern) const
+{
+    VStringBuffer xpath("Process/%s/%s", type, instance);
+    CriticalBlock block(crit);
+    IPropertyTree *proc = p->queryPropTree(xpath);
+    if (proc)
+        proc->getProp("@pattern", pattern);
+    return pattern;
+}
+
+StringBuffer &CLocalWorkUnit::getSlaveLogFileName(const char *thorProcess, int slaveNum,
+    const char *ipAddress, StringBuffer &logFileName, bool withPath) const
+{
+    CriticalBlock block(crit);
+    Owned<IPropertyTreeIterator> procs = getProcesses("Thor", thorProcess);
+    if (!procs->first())
+        return logFileName;
+
+    StringBuffer logSpec;
+    IPropertyTree &proc = procs->query();
+    proc.getProp("@log", logSpec);
+    if (logSpec.isEmpty())
+        return logFileName;
+
+    if (withPath)
+    {
+        splitFilename(logSpec, nullptr, &logFileName, nullptr, nullptr);
+        addPathSepChar(logFileName);
+    }
+
+    if (proc.hasProp("@pattern"))
+    {
+        proc.getProp("@pattern", logFileName);
+
+        StringBuffer slaveNumStr;
+        slaveNumStr.append(slaveNum);
+        logFileName.replaceString(SLAVEIDSTR, slaveNumStr);
+    }
+    else
+    { //legacy WU and not from import
+        if (slaveNum > 0)
+            logFileName.appendf("thorslave.%d", slaveNum);
+        else
+        {
+            //legacy wuid: an IP address inside the name of thor slave.
+            //ex. thorslave.10.239.219.6_20100.2012_05_23.log
+            logFileName.appendf("thorslave.%s*", ipAddress);
+        }
+
+        //Now, add the 'yyyy_mm_dd' (10 bytes) into the logFileName.
+        StringBuffer logDate;
+        getThorLogDateFromLogFileName(logSpec, "/thormaster.", logDate);
+        if (!logDate.isEmpty()) //Should not happen
+            logFileName.append(".").append(logDate);
+        logFileName.append(".log");
+    }
+    return logFileName;
 }
 
 void CLocalWorkUnit::setDebugValue(const char *propname, const char *value, bool overwrite)
@@ -10011,6 +10414,93 @@ void CLocalWorkUnit::setNodeState(const char *graphName, WUGraphIDType nodeId, W
 IWUGraphStats *CLocalWorkUnit::updateStats(const char *graphName, StatisticCreatorType creatorType, const char * creator, unsigned _wfid, unsigned subgraph) const
 {
     return new CWuGraphStats(LINK(p), creatorType, creator, _wfid, graphName, subgraph);
+}
+
+bool CLocalWorkUnit::usingDedicatedLogFiles() const
+{
+    if (hasDebugValue("imported"))
+        return true;
+    return false;
+}
+
+unsigned CLocalWorkUnit::getNumberOfThorSlaves(const char *processName) const
+{
+    Owned<IPropertyTreeIterator> procs = getProcesses("Thor", processName);
+    if (procs->first())
+    {
+        unsigned numberOfThorSlaves = procs->query().getPropInt("@max", 0);
+        if (numberOfThorSlaves > 0)
+            return numberOfThorSlaves;
+    }
+
+    //Legacy WU
+    StringAttr clusterName(queryClusterName());
+    if (!clusterName.length())
+    { //Cluster name may not be set yet
+        IWARNLOG("Cluster name may not be set for workunit %s", queryWuid());
+        return 0;
+    }
+
+    Owned<IConstWUClusterInfo> clusterInfo = getTargetClusterInfo(clusterName.str());
+    if (clusterInfo)
+        return clusterInfo->getNumberOfSlaveLogs();
+
+    IWARNLOG("Cannot find TargetClusterInfo for workunit %s", queryWuid());
+    return 0;
+}
+
+//No groupName and log date
+void CLocalWorkUnit::getWUThorLogInfoLW(IArrayOf<IConstWUThorLogInfo> &wuThorLogs) const
+{
+    Owned<IPropertyTreeIterator> thorInstances = getProcesses("Thor", nullptr);
+    ForEach (*thorInstances)
+    {
+        StringBuffer logSpec;
+        IPropertyTree &proc = thorInstances->query();
+        proc.getProp("@log", logSpec);
+
+        const char *processName = proc.queryName();
+        if (isEmptyString(processName) || logSpec.isEmpty())
+            continue;
+
+        Owned<CWUThorLogInfo> thorLog = new CWUThorLogInfo(logSpec.str(), processName,
+            nullptr, nullptr, proc.queryProp("@pattern"), getNumberOfThorSlaves(processName),
+            proc.getPropBool("@singleLog"));
+        wuThorLogs.append(*thorLog.getClear());
+    }
+}
+
+//Include groupName and log date.
+void CLocalWorkUnit::getWUThorLogInfo(IArrayOf<IConstWUThorLogInfo> &wuThorLogs) const
+{
+    StringAttr thorMasterLogDateSearchString;
+    if (hasDebugValue("imported")) //WU imported from a ZAP report
+        thorMasterLogDateSearchString.set("_thormaster.");
+    else
+        thorMasterLogDateSearchString.set("/thormaster.");
+
+    Owned<IPropertyTreeIterator> thorInstances = getProcesses("Thor", nullptr);
+    ForEach (*thorInstances)
+    {
+        StringBuffer logSpec;
+        IPropertyTree &proc = thorInstances->query();
+        proc.getProp("@log", logSpec);
+
+        const char *processName = proc.queryName();
+        if (isEmptyString(processName) || logSpec.isEmpty())
+            continue;
+
+        StringBuffer groupName;
+        getClusterThorGroupName(groupName, processName);
+
+        StringBuffer logDate;
+        getThorLogDateFromLogFileName(logSpec, thorMasterLogDateSearchString, logDate);
+
+        Owned<CWUThorLogInfo> thorLog = new CWUThorLogInfo(logSpec.str(), processName,
+            groupName, logDate, proc.queryProp("@pattern"), getNumberOfThorSlaves(processName),
+            proc.getPropBool("@singleLog"));
+        wuThorLogs.append(*thorLog.getClear());
+    }
 }
 
 void CLocalWUGraph::setName(const char *str)
