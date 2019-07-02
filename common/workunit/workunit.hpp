@@ -1286,6 +1286,7 @@ interface IConstWorkUnit : extends IConstWorkUnitInfo
     virtual void clearGraphProgress() const = 0;
     virtual IStringVal & getAbortBy(IStringVal & str) const = 0;
     virtual unsigned __int64 getAbortTimeStamp() const = 0;
+    virtual StringBuffer & getSlaveLogPattern(StringBuffer & str) const = 0;
 };
 
 
@@ -1373,6 +1374,8 @@ interface IWorkUnit : extends IConstWorkUnit
     virtual void setResultBool(const char *name, unsigned sequence, bool val) = 0;
     virtual void setResultDecimal(const char *name, unsigned sequence, int len, int precision, bool isSigned, const void *val) = 0;
     virtual void setResultDataset(const char * name, unsigned sequence, size32_t len, const void *val, unsigned numRows, bool extend) = 0;
+    virtual void setSlaveLogPattern(const char *pattern) = 0;
+    virtual void import(IPropertyTree *wuTree, IPropertyTree *graphProgressTree = nullptr) = 0;
 };
 
 
@@ -1474,6 +1477,9 @@ typedef IIteratorOf<IPropertyTree> IConstQuerySetQueryIterator;
 interface IWorkUnitFactory : extends IPluggableFactory
 {
     virtual IWorkUnit *createWorkUnit(const char *app, const char *scope, ISecManager *secmgr = NULL, ISecUser *secuser = NULL) = 0;
+    virtual IWorkUnit * importWorkUnit(const char *zapReportFileName, const char *zapReportFilePath, const char *zapReportPassword,
+        const IPropertyTree *directories, const char *component, const char *instance, const char *app, const char *user,
+        ISecManager *secMgr, ISecUser *secUser) = 0;
     virtual bool deleteWorkUnit(const char *wuid, ISecManager *secmgr = NULL, ISecUser *secuser = NULL) = 0;
     virtual bool deleteWorkUnitEx(const char *wuid, bool throwException, ISecManager *secmgr = NULL, ISecUser *secuser = NULL) = 0;
     virtual IConstWorkUnit * openWorkUnit(const char *wuid, ISecManager *secmgr = NULL, ISecUser *secuser = NULL) = 0;
@@ -1714,6 +1720,8 @@ extern WORKUNIT_API WUAction getWorkunitAction(const char * actionStr);
 
 extern WORKUNIT_API void addTimeStamp(IWorkUnit * wu, StatisticScopeType scopeType, const char * scope, StatisticKind kind, unsigned wfid=0);
 extern WORKUNIT_API IPropertyTree * getWUGraphProgress(const char * wuid, bool readonly);
+extern WORKUNIT_API IWorkUnit * importWorkunitFromZAPFile(const char * zapReportFileName, const char * zapReportFilePath, const char * zapReportPassword,
+    const char * component, const char * instance, const char * app, const char * user, ISecManager * secMgr, ISecUser * secUser);
 
 class WORKUNIT_API WorkUnitErrorReceiver : implements IErrorReceiver, public CInterface
 {

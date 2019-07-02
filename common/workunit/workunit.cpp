@@ -3754,6 +3754,21 @@ public:
     {
         return new CDaliWuGraphStats(getWritableProgressConnection(graphName, _wfid), creatorType, creator, _wfid, graphName, subgraph);
     }
+    virtual void import(IPropertyTree *wuTree, IPropertyTree *graphProgressTree)
+    {
+        connection->queryRoot()->setPropTree(nullptr, LINK(wuTree));
+        loadPTree(connection->getRoot());
+
+        if (!graphProgressTree)
+            return;
+
+        VStringBuffer xpath("/GraphProgress/%s", queryWuid());
+        Owned<IRemoteConnection> progressConn = querySDS().connect(xpath, myProcessSession(), RTM_LOCK_WRITE|RTM_CREATE, SDS_LOCK_TIMEOUT);
+        if (!progressConn)
+            throw MakeStringException(0, "Failed to access %s.", xpath.str());
+
+        progressConn->queryRoot()->setPropTree(nullptr, LINK(graphProgressTree));
+    }
 
 protected:
     IRemoteConnection *getProgressConnection() const
@@ -4041,6 +4056,12 @@ public:
             { return c->getAbortBy(str); }
     virtual unsigned __int64 getAbortTimeStamp() const
             { return c->getAbortTimeStamp(); }
+    virtual StringBuffer &getSlaveLogPattern(StringBuffer &str) const
+            { return c->getSlaveLogPattern(str); }
+    virtual void setSlaveLogPattern(const char *pattern)
+            { return c->setSlaveLogPattern(pattern); }
+    virtual void import(IPropertyTree *wuTree, IPropertyTree *graphProgressTree)
+            { return c->import(wuTree, graphProgressTree); }
 
 
     virtual void clearExceptions()
@@ -5060,6 +5081,174 @@ bool CWorkUnitFactory::restoreWorkUnit(const char *base, const char *wuid, bool 
     return true;
 }
 
+IWorkUnit *CWorkUnitFactory::importWorkUnit(const char *zapReportFileName, const char *zapReportFilePath,
+    const char *zapReportPassword, const IPropertyTree *directories, const char *component, const char *instance,
+    const char *app, const char *user, ISecManager *secMgr, ISecUser *secUser)
+{
+    class CImportWorkUnitHelper
+    {
+        StringAttr zapReportFileName, user, wuid;
+        StringBuffer unzipDir, unzipDateTime;
+        Owned<IPTree> wuTree, graphProgressTree;
+
+        bool findZAPFile(const char *mask, bool optional, StringBuffer &fileName)
+        {
+            Owned<IFile> d = createIFile(unzipDir);
+            if (!d->exists())
+                throw MakeStringException(WUERR_InvalidUserInput, "%s not found.", unzipDir.str());
+
+            Owned<IDirectoryIterator> di = d->directoryFiles(mask, false, false);
+            if (!di->first())
+            {
+                if (optional)
+                    return false;
+                throw MakeStringException(WUERR_InvalidUserInput, "Failed to found %s in %s.", mask, unzipDir.str());
+            }
+
+            fileName.set(unzipDir).append(PATHSEPSTR);
+            di->getName(fileName);
+            return true;
+        }
+        void readWUXMLFileToPTree()
+        {
+            StringBuffer fileName;
+            findZAPFile("ZAPReport_*.xml", false, fileName);
+            wuTree.setown(createPTreeFromXMLFile(fileName));
+            if (!wuTree)
+                throw MakeStringException(WUERR_InvalidUserInput, "Failed to retrieving ZAPReport_*.xml.");
+        }
+        void setImportDebugAttribute()
+        {
+            StringBuffer str("Import ");
+            str.append(wuid.get());
+            if (!isEmptyString(user))
+                str.append(" by ").append(user);
+            str.append(" at ").append(unzipDateTime);
+            str.append(" from ").append(zapReportFileName);
+            wuTree->setProp("Debug", "");
+            wuTree->setProp("Debug/imported", str);
+        }
+        void updateWUProcessLogAttrs(const char *xpath, const char *unzipDirWithIP)
+        { 
+            Owned<IPropertyTreeIterator> it = wuTree->getElements(xpath);
+            ForEach (*it)
+            {
+                StringBuffer name, log;
+                IPropertyTree &proc = it->query();
+                proc.getName(name);
+                proc.getProp("@log", log);
+                if (name.isEmpty() || log.isEmpty())
+                    continue;
+
+                //Match the path and the name of the log files from ZAP report.
+                StringBuffer newLogAttr(unzipDirWithIP);
+                newLogAttr.append(name).append('_').append(pathTail(log));
+                proc.setProp("@log", newLogAttr);
+            }
+        }
+        void updateWUQueryAssociatedFilesAttrs(const char *localIP)
+        {
+            Owned<IPropertyTreeIterator> itr = wuTree->getElements("Query/Associated/File");
+            ForEach (*itr)
+            {
+                IPropertyTree &fileTree = itr->query();
+
+                StringBuffer fileNameWithPath(unzipDir);
+                fileNameWithPath.append(PATHSEPSTR).append(pathTail(fileTree.queryProp("@filename")));
+                if (checkFileExists(fileNameWithPath)) //Check if the ZAP report contains this file.
+                {
+                    fileTree.setProp("@ip", localIP);
+                    fileTree.setProp("@filename", fileNameWithPath);
+                }
+            }
+        }
+        void readGraphProgressFileToPTree()
+        {
+            StringBuffer fileName;
+            if (!findZAPFile("ZAPReport_*.graphprogress", true, fileName))
+                return;
+            graphProgressTree.setown(createPTreeFromXMLFile(fileName));
+            if (!graphProgressTree)
+                throw MakeStringException(WUERR_InvalidUserInput, "Failed to retrieving ZAPReport_*.graphprogress.");
+        }
+    public:
+        CImportWorkUnitHelper(const char *_zapReportFileName, const char *_user)
+            : zapReportFileName(_zapReportFileName), user(_user) { };
+
+        void setWUID(const char *_wuid)
+        {
+            wuid.set(_wuid);
+        }
+        IPTree *queryWUPTree()
+        {
+            return wuTree;
+        }
+        IPTree *querygraphProgressPTree()
+        {
+            return graphProgressTree;
+        }
+        void setUNZIPDir(const IPropertyTree *directories, const char *component, const char *instance)
+        {   //Set a unique unzip folder inside the component's data folder
+            getConfigurationDirectory(directories, "data", component, instance, unzipDir);
+            unzipDir.append(PATHSEPSTR).append(wuid.get());
+        }
+        int unzipZAPReport(const char *zapReportFilePath, const char *zapReportPassword)
+        {
+            Owned<IFile> unzipFolder = createIFile(unzipDir);
+            if (!unzipFolder->exists())
+                unzipFolder->createDirectory();
+            else
+            {//This should not happen. Just in case.
+                Owned<IDirectoryIterator> iter = unzipFolder->directoryFiles(nullptr, false, false);
+                ForEach(*iter)
+                {
+                    OwnedIFile thisFile = createIFile(iter->query().queryFilename());
+                    if (thisFile->isFile() == foundYes)
+                        thisFile->remove();
+                }
+            }
+
+            //Unzip ZAP Report
+            StringBuffer zipCommand("unzip ");
+            if (!isEmptyString(zapReportFilePath))
+                zipCommand.append(zapReportFilePath);
+            if (isEmptyString(zapReportPassword))
+                zipCommand.appendf("%s -d %s", zapReportFileName.get(), unzipDir.str());
+            else
+                zipCommand.appendf("%s -P %s -d %s", zapReportFileName.get(), zapReportPassword, unzipDir.str());
+            return (system(zipCommand.str()));
+        }
+        void buildPTreesFromZAPReport()
+        {
+            readWUXMLFileToPTree();
+            wuTree->renameProp("/", wuid.get()); //renameProp(nullptr, wuid.get()) not work: renameProp: cannot rename self, renameProp has to rename in context of a parent
+            setImportDebugAttribute();
+
+            StringBuffer localIP, unzipDirWithIP("//");
+            IpAddress ipaddr = queryHostIP();
+            ipaddr.getIpText(localIP);
+            unzipDirWithIP.append(localIP).append(unzipDir).append(PATHSEPSTR);
+
+            //update log entries in WU XML;
+            updateWUProcessLogAttrs("Process/EclAgent/*", unzipDirWithIP);
+            updateWUProcessLogAttrs("Process/Thor/*", unzipDirWithIP);
+
+            //update QueryAssociatedFiles in WU XML;
+            updateWUQueryAssociatedFilesAttrs(localIP);
+
+            readGraphProgressFileToPTree();
+        }
+    };
+
+    CImportWorkUnitHelper helper(zapReportFileName, user);
+    Owned<IWorkUnit> newWU = createWorkUnit(app, user, secMgr, secUser);
+    helper.setWUID(newWU->queryWuid());
+    helper.setUNZIPDir(directories, component, instance);
+    helper.unzipZAPReport(zapReportFilePath, zapReportPassword);
+    helper.buildPTreesFromZAPReport();
+    newWU->import(helper.queryWUPTree(), helper.querygraphProgressPTree());
+    return newWU.getClear();
+}
 
 int CWorkUnitFactory::setTracingLevel(int newLevel)
 {
@@ -6067,6 +6256,13 @@ public:
     virtual bool restoreWorkUnit(const char *base, const char *wuid, bool restoreAssociated)
     {
         return baseFactory->restoreWorkUnit(base, wuid, restoreAssociated);
+    }
+    virtual IWorkUnit * importWorkUnit(const char *zapReportFileName, const char *zapReportFilePath, const char *zapReportPassword,
+        const IPropertyTree *directories, const char *component, const char *instance, const char *app, const char *user,
+        ISecManager *secMgr, ISecUser *secUser)
+    {
+        return baseFactory->importWorkUnit(zapReportFileName, zapReportFilePath, zapReportPassword,
+            directories, component, instance, app, user, secMgr, secUser);
     }
     virtual IWorkUnit * getGlobalWorkUnit(ISecManager *secMgr, ISecUser *secUser)
     {
@@ -10013,6 +10209,18 @@ IWUGraphStats *CLocalWorkUnit::updateStats(const char *graphName, StatisticCreat
     return new CWuGraphStats(LINK(p), creatorType, creator, _wfid, graphName, subgraph);
 }
 
+StringBuffer &CLocalWorkUnit::getSlaveLogPattern(StringBuffer &str) const
+{
+    p->getProp("@slaveLogPattern", str);
+    return str;
+}
+
+void CLocalWorkUnit::setSlaveLogPattern(const char *pattern)
+{
+    if (!isEmptyString(pattern))
+        p->setProp("@slaveLogPattern", pattern);
+}
+
 void CLocalWUGraph::setName(const char *str)
 {
     p->setProp("@name", str);
@@ -13777,4 +13985,24 @@ bool isValidMemoryValue(const char *memoryUnit)
             break;
     }
     return false;
+}
+
+extern WORKUNIT_API IWorkUnit * importWorkunitFromZAPFile(const char *zapReportFileName, const char *zapReportFilePath,
+    const char *zapReportPassword, const char *component, const char *instance, const char *app, const char *user,
+    ISecManager *secMgr, ISecUser *secUser)
+{
+    if (isEmptyString(zapReportFileName))
+        throw MakeStringException(WUERR_InvalidUserInput, "Empty ZAP report name");
+    if (isEmptyString(component))
+        throw MakeStringException(WUERR_InvalidUserInput, "Empty Component name");
+    if (isEmptyString(instance))
+        throw MakeStringException(WUERR_InvalidUserInput, "Empty Instance name");
+
+    Owned<IEnvironmentFactory> envFactory = getEnvironmentFactory(true);
+    Owned<IConstEnvironment> env = envFactory->openEnvironment();
+    Owned<IPropertyTree> root = &env->getPTree();
+
+    Owned<IWorkUnitFactory> wuFactory = getWorkUnitFactory();
+    return wuFactory->importWorkUnit(zapReportFileName, zapReportFilePath, zapReportPassword,
+        root->queryPropTree("Software/Directories"), component, instance, app, user, secMgr, secUser);
 }

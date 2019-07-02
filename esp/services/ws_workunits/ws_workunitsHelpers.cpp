@@ -1049,6 +1049,63 @@ void WsWuInfo::getInfo(IEspECLWorkunit &info, unsigned long flags)
     getWorkflow(info, flags);
 }
 
+StringBuffer& WsWuInfo::getWorkunitProcessLogPath(const char *process, StringBuffer &path)
+{
+    Owned<IPropertyTreeIterator> procs = cw->getProcesses(process, nullptr);
+    if (!procs->first())
+        return path;
+
+    StringBuffer logSpec;
+    procs->query().getProp("@log", logSpec);
+    if (!logSpec.length())
+        return path;
+
+    splitFilename(logSpec, nullptr, &path, nullptr, nullptr);
+    return path;
+}
+
+unsigned WsWuInfo::getNumberOfSlavesByClusterName()
+{
+    StringAttr clusterName(cw->queryClusterName());
+    if (!clusterName.length()) //Cluster name may not be set yet
+        return 0;
+
+    Owned<IConstWUClusterInfo> clusterInfo = getTargetClusterInfo(clusterName.str());
+    if (!clusterInfo)
+    {
+        IWARNLOG("Cannot find TargetClusterInfo for workunit %s", cw->queryWuid());
+        return 0;
+    }
+
+    return clusterInfo->getNumberOfSlaveLogs();
+}
+
+unsigned WsWuInfo::getNumberOfSlavesFromZAPFiles()
+{
+    StringBuffer zapWUFolderPath;
+    getWorkunitProcessLogPath("Thor", zapWUFolderPath);
+
+    unsigned numberOfSlaves = 0;
+    const char* slaveLogKeyWord = "_thorslave.";
+    Owned<IFile> zapFileFolder = createIFile(zapWUFolderPath);
+    Owned<IDirectoryIterator> thorSlaveFiles = zapFileFolder->directoryFiles("*_thorslave.*");
+    ForEach(*thorSlaveFiles)
+    {
+        const char* pStr = strstr(thorSlaveFiles->query().queryFilename(), slaveLogKeyWord);
+        pStr += strlen(slaveLogKeyWord);
+        const char* slaveNumStrEnd = strchr(pStr, '.');
+        if (!slaveNumStrEnd)
+            continue;
+
+        StringBuffer slaveNumStr;
+        slaveNumStr.append(slaveNumStrEnd - pStr, pStr);
+        unsigned slaveNum = atoi(slaveNumStr);
+        if (slaveNum > numberOfSlaves)
+            numberOfSlaves = slaveNum;
+    }
+    return numberOfSlaves;
+}
+
 unsigned WsWuInfo::getWorkunitThorLogInfo(IArrayOf<IEspECLHelpFile>& helpers, IEspECLWorkunit &info, unsigned long flags, unsigned& helpersCount)
 {
     unsigned countThorLog = 0;
@@ -1056,18 +1113,25 @@ unsigned WsWuInfo::getWorkunitThorLogInfo(IArrayOf<IEspECLHelpFile>& helpers, IE
     IArrayOf<IConstThorLogInfo> thorLogList;
     if (cw->getWuidVersion() > 0)
     {
-        StringAttr clusterName(cw->queryClusterName());
-        if (!clusterName.length()) //Cluster name may not be set yet
-            return countThorLog;
-
-        Owned<IConstWUClusterInfo> clusterInfo = getTargetClusterInfo(clusterName.str());
-        if (!clusterInfo)
+        unsigned numberOfSlaveLogs = 0;
+        StringAttr thorMasterLogDateSearchString;
+        StringArray logDates;
+        StringBuffer slaveLogPattern;
+        cw->getSlaveLogPattern(slaveLogPattern);
+        if (!slaveLogPattern.isEmpty())
         {
-            IWARNLOG("Cannot find TargetClusterInfo for workunit %s", cw->queryWuid());
-            return countThorLog;
+            readSlaveLogPattern(slaveLogPattern, numberOfSlaveLogs, logDates);
         }
-
-        unsigned numberOfSlaveLogs = clusterInfo->getNumberOfSlaveLogs();
+        else if (hasDebugImportedStr) //WU imported from a ZAP report
+        {
+            numberOfSlaveLogs = getNumberOfSlavesFromZAPFiles();
+            thorMasterLogDateSearchString.set("_thormaster.");
+        }
+        else
+        {
+            numberOfSlaveLogs = getNumberOfSlavesByClusterName();
+            thorMasterLogDateSearchString.set("/thormaster.");
+        }
 
         BoolHash uniqueProcesses;
         Owned<IStringIterator> thorInstances = cw->getProcesses("Thor");
@@ -1118,18 +1182,18 @@ unsigned WsWuInfo::getWorkunitThorLogInfo(IArrayOf<IEspECLHelpFile>& helpers, IE
                     helpers.append(*h.getLink());
                 }
 
-                if (version < 1.38)
+                if ((version < 1.38) || !slaveLogPattern.isEmpty())
                     continue;
 
                 const char* pStr = logName.str();
-                const char* ppStr = strstr(pStr, "/thormaster.");
+                const char* ppStr = strstr(pStr, thorMasterLogDateSearchString.get());
                 if (!ppStr)
                 {
                     IWARNLOG("Invalid thorlog entry in workunit xml: %s", logName.str());
                     continue;
                 }
 
-                ppStr += 12;
+                ppStr += thorMasterLogDateSearchString.length();
                 StringBuffer logDate(ppStr);
                 logDate.setLength(10);
 
@@ -1139,6 +1203,30 @@ unsigned WsWuInfo::getWorkunitThorLogInfo(IArrayOf<IEspECLHelpFile>& helpers, IE
                 thorLog->setLogDate(logDate.str());
                 thorLog->setNumberSlaves(numberOfSlaveLogs);
                 thorLogList.append(*thorLog.getLink());
+            }
+
+            if (!slaveLogPattern.isEmpty())
+            {
+                if (!logDates.length())
+                {
+                    Owned<IEspThorLogInfo> thorLog = createThorLogInfo();
+                    thorLog->setProcessName(processName.str());
+                    thorLog->setClusterGroup(groupName.str());
+                    thorLog->setNumberSlaves(numberOfSlaveLogs);
+                    thorLogList.append(*thorLog.getLink());
+                }
+                else
+                {
+                    ForEachItemIn(i, logDates)
+                    {
+                        Owned<IEspThorLogInfo> thorLog = createThorLogInfo();
+                        thorLog->setProcessName(processName.str());
+                        thorLog->setClusterGroup(groupName.str());
+                        thorLog->setLogDate(logDates.item(i));
+                        thorLog->setNumberSlaves(numberOfSlaveLogs);
+                        thorLogList.append(*thorLog.getLink());
+                    }
+                }
             }
         }
     }
@@ -1896,6 +1984,13 @@ void WsWuInfo::getWorkunitEclAgentLog(const char* fileName, const char* agentPid
     Owned<IFile> rFile = createIFile(fileName);
     if(!rFile)
         throw MakeStringException(ECLWATCH_CANNOT_OPEN_FILE, "Cannot open file %s.", fileName);
+
+    if (hasDebugImportedStr) //WU imported from a ZAP report
+    {
+        getWorkunitLogSingleFile(rFile, fileName, buf, outFile);
+        return;
+    }
+
     OwnedIFileIO rIO = rFile->openShared(IFOread,IFSHfull);
     if(!rIO)
         throw MakeStringException(ECLWATCH_CANNOT_READ_FILE, "Cannot read file %s.", fileName);
@@ -1975,7 +2070,32 @@ void WsWuInfo::getWorkunitThorLog(const char* fileName, MemoryBuffer& buf, const
     if (!rFile)
         throw MakeStringException(ECLWATCH_CANNOT_OPEN_FILE,"Cannot open file %s.",fileName);
 
-    readWorkunitLog(rFile, buf, outFile);
+    if (hasDebugImportedStr) //WU imported from a ZAP report
+        getWorkunitLogSingleFile(rFile, fileName, buf, outFile);
+    else
+        readWorkunitLog(rFile, buf, outFile);
+}
+
+void WsWuInfo::getWorkunitLogSingleFile(IFile* iFile, const char* fileName, MemoryBuffer& buf, const char* outFile)
+{
+    //The whole log file should be sent back. 
+    if (!isEmptyString(outFile))
+    {
+        OwnedIFile oFile = createIFile(outFile);
+        if (!oFile)
+            throw MakeStringException(ECLWATCH_CANNOT_OPEN_FILE, "Cannot open %s.", outFile);
+
+        copyFile(oFile, iFile);
+        return;
+    }
+
+    OwnedIFileIO io = iFile->openShared(IFOread,IFSHfull);
+    if (!io)
+        throw MakeStringException(ECLWATCH_CANNOT_READ_FILE, "Cannot open %s.", fileName);
+
+    offset_t len = iFile->size();
+    if (read(io, 0, len, buf) != len)
+        throw MakeStringException(ECLWATCH_CANNOT_READ_FILE, "Cannot read %s.", fileName);
 }
 
 void WsWuInfo::getWorkunitThorSlaveLog(IGroup *nodeGroup, const char *ipAddress, const char* logDate,
@@ -2038,6 +2158,12 @@ void WsWuInfo::getWorkunitThorSlaveLog(IPropertyTree* directories, const char *p
     const char* instanceName, const char *ipAddress, const char* logDate, int slaveNum,
     MemoryBuffer& buf, const char* outFile, bool forDownload)
 {
+    if (hasDebugImportedStr) //WU imported from a ZAP report
+    {
+        getWorkunitThorSlaveLogSingleFile(process, logDate, slaveNum, buf, outFile);
+        return;
+    }
+
     StringBuffer logDir, groupName;
     getConfigurationDirectory(directories, "log", "thor", process, logDir);
     getClusterThorGroupName(groupName, instanceName);
@@ -2049,6 +2175,20 @@ void WsWuInfo::getWorkunitThorSlaveLog(IPropertyTree* directories, const char *p
         throw MakeStringException(ECLWATCH_INVALID_INPUT, "Node group %s not found", groupName.str());
 
     getWorkunitThorSlaveLog(nodeGroup, ipAddress, logDate, logDir.str(), slaveNum, buf, outFile, forDownload);
+}
+
+void WsWuInfo::getWorkunitThorSlaveLogSingleFile(const char* thorProcess, const char* logDate, int slaveNum,
+    MemoryBuffer& buf, const char* outFile)
+{
+    StringBuffer logPath;
+    getWorkunitProcessLogPath("Thor", logPath);
+
+    VStringBuffer logFileName("%s%c%s_thorslave.%u.%s.log", logPath.str(), PATHSEPCHAR, thorProcess, slaveNum, logDate);
+    Owned<IFile> logfile = createIFile(logFileName);
+    if (!logfile)
+        throw MakeStringException(ECLWATCH_CANNOT_OPEN_FILE, "Cannot open %s.", logFileName.str());
+
+    getWorkunitLogSingleFile(logfile, logFileName, buf, outFile);
 }
 
 void WsWuInfo::readWorkunitLog(IFile* sourceFile, MemoryBuffer& buf, const char* outFile)
@@ -2985,6 +3125,7 @@ bool addToQueryString(StringBuffer &queryString, const char *name, const char *v
 int WUSchedule::run()
 {
     PROGLOG("ECLWorkunit WUSchedule Thread started.");
+
     unsigned int waitTimeMillies = 1000*60;
     while(!stopping)
     {
