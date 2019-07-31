@@ -2521,6 +2521,68 @@ void doWULightWeightQueryFromArchive(IEspContext &context, const char* sashaServ
 
 bool CWsWorkunitsEx::onWUQuery(IEspContext &context, IEspWUQueryRequest & req, IEspWUQueryResponse & resp)
 {
+#define KW_TEST2
+#ifdef KW_TEST2
+#define KW_TEST_REPEAT 3
+    PROGLOG("###Start Content encoding test1: source 3 bytes up.");
+
+    StringBuffer s;
+    for (unsigned i = 0; i<KW_TEST_REPEAT; i++)
+    {
+        MemoryBuffer contentEncoded0;
+        StringBuffer contentDecoded;
+        s.append("abc");
+        zlib_deflate(contentEncoded0, s, s.length(), GZ_BEST_SPEED, ZlibCompressionType::GZIP);
+        PROGLOG("###Content encoded from %d bytes to %d bytes", s.length(), contentEncoded0.length());
+
+        httpInflate((const byte*)contentEncoded0.bufferBase(), contentEncoded0.length(), contentDecoded, true);
+        PROGLOG("Contents(%s) are encoded and decoded to: (%s)", s.str(), contentDecoded.str());
+    }
+
+    PROGLOG("###Content encoding test1 done.");
+#endif
+
+#define KW_TEST
+#ifdef KW_TEST
+#define KW_TEST_REPEAT1 1000
+    PROGLOG("###Start Content encoding test2: alphanum 1 to 1000 bytes.");
+
+    StringBuffer s1;
+    unsigned num = 33;
+    for (unsigned i = 0; i<KW_TEST_REPEAT1; i++)
+    {
+        MemoryBuffer contentEncoded0;
+        StringBuffer contentDecoded;
+        if (num > 126)
+            num = 33;
+        char c = num++;
+        s1.append(c);
+        zlib_deflate(contentEncoded0, s1, s1.length(), GZ_BEST_SPEED, ZlibCompressionType::GZIP);
+        PROGLOG("###Content encoded from %d bytes to %d bytes", s1.length(), contentEncoded0.length());
+
+        httpInflate((const byte*)contentEncoded0.bufferBase(), contentEncoded0.length(), contentDecoded, true);
+        if (!streq(s1.str(), contentDecoded.str()))
+            PROGLOG("###Wrong contents(%s),(%s)", s1.str(), contentDecoded.str());
+    }
+    PROGLOG("###Content encoding test2 done.");
+
+    PROGLOG("###Start Content encoding test3: big strings.");
+    s1.clear();
+    for (unsigned i1 = 0; i1<KW_TEST_REPEAT1; i1++)
+    {
+        MemoryBuffer contentEncoded0;
+        StringBuffer contentDecoded;
+        s1.append("abcdefghijklmnopqrstuvwxyz12345678901234567890abcdefghijklmnopqrstuvwxyz12345678901234567890abcdefghijklmnopqrstuvwxyz12345678901234567890");
+        zlib_deflate(contentEncoded0, s1, s1.length(), GZ_BEST_SPEED, ZlibCompressionType::GZIP);
+        PROGLOG("###Content encoded from %d bytes to %d bytes", s1.length(), contentEncoded0.length());
+
+        httpInflate((const byte*)contentEncoded0.bufferBase(), contentEncoded0.length(), contentDecoded, true);
+        if (!streq(s1.str(), contentDecoded.str()))
+            PROGLOG("###Wrong contents !!!");
+    }
+    PROGLOG("###Content encoding test3 done.");
+#endif
+
     try
     {
         StringBuffer wuidStr(req.getWuid());
