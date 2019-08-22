@@ -127,18 +127,12 @@ bool CWsFileIOEx::onCreateFile(IEspContext &context, IEspCreateFileRequest &req,
 
     StringBuffer result;
     const char* server = req.getDestDropZone();
-    if (!server || (server[0] == 0))
-    {
-        resp.setResult("Destination not specified");
-        return true;
-    }
+    if (isEmptyString(server))
+        throw MakeStringException(ECLWATCH_INVALID_INPUT, "Destination not specified");
 
     const char* destRelativePath = req.getDestRelativePath();
-    if (!destRelativePath || (destRelativePath[0] == 0))
-    {
-        resp.setResult("Destination path not specified");
-        return true;
-    }
+    if (isEmptyString(destRelativePath))
+        throw MakeStringException(ECLWATCH_INVALID_INPUT, "Destination path not specified");
 
     resp.setDestDropZone(server);
     resp.setDestRelativePath(destRelativePath);
@@ -146,11 +140,7 @@ bool CWsFileIOEx::onCreateFile(IEspContext &context, IEspCreateFileRequest &req,
     StringBuffer destAbsPath;
     StringBuffer destNetAddr;
     if (!CheckServerAccess(server, destRelativePath, destNetAddr, destAbsPath))
-    {
-        result.appendf("Failed to access the destination: %s %s.", server, destRelativePath);
-        resp.setResult(result.str());
-        return true;
-    }
+        throw MakeStringException(ECLWATCH_INVALID_INPUT, "Failed to access the destination: %s %s.", server, destRelativePath);
 
     RemoteFilename rfn;
     SocketEndpoint ep;
@@ -160,18 +150,10 @@ bool CWsFileIOEx::onCreateFile(IEspContext &context, IEspCreateFileRequest &req,
 
     fileBool isDir = file->isDirectory();
     if (isDir == foundYes)
-    {
-        result.appendf("Failure: %s is a directory.", destRelativePath);
-        resp.setResult(result.str());
-        return true;
-    }
+        throw MakeStringException(ECLWATCH_INVALID_INPUT, "%s is a directory.", destRelativePath);
 
     if (!req.getOverwrite() && (isDir != notFound))
-    {
-        result.appendf("Failure: %s exists.", destRelativePath);
-        resp.setResult(result.str());
-        return true;
-    }
+        throw MakeStringException(ECLWATCH_INVALID_INPUT, "%s exists.", destRelativePath);
 
     file->open(IFOcreate);
     result.appendf("%s has been created.", destRelativePath);
@@ -185,18 +167,12 @@ bool CWsFileIOEx::onReadFileData(IEspContext &context, IEspReadFileDataRequest &
 
     StringBuffer result;
     const char* server = req.getDestDropZone();
-    if (!server || (server[0] == 0))
-    {
-        resp.setResult("Destination not specified");
-        return true;
-    }
+    if (isEmptyString(server))
+        throw MakeStringException(ECLWATCH_INVALID_INPUT, "Destination not specified");
 
     const char* destRelativePath = req.getDestRelativePath();
-    if (!destRelativePath || (destRelativePath[0] == 0))
-    {
-        resp.setResult("Destination path not specified");
-        return true;
-    }
+    if (isEmptyString(destRelativePath))
+        throw MakeStringException(ECLWATCH_INVALID_INPUT, "Destination path not specified");
 
     resp.setDestDropZone(server);
     resp.setDestRelativePath(destRelativePath);
@@ -204,27 +180,18 @@ bool CWsFileIOEx::onReadFileData(IEspContext &context, IEspReadFileDataRequest &
     StringBuffer destAbsPath;
     StringBuffer destNetAddr;
     if (!CheckServerAccess(server, destRelativePath, destNetAddr, destAbsPath))
-    {
-        result.appendf("Failed to access the destination: %s %s.", server, destRelativePath);
-        resp.setResult(result.str());
-        return true;
-    }
+        throw MakeStringException(ECLWATCH_INVALID_INPUT, "Failed to access the destination: %s %s.", server, destRelativePath);
 
     __int64 dataSize = req.getDataSize();
+    if (dataSize < 1)
+        throw MakeStringException(ECLWATCH_INVALID_INPUT, "Invalid data size.");
+
     __int64 offset = req.getOffset();
+    if (offset < 0)
+        throw MakeStringException(ECLWATCH_INVALID_INPUT, "Invalid offset.");
+
     resp.setDataSize(dataSize);
     resp.setOffset(offset);
-    if (dataSize < 1)
-    {
-        resp.setResult("Invalid data size.");
-        return true;
-    }
-
-    if (offset < 0)
-    {
-        resp.setResult("Invalid offset.");
-        return true;
-    }
 
     StringBuffer user;
     RemoteFilename rfn;
@@ -234,20 +201,12 @@ bool CWsFileIOEx::onReadFileData(IEspContext &context, IEspReadFileDataRequest &
     Owned<IFile> file = createIFile(rfn);
     fileBool isFile = file->isFile();
     if (isFile != foundYes)
-    {
-        result.appendf("%s does not exist.", destRelativePath);
-        resp.setResult(result.str());
-        return true;
-    }
+        throw MakeStringException(ECLWATCH_INVALID_INPUT, "%s does not exist.", destRelativePath);
 
     Owned<IFileIO> io = file->open(IFOread);
     __int64 size = io->size();
     if (offset >= size)
-    {
-        result.appendf("Invalid offset: file size = %" I64F "d.", size);
-        resp.setResult(result.str());
-        return true;
-    }
+        throw MakeStringException(ECLWATCH_INVALID_INPUT, "Invalid offset: file size = %" I64F "d.", size);
 
     __int64 dataToRead = size - offset;
     if (dataToRead > dataSize)
@@ -258,16 +217,11 @@ bool CWsFileIOEx::onReadFileData(IEspContext &context, IEspReadFileDataRequest &
     MemoryBuffer membuf;
     char* buf = (char*) membuf.reserve((int) dataToRead);
     if (io->read(offset, (int)dataToRead, buf) != dataToRead)
-    {
-        resp.setResult("ReadFileData error.");
-        LOG(MCprogress, unknownJob, "ReadFileData error: %s: %s %s", context.getUserID(user).str(), server, destRelativePath);
-    }
-    else
-    {
-        resp.setData(membuf);
-        resp.setResult("ReadFileData done.");
-        LOG(MCprogress, unknownJob, "ReadFileData done: %s: %s %s", context.getUserID(user).str(), server, destRelativePath);
-    }
+        throw MakeStringException(ECLWATCH_CANNOT_READ_FILE, "ReadFileData error.");
+
+    resp.setData(membuf);
+    resp.setResult("ReadFileData done.");
+    LOG(MCprogress, unknownJob, "ReadFileData done: %s: %s %s", context.getUserID(user).str(), server, destRelativePath);
 
     return true;
 }
@@ -278,25 +232,16 @@ bool CWsFileIOEx::onWriteFileData(IEspContext &context, IEspWriteFileDataRequest
 
     StringBuffer result;
     const char* server = req.getDestDropZone();
-    if (!server || (server[0] == 0))
-    {
-        resp.setResult("Destination not specified");
-        return true;
-    }
+    if (isEmptyString(server))
+        throw MakeStringException(ECLWATCH_INVALID_INPUT, "Destination not specified");
 
     const char* destRelativePath = req.getDestRelativePath();
-    if (!destRelativePath || (destRelativePath[0] == 0))
-    {
-        resp.setResult("Destination path not specified");
-        return true;
-    }
+    if (isEmptyString(destRelativePath))
+        throw MakeStringException(ECLWATCH_INVALID_INPUT, "Destination path not specified");
 
     MemoryBuffer& srcdata = (MemoryBuffer&)req.getData();
     if(srcdata.length() == 0)
-    {
-        resp.setResult("Source data not specified");
-        return true;
-    }
+        throw MakeStringException(ECLWATCH_INVALID_INPUT, "Source data not specified");
 
     __int64 offset = req.getOffset();
     bool append = req.getAppend();  
@@ -315,11 +260,7 @@ bool CWsFileIOEx::onWriteFileData(IEspContext &context, IEspWriteFileDataRequest
     StringBuffer destAbsPath;
     StringBuffer destNetAddr;
     if (!CheckServerAccess(server, destRelativePath, destNetAddr, destAbsPath))
-    {
-        result.appendf("Failed to access the destination: %s %s.", server, destRelativePath);
-        resp.setResult(result.str());
-        return true;
-    }
+        throw MakeStringException(ECLWATCH_INVALID_INPUT, "Failed to access the destination: %s %s.", server, destRelativePath);
 
     StringBuffer user;
     RemoteFilename rfn;
@@ -329,11 +270,7 @@ bool CWsFileIOEx::onWriteFileData(IEspContext &context, IEspWriteFileDataRequest
     Owned<IFile> file = createIFile(rfn);
     fileBool isFile = file->isFile();
     if (isFile != foundYes)
-    {
-        result.appendf("%s does not exist.", destRelativePath);
-        resp.setResult(result.str());
-        return true;
-    }
+        throw MakeStringException(ECLWATCH_INVALID_INPUT, "%s does not exist.", destRelativePath);
 
     if (append)
     {
@@ -344,15 +281,10 @@ bool CWsFileIOEx::onWriteFileData(IEspContext &context, IEspWriteFileDataRequest
     Owned<IFileIO> fileio = file->open(IFOwrite);
     size32_t len = srcdata.length();
     if (fileio->write(offset, len, srcdata.readDirect(len)) != len)
-    {
-        resp.setResult("WriteFileData error.");
-        LOG(MCprogress, unknownJob, "WriteFileData error: %s: %s %s", context.getUserID(user).str(), server, destRelativePath);
-    }
-    else
-    {
-        resp.setResult("WriteFileData done.");
-        LOG(MCprogress, unknownJob, "WriteFileData done: %s: %s %s", context.getUserID(user).str(), server, destRelativePath);
-    }
+        throw MakeStringException(ECLWATCH_CANNOT_WRITE_FILE, "WriteFileData error.");
+
+    resp.setResult("WriteFileData done.");
+    LOG(MCprogress, unknownJob, "WriteFileData done: %s: %s %s", context.getUserID(user).str(), server, destRelativePath);
 
     return true;
 }
