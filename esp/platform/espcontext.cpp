@@ -87,6 +87,19 @@ private:
 
     StringAttr   m_transactionID;
 
+    void flushTraceSummary()
+    {//This is called in ~CEspContext().
+        updateTraceSummaryHeader();
+        if (m_txSummary)
+        {
+            if (getTxSummaryLevel() >= LogMin)
+            {
+                m_txSummary->set("auth", authStatus.get());
+                m_txSummary->append("total", m_processingTime, "ms");
+            }
+            m_txSummary->log(getTxSummaryLevel());
+        }
+    }
 public:
     IMPLEMENT_IINTERFACE;
 
@@ -490,34 +503,25 @@ public:
 
     virtual void addTraceSummaryValue(LogLevel logLevel, const char *name, const char *value)
     {
-        if (m_txSummary && (getTxSummaryLevel() >= logLevel))
-            m_txSummary->append(name, value);
+        if (m_txSummary && !isEmptyString(name))
+            m_txSummary->append(name, value, logLevel);
     }
 
     virtual void addTraceSummaryValue(LogLevel logLevel, const char *name, __int64 value)
     {
-        if (m_txSummary && (getTxSummaryLevel() >= logLevel))
-            m_txSummary->append(name, value);
+        if (m_txSummary && !isEmptyString(name))
+            m_txSummary->append(name, value, logLevel);
     }
 
     virtual void addTraceSummaryTimeStamp(LogLevel logLevel, const char *name)
     {
-        if (m_txSummary && (getTxSummaryLevel() >= logLevel) && name && *name)
-            m_txSummary->append(name, m_txSummary->getElapsedTime(), "ms");
-    }
-    virtual void flushTraceSummary()
-    {
-        updateTraceSummaryHeader();
-        if (m_txSummary && (getTxSummaryLevel() >= LogMin))
-        {
-            m_txSummary->set("auth", authStatus.get());
-            m_txSummary->append("total", m_processingTime, "ms");
-        }
+        if (m_txSummary && !isEmptyString(name))
+            m_txSummary->append(name, m_txSummary->getElapsedTime(), "ms", TokenSerializer(), logLevel);
     }
     virtual void addTraceSummaryCumulativeTime(LogLevel logLevel, const char* name, unsigned __int64 time)
     {
-        if (m_txSummary && (getTxSummaryLevel() >= logLevel))
-            m_txSummary->updateTimer(name, time);
+        if (m_txSummary && !isEmptyString(name))
+            m_txSummary->updateTimer(name, time, logLevel);
     }
     virtual CumulativeTimer* queryTraceSummaryCumulativeTimer(const char* name)
     {
