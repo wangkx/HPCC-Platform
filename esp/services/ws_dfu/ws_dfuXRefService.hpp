@@ -209,6 +209,7 @@ public:
     bool onDFUXRefDirectories(IEspContext &context, IEspDFUXRefDirectoriesQueryRequest &req, IEspDFUXRefDirectoriesQueryResponse &resp);
     bool onDFUXRefCleanDirectories(IEspContext &context, IEspDFUXRefCleanDirectoriesRequest &req, IEspDFUXRefCleanDirectoriesResponse &resp);
     bool onDFUXRefUnusedFiles(IEspContext &context, IEspDFUXRefUnusedFilesRequest &req, IEspDFUXRefUnusedFilesResponse &resp);
+    bool onDFUXRefRoxieUsedFiles(IEspContext &context, IEspDFUXRefRoxieUsedFilesRequest &req, IEspDFUXRefRoxieUsedFilesResponse &resp);
 };
 
 

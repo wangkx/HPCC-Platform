@@ -662,3 +662,34 @@ IUserDescriptor *CWsDfuXRefEx::getUserDescriptor(IEspContext &context)
     userDesc->set(userName, context.queryPassword(), context.querySignature());
     return userDesc.getClear();
 }
+
+bool CWsDfuXRefEx::onDFUXRefRoxieUsedFiles(IEspContext &context, IEspDFUXRefRoxieUsedFilesRequest &req, IEspDFUXRefRoxieUsedFilesResponse &resp)
+{
+    const char *process = req.getProcessCluster();
+    if (isEmptyString(process))
+        throw MakeStringExceptionDirect(ECLWATCH_INVALID_INPUT, "process cluster not specified.");
+
+    SocketEndpointArray servers;
+    getRoxieProcessServers(process, servers);
+    if (!servers.length())
+        throw MakeStringExceptionDirect(ECLWATCH_INVALID_CLUSTER_INFO, "process cluster, not found.");
+
+    IArrayOf<IEspRoxieUsedFile> filesUsed;
+/*
+    Owned<ISocket> sock = ISocket::connect_timeout(servers.item(0), 5000);
+    Owned<IPropertyTree> controlXrefInfo = sendRoxieControlQuery(sock, "<control:getQueryXrefInfo/>", 5000);
+    if (!controlXrefInfo)
+        throw MakeStringExceptionDirect(ECLWATCH_INTERNAL_ERROR, "roxie cluster, not responding.");
+    MapStringTo<bool> usedFileMap;
+    Owned<IPropertyTreeIterator> roxieFiles = controlXrefInfo->getElements("//File");
+    ForEach(*roxieFiles)
+        addLfnToUsedFileMap(usedFileMap, roxieFiles->query().queryProp("@name"));
+    if (req.getCheckPackageMaps())
+        addUsedFilesFromPackageMaps(usedFileMap, process);
+    StringArray unusedFiles;
+    findUnusedFilesInDFS(unusedFiles, process, usedFileMap);
+*/
+    resp.setFileCount(filesUsed.length());
+    resp.setFiles(filesUsed);
+    return true;
+}

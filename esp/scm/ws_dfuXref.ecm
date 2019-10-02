@@ -217,11 +217,36 @@ ESPresponse [exceptions_inline] DFUXRefUnusedFilesResponse
     ESParray<string, File> UnusedFiles;
 };
 
+ESPStruct RoxieUsedFile
+{
+    string Name;
+    string ProcessCluster;
+    string Query;
+    string PackageMap;
+    bool Superfile;
+};
+
+ESPrequest [nil_remove] DFUXRefRoxieUsedFilesRequest
+{
+    string ProcessCluster;
+    string Query;
+    string PackageMap;
+};
+
+ESPresponse [exceptions_inline] DFUXRefRoxieUsedFilesResponse
+{
+    unsigned FileCount;
+    ESParray<EspStruct RoxieUsedFile, File> Files;
+};
 
 
 
 //  ===========================================================================
-ESPservice [auth_feature("DEFERRED"), exceptions_inline("./smc_xslt/exceptions.xslt")] WsDFUXRef
+ESPservice [
+    auth_feature("DEFERRED"),
+    version("1.01"),
+    default_client_version("1.01"),
+    exceptions_inline("./smc_xslt/exceptions.xslt") ] WsDFUXRef
 {
     ///ESPmethod [resp_xsl_default("./smc_xslt/xref_main.xslt")] DFUXRefList(DFUXRefListRequest, DFUXRefListResponse);
     ESPmethod [resp_xsl_default("/esp/xslt/xref_main.xslt")] DFUXRefList(DFUXRefListRequest, DFUXRefListResponse);
@@ -235,6 +260,7 @@ ESPservice [auth_feature("DEFERRED"), exceptions_inline("./smc_xslt/exceptions.x
     ESPmethod [resp_xsl_default("/esp/xslt/action.xslt")] DFUXRefBuildCancel(DFUXRefBuildCancelRequest, DFUXRefBuildCancelResponse);
     ESPmethod DFUXRefCleanDirectories(DFUXRefCleanDirectoriesRequest, DFUXRefCleanDirectoriesResponse);
     ESPmethod [auth_feature("DfuXrefAccess:access")] DFUXRefUnusedFiles(DFUXRefUnusedFilesRequest, DFUXRefUnusedFilesResponse);
+    ESPmethod [auth_feature("DfuXrefAccess:access"), min_ver("1.01")] DFUXRefRoxieUsedFiles(DFUXRefRoxieUsedFilesRequest, DFUXRefRoxieUsedFilesResponse);
 };
 
 SCMexportdef(WSDFUXREF);
