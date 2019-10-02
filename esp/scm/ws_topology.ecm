@@ -273,6 +273,20 @@ ESPStruct TpSparkThor
 };
 
 //  ===========================================================================
+ESPStruct TpTopoServer   
+{
+    string Name;
+    string Description;
+    string Build;
+    string LogDirectory;
+    unsigned Port;
+    unsigned TraceLevel;
+    bool STDLog;
+    ESParray<ESPstruct TpMachine> TpMachines;
+
+};
+
+//  ===========================================================================
 ESPStruct TpQueue
 {
     string Name;
@@ -298,6 +312,7 @@ ESPStruct TpServices
     ESParray<ESPstruct TpMySqlServer> TpMySqlServers;
     ESParray<ESPstruct TpSashaServer> TpSashaServers;
     [min_ver("1.28")] ESParray<ESPstruct TpSparkThor>   TpSparkThors;
+    [min_ver("1.30")] ESParray<ESPstruct TpTopoServer>   TpTopoServers;
 };
 
 ESPStruct TpClusterNameType
@@ -636,7 +651,7 @@ ESPresponse [nil_remove, exceptions_inline] TpDropZoneQueryResponse
     ESParray<ESPstruct TpDropZone>    TpDropZones;
 };
 
-ESPservice [auth_feature("DEFERRED"), noforms, version("1.29"), cache_group("ESPWsTP"), exceptions_inline("./smc_xslt/exceptions.xslt")] WsTopology
+ESPservice [auth_feature("DEFERRED"), noforms, version("1.30"), cache_group("ESPWsTP"), exceptions_inline("./smc_xslt/exceptions.xslt")] WsTopology
 {
     ESPmethod [cache_seconds(180), cache_global(1), resp_xsl_default("/esp/xslt/targetclusters.xslt")] TpTargetClusterQuery(TpTargetClusterQueryRequest, TpTargetClusterQueryResponse);
     ESPmethod [cache_seconds(180), cache_global(1), resp_xsl_default("/esp/xslt/topology.xslt")] TpClusterQuery(TpClusterQueryRequest, TpClusterQueryResponse);

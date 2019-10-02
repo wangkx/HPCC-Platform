@@ -41,6 +41,7 @@
 #define DROPZONE_SUFFIX             "dropzone-"
 #define MACHINE_PREFIX              "machine-"
 #define SPARKTHOR_SUFFIX            "sparkthor-"
+#define TOPOSERVER_SUFFIX            "toposerver-"
 
 static int environmentTraceLevel = 1;
 static Owned <IConstEnvironment> cache;
@@ -138,6 +139,24 @@ protected:
     unsigned maxIndex = 0;
 };
 
+class CConstTopoServerInfoIterator : public CSimpleInterfaceOf<IConstTopoServerInfoIterator>
+{
+public:
+    CConstTopoServerInfoIterator();
+
+    virtual bool first() override;
+    virtual bool next() override;
+    virtual bool isValid() override;
+    virtual IConstTopoServerInfo & query() override;
+    virtual unsigned count() const override;
+
+protected:
+    Owned<IConstTopoServerInfo> curr;
+    Owned<CLocalEnvironment> constEnv;
+    unsigned index = 1;
+    unsigned maxIndex = 0;
+};
+
 class CConstInstanceInfoIterator : public CSimpleInterfaceOf<IConstInstanceInfoIterator>
 {
 public:
@@ -173,6 +192,7 @@ private:
     mutable bool dropZoneCacheBuilt;
     mutable bool machineCacheBuilt;
     mutable bool sparkThorCacheBuilt;
+    mutable bool topoServerCacheBuilt = false;
     mutable bool clusterGroupKeyNameCache;
     StringBuffer fileAccessUrl;
 
@@ -186,6 +206,7 @@ private:
     mutable unsigned numOfMachines;
     mutable unsigned numOfDropZones;
     mutable unsigned numOfSparkThors;
+    mutable unsigned numOfTopoServers = 0;
 
     mutable bool isDropZoneRestrictionLoaded = false;
     mutable bool dropZoneRestrictionEnabled = true;
@@ -199,6 +220,7 @@ private:
     void buildMachineCache() const;
     void buildDropZoneCache() const;
     void buildSparkThorCache() const;
+    void buildTopoServerCache() const;
     void init();
 
     void ensureClusterGroupKeyMap() const // keyPairMap and keyGroupMap it alters is mutable
@@ -384,6 +406,11 @@ public:
     virtual IConstSparkThorInfoIterator *getSparkThorIterator() const;
     unsigned getNumberOfSparkThors() const { buildSparkThorCache(); return numOfSparkThors; }
     IConstSparkThorInfo *getSparkThorByIndex(unsigned index) const;
+
+    virtual IConstTopoServerInfo *getTopoServer(const char *name) const;
+    virtual IConstTopoServerInfoIterator *getTopoServerIterator() const;
+    unsigned getNumberOfTopoServers() const { buildTopoServerCache(); return numOfTopoServers; }
+    IConstTopoServerInfo *getTopoServerByIndex(unsigned index) const;
 };
 
 class CLockedEnvironment : implements IEnvironment, public CInterface
@@ -510,6 +537,10 @@ public:
             { return c->getSparkThor(name); }
     virtual IConstSparkThorInfoIterator *getSparkThorIterator() const
             { return c->getSparkThorIterator(); }
+    virtual IConstTopoServerInfo *getTopoServer(const char *name) const
+            { return c->getTopoServer(name); }
+    virtual IConstTopoServerInfoIterator *getTopoServerIterator() const
+            { return c->getTopoServerIterator(); }
 
     virtual IConstDfuQueueInfoIterator * getDfuQueueIterator() const
             { return c->getDfuQueueIterator(); }
@@ -1264,6 +1295,46 @@ public:
     virtual unsigned getSparkWorkerPort() const
     {
         return root->getPropInt("@SPARK_WORKER_PORT", 0);
+    }
+    virtual IConstInstanceInfoIterator *getInstanceIterator() const
+    {
+        return new CConstInstanceInfoIterator(env, root->getElements("Instance"));
+    }
+};
+
+class CConstTopoServerInfo : public CConstEnvBase, implements IConstTopoServerInfo
+{
+public:
+    IMPLEMENT_IINTERFACE;
+    IMPLEMENT_ICONSTENVBASE;
+    CConstTopoServerInfo(CLocalEnvironment *env, IPropertyTree *root) : CConstEnvBase(env, root) {}
+
+    virtual IStringVal &getDescription(IStringVal &str) const
+    {
+        str.set(root->queryProp("@description"));
+        return str;
+    }
+    virtual IStringVal &getLogDirectory(IStringVal &str) const
+    {
+        str.set(root->queryProp("@logdir"));
+        return str;
+    }
+    virtual IStringVal &getBuild(IStringVal &str) const
+    {
+        str.set(root->queryProp("@build"));
+        return str;
+    }
+    virtual unsigned getPort() const
+    {
+        return root->getPropInt("@port", 0);
+    }
+    virtual unsigned getTraceLevel() const
+    {
+        return root->getPropInt("@traceLevel", 1);
+    }
+    virtual bool getSTDLog() const
+    {
+        return root->getPropBool("@stdlog", true);
     }
     virtual IConstInstanceInfoIterator *getInstanceIterator() const
     {
@@ -2133,6 +2204,63 @@ void CLocalEnvironment::buildSparkThorCache() const
     sparkThorCacheBuilt = true;
 }
 
+IConstTopoServerInfo *CLocalEnvironment::getTopoServer(const char *name) const
+{
+    if (isEmptyString(name))
+        return nullptr;
+    buildTopoServerCache();
+    VStringBuffer xpath("Software/TopoServer[@name=\"%s\"]", name);
+    synchronized procedure(safeCache);
+    return (CConstTopoServerInfo *) getCache(xpath);
+}
+
+IConstTopoServerInfo *CLocalEnvironment::getTopoServerByIndex(unsigned index) const
+{
+    if (index == 0)
+        return nullptr;
+
+    buildTopoServerCache();
+    if (index > numOfTopoServers)
+        return nullptr;
+
+    StringBuffer xpath("Software/TopoServer[@id=\"");
+    xpath.append(TOPOSERVER_SUFFIX).append(index).append("\"]");
+    synchronized procedure(safeCache);
+    return (CConstTopoServerInfo *) getCache(xpath);
+}
+
+IConstTopoServerInfoIterator *CLocalEnvironment::getTopoServerIterator() const
+{
+    return new CConstTopoServerInfoIterator();
+}
+
+void CLocalEnvironment::buildTopoServerCache() const
+{
+    synchronized procedure(safeCache);
+    if (topoServerCacheBuilt)
+        return;
+
+    Owned<IPropertyTreeIterator> it = p->getElements("Software/TopoServerProcess");
+    ForEach(*it)
+    {
+        const char *name = it->query().queryProp("@name");
+        if (!isEmptyString(name))
+        {
+            StringBuffer x("Software/TopoServer[@name=\"");
+            x.append(name).append("\"]");
+            Owned<IConstEnvBase> cached = new CConstTopoServerInfo((CLocalEnvironment *) this, &it->query());
+            cache.setValue(x, cached);
+        }
+
+        numOfSparkThors++;
+        StringBuffer x("Software/TopoServer[@id=\"");
+        x.append(TOPOSERVER_SUFFIX).append(numOfTopoServers).append("\"]");
+        Owned<IConstEnvBase> cached = new CConstTopoServerInfo((CLocalEnvironment *) this, &it->query());
+        cache.setValue(x, cached);
+    }
+    topoServerCacheBuilt = true;
+}
+
 
 //==========================================================================================
 // Iterators implementation
@@ -2386,6 +2514,50 @@ IConstSparkThorInfo &CConstSparkThorInfoIterator::query()
 }
 
 unsigned CConstSparkThorInfoIterator::count() const
+{
+    return maxIndex;
+}
+
+//--------------------------------------------------
+
+CConstTopoServerInfoIterator::CConstTopoServerInfoIterator()
+{
+    Owned<IEnvironmentFactory> factory = getEnvironmentFactory(true);
+    constEnv.setown((CLocalEnvironment *)factory->openEnvironment());
+    maxIndex = constEnv->getNumberOfTopoServers();
+}
+
+bool CConstTopoServerInfoIterator::first()
+{
+    index = 1;
+    curr.setown(constEnv->getTopoServerByIndex(index));
+    return curr != nullptr;
+}
+
+bool CConstTopoServerInfoIterator::next()
+{
+    if (index < maxIndex)
+    {
+        index++;
+        curr.setown(constEnv->getTopoServerByIndex(index));
+    }
+    else
+        curr.clear();
+
+    return curr != nullptr;
+}
+
+bool CConstTopoServerInfoIterator::isValid()
+{
+    return curr != nullptr;
+}
+
+IConstTopoServerInfo &CConstTopoServerInfoIterator::query()
+{
+    return *curr;
+}
+
+unsigned CConstTopoServerInfoIterator::count() const
 {
     return maxIndex;
 }

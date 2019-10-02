@@ -1797,6 +1797,48 @@ void CTpWrapper::appendTpSparkThor(double clientVersion, IConstEnvironment* cons
     list.append(*sparkThor.getLink());
 }
 
+void CTpWrapper::getTpTopoServers(double clientVersion, const char* name, IArrayOf<IConstTpTopoServer>& list)
+{
+    Owned<IEnvironmentFactory> envFactory = getEnvironmentFactory(true);
+    Owned<IConstEnvironment> constEnv = envFactory->openEnvironment();
+    if (!isEmptyString(name))
+    {
+        Owned<IConstTopoServerInfo> topoServerInfo = constEnv->getTopoServer(name);
+        if (topoServerInfo)
+            appendTpTopoServer(clientVersion, constEnv, *topoServerInfo, list);
+    }
+    else
+    {
+        Owned<IConstTopoServerInfoIterator> it = constEnv->getTopoServerIterator();
+        ForEach(*it)
+            appendTpTopoServer(clientVersion, constEnv, it->query(), list);
+    }
+}
+
+void CTpWrapper::appendTpTopoServer(double clientVersion, IConstEnvironment* constEnv, IConstTopoServerInfo& topoServerInfo, IArrayOf<IConstTpTopoServer>& list)
+{
+    SCMStringBuffer name, build;
+    topoServerInfo.getName(name);
+    topoServerInfo.getBuild(build);
+
+    Owned<IEspTpTopoServer> topoServer = createTpTopoServer();
+    if (name.length() > 0)
+        topoServer->setName(name.str());
+    if (build.length() > 0)
+        topoServer->setBuild(build.str());
+
+    //TODO
+
+    IArrayOf<IConstTpMachine> machines;
+    //TODO
+    //Owned<IConstInstanceInfoIterator> instanceInfoItr = sparkThorInfo.getInstanceIterator();
+    //ForEach(*instanceInfoItr)
+    //    appendTpMachine(clientVersion, constEnv, instanceInfoItr->query(), machines);
+    topoServer->setTpMachines(machines);
+
+    list.append(*topoServer.getLink());
+}
+
 void CTpWrapper::appendTpMachine(double clientVersion, IConstEnvironment* constEnv, IConstInstanceInfo& instanceInfo, IArrayOf<IConstTpMachine>& machines)
 {
     SCMStringBuffer name, networkAddress, description, directory;

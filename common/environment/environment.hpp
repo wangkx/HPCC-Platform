@@ -170,6 +170,23 @@ interface IConstSparkThorInfoIterator : extends IIteratorOf<IConstSparkThorInfo>
     virtual unsigned count() const = 0;
 };
 
+interface IConstTopoServerInfo : extends IConstEnvBase
+{
+    virtual IStringVal & getName(IStringVal & str) const = 0;
+    virtual IStringVal & getBuild(IStringVal & str) const = 0;
+    virtual IStringVal & getDescription(IStringVal & str) const = 0;
+    virtual IStringVal & getLogDirectory(IStringVal & str) const = 0;
+    virtual unsigned getPort() const = 0;
+    virtual unsigned getTraceLevel() const = 0;
+    virtual bool getSTDLog() const = 0;
+    virtual IConstInstanceInfoIterator * getInstanceIterator() const = 0;
+};
+
+interface IConstTopoServerInfoIterator : extends IIteratorOf<IConstTopoServerInfo>
+{
+    virtual unsigned count() const = 0;
+};
+
 interface IConstEnvironment : extends IConstEnvBase
 {
     virtual IConstDomainInfo * getDomain(const char * name) const = 0;
@@ -197,6 +214,8 @@ interface IConstEnvironment : extends IConstEnvBase
     virtual IConstDaFileSrvInfo *getDaFileSrvGroupInfo(const char *name) const = 0;
     virtual IConstSparkThorInfo *getSparkThor(const char *name) const = 0;
     virtual IConstSparkThorInfoIterator *getSparkThorIterator() const = 0;
+    virtual IConstTopoServerInfo *getTopoServer(const char *name) const = 0;
+    virtual IConstTopoServerInfoIterator *getTopoServerIterator() const = 0;
 
     virtual IConstDfuQueueInfoIterator * getDfuQueueIterator() const = 0;
     virtual bool isValidDfuQueueName(const char * queueName) const = 0;

@@ -138,6 +138,7 @@ private:
     bool checkGroupReplicateOutputs(const char* groupName, const char* kind);
     void appendTpDropZone(double clientVersion, IConstEnvironment* constEnv, IConstDropZoneInfo& dropZoneInfo, IArrayOf<IConstTpDropZone>& list);
     void appendTpSparkThor(double clientVersion, IConstEnvironment* constEnv, IConstSparkThorInfo& sparkThorInfo, IArrayOf<IConstTpSparkThor>& list);
+    void appendTpTopoServer(double clientVersion, IConstEnvironment* constEnv, IConstTopoServerInfo& topoServerInfo, IArrayOf<IConstTpTopoServer>& list);
     void appendTpMachine(double clientVersion, IConstEnvironment* constEnv, IConstInstanceInfo& instanceInfo, IArrayOf<IConstTpMachine>& machines);
 
 public:
@@ -186,6 +187,7 @@ public:
     void getTpDkcSlaves(IArrayOf<IConstTpDkcSlave>& list);
     void getTpGenesisServers(IArrayOf<IConstTpGenesisServer>& list);
     void getTpSparkThors(double clientVersion, const char* name, IArrayOf<IConstTpSparkThor>& list);
+    void getTpTopoServers(double clientVersion, const char* name, IArrayOf<IConstTpTopoServer>& list);
 
     void queryTargetClusters(double version, const char* clusterType, const char* clusterName, IArrayOf<IEspTpTargetCluster>& clusterList);
     void getTargetClusterList(IArrayOf<IEspTpLogicalCluster>& clusters, const char* clusterType = NULL, const char* clusterName = NULL);
