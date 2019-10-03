@@ -217,12 +217,19 @@ ESPresponse [exceptions_inline] DFUXRefUnusedFilesResponse
     ESParray<string, File> UnusedFiles;
 };
 
-ESPStruct RoxieUsedFile
+ESPStruct QueryUsedFile
 {
     string Name;
-    string ProcessCluster;
     string Query;
-    string PackageMap;
+    string ProcessCluster;
+    bool Superfile;
+};
+
+ESPStruct PackageMapUsedFile
+{
+    string Name;
+    string Query;
+    string ProcessCluster;
     bool Superfile;
 };
 
@@ -231,12 +238,15 @@ ESPrequest [nil_remove] DFUXRefRoxieUsedFilesRequest
     string ProcessCluster;
     string Query;
     string PackageMap;
+    bool UsedByQuery;
+    bool UsedByPackageMap;
 };
 
 ESPresponse [exceptions_inline] DFUXRefRoxieUsedFilesResponse
 {
     unsigned FileCount;
-    ESParray<EspStruct RoxieUsedFile, File> Files;
+    ESParray<EspStruct QueryUsedFile, File> QueryUsedFiles;
+    ESParray<EspStruct PackageMapUsedFile, File> PackageMapUsedFiles;
 };
 
 

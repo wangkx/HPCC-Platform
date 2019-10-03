@@ -26,6 +26,7 @@
 #include "exception_util.hpp"
 #include "package.h"
 #include "roxiecontrol.hpp"
+#include "build-config.h"
 
 
 static const char* FEATURE_URL = "DfuXrefAccess";
@@ -674,7 +675,85 @@ bool CWsDfuXRefEx::onDFUXRefRoxieUsedFiles(IEspContext &context, IEspDFUXRefRoxi
     if (!servers.length())
         throw MakeStringExceptionDirect(ECLWATCH_INVALID_CLUSTER_INFO, "process cluster, not found.");
 
-    IArrayOf<IEspRoxieUsedFile> filesUsed;
+    /*Owned<IEnvironmentFactory> envFactory = getEnvironmentFactory(true);
+    Owned<IConstEnvironment> constEnv = envFactory->openEnvironment();
+    StringBuffer envXML;
+    StringBufferAdaptor s(envXML);
+    constEnv->getXML(s);
+    DBGLOG("####env(%s)", envXML.str());*/
+    StringBuffer envfile;
+    if (queryEnvironmentConf().getProp("environment",envfile) && envfile.length())
+    {
+        if (!isAbsolutePath(envfile))
+        {
+            envfile.insert(0, CONFIG_DIR PATHSEPSTR);
+        }
+        Owned<IFile> file = createIFile(envfile);
+        if (file)
+        {
+            size32_t sz = (size32_t)file->size();
+            Owned<IFileIO> fileio = file->open(IFOread);
+            if (fileio)
+            {
+                StringBuffer xml;
+                fileio->read(0, sz, xml.reserve(sz));
+                DBGLOG("####env1(%s)", xml.str());
+            }
+        }
+    }
+
+   unsigned fileCount = 0;
+    StringBuffer queryReq(req.getQuery());
+    StringBuffer packageMapReq(req.getPackageMap());
+    bool usedByQuery = req.getUsedByQuery();
+    bool usedByPackageMap = req.getUsedByPackageMap();
+    if (usedByQuery)
+    {
+        Owned<ISocket> sock = ISocket::connect_timeout(servers.item(0), 5000);
+        Owned<IPropertyTree> controlXrefInfo = sendRoxieControlQuery(sock, "<control:getQueryXrefInfo/>", 5000);
+        if (!controlXrefInfo)
+            throw MakeStringExceptionDirect(ECLWATCH_INTERNAL_ERROR, "roxie cluster, not responding.");
+
+        IArrayOf<IEspQueryUsedFile> queryUsedFiles;
+
+        Owned<IPropertyTreeIterator> roxieQueries = controlXrefInfo->getElements("Query");
+        ForEach(*roxieQueries)
+        {
+            StringBuffer str;
+            toXML(&roxieQueries->query(), str);
+            DBGLOG("####(%s)", str.str());
+        }
+        resp.setQueryUsedFiles(queryUsedFiles);
+        fileCount += queryUsedFiles.length();
+    }
+
+    if (usedByPackageMap)
+    {
+        Owned<IPropertyTree> packageSet = resolvePackageSetRegistry(process, true);
+        if (!packageSet)
+            throw MakeStringException(ECLWATCH_PACKAGEMAP_NOTRESOLVED, "Unable to retrieve package information from dali /PackageMaps");
+
+        IArrayOf<IEspPackageMapUsedFile> packageMapUsedFiles;
+
+        StringArray pmids;
+        Owned<IStringIterator> targets = getTargetClusters("RoxieCluster", process);
+        ForEach(*targets)
+        {
+            SCMStringBuffer target;
+            VStringBuffer xpath("PackageMap[@querySet='%s']", targets->str(target).str());
+            Owned<IPropertyTreeIterator> activeMaps = packageSet->getElements(xpath);
+            //Add files referenced in all active maps, for all targets configured for this process cluster
+            ForEach(*activeMaps)
+            {
+                StringBuffer str;
+                toXML(&activeMaps->query(), str);
+                DBGLOG("####activeMaps(%s)", str.str());
+            }
+        }
+        resp.setPackageMapUsedFiles(packageMapUsedFiles);
+        fileCount += packageMapUsedFiles.length();
+    }
+
 /*
     Owned<ISocket> sock = ISocket::connect_timeout(servers.item(0), 5000);
     Owned<IPropertyTree> controlXrefInfo = sendRoxieControlQuery(sock, "<control:getQueryXrefInfo/>", 5000);
@@ -689,7 +768,6 @@ bool CWsDfuXRefEx::onDFUXRefRoxieUsedFiles(IEspContext &context, IEspDFUXRefRoxi
     StringArray unusedFiles;
     findUnusedFilesInDFS(unusedFiles, process, usedFileMap);
 */
-    resp.setFileCount(filesUsed.length());
-    resp.setFiles(filesUsed);
+    resp.setFileCount(fileCount);
     return true;
 }
