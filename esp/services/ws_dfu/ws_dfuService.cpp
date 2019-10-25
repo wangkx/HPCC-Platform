@@ -381,6 +381,8 @@ bool CWsDfuEx::onDFUInfo(IEspContext &context, IEspDFUInfoRequest &req, IEspDFUI
             doGetFileDetails(context, userdesc.get(), req.getName(), req.getCluster(), req.getQuerySet(), req.getQuery(), NULL,
                     req.getIncludeJsonTypeInfo(), req.getIncludeBinTypeInfo(), req.getProtect(), req.getRestrict(), resp.updateFileDetail());
         }
+        context.addTraceSummaryValue(8, "KW", "####KW"); //Test
+        context.testLog(8); //Test
     }
     catch(IException* e)
     {

@@ -114,7 +114,14 @@ public:
     ~CEspContext()
     {
         flushTraceSummary();
-        m_txSummary->log(getTxSummaryLevel());
+        if (m_txSummary)
+            m_txSummary->log(getTxSummaryLevel());
+    }
+    void testLog(const unsigned logLevel)
+    {
+        flushTraceSummary();
+        if (m_txSummary)
+            m_txSummary->log(logLevel);
     }
     virtual void addOptions(unsigned opts){options|=opts;}
     virtual void removeOptions(unsigned opts){opts&=~opts;}
