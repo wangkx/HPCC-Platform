@@ -87,19 +87,6 @@ private:
 
     StringAttr   m_transactionID;
 
-    void flushTraceSummary()
-    {//This is called in ~CEspContext().
-        updateTraceSummaryHeader();
-        if (m_txSummary)
-        {
-            if (getTxSummaryLevel() >= LogMin)
-            {
-                m_txSummary->set("auth", authStatus.get());
-                m_txSummary->append("total", m_processingTime, "ms");
-            }
-            m_txSummary->log(getTxSummaryLevel());
-        }
-    }
 public:
     IMPLEMENT_IINTERFACE;
 
@@ -127,6 +114,8 @@ public:
     ~CEspContext()
     {
         flushTraceSummary();
+        if (m_txSummary)
+            m_txSummary->log(getTxSummaryLevel());
     }
     virtual void addOptions(unsigned opts){options|=opts;}
     virtual void removeOptions(unsigned opts){opts&=~opts;}
@@ -518,6 +507,15 @@ public:
         if (m_txSummary && !isEmptyString(name))
             m_txSummary->append(name, m_txSummary->getElapsedTime(), "ms", TokenSerializer(), logLevel);
     }
+    void flushTraceSummary()
+    {
+        updateTraceSummaryHeader();
+        if (m_txSummary)
+        {
+            m_txSummary->set("auth", authStatus.get(), LogMin);
+            m_txSummary->append("total", m_processingTime, "ms", TokenSerializer(), LogMin);
+        }
+    }
     virtual void addTraceSummaryCumulativeTime(LogLevel logLevel, const char* name, unsigned __int64 time)
     {
         if (m_txSummary && !isEmptyString(name))
@@ -665,12 +663,12 @@ bool CEspContext::isMethodAllowed(double version, const char* optional, const ch
 
 void CEspContext::updateTraceSummaryHeader()
 {
-    if (m_txSummary && (getTxSummaryLevel() >= LogMin))
+    if (m_txSummary)
     {
-        m_txSummary->set("activeReqs", m_active);
+        m_txSummary->set("activeReqs", m_active, LogMin);
         VStringBuffer user("%s%s%s", (queryUserId() ? queryUserId() : ""), (m_peer.length() ? "@" : ""), m_peer.str());
         if (!user.isEmpty())
-            m_txSummary->set("user", user.str());
+            m_txSummary->set("user", user.str(), LogMin);
 
         VStringBuffer reqSummary("%s", httpMethod.isEmpty() ? "" : httpMethod.get());
         if (!m_servName.isEmpty() || !servMethod.isEmpty())
@@ -689,11 +687,11 @@ void CEspContext::updateTraceSummaryHeader()
             reqSummary.append("v").append(m_clientVer);
         }
         if (!reqSummary.isEmpty())
-            m_txSummary->set("req", reqSummary.str());
+            m_txSummary->set("req", reqSummary.str(), LogMin);
         if (m_hasException)
         {
-            m_txSummary->set("excepttime", m_exceptionTime);
-            m_txSummary->set("exceptcode", m_exceptionCode);
+            m_txSummary->set("excepttime", m_exceptionTime, LogMin);
+            m_txSummary->set("exceptcode", m_exceptionCode, LogMin);
         }
     }
 }

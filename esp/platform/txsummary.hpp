@@ -58,15 +58,15 @@ public:
     // Returns true if the key value pair are added to the summary. Returns
     // false if the key is NULL, empty, or not unique within the summary.
     virtual bool append(const char* key, const char* value, const LogLevel logLevel = LogMin);
-    template <typename TValue, typename TSuffix = const char*, class TSerializer = TokenSerializer, typename TLogLevel = LogLevel>
-    bool append(const char* key, const TValue& value, const TSuffix& suffix = "", const TSerializer& serializer = TSerializer(), const TLogLevel& logLevel = LogMin);
+    template <typename TValue, typename TSuffix = const char*, class TSerializer = TokenSerializer>
+    bool append(const char* key, const TValue& value, const TSuffix& suffix = "", const TSerializer& serializer = TSerializer(), const LogLevel logLevel = LogMin);
 
     // Updates the value associated with an existing key, or appends the key
     // and value to the summary if it is not already found. Returns false if
     // the key is NULL or empty. Returns true otherwise.
     virtual bool set(const char* key, const char* value, const LogLevel logLevel = LogMin);
-    template <typename TValue, typename TSuffix = const char*, class TSerializer = TokenSerializer, typename TLogLevel = LogLevel>
-    bool set(const char* key, const TValue& value, const TSuffix& suffix = "", const TSerializer& serializer = TSerializer(), const TLogLevel& logLevel = LogMin);
+    template <typename TValue, typename TSuffix = const char*, class TSerializer = TokenSerializer>
+    bool set(const char* key, const TValue& value, const TSuffix& suffix = "", const TSerializer& serializer = TSerializer(), const LogLevel logLevel = LogMin);
 
     void log(const LogLevel logLevel);
 
@@ -107,8 +107,8 @@ private:
 
 
 // Convenience wrapper of the default append method.
-template <typename TValue, typename TSuffix, class TSerializer, typename TLogLevel>
-inline bool CTxSummary::append(const char* key, const TValue& value, const TSuffix& suffix, const TSerializer& serializer, const TLogLevel& logLevel)
+template <typename TValue, typename TSuffix, class TSerializer>
+inline bool CTxSummary::append(const char* key, const TValue& value, const TSuffix& suffix, const TSerializer& serializer, const LogLevel logLevel)
 {
     StringBuffer buffer;
     serializer.serialize(value, buffer);
@@ -117,8 +117,8 @@ inline bool CTxSummary::append(const char* key, const TValue& value, const TSuff
 }
 
 // Convenience wrapper of the default set method.
-template <typename TValue, typename TSuffix, class TSerializer, typename TLogLevel>
-inline bool CTxSummary::set(const char* key, const TValue& value, const TSuffix& suffix, const TSerializer& serializer, const TLogLevel& logLevel)
+template <typename TValue, typename TSuffix, class TSerializer>
+inline bool CTxSummary::set(const char* key, const TValue& value, const TSuffix& suffix, const TSerializer& serializer, const LogLevel logLevel)
 {
     StringBuffer buffer;
     serializer.serialize(value, buffer);
