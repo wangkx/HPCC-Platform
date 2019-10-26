@@ -188,6 +188,7 @@ interface IEspContext : extends IInterface
     virtual void addTraceSummaryCumulativeTime(unsigned logLevel, const char* name, unsigned __int64 time)=0;
     virtual CumulativeTimer* queryTraceSummaryCumulativeTimer(const char* name)=0;
     virtual void cancelTxSummary()=0;
+    virtual void testLog(const unsigned logLevel)=0;  //Test
 
     virtual ESPSerializationFormat getResponseFormat()=0;
     virtual void setResponseFormat(ESPSerializationFormat fmt)=0;

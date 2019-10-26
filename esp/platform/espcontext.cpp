@@ -117,6 +117,12 @@ public:
         if (m_txSummary)
             m_txSummary->log(getTxSummaryLevel());
     }
+    void testLog(const unsigned logLevel) //Test
+    {
+        flushTraceSummary();
+        if (m_txSummary)
+            m_txSummary->log(logLevel);
+    }
     virtual void addOptions(unsigned opts){options|=opts;}
     virtual void removeOptions(unsigned opts){opts&=~opts;}
     virtual unsigned queryOptions(){return options;}
