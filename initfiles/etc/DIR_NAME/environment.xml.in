@@ -419,6 +419,11 @@
                          path="CodeSignAccess"
                          resource="CodeSignAccess"
                          service="ws_codesign"/>
+    <AuthenticateFeature authenticate="Yes"
+                         description="Access to ws Decoupled Log service"
+                         path="WsDecoupledLogAccess"
+                         resource="WsDecoupledLogAccess"
+                         service="ws_decoupledlogging"/>
     <Authenticate access="Read"
                   description="Root access to SMC service"
                   path="/"
@@ -745,6 +750,10 @@
                          path="CodeSignAccess"
                          resource="CodeSignAccess"
                          service="ws_codesign"/>
+    <AuthenticateFeature description="Access to ws Decoupled Log service"
+                         path="WsDecoupledLogAccess"
+                         resource="WsDecoupledLogAccess"
+                         service="ws_decoupledlogging"/>
     <ProcessFilters>
      <Platform name="Windows">
       <ProcessFilter name="any">

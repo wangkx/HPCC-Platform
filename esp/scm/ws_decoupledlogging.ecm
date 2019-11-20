@@ -1,0 +1,56 @@
+/*##############################################################################
+
+    HPCC SYSTEMS software Copyright (C) 2020 HPCC Systems.
+
+    Licensed under the Apache License, Version 2.0 (the "License");
+    you may not use this file except in compliance with the License.
+    You may obtain a copy of the License at
+
+       http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+############################################################################## */
+
+EspInclude(common);
+
+ESPStruct [nil_remove] LogAgentSetting
+{
+    string AgentName;
+    string AckedFileList;
+    string AckedLogRequestFile;
+    unsigned WaitSeconds;
+};
+
+ESPrequest [nil_remove] GetLogAgentSettingRequest
+{
+    ESParray<string> AgentNames;
+};
+
+ESPresponse [exceptions_inline, nil_remove, http_encode(0)] GetLogAgentSettingResponse
+{
+    string TankFile;
+    ESParray<ESPstruct LogAgentSetting> LogAgentSettings;
+};
+
+ESPrequest [nil_remove] PauseLogRequest
+{
+    ESParray<string> AgentNames;
+    bool Pause(true); //false: resume
+};
+
+ESPresponse [exceptions_inline, nil_remove, http_encode(0)] PauseLogResponse
+{
+};
+
+ESPservice [auth_feature("NONE"), exceptions_inline("./smc_xslt/exceptions.xslt")] WSDecoupledLog
+{
+    ESPmethod GetLogAgentSetting(GetLogAgentSettingRequest, GetLogAgentSettingResponse);
+    ESPmethod PauseLog(PauseLogRequest, PauseLogResponse);
+};
+
+SCMexportdef(WSDecoupledLog);
+SCMapi(WSDecoupledLog) IClientWSDecoupledLog *createWSDecoupledLogClient();
