@@ -307,6 +307,8 @@ bool CESPServerLoggingAgent::updateLog(IEspUpdateLogRequestWrap& req, IEspUpdate
         soapreq.append("</soap:Body></soap:Envelope>");
 
         StringBuffer status, respStr;
+#define TEST_SKIP_SENDING
+#ifndef TEST_SKIP_SENDING
         if (sendHTTPRequest(soapreq, respStr, status) && status.length() && strieq(status, "200 OK"))
             resp.setStatusCode(0);
         else if (status.length() && !strieq(status, "200 OK"))
@@ -315,6 +317,10 @@ bool CESPServerLoggingAgent::updateLog(IEspUpdateLogRequestWrap& req, IEspUpdate
             throw MakeStringException(EspLoggingErrors::UpdateLogFailed, "%s", respStr.str());
         else
             throw MakeStringException(EspLoggingErrors::UpdateLogFailed, "Failed to send update log request to %s", serverUrl.str());
+#else
+        DBGLOG("####Sending: (%s)", soapreq.str());
+        resp.setStatusCode(0);
+#endif
     }
     catch (IException* e)
     {//retry will be in update log queue.
