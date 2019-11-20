@@ -39,10 +39,59 @@ xmlns:seisint="http://seisint.com"  xmlns:set="http://exslt.org/sets" exclude-re
         <xsl:variable name="bindName" select="concat('WsLoggingService', '_', $bindingNode/@name, '_', $process)"/>
 
         <EspService name="{$serviceName}" type="{$serviceType}" plugin="{$servicePlugin}">
-            <xsl:if test="string(CassandraLoggingAgents[1]/@CassandraLoggingAgent) = ''">
-                <xsl:message terminate="yes">Logging Agent is undefined!</xsl:message>
+            <xsl:if test="string(@LoggingManager) != ''">
+                <xsl:variable name="managerName" select="@LoggingManager"/>
+                <xsl:variable name="managerNode" select="/Environment/Software/LoggingManager[@name=$managerName]"/>
+
+                <xsl:if test="not($managerNode)">
+                    <xsl:message terminate="yes">Logging Manager is undefined!</xsl:message>
+                </xsl:if>
+
+                <xsl:if test="not($managerNode/ESPLoggingAgent/@ESPLoggingAgent)">
+                     <xsl:message terminate="yes">ESP Logging Agent is undefined for <xsl:value-of select="$managerName"/> !</xsl:message>
+                </xsl:if>
+
+                <LoggingManager name="{$managerNode/@name}">
+                    <xsl:if test="string($managerNode/@FailSafe) != ''">
+                        <FailSafe><xsl:value-of select="$managerNode/@FailSafe"/></FailSafe>
+                    </xsl:if>
+                    <xsl:if test="string($managerNode/@FailSafeLogsDir) != ''">
+                        <FailSafeLogsDir><xsl:value-of select="$managerNode/@FailSafeLogsDir"/></FailSafeLogsDir>
+                    </xsl:if>
+                    <xsl:if test="string($managerNode/@SafeRolloverThreshold) != ''">
+                        <SafeRolloverThreshold><xsl:value-of select="$managerNode/@SafeRolloverThreshold"/></SafeRolloverThreshold>
+                    </xsl:if>
+                    <Filters>
+                        <xsl:for-each select="$managerNode/Filter">
+                            <Filter value="{current()/@filter}" type="{current()/@type}"/>
+                        </xsl:for-each>
+                    </Filters>
+
+                    <xsl:for-each select="$managerNode/ESPLoggingAgent">
+                        <xsl:variable name="agentName" select="@ESPLoggingAgent"/>
+                        <xsl:variable name="cassandraLoggingAgentNode" select="/Environment/Software/CassandraLoggingAgent[@name=$agentName]"/>
+                        <xsl:variable name="wsLogServiceESPAgentNode" select="/Environment/Software/WsLogServiceESPAgent[@name=$agentName]"/>
+                        <xsl:choose>
+                            <xsl:when test="($cassandraLoggingAgentNode)">
+                                <xsl:call-template name="CassandraLoggingAgent">
+                                    <xsl:with-param name="agentName" select="$agentName"/>
+                                    <xsl:with-param name="agentNode" select="$cassandraLoggingAgentNode"/>
+                                </xsl:call-template>
+                            </xsl:when>
+                            <xsl:when test="($wsLogServiceESPAgentNode)">
+                                <xsl:call-template name="WsLogServiceESPAgent">
+                                    <xsl:with-param name="agentName" select="$agentName"/>
+                                    <xsl:with-param name="agentNode" select="$wsLogServiceESPAgentNode"/>
+                                </xsl:call-template>
+                            </xsl:when>
+                            <xsl:otherwise>
+                                <xsl:message terminate="yes">ESP Logging Agent is undefined for <xsl:value-of select="$managerName"/> !</xsl:message>
+                            </xsl:otherwise>
+                        </xsl:choose>
+                    </xsl:for-each>
+                </LoggingManager>
+
             </xsl:if>
-            <xsl:call-template name="CassandraLoggingAgent"/>
         </EspService>
 
         <EspBinding name="{$bindName}" service="{$serviceName}" protocol="{$bindingNode/@protocol}" type="{$bindType}" plugin="{$servicePlugin}" netAddress="0.0.0.0" port="{$bindingNode/@port}">

@@ -213,6 +213,10 @@
                         path="WsStoreAccess"
                         resource="WsStoreAccess"
                         service="ws_store"/>
+                    <AuthenticateFeature description="Access to ws Transaction Log service"
+                        path="WsTransactionLogAccess"
+                        resource="WsTransactionLogAccess"
+                        service="ws_tranlogging"/>
                     <AuthenticateFeature description="Access to sign ECL code"
                         path="CodeSignAccess"
                         resource="CodeSignAccess"
@@ -406,6 +410,25 @@
                 path="componentfiles/loggingmanager"
                 processName="LoggingManager"
                 schema="loggingmanager.xsd"/>
+            <BuildSet deployable="no"
+                installSet="deploy_map.xml"
+                name="WsTransactionLog"
+                path="componentfiles/ws_tranlogging"
+                processName="EspService"
+                schema="esp_service_tranlogging.xsd">
+                <Properties bindingType="EsdlBinding"
+                    defaultPort="8053"
+                    defaultResourcesBasedn="ou=EspServices,ou=ecl"
+                    defaultSecurePort="18053"
+                    plugin="ws_tranlogging"
+                    type="WsTransactionLog">
+                    <Authenticate access="Access"
+                         description="TransactionLogServiceAccess"
+                         path="/"
+                         required="Read"
+                         resource="Access"/>
+                </Properties>
+            </BuildSet>
             <BuildSet deployable="no"
                 installSet="deploy_map.xml"
                 name="wslogging"

@@ -419,6 +419,11 @@
                          path="CodeSignAccess"
                          resource="CodeSignAccess"
                          service="ws_codesign"/>
+    <AuthenticateFeature authenticate="Yes"
+                         description="Access to ws Transaction Log service"
+                         path="WsTransactionLogAccess"
+                         resource="WsTransactionLogAccess"
+                         service="ws_tranlogging"/>
     <Authenticate access="Read"
                   description="Root access to SMC service"
                   path="/"
@@ -745,6 +750,10 @@
                          path="CodeSignAccess"
                          resource="CodeSignAccess"
                          service="ws_codesign"/>
+    <AuthenticateFeature description="Access to ws Transaction Log service"
+                         path="WsTransactionLogAccess"
+                         resource="WsTransactionLogAccess"
+                         service="ws_tranltranlogging"/>
     <ProcessFilters>
      <Platform name="Windows">
       <ProcessFilter name="any">
