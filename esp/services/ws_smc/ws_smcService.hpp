@@ -201,7 +201,9 @@ public:
                 return nullptr;
             firstBlocked = true;
             b.leave();
+            DBGLOG("####Waiting");
             firstSem.wait();
+            DBGLOG("####Wait out");
             b.enter();
             if (first)
                 return nullptr;
