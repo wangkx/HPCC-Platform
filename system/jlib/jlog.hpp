@@ -1099,6 +1099,8 @@ extern jlib_decl void UseSysLogForOperatorMessages(bool use=true);
 #define SYSLOG querySysLogEventLogger()->log
 #define AUDIT SYSLOG                               // bwd compatibility
 
+#define SLAVEIDSTR "SLAVEID" //Not sure this should be here
+
 extern jlib_decl void AuditSystemAccess(const char *userid, bool success, char const * msg,...) __attribute__((format(printf, 3, 4)));
 
 

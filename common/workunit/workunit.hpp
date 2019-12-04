@@ -1162,6 +1162,9 @@ interface IConstWUThorLogInfo : extends IInterface
     virtual const char *getProcessName() const = 0;
     virtual const char *getGroupName() const = 0;
     virtual const char *getLogDate() const = 0;
+    virtual const char *getPattern() const = 0;
+    virtual bool getSingleLog() const = 0;
+    virtual unsigned getNumberOfThorSlaves() const = 0;
 };
 
 interface IConstWorkUnit : extends IConstWorkUnitInfo
@@ -1266,10 +1269,12 @@ interface IConstWorkUnit : extends IConstWorkUnitInfo
     virtual void clearGraphProgress() const = 0;
     virtual IStringVal & getAbortBy(IStringVal & str) const = 0;
     virtual unsigned __int64 getAbortTimeStamp() const = 0;
-    virtual StringBuffer & getSlaveLogPattern(StringBuffer & str) const = 0;
-    virtual bool logSingleFile() const = 0;
-    virtual unsigned getNumberOfThorSlaves() const = 0;
+    virtual StringBuffer & getProcessLogPattern(const char *type, const char *instance, StringBuffer & pattern) const = 0;
+    virtual StringBuffer & getSlaveLogFileName(const char *thorProcess, int slaveNum, const char *ipAddress, StringBuffer &logFileName, bool withPath) const = 0;
+    virtual bool usingDedicatedLogFiles() const = 0;
+    virtual unsigned getNumberOfThorSlaves(const char * processName) const = 0;
     virtual void getWUThorLogInfo(IArrayOf<IConstWUThorLogInfo> & thorLogs) const = 0;
+    virtual void getWUThorLogInfoLW(IArrayOf<IConstWUThorLogInfo> & thorLogs) const = 0;
 };
 
 
@@ -1280,7 +1285,7 @@ interface IWorkUnit : extends IConstWorkUnit
     virtual void clearExceptions(const char *source=nullptr) = 0;
     virtual void commit() = 0;
     virtual IWUException * createException() = 0;
-    virtual void addProcess(const char *type, const char *instance, unsigned pid, const char *log=NULL) = 0;
+    virtual void addProcess(const char *type, const char *instance, unsigned pid, unsigned max, const char *pattern, const char *log=nullptr) = 0;
     virtual void setAction(WUAction action) = 0;
     virtual void setApplicationValue(const char * application, const char * propname, const char * value, bool overwrite) = 0;
     virtual void setApplicationValueInt(const char * application, const char * propname, int value, bool overwrite) = 0;
@@ -1357,7 +1362,7 @@ interface IWorkUnit : extends IConstWorkUnit
     virtual void setResultBool(const char *name, unsigned sequence, bool val) = 0;
     virtual void setResultDecimal(const char *name, unsigned sequence, int len, int precision, bool isSigned, const void *val) = 0;
     virtual void setResultDataset(const char * name, unsigned sequence, size32_t len, const void *val, unsigned numRows, bool extend) = 0;
-    virtual void setSlaveLogPattern(const char *pattern) = 0;
+    virtual void setProcessLogPattern(const char *type, const char *instance, const char *pattern) = 0;
     virtual void import(IPropertyTree *wuTree, IPropertyTree *graphProgressTree = nullptr) = 0;
 };
 
@@ -1461,8 +1466,7 @@ interface IWorkUnitFactory : extends IPluggableFactory
 {
     virtual IWorkUnit *createWorkUnit(const char *app, const char *scope, ISecManager *secmgr = NULL, ISecUser *secuser = NULL) = 0;
     virtual IWorkUnit * importWorkUnit(const char *zapReportFileName, const char *zapReportFilePath, const char *zapReportPassword,
-        const IPropertyTree *directories, const char *component, const char *instance, const char *app, const char *user,
-        ISecManager *secMgr, ISecUser *secUser) = 0;
+        const char *importDir, const char *app, const char *user, ISecManager *secMgr, ISecUser *secUser) = 0;
     virtual bool deleteWorkUnit(const char *wuid, ISecManager *secmgr = NULL, ISecUser *secuser = NULL) = 0;
     virtual bool deleteWorkUnitEx(const char *wuid, bool throwException, ISecManager *secmgr = NULL, ISecUser *secuser = NULL) = 0;
     virtual IConstWorkUnit * openWorkUnit(const char *wuid, ISecManager *secmgr = NULL, ISecUser *secuser = NULL) = 0;
@@ -1679,8 +1683,6 @@ extern WORKUNIT_API void addTimeStamp(IWorkUnit * wu, StatisticScopeType scopeTy
 extern WORKUNIT_API double calculateThorCost(__int64 timeNs, unsigned clusterWidth);
 
 extern WORKUNIT_API IPropertyTree * getWUGraphProgress(const char * wuid, bool readonly);
-extern WORKUNIT_API IWorkUnit * importWorkunitFromZAPFile(const char * zapReportFileName, const char * zapReportFilePath, const char * zapReportPassword,
-    const char * component, const char * instance, const char * app, const char * user, ISecManager * secMgr, ISecUser * secUser);
 
 class WORKUNIT_API WorkUnitErrorReceiver : implements IErrorReceiver, public CInterface
 {

@@ -355,7 +355,6 @@ void CWsWorkunitsEx::init(IPropertyTree *cfg, const char *process, const char *s
     config.setown(cfg->getPropTree("Config"));   
 
     DBGLOG("Initializing %s service [process = %s]", service, process);
-    espName.set(process);
 
     checkUpdateQuerysetLibraries();
     refreshValidClusters();
@@ -430,6 +429,9 @@ void CWsWorkunitsEx::init(IPropertyTree *cfg, const char *process, const char *s
         tmpdir->createDirectory();
 
     recursiveCreateDirectory(ESP_WORKUNIT_DIR);
+
+    getConfigurationDirectory(directories, "data", "esp", process, dataDirectory);
+    wuFactory.setown(getWorkUnitFactory());
 
     m_sched.start();
     filesInUse.subscribe();
@@ -3061,8 +3063,7 @@ bool CWsWorkunitsEx::onWUFile(IEspContext &context,IEspWULogFileRequest &req, IE
             }
             else if (strieq(File_ThorSlaveLog,req.getType()))
             {
-                winfo.getWorkunitThorSlaveLog(directories, req.getProcess(), req.getClusterGroup(), req.getIPAddress(),
-                    req.getLogDate(), req.getSlaveNumber(), mb, nullptr, false);
+                winfo.getWorkunitThorSlaveLog(req.getProcess(), req.getIPAddress(), req.getSlaveNumber(), mb, nullptr, false);
                 openSaveFile(context, opt, req.getSizeLimit(), "ThorSlave.log", HTTP_TYPE_TEXT_PLAIN, mb, resp);
             }
             else if (strieq(File_EclAgentLog,req.getType()))
@@ -4493,15 +4494,19 @@ int CWsWorkunitsSoapBindingEx::onStartUpload(IEspContext &ctx, CHttpRequest* req
             request->getParameter("Password", password);
 
             request->readContentToFiles(nullptr, zipFolder, fileNames);
-            if (!fileNames.ordinality())
-                throw MakeStringException(-1, "Failed to read upload content.");
+            unsigned count = fileNames.ordinality();
+            if (count == 0)
+                throw MakeStringException(ECLWATCH_INVALID_INPUT, "Failed to read upload content.");
+            if (count > 1)
+                throw MakeStringException(ECLWATCH_INVALID_INPUT, "Only one WU ZAP report is allowed.");
 
-            Owned<IWorkUnit> wu = importWorkunitFromZAPFile(fileNames.item(0), zipFolder, password, "esp", espName, "ws_workunits", ctx.queryUserId(), ctx.querySecManager(), ctx.queryUser());
+            Owned<IWorkUnit> wu = wswService->getWUFactory()->importWorkUnit(fileNames.item(0), zipFolder, password,
+                wswService->getDataDirectory(), "ws_workunits", ctx.queryUserId(), ctx.querySecManager(), ctx.queryUser());
             if (!wu)
-                throw MakeStringException(-1, "Failed to import WU ZAP report.");
+                throw MakeStringException(ECLWATCH_INTERNAL_ERROR, "Failed to import WU ZAP report.");
         }
         else
-            throw MakeStringException(-1, "WsWorkunits::%s does not support the upload_ option.", method);
+            throw MakeStringException(ECLWATCH_INVALID_INPUT, "WsWorkunits::%s does not support the upload_ option.", method);
     }
     catch (IException* e)
     {
@@ -4509,7 +4514,7 @@ int CWsWorkunitsSoapBindingEx::onStartUpload(IEspContext &ctx, CHttpRequest* req
     }
     catch (...)
     {
-        me->append(*MakeStringExceptionDirect(-1, "Unknown Exception"));
+        me->append(*MakeStringExceptionDirect(ECLWATCH_INTERNAL_ERROR, "Unknown Exception"));
     }
     return onFinishUpload(ctx, request, response, serv, method, fileNames, files, me);
 }
