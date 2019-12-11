@@ -220,7 +220,6 @@ public:
     void getWorkunitCpp(const char* cppname, const char* description, const char* ipAddress, MemoryBuffer& buf, bool forDownload, const char* outFile);
     void getEventScheduleFlag(IEspECLWorkunit &info);
     unsigned getWorkunitThorLogInfo(IArrayOf<IEspECLHelpFile>& helpers, IEspECLWorkunit &info, unsigned long flags, unsigned& helpersCount);
-    StringBuffer& getWorkunitProcessLogPath(const char* process, StringBuffer& path);
     void getWorkunitLogSingleFile(IFile* iFile, const char* fileName, MemoryBuffer& buf, const char* outFile);
     void getWorkunitThorSlaveLogSingleFile(const char* thorProcess, int slaveNum, MemoryBuffer& buf, const char* outFile);
     IDistributedFile* getLogicalFileData(IEspContext& context, const char* logicalName, bool& showFileContent);

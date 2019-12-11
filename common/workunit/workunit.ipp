@@ -277,8 +277,8 @@ public:
     virtual WUGraphState queryNodeState(const char *graphName, WUGraphIDType nodeId) const;
     virtual IWUGraphStats *updateStats(const char *graphName, StatisticCreatorType creatorType, const char * creator, unsigned _wfid, unsigned subgraph) const override;
     void clearGraphProgress() const;
-    virtual StringBuffer &getSlaveLogPattern(const char *process, StringBuffer &pattern) const;
-    virtual void setSlaveLogPattern(const char *process, const char *pattern);
+    virtual StringBuffer &getProcessLogPattern(const char *process, StringBuffer &pattern) const;
+    virtual void setProcessLogPattern(const char *process, const char *pattern);
     virtual bool usingDedicatedLogFiles() const;
     virtual unsigned getNumberOfThorSlaves(const char *processName) const;
     virtual StringBuffer &getSlaveLogFileNameWithPath(const char *thorProcess, int slaveNum, const char *ipAddress, StringBuffer &logFileName) const;
@@ -360,7 +360,7 @@ public:
     void clearExceptions();
     void commit();
     IWUException *createException();
-    void addProcess(const char *type, const char *instance, unsigned pid, unsigned numberOfThorSlaves, const char *slaveLogPattern, const char *log);
+    void addProcess(const char *type, const char *instance, unsigned pid, unsigned max, const char *pattern, const char *log);
     void setAction(WUAction action);
     void setApplicationValue(const char * application, const char * propname, const char * value, bool overwrite);
     void setApplicationValueInt(const char * application, const char * propname, int value, bool overwrite);

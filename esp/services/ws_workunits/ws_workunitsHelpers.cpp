@@ -1049,21 +1049,6 @@ void WsWuInfo::getInfo(IEspECLWorkunit &info, unsigned long flags)
     getWorkflow(info, flags);
 }
 
-StringBuffer& WsWuInfo::getWorkunitProcessLogPath(const char *process, StringBuffer &path)
-{
-    Owned<IPropertyTreeIterator> procs = cw->getProcesses(process, nullptr);
-    if (!procs->first())
-        return path;
-
-    StringBuffer logSpec;
-    procs->query().getProp("@log", logSpec);
-    if (!logSpec.length())
-        return path;
-
-    splitFilename(logSpec, nullptr, &path, nullptr, nullptr);
-    return path;
-}
-
 unsigned WsWuInfo::getWorkunitThorLogInfo(IArrayOf<IEspECLHelpFile>& helpers, IEspECLWorkunit &info, unsigned long flags, unsigned& helpersCount)
 {
     unsigned countThorLog = 0;
@@ -2032,7 +2017,7 @@ void WsWuInfo::getWorkunitThorSlaveLog(const char *process, const char *ipAddres
         readWorkunitLog(logfile, buf, outFile);
     }
     else
-    {
+    {//legacy wuid
         const char* portPtr = strchr(ipAddress, '_');
         if (!portPtr)
             slaveIPAddress.append(ipAddress);
@@ -3463,7 +3448,7 @@ void CWsWuFileHelper::createThorSlaveLogfile(IConstWorkUnit* cwu, WsWuInfo& winf
         }
 
         StringBuffer slaveLogPattern, logDate;
-        cwu->getSlaveLogPattern(processName, slaveLogPattern);
+        cwu->getProcessLogPattern(processName, slaveLogPattern);
         if (slaveLogPattern.isEmpty())
         {
             StringBuffer logSpec;

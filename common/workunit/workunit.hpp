@@ -1191,6 +1191,8 @@ interface IConstWUThorLogInfo : extends IInterface
     virtual const char *getProcessName() const = 0;
     virtual const char *getGroupName() const = 0;
     virtual const char *getLogDate() const = 0;
+    virtual const char *getPattern() const = 0;
+    virtual bool getSingleLog() const = 0;
     virtual unsigned getNumberOfThorSlaves() const = 0;
 };
 
@@ -1296,7 +1298,7 @@ interface IConstWorkUnit : extends IConstWorkUnitInfo
     virtual void clearGraphProgress() const = 0;
     virtual IStringVal & getAbortBy(IStringVal & str) const = 0;
     virtual unsigned __int64 getAbortTimeStamp() const = 0;
-    virtual StringBuffer & getSlaveLogPattern(const char *process, StringBuffer & pattern) const = 0;
+    virtual StringBuffer & getProcessLogPattern(const char *process, StringBuffer & pattern) const = 0;
     virtual StringBuffer & getSlaveLogFileNameWithPath(const char *thorProcess, int slaveNum, const char *ipAddress, StringBuffer &logFileName) const = 0;
     virtual bool usingDedicatedLogFiles() const = 0;
     virtual unsigned getNumberOfThorSlaves(const char * processName) const = 0;
@@ -1312,7 +1314,7 @@ interface IWorkUnit : extends IConstWorkUnit
     virtual void clearExceptions() = 0;
     virtual void commit() = 0;
     virtual IWUException * createException() = 0;
-    virtual void addProcess(const char *type, const char *instance, unsigned pid, unsigned numberOfThorSlaves, const char *slaveLogPattern, const char *log=nullptr) = 0;
+    virtual void addProcess(const char *type, const char *instance, unsigned pid, unsigned max, const char *pattern, const char *log=nullptr) = 0;
     virtual void setAction(WUAction action) = 0;
     virtual void setApplicationValue(const char * application, const char * propname, const char * value, bool overwrite) = 0;
     virtual void setApplicationValueInt(const char * application, const char * propname, int value, bool overwrite) = 0;
@@ -1389,7 +1391,7 @@ interface IWorkUnit : extends IConstWorkUnit
     virtual void setResultBool(const char *name, unsigned sequence, bool val) = 0;
     virtual void setResultDecimal(const char *name, unsigned sequence, int len, int precision, bool isSigned, const void *val) = 0;
     virtual void setResultDataset(const char * name, unsigned sequence, size32_t len, const void *val, unsigned numRows, bool extend) = 0;
-    virtual void setSlaveLogPattern(const char *process, const char *pattern) = 0;
+    virtual void setProcessLogPattern(const char *process, const char *pattern) = 0;
     virtual void import(IPropertyTree *wuTree, IPropertyTree *graphProgressTree = nullptr) = 0;
 };
 
