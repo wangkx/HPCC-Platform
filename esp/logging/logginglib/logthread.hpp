@@ -23,7 +23,8 @@
 #include "loggingagentbase.hpp"
 #include "LogFailSafe.hpp"
 
-#define DEFAULTREADLOGREQUESTWAITSECOND 15
+#define DEFAULTREADLOGREQUESTWAITSECOND 15 //How often to read log request from a tank file
+#define DEFAULTPENDINGLOGBUFFERSIZE 100    //Max. # of log requests the pending log buffer store before flushing out.
 
 class CLogRequestReaderSettings : public CSimpleInterface
 {
@@ -35,6 +36,7 @@ public:
     StringAttr tankFileDir;
     StringBuffer ackedFileList, ackedLogRequestFile;
     unsigned waitSeconds = DEFAULTREADLOGREQUESTWAITSECOND;
+    unsigned pendingLogBufferSize = DEFAULTPENDINGLOGBUFFERSIZE;
 };
 
 class CLogThread;

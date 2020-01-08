@@ -31,12 +31,12 @@ const char* const PropAckedFiles = "AckedFiles";
 const char* const PropDefaultAckedFiles = "AckedFiles";
 const char* const PropAckedLogRequests = "AckedLogRequests";
 const char* const PropDefaultAckedLogRequests = "AckedLogRequests";
+const char* const PropPendingLogBufferSize = "PendingLogBufferSize";
+const char* const PropReadRequestWaitingSeconds = "ReadRequestWaitingSeconds";
 
 #define     MaxLogQueueLength   500000 //Write a warning into log when queue length is greater than 500000
 #define     QueueSizeSignal     10000 //Write a warning into log when queue length is increased by 10000
 const int DefaultMaxTriesRS = -1;   // Max. # of attempts to send log message to WsReportService.  Default:  infinite
-
-#define DEBUG_ALL 1
 
 extern LOGGINGCOMMON_API IUpdateLogThread* createUpdateLogThread(IPropertyTree* _cfg, const char* _service, const char* _agentName,
     const char* _tankFileDir, IEspLogAgent* _logAgent)
@@ -89,15 +89,15 @@ CLogThread::CLogThread(IPropertyTree* _cfg , const char* _service, const char* _
         const char* ackedLogRequestFile = _cfg->queryProp(PropAckedLogRequests);
         settings->ackedLogRequestFile.appendf("%s%c%s%c%s", _service, PATHSEPCHAR, _agentName, PATHSEPCHAR,
             !isEmptyString(ackedLogRequestFile) ? ackedLogRequestFile : PropDefaultAckedLogRequests);
-        settings->waitSeconds = _cfg->getPropInt("ReadRequestWaitingSeconds", DEFAULTREADLOGREQUESTWAITSECOND);
-#ifdef DEBUG_ALL
-        DBGLOG("####settings->ackedFileList(%s)", settings->ackedFileList.str());
-        DBGLOG("####settings->ackedLogRequestFile(%s)", settings->ackedLogRequestFile.str());
-        DBGLOG("####settings->waitSeconds(%d)", settings->waitSeconds);
-#endif
+        settings->pendingLogBufferSize = _cfg->getPropInt(PropPendingLogBufferSize, DEFAULTPENDINGLOGBUFFERSIZE);
+        settings->waitSeconds = _cfg->getPropInt(PropReadRequestWaitingSeconds, DEFAULTREADLOGREQUESTWAITSECOND);
+        PROGLOG("%s %s: %s", agentName.get(), PropAckedFiles, settings->ackedFileList.str());
+        PROGLOG("%s %s: %s", agentName.get(), PropDefaultAckedLogRequests, settings->ackedLogRequestFile.str());
+        PROGLOG("%s %s: %d", agentName.get(), PropReadRequestWaitingSeconds, settings->waitSeconds);
+        PROGLOG("%s %s: %d", agentName.get(), PropPendingLogBufferSize, settings->pendingLogBufferSize);
         logRequestReader.setown(new CLogRequestReader(settings.getClear(), this));
     }
-    PROGLOG("CLogThread started.");
+    PROGLOG("%s CLogThread started.", agentName.get());
 }
 
 CLogThread::~CLogThread()
@@ -215,8 +215,8 @@ void CLogThread::sendLog()
             {
                 unsigned startTime = (getEspLogLevel()>=LogNormal) ? msTick() : 0;
                 Owned<IEspUpdateLogResponse> logResponse = createUpdateLogResponse();
-#define DEBUG_NO_LOGGING_SERVER
-#ifndef DEBUG_NO_LOGGING_SERVER
+#define TEST_NO_LOGGING_SERVER
+#ifndef TEST_NO_LOGGING_SERVER
                 if (logRequestInFile)
                     logAgent->updateLog(*logRequestInFile, *logResponse);
                 else
@@ -238,7 +238,7 @@ void CLogThread::sendLog()
                 {
                     unsigned startTime1 = (getEspLogLevel()>=LogNormal) ? msTick() : 0;
                     logRequestReader->addACK(GUID);
-                    ESPLOG(LogNormal, "LThread:AddACK: %dms\n", msTick() -  startTime1);
+                    PROGLOG("%s acked: %dms\n", GUID, msTick() -  startTime1);
                 }
                 else if(ensureFailSafe && logFailSafe.get())
                 {
@@ -553,10 +553,12 @@ void CLogRequestReader::threadmain()
     unsigned waitMillSeconds = 1000*settings->waitSeconds;
     while (!stopping)
     {
+        ESPLOG(LogMax, "#### CLogRequestReader: the loop for reading log requests begins.");
         if (!paused)
         {
             try
             {
+                ESPLOG(LogMax, "#### CLogRequestReader: waiting for readLogRequest().");
                 CriticalBlock b(crit);
                 readLogRequest();
                 if (newAckedLogFiles.length())
@@ -565,7 +567,7 @@ void CLogRequestReader::threadmain()
                     updateAckedLogRequestList();
                 }
 
-                PROGLOG("CLogRequestReader: LogRequest Collected");
+                PROGLOG("CLogRequestReader: finished the loop for reading log requests.");
             }
             catch(IException *e)
             {
@@ -581,6 +583,7 @@ void CLogRequestReader::threadmain()
 
         sem.wait(waitMillSeconds);
     }
+    PROGLOG("LogRequest Reader Thread terminated.");
 }
 
 void CLogRequestReader::readAcked(const char* fileName, std::set<std::string>& acked)
@@ -601,9 +604,7 @@ void CLogRequestReader::readAcked(const char* fileName, std::set<std::string>& a
 
                 line.setLength(line.length() - 2); //remove \r\n
                 acked.insert(line.str());
-#ifdef DEBUG_ALL
-                DBGLOG("####readAcked: %s from %s", line.str(), fileName);
-#endif
+                PROGLOG("Found Acked %s from %s", line.str(), fileName);
             }
         }
     }
@@ -616,9 +617,7 @@ void CLogRequestReader::readAcked(const char* fileName, std::set<std::string>& a
 
 void CLogRequestReader::readLogRequest()
 {
-#ifdef DEBUG_ALL
-    DBGLOG("#### Enter readLogRequest()");
-#endif
+    ESPLOG(LogMax, "#### Enter readLogRequest()");
 
     StringAttr tankFileNotFinished;//Today's newest tank file.
     findTankFileNotFinished(tankFileNotFinished);
@@ -630,12 +629,11 @@ void CLogRequestReader::readLogRequest()
         const char *fileNameWithPath = it->query().queryFilename();
         const char *fileName = pathTail(fileNameWithPath);
 
-#ifdef DEBUG_ALL
         if (ackedLogFileCheckList.find(fileName) != ackedLogFileCheckList.end())
-            DBGLOG("###Skip tank file: %s. It is in the Acked File list.", fileName);
-#endif
-        if (ackedLogFileCheckList.find(fileName) != ackedLogFileCheckList.end())
+        {
+            ESPLOG(LogMax, "####Skip tank file: %s. It is in the Acked File list.", fileName);
             continue;
+        }
 
         if (readLogRequestsFromTankFile(fileNameWithPath, tankFileNotFinished, tankFileNotFinishedPos))
             addToAckedLogFileList(fileName, fileNameWithPath);
@@ -648,9 +646,8 @@ void CLogRequestReader::readLogRequest()
         lastTankFile = tankFileNotFinished;
         lastTankFilePos = tankFileNotFinishedPos;
     }
-#ifdef DEBUG_ALL
-    DBGLOG("#### Leave readLogRequest()");
-#endif
+
+    ESPLOG(LogMax, "#### Leave readLogRequest()");
 }
 
 void CLogRequestReader::findTankFileNotFinished(StringAttr& tankFileNotFinished)
@@ -705,9 +702,7 @@ StringBuffer& CLogRequestReader::getTankFileTimeString(const char* fileName, Str
 
 bool CLogRequestReader::readLogRequestsFromTankFile(const char* fileName, StringAttr& tankFileNotFinished, offset_t& tankFileNotFinishedPos)
 {
-#ifdef DEBUG_ALL
-    DBGLOG("#### Enter readLogRequestsFromTankFile(): %s", fileName);
-#endif
+    ESPLOG(LogMax, "#### Enter readLogRequestsFromTankFile(): %s", fileName);
 
     Owned<IFile> file = createIFile(fileName);
     if (!file) //This can only happen at start time. So, throw exception.
@@ -745,10 +740,10 @@ bool CLogRequestReader::readLogRequestsFromTankFile(const char* fileName, String
             totalMissed++;
             if (pendingLogGUIDs.find(GUID.str()) == pendingLogGUIDs.end())
             {//This QUID has not been queued yet.
-                ESPLOG(LogMin, "####Found pending log request(%u) %s(%u) from %s", totalMissed, GUID.str(), GUID.length(), fileName);
+                PROGLOG("Found new log request %s from tank file %s. Added to pending logs.", GUID.str(), fileName);
                 pendingLogGUIDs.insert(GUID.str());
                 pendingLogs[GUID.str()] = logRequest.str();
-                if (pendingLogs.size() > 3) //TODO: config the 3
+                if (pendingLogs.size() > settings->pendingLogBufferSize)
                     addPendingLogsToQueue();
             }
         }
@@ -759,9 +754,7 @@ bool CLogRequestReader::readLogRequestsFromTankFile(const char* fileName, String
     if (isTankFileNotFinished)
         tankFileNotFinishedPos = fileIO->size();
 
-#ifdef DEBUG_ALL
-    DBGLOG("#### Leave readLogRequestsFromTankFile(): %s, totalMissed(%d)", fileName, totalMissed);
-#endif
+    ESPLOG(LogMax, "#### Leave readLogRequestsFromTankFile(): %s, totalMissed(%d)", fileName, totalMissed);
     return (totalMissed == 0) && !isTankFileNotFinished;
 }
 
@@ -794,20 +787,10 @@ void CLogRequestReader::parseLogRequest(MemoryBuffer& rawdata, StringBuffer& GUI
         logLine.append(end - ptr, ptr);
 }
 
-void CLogRequestReader::addToAckedLogFileList(const char* fileName, const char* fileNameWithPath)
-{
-#ifdef DEBUG_ALL
-    DBGLOG("#### addToAckedLogFile():%s", fileNameWithPath);
-#endif
-    newAckedLogFiles.append(fileNameWithPath);
-    ackedLogFileCheckList.insert(fileName);
-}
-
 void CLogRequestReader::addPendingLogsToQueue()
 {
-#ifdef DEBUG_ALL
-    DBGLOG("#### Enter addPendingLogsToQueue()");
-#endif
+    ESPLOG(LogMax, "#### Enter addPendingLogsToQueue()");
+
     //Add the pendingLogs to log queue
     StringArray queuedPendingLogs;
     bool firstPendingLogs = true;
@@ -827,25 +810,21 @@ void CLogRequestReader::addPendingLogsToQueue()
         else
         {
             queuedPendingLogs.append(x.first.c_str());
-#ifdef DEBUG_ALL
-            DBGLOG("#### enqueue %s", x.first.c_str());
-#endif
+            PROGLOG("Enqueue: %s", x.first.c_str());
         }
     }
 
     //Clean the pendingLogs
     ForEachItemIn(i, queuedPendingLogs)
         pendingLogs.erase(queuedPendingLogs.item(i));
-#ifdef DEBUG_ALL
-    DBGLOG("#### Leave addPendingLogsToQueue()");
-#endif
+
+    ESPLOG(LogMax, "#### Leave addPendingLogsToQueue()");
 }
 
 void CLogRequestReader::addACK(const char* GUID)
 {
-#ifdef DEBUG_ALL
-    DBGLOG("#### Enter addACK(): %s", GUID);
-#endif
+    ESPLOG(LogMax, "#### Enter addACK(): %s", GUID);
+
     CriticalBlock b(crit);
     Owned<IFile> f = createIFile(settings->ackedLogRequestFile);
     Owned<IFileIO> io =  f->open(IFOwrite);
@@ -856,17 +835,22 @@ void CLogRequestReader::addACK(const char* GUID)
 
     ackedLogRequests.insert(GUID);
     pendingLogGUIDs.erase(GUID);
-#ifdef DEBUG_ALL
-    DBGLOG("#### addACK(): %s ached", GUID);
-#endif
+
+    ESPLOG(LogMax, "#### addACK(): %s ached", GUID);
+}
+
+void CLogRequestReader::addToAckedLogFileList(const char* fileName, const char* fileNameWithPath)
+{
+    PROGLOG("Found an AckedLogFile %s.", fileNameWithPath);
+    newAckedLogFiles.append(fileNameWithPath);
+    ackedLogFileCheckList.insert(fileName);
 }
 
 //Update newAckedLogFiles to file settings->ackedFileList,
 void CLogRequestReader::updateAckedFileList()
 {
-#ifdef DEBUG_ALL
-    DBGLOG("#### Enter updateAckedFileList()");
-#endif
+    ESPLOG(LogMax, "#### Enter updateAckedFileList()");
+
     OwnedIFile ackedFiles = createIFile(settings->ackedFileList);
     if (!ackedFiles)
         return; //Should never happend
@@ -880,9 +864,8 @@ void CLogRequestReader::updateAckedFileList()
     {
         const char* fileNameWithPath = newAckedLogFiles.item(i);
         StringBuffer fileName(pathTail(fileNameWithPath));
-#ifdef DEBUG_ALL
-        DBGLOG("####Add %s to %s", fileName.str(), settings->ackedFileList.str());
-#endif
+        PROGLOG("Add AckedLogFile %s to %s", fileName.str(), settings->ackedFileList.str());
+
         //Remove log request from the ackedLogRequests
         GuidSet logRequestsToRemove;
         CLogSerializer ackedLog(fileNameWithPath);
@@ -900,20 +883,18 @@ void CLogRequestReader::updateAckedFileList()
 
     newAckedLogFiles.clear();
 
-#ifdef DEBUG_ALL
-    DBGLOG("#### Leave updateAckedFileList()");
-#endif
+    ESPLOG(LogMax, "#### Leave updateAckedFileList()");
 }
 
 void CLogRequestReader::updateAckedLogRequestList()
 {
-#ifdef DEBUG_ALL
-    DBGLOG("#### Enter updateAckedLogRequestList()");
-#endif
+    ESPLOG(LogMax, "#### Enter updateAckedLogRequestList()");
+
     OwnedIFile newAckedLogRequestFile = createIFile(settings->ackedLogRequestFile);
     if (newAckedLogRequestFile)
     {
         newAckedLogRequestFile->remove();
+        PROGLOG("Clean %s", settings->ackedLogRequestFile.str());
     }
 
     OwnedIFileIO newAckedLogRequestFileIO = newAckedLogRequestFile->open(IFOwrite);
@@ -929,12 +910,8 @@ void CLogRequestReader::updateAckedLogRequestList()
         unsigned len = line.length();
         newAckedLogRequestFileIO->write(pos, len, line.str());
         pos += len;
-#ifdef DEBUG_ALL
-        DBGLOG("#### add %s to new AckedLogRequest list", line.str());
-#endif
+        PROGLOG("Add AckedLogRequest %s to %s", line.str(), settings->ackedLogRequestFile.str());
     }
 
-#ifdef DEBUG_ALL
-    DBGLOG("#### Leave updateAckedLogRequestList()");
-#endif
+    ESPLOG(LogMax, "#### Leave updateAckedLogRequestList()");
 }
