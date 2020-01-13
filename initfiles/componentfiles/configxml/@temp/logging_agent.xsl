@@ -20,7 +20,7 @@
 
 <xsl:stylesheet version="1.0" xmlns:xsl="http://www.w3.org/1999/XSL/Transform" xml:space="default"
 xmlns:set="http://exslt.org/sets">
-    <xsl:import href="esp_logging_agent_basic.xsl"/>
+    <xsl:import href="decoupled_logging.xsl"/>
     <xsl:import href="esp_logging_transid.xsl"/>
 
     <xsl:template name="LogSourceMap">
@@ -106,7 +106,7 @@ xmlns:set="http://exslt.org/sets">
         <LogAgent name="{$agentName}" type="LogAgent" services="{$Services}" plugin="cassandralogagent">
             <Cassandra server="{$agentNode/@serverIP}" dbUser="{$agentNode/@userName}" dbPassWord="{$agentNode/@userPassword}" dbName="{$agentNode/@ksName}"/>
 
-            <xsl:call-template name="EspLoggingAgentBasic">
+            <xsl:call-template name="DecoupledLogging">
                 <xsl:with-param name="agentNode" select="$agentNode"/>
             </xsl:call-template>
             <xsl:call-template name="TransactionSeed">
@@ -129,6 +129,10 @@ xmlns:set="http://exslt.org/sets">
     <xsl:template name="ESPLoggingAgent">
         <xsl:param name="agentName"/>
         <xsl:param name="agentNode"/>
+        <xsl:variable name="ESPLoggingUrl">
+          <xsl:choose>
+            <xsl:when test="string($agentNode/@ESPLoggingUrl) != ''"><xsl:value-of select="$agentNode/@ESPLoggingUrl"/></xsl:when>
+            <xsl:otherwise>
         <xsl:if test="string($agentNode/@ESPServer) = ''">
             <xsl:message terminate="yes">ESP server is undefined for <xsl:value-of select="$agentName"/> </xsl:message>
         </xsl:if>
@@ -143,13 +147,15 @@ xmlns:set="http://exslt.org/sets">
         <xsl:if test="string($espPort) = ''">
             <xsl:message terminate="yes">ESP server port is undefined for <xsl:value-of select="$espServer"/>!</xsl:message>
         </xsl:if>
-
         <xsl:variable name="espNetAddress" select="$espNode/Instance/@netAddress"/>
         <xsl:if test="string($espNetAddress) = ''">
             <xsl:message terminate="yes">ESP NetAddress is undefined!</xsl:message>
         </xsl:if>
 
-        <xsl:variable name="wsloggingUrl"><xsl:text>http://</xsl:text><xsl:value-of select="$espNetAddress"/><xsl:text>:</xsl:text><xsl:value-of select="$espPort"/></xsl:variable>
+        <xsl:text>http://</xsl:text><xsl:value-of select="$espNetAddress"/><xsl:text>:</xsl:text><xsl:value-of select="$espPort"/>
+            </xsl:otherwise>
+          </xsl:choose>
+        </xsl:variable>
         <xsl:variable name="Services">
             <xsl:choose>
                 <xsl:when test="string($agentNode/@Services) != ''"><xsl:value-of select="$agentNode/@Services"/></xsl:when>
@@ -157,7 +163,7 @@ xmlns:set="http://exslt.org/sets">
             </xsl:choose>
         </xsl:variable>
         <LogAgent name="{$agentName}" type="LogAgent" services="{$Services}" plugin="espserverloggingagent">
-            <ESPServer url="{$wsloggingUrl}" user="{$agentNode/@User}" password="{$agentNode/@Password}"/>
+            <ESPServer url="{$ESPLoggingUrl}" user="{$agentNode/@User}" password="{$agentNode/@Password}"/>
             <xsl:if test="string($agentNode/@MaxServerWaitingSeconds) != ''">
                 <MaxServerWaitingSeconds><xsl:value-of select="$agentNode/@MaxServerWaitingSeconds"/></MaxServerWaitingSeconds>
             </xsl:if>
@@ -166,7 +172,7 @@ xmlns:set="http://exslt.org/sets">
                 <xsl:with-param name="agentNode" select="$agentNode"/>
             </xsl:call-template>
 
-            <xsl:call-template name="EspLoggingAgentBasic">
+            <xsl:call-template name="DecoupledLogging">
                 <xsl:with-param name="agentNode" select="$agentNode"/>
             </xsl:call-template>
             <xsl:call-template name="LogSourceMap">

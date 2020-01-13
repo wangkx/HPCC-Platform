@@ -59,7 +59,7 @@
           </xs:appinfo>
         </xs:annotation>
       </xs:attribute>
-      <xs:attributeGroup ref="EspLoggingAgentBasic"/>
+      <xs:attributeGroup ref="DecoupledLogging"/>
       <xs:attribute name="MaxServerWaitingSeconds" type="xs:nonNegativeInteger" use="optional">
         <xs:annotation>
           <xs:appinfo>
@@ -236,7 +236,14 @@
   </xs:element>
 
   <xs:attributeGroup name="ESPServer">
-    <xs:attribute name="ESPServer" type="espprocessType" use="required">
+    <xs:attribute name="ESPLoggingUrl" type="xs:string" use="optional" default="">
+      <xs:annotation>
+        <xs:appinfo>
+          <tooltip>The URL of a remote ESP service the logging request is sent to.</tooltip>
+        </xs:appinfo>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="ESPServer" type="espprocessType" use="optional">
       <xs:annotation>
         <xs:appinfo>
           <tooltip>Specifies the ESPServer process.</tooltip>
@@ -262,7 +269,7 @@
     </xs:attribute>
   </xs:attributeGroup>
 
-  <xs:attributeGroup name="EspLoggingAgentBasic">
+  <xs:attributeGroup name="DecoupledLogging">
     <xs:attribute name="AckedFiles" type="xs:string" use="optional">
       <xs:annotation>
         <xs:appinfo>
