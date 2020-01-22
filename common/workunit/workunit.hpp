@@ -65,6 +65,8 @@ typedef unsigned short UChar;
 #define QUERRREG_UNSUSPEND          QUERYREGISTRY_ERROR_START+9
 #define QUERRREG_COMMENT            QUERYREGISTRY_ERROR_START+10
 
+#define ECLAGENTLOGSEARCHSTR        "eclagent."
+
 class CDateTime;
 interface ISetToXmlTransformer;
 interface ISecManager;
@@ -1156,15 +1158,17 @@ interface IConstWorkUnitInfo : extends IInterface
 };
 
 
-interface IConstWUThorLogInfo : extends IInterface
+interface IConstWUProcessLogInfo : extends IInterface
 {
-    virtual const char *getLogName() const = 0;
+    virtual const char *getLogSpec() const = 0;
     virtual const char *getProcessName() const = 0;
+    virtual unsigned getProcessID() const = 0;
     virtual const char *getGroupName() const = 0;
     virtual const char *getLogDate() const = 0;
     virtual const char *getPattern() const = 0;
     virtual bool getSingleLog() const = 0;
     virtual unsigned getNumberOfThorSlaves() const = 0;
+    virtual StringBuffer &getSlaveLogFileName(int slaveNum, const char *ipAddress, StringBuffer &logFileName, bool withPath) const = 0;
 };
 
 interface IConstWorkUnit : extends IConstWorkUnitInfo
@@ -1271,10 +1275,9 @@ interface IConstWorkUnit : extends IConstWorkUnitInfo
     virtual unsigned __int64 getAbortTimeStamp() const = 0;
     virtual StringBuffer & getProcessLogPattern(const char *type, const char *instance, StringBuffer & pattern) const = 0;
     virtual StringBuffer & getSlaveLogFileName(const char *thorProcess, int slaveNum, const char *ipAddress, StringBuffer &logFileName, bool withPath) const = 0;
-    virtual bool usingDedicatedLogFiles() const = 0;
+    virtual bool usingDedicatedLogFiles(const char* processType, const char* processName, const char* logSpec) const = 0;
     virtual unsigned getNumberOfThorSlaves(const char * processName) const = 0;
-    virtual void getWUThorLogInfo(IArrayOf<IConstWUThorLogInfo> & thorLogs) const = 0;
-    virtual void getWUThorLogInfoLW(IArrayOf<IConstWUThorLogInfo> & thorLogs) const = 0;
+    virtual void getWUProcessLogInfo(const char *processType, const char *processName, IArrayOf<IConstWUProcessLogInfo> & processLogs) const = 0;
 };
 
 
@@ -1465,7 +1468,7 @@ typedef IIteratorOf<IPropertyTree> IConstQuerySetQueryIterator;
 interface IWorkUnitFactory : extends IPluggableFactory
 {
     virtual IWorkUnit *createWorkUnit(const char *app, const char *scope, ISecManager *secmgr = NULL, ISecUser *secuser = NULL) = 0;
-    virtual IWorkUnit * importWorkUnit(const char *zapReportFileName, const char *zapReportFilePath, const char *zapReportPassword,
+    virtual void importWorkUnit(const char *zapReportFileName, const char *zapReportFilePath, const char *zapReportPassword,
         const char *importDir, const char *app, const char *user, ISecManager *secMgr, ISecUser *secUser) = 0;
     virtual bool deleteWorkUnit(const char *wuid, ISecManager *secmgr = NULL, ISecUser *secuser = NULL) = 0;
     virtual bool deleteWorkUnitEx(const char *wuid, bool throwException, ISecManager *secmgr = NULL, ISecUser *secuser = NULL) = 0;

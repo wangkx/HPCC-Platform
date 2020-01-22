@@ -336,8 +336,8 @@ void CJobManager::updateWorkUnitLog(IWorkUnit &workunit)
     createUNCFilename(log, logUrl, false);
 
     //Not sure whether this is the correct way to set the slaveLogPattern or not:
-    slaveLogPattern.set("thorslave.").append(SLAVEIDSTR);
-    slaveLogPattern.append(strstr(log, "/thormaster.") + strlen("/thormaster"));
+    slaveLogPattern.set(THORSLAVELOGSEARCHSTR).append(SLAVEIDSTR);
+    slaveLogPattern.append(strstr(log, THORMASTERLOGSEARCHSTR) + strlen(THORMASTERLOGSEARCHSTR) - 1); //Keep the '.' at the end of the MASTERLOGSEARCHSTR.
     unsigned numberOfSlaves = getTargetClusterInfo(workunit.queryClusterName())->getNumberOfSlaveLogs();
     workunit.addProcess("Thor", globals->queryProp("@name"), 0, numberOfSlaves, slaveLogPattern, logUrl.str());
 }

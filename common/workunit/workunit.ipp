@@ -279,11 +279,10 @@ public:
     void clearGraphProgress() const;
     virtual StringBuffer &getProcessLogPattern(const char *type, const char *instance, StringBuffer &pattern) const;
     virtual void setProcessLogPattern(const char *type, const char *instance, const char *pattern);
-    virtual bool usingDedicatedLogFiles() const;
+    virtual bool usingDedicatedLogFiles(const char* processType, const char* processName, const char* logSpec) const;
     virtual unsigned getNumberOfThorSlaves(const char *processName) const;
     virtual StringBuffer &getSlaveLogFileName(const char *thorProcess, int slaveNum, const char *ipAddress, StringBuffer &logFileName, bool withPath) const;
-    virtual void getWUThorLogInfo(IArrayOf<IConstWUThorLogInfo> &thorLogs) const;
-    virtual void getWUThorLogInfoLW(IArrayOf<IConstWUThorLogInfo> &thorLogs) const;
+    virtual void getWUProcessLogInfo(const char *processType, const char *processName, IArrayOf<IConstWUProcessLogInfo> &processLogs) const;
     virtual void import(IPropertyTree *wuTree, IPropertyTree *graphProgressTree) {}; //No GraphProgressTree in CLocalWorkUnit.
 
     virtual const char *queryJobName() const;
@@ -631,7 +630,7 @@ public:
     // interface IWorkUnitFactory - some are left for derived classes
 
     virtual IWorkUnit * createWorkUnit(const char * app, const char * user, ISecManager *secmgr, ISecUser *secuser);
-    virtual IWorkUnit * importWorkUnit(const char *zapReportFileName, const char *zapReportFilePath, const char *zapReportPassword,
+    virtual void importWorkUnit(const char *zapReportFileName, const char *zapReportFilePath, const char *zapReportPassword,
         const char *importDir, const char *app, const char *user, ISecManager *secMgr, ISecUser *secUser);
     virtual bool deleteWorkUnit(const char * wuid, ISecManager *secmgr, ISecUser *secuser);
     virtual bool deleteWorkUnitEx(const char * wuid, bool throwException, ISecManager *secmgr, ISecUser *secuser);

@@ -1065,15 +1065,12 @@ unsigned WsWuInfo::getWorkunitThorLogInfo(IArrayOf<IEspECLHelpFile>& helpers, IE
     IArrayOf<IConstThorLogInfo> thorLogList;
     if (cw->getWuidVersion() > 0)
     {
-        IArrayOf<IConstWUThorLogInfo> wuThorLogs;
-        if (version < 1.78)
-            cw->getWUThorLogInfo(wuThorLogs);
-        else
-            cw->getWUThorLogInfoLW(wuThorLogs);
+        IArrayOf<IConstWUProcessLogInfo> wuThorLogs;
+        cw->getWUProcessLogInfo("Thor", nullptr, wuThorLogs);
 
         ForEachItemIn(i, wuThorLogs)
         {
-            IConstWUThorLogInfo &logInfo = wuThorLogs.item(i);
+            IConstWUProcessLogInfo &logInfo = wuThorLogs.item(i);
             helpersCount++;
             if (flags & WUINFO_IncludeHelpers)
             {
@@ -1086,7 +1083,7 @@ unsigned WsWuInfo::getWorkunitThorLogInfo(IArrayOf<IEspECLHelpFile>& helpers, IE
                     fileType.appendf("%s%d", File_ThorLog, countThorLog);
 
                 Owned<IEspECLHelpFile> h = createECLHelpFile();
-                const char *logName = logInfo.getLogName();
+                const char *logName = logInfo.getLogSpec();
                 h->setName(logName);
                 h->setDescription(logInfo.getProcessName());
                 h->setType(fileType.str());
@@ -1110,7 +1107,7 @@ unsigned WsWuInfo::getWorkunitThorLogInfo(IArrayOf<IEspECLHelpFile>& helpers, IE
                 thorLog->setLogDate(logInfo.getLogDate());
             }
             thorLog->setNumberSlaves(logInfo.getNumberOfThorSlaves());
-            thorLogList.append(*thorLog.getLink());
+            thorLogList.append(*thorLog.getClear());
         }
     }
     else //legacy wuid
@@ -1860,7 +1857,7 @@ void WsWuInfo::readFileContent(const char* sourceFileName, const char* sourceIPA
         throw MakeStringException(ECLWATCH_CANNOT_READ_FILE, "Cannot read %s.", sourceAlias);
 }
 
-void WsWuInfo::getWorkunitEclAgentLog(const char* fileName, const char* agentPid, MemoryBuffer& buf, const char* outFile)
+void WsWuInfo::getWorkunitEclAgentLog(const char* fileName, const char* agentPid, const char* processName, MemoryBuffer& buf, const char* outFile)
 {
     if(!fileName || !*fileName)
         throw MakeStringException(ECLWATCH_ECLAGENT_LOG_NOT_FOUND,"Log file not specified");
@@ -1868,7 +1865,7 @@ void WsWuInfo::getWorkunitEclAgentLog(const char* fileName, const char* agentPid
     if(!rFile)
         throw MakeStringException(ECLWATCH_CANNOT_OPEN_FILE, "Cannot open file %s.", fileName);
 
-    if (dedicatedLogFiles)
+    if (cw->usingDedicatedLogFiles("EclAgent", processName, fileName))
     {
         getWorkunitLogSingleFile(rFile, fileName, buf, outFile);
         return;
@@ -1945,7 +1942,7 @@ void WsWuInfo::getWorkunitEclAgentLog(const char* fileName, const char* agentPid
     }
 }
 
-void WsWuInfo::getWorkunitThorLog(const char* fileName, MemoryBuffer& buf, const char* outFile)
+void WsWuInfo::getWorkunitThorLog(const char* fileName, const char* processName, MemoryBuffer& buf, const char* outFile)
 {
     if(!fileName || !*fileName)
         throw MakeStringException(ECLWATCH_ECLAGENT_LOG_NOT_FOUND,"Log file not specified");
@@ -1953,7 +1950,7 @@ void WsWuInfo::getWorkunitThorLog(const char* fileName, MemoryBuffer& buf, const
     if (!rFile)
         throw MakeStringException(ECLWATCH_CANNOT_OPEN_FILE,"Cannot open file %s.",fileName);
 
-    if (dedicatedLogFiles)
+    if (cw->usingDedicatedLogFiles("Thor", processName, fileName))
         getWorkunitLogSingleFile(rFile, fileName, buf, outFile);
     else
         readWorkunitLog(rFile, buf, outFile);
@@ -1984,7 +1981,7 @@ void WsWuInfo::getWorkunitLogSingleFile(IFile* iFile, const char* fileName, Memo
 void WsWuInfo::getWorkunitThorSlaveLog(const char *process, const char *ipAddress, int slaveNum,
     MemoryBuffer& buf, const char* outFile, bool forDownload)
 {
-    if (dedicatedLogFiles)
+    if (cw->usingDedicatedLogFiles("Thor", process, nullptr))
     {
         getWorkunitThorSlaveLogSingleFile(process, slaveNum, buf, outFile);
         return;
@@ -3405,36 +3402,32 @@ void CWsWuFileHelper::cleanFolder(IFile* folder, bool removeFolder)
 
 void CWsWuFileHelper::createProcessLogfile(IConstWorkUnit* cwu, WsWuInfo& winfo, const char* process, const char* path)
 {
-    Owned<IPropertyTreeIterator> procs = cwu->getProcesses(process, NULL);
-    ForEach (*procs)
+    IArrayOf<IConstWUProcessLogInfo> wuProcessLogs;
+    cwu->getWUProcessLogInfo(process, nullptr, wuProcessLogs);
+    ForEachItemIn(i, wuProcessLogs)
     {
-        StringBuffer logSpec;
-        IPropertyTree& proc = procs->query();
-        proc.getProp("@log", logSpec);
-        if (!logSpec.length())
-            continue;
-        const char* processName = proc.queryName();
-        if (isEmpty(processName))
-            continue;
+        IConstWUProcessLogInfo& logInfo = wuProcessLogs.item(i);
+        const char* logSpec = logInfo.getLogSpec();
+        const char* processName = logInfo.getProcessName();
 
         MemoryBuffer mb;
-        VStringBuffer fileName("%s%c%s_%s", path, PATHSEPCHAR, processName, pathTail(logSpec.str()));
+        VStringBuffer fileName("%s%c%s_%s", path, PATHSEPCHAR, processName, pathTail(logSpec));
         try
         {
             if (strieq(process, "EclAgent"))
             {
                 StringBuffer pid;
-                pid.appendf("%d", proc.getPropInt("@pid"));
-                winfo.getWorkunitEclAgentLog(logSpec.str(), pid.str(), mb, fileName.str());
+                pid.append(logInfo.getProcessID());
+                winfo.getWorkunitEclAgentLog(logSpec, pid.str(), processName, mb, fileName.str());
             }
             else if (strieq(process, "Thor"))
-                winfo.getWorkunitThorLog(logSpec.str(), mb, fileName.str());
+                winfo.getWorkunitThorLog(logSpec, processName, mb, fileName.str());
         }
         catch(IException* e)
         {
             StringBuffer s;
             e->errorMessage(s);
-            IERRLOG("Error accessing Process Log file %s: %s", logSpec.str(), s.str());
+            IERRLOG("Error accessing Process Log file %s: %s", logSpec, s.str());
             writeToFile(fileName.str(), s.length(), s.str());
             e->Release();
         }
@@ -3450,11 +3443,11 @@ void CWsWuFileHelper::createThorSlaveLogfile(IConstWorkUnit* cwu, WsWuInfo& winf
     Owned<IThreadPool> threadPool = createThreadPool("WsWuFileHelper GetThorSlaveLogToFile Thread Pool",
         threadFactory, NULL, thorSlaveLogThreadPoolSize, INFINITE);
 
-    IArrayOf<IConstWUThorLogInfo> wuThorLogs;
-    cwu->getWUThorLogInfoLW(wuThorLogs);
+    IArrayOf<IConstWUProcessLogInfo> wuThorLogs;
+    cwu->getWUProcessLogInfo("Thor", nullptr, wuThorLogs);
     ForEachItemIn(i, wuThorLogs)
     {
-        IConstWUThorLogInfo& logInfo = wuThorLogs.item(i);
+        IConstWUProcessLogInfo& logInfo = wuThorLogs.item(i);
         const char* processName = logInfo.getProcessName();
         unsigned numberOfSlaveLogs = logInfo.getNumberOfThorSlaves();
         for (unsigned i = 0; i < numberOfSlaveLogs; i++)
@@ -3927,7 +3920,7 @@ void CWsWuFileHelper::readWUFile(const char* wuid, const char* workingFolder, Ws
         fileName.set("thormaster.log");
         fileMimeType.set(HTTP_TYPE_TEXT_PLAIN);
         fileNameWithPath.set(workingFolder).append(PATHSEPCHAR).append(fileName.str());
-        winfo.getWorkunitThorLog(item.getName(), mb, fileNameWithPath.str());
+        winfo.getWorkunitThorLog(item.getName(), item.getProcessName(), mb, fileNameWithPath.str());
         break;
     case CWUFileType_ThorSlaveLog:
     {
@@ -3943,7 +3936,7 @@ void CWsWuFileHelper::readWUFile(const char* wuid, const char* workingFolder, Ws
         fileName.set("eclagent.log");
         fileMimeType.set(HTTP_TYPE_TEXT_PLAIN);
         fileNameWithPath.set(workingFolder).append(PATHSEPCHAR).append(fileName.str());
-        winfo.getWorkunitEclAgentLog(item.getName(), item.getProcess(), mb, fileNameWithPath.str());
+        winfo.getWorkunitEclAgentLog(item.getName(), item.getProcess(), item.getProcessName(), mb, fileNameWithPath.str());
         break;
     case CWUFileType_XML:
     {

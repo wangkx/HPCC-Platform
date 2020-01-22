@@ -2044,8 +2044,7 @@ bool CHttpRequest::readUploadFileName(CMimeMultiPart* mimemultipart, StringBuffe
 IFile* CHttpRequest::createUploadFile(const char * netAddress, const char* filePath, const char* fileName, StringBuffer& fileNameWithPath)
 {
     StringBuffer tmpFileName(filePath);
-    if (tmpFileName.charAt(tmpFileName.length() - 1) != PATHSEPCHAR)
-        addPathSepChar(tmpFileName);
+    addPathSepChar(tmpFileName);
     tmpFileName.append(pathTail(fileName));
     fileNameWithPath.set(tmpFileName);
     tmpFileName.append(".part");

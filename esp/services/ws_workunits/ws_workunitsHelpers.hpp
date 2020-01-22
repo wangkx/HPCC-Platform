@@ -138,8 +138,6 @@ private:
 
 class WsWuInfo
 {
-    bool dedicatedLogFiles = false;
-
     IEspWUArchiveFile* readArchiveFileAttr(IPropertyTree& fileTree, const char* path);
     IEspWUArchiveModule* readArchiveModuleAttr(IPropertyTree& moduleTree, const char* path);
     void readArchiveFiles(IPropertyTree* archiveTree, const char* path, IArrayOf<IEspWUArchiveFile>& files);
@@ -156,7 +154,6 @@ public:
     {
         version = context.getClientVersion();
         wuid.set(cw->queryWuid());
-        dedicatedLogFiles = cw->usingDedicatedLogFiles();
     }
 
     WsWuInfo(IEspContext &ctx, const char *wuid_) :
@@ -168,8 +165,6 @@ public:
         cw.setown(factory->openWorkUnit(wuid_));
         if(!cw)
             throw MakeStringException(ECLWATCH_CANNOT_OPEN_WORKUNIT,"Cannot open workunit %s.", wuid_);
-
-        dedicatedLogFiles = cw->usingDedicatedLogFiles();
     }
 
     bool getResourceInfo(StringArray &viewnames, StringArray &urls, unsigned long flags);
@@ -205,8 +200,8 @@ public:
     void getResult(IConstWUResult &r, IArrayOf<IEspECLResult>& results, unsigned long flags);
     void getStats(const WuScopeFilter & filter, const StatisticsFilter& statsFilter, bool createDescriptions, IArrayOf<IEspWUStatisticItem>& statistics);
 
-    void getWorkunitEclAgentLog(const char* eclAgentInstance, const char* agentPid, MemoryBuffer& buf, const char* outFile);
-    void getWorkunitThorLog(const char *processName, MemoryBuffer& buf, const char* outFile);
+    void getWorkunitEclAgentLog(const char* eclAgentInstance, const char* agentPid, const char* processName, MemoryBuffer& buf, const char* outFile);
+    void getWorkunitThorLog(const char *fileName, const char *processName, MemoryBuffer& buf, const char* outFile);
     void getWorkunitThorSlaveLog(const char *process, const char *ipAddress, int slaveNum,
         MemoryBuffer& buf, const char* outFile, bool forDownload);
     void getWorkunitResTxt(MemoryBuffer& buf);
