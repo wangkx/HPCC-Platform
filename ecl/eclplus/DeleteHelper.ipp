@@ -20,6 +20,7 @@
 #include "jlib.hpp"
 #include "eclplus.hpp"
 #include "formattypes.ipp"
+#include "ws_workunits_struct.hpp"
 #include "ws_workunits.hpp"
 
 class DeleteHelper : implements IEclPlusHelper

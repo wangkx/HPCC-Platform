@@ -21,6 +21,7 @@
 #include "jprop.hpp"
 #include "workunit.hpp"
 #include "eclplus.ipp"
+#include "ws_workunits_struct.hpp"
 #include "ws_workunits.hpp"
 
 #define SDS_TIMEOUT 10000

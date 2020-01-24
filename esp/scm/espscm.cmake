@@ -35,6 +35,7 @@ set ( ESPSCM_SRCS
       ws_machine.ecm
       ws_smc.ecm
       ws_topology.ecm
+      ws_workunits_struct.ecm
       ws_workunits.ecm
       ws_packageprocess.ecm
       ws_esdlconfig.ecm
