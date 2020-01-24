@@ -21,6 +21,7 @@
 #include "DumpHelper.ipp"
 #include "ViewHelper.ipp"
 #include "QueryHelper.ipp"
+#include "ws_workunits_struct.hpp"
 #include "ws_workunits.hpp"
 #include "bindutil.hpp"
 

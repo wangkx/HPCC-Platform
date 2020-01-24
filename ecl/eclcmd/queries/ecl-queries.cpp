@@ -22,6 +22,7 @@
 
 #include "build-config.h"
 
+#include "ws_workunits_struct.hpp"
 #include "ws_workunits.hpp"
 
 #include "eclcmd.hpp"

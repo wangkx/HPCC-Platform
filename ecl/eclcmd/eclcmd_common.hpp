@@ -18,6 +18,7 @@
 #ifndef ECLCMD_COMMON_HPP
 #define ECLCMD_COMMON_HPP
 
+#include "ws_workunits_struct.hpp"
 #include "ws_workunits.hpp"
 #include "eclcc.hpp"
 

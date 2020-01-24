@@ -21,7 +21,9 @@
 //#include "stdafx.h"
 #include <stdio.h>
 #include "jlib.hpp"
+#include "ws_workunits_struct.hpp"
 #include "ws_workunits.hpp"
+#include "ws_workunits_struct_esp.ipp"
 #include "ws_workunits_esp.ipp"
 
 void diaplaySyntax()

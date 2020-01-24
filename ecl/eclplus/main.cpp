@@ -22,6 +22,7 @@
 #include "mpbase.hpp"
 #include "daclient.hpp"
 #include "dalienv.hpp"
+#include "ws_workunits_struct.hpp"
 #include "ws_workunits.hpp"
 
 #include "eclplus.hpp"

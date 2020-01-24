@@ -31,6 +31,7 @@
 #include "workunit.hpp"
 #include "jstring.hpp"
 #include "jptree.hpp"
+#include "ws_workunits_struct.hpp"
 #include "ws_workunits.hpp"
 
 
