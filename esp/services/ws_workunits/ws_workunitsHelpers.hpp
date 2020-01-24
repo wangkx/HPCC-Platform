@@ -18,6 +18,7 @@
 #ifndef _WSWU_HELPERS_HPP__
 #define _WSWU_HELPERS_HPP__
 
+#include "ws_workunits_struct_esp.ipp"
 #include "ws_workunits_esp.ipp"
 #include "exception_util.hpp"
 

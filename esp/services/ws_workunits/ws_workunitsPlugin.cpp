@@ -17,6 +17,7 @@
 
 #pragma warning (disable : 4786)
 
+#include "ws_workunits_struct_esp.ipp"
 #include "ws_workunits_esp.ipp"
 
 //ESP Bindings

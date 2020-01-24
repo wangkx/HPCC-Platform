@@ -15,6 +15,7 @@
     limitations under the License.
 ############################################################################## */
 
+EspInclude(ws_workunits_struct);
 EspInclude(ws_workunits);
 EspInclude(ws_topology);
 

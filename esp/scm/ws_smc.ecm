@@ -18,6 +18,8 @@
 ////////////////////////////////////////////////////////////
 #include "ws_topology.hpp"
 EspInclude(ws_topology);
+#include "ws_workunits_struct.hpp"
+EspInclude(ws_workunits_struct);
 #include "ws_workunits.hpp"
 EspInclude(ws_workunits);
 

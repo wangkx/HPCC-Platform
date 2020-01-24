@@ -24,6 +24,7 @@
 #include "httpclient.hpp"
 
 #include "workunit.hpp"
+#include "ws_workunits_struct.hpp"
 #include "ws_workunits.hpp"
 #include "eclcmd_common.hpp"
 #include "eclcmd_core.hpp"

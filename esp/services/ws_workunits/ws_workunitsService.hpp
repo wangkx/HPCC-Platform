@@ -18,6 +18,7 @@
 #ifndef _ESPWIZ_ws_workunits_HPP__
 #define _ESPWIZ_ws_workunits_HPP__
 
+#include "ws_workunits_struct_esp.ipp"
 #include "ws_workunits_esp.ipp"
 #include "workunit.hpp"
 #include "ws_workunitsHelpers.hpp"
