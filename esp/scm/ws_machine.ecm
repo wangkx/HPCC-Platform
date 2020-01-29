@@ -31,6 +31,7 @@ ESPStruct [nil_remove] DiskUsage
     int64 InUse;
     int64 Available;
     int PercentAvailable;
+    [min_ver("1.17")] string Exception;
 };
 
 ESPStruct [nil_remove] MachineUsage
@@ -38,6 +39,7 @@ ESPStruct [nil_remove] MachineUsage
     string Name;
     string NetAddress;
     string Description;
+    [min_ver("1.17")] string Exception;
     ESParray<ESPstruct DiskUsage> DiskUsages;
 };
 
@@ -165,27 +167,28 @@ ESPstruct MachineInfoEx
 {
     string Address;
     [min_ver("1.04")] string ConfigAddress;
-   string Name;
-   string ProcessType;
+    string Name;
+    string ProcessType;
     string DisplayType;
     string Description;
-   string AgentVersion;
-   string Contact;
-   string Location;
-   string UpTime;
-   string ComponentName;
-   string ComponentPath;
-   [min_ver("1.13")] string RoxieState;
-   [min_ver("1.13")] string RoxieStateDetails;
-   int    OS;
-   [min_ver("1.10")] int    ProcessNumber;
-   [min_ver("1.16")] unsigned Channels;
-   ESParray<ESPstruct ProcessorInfo> Processors;
-   ESParray<ESPstruct StorageInfo> Storage;
-   ESParray<ESPstruct SWRunInfo> Running;
-   ESPstruct StorageInfo PhysicalMemory;
-   ESPstruct StorageInfo VirtualMemory;
+    string AgentVersion;
+    string Contact;
+    string Location;
+    string UpTime;
+    string ComponentName;
+    string ComponentPath;
+    [min_ver("1.13")] string RoxieState;
+    [min_ver("1.13")] string RoxieStateDetails;
+    int    OS;
+    [min_ver("1.10")] int    ProcessNumber;
+    [min_ver("1.16")] unsigned Channels;
+    ESParray<ESPstruct ProcessorInfo> Processors;
+    ESParray<ESPstruct StorageInfo> Storage;
+    ESParray<ESPstruct SWRunInfo> Running;
+    ESPstruct StorageInfo PhysicalMemory;
+    ESPstruct StorageInfo VirtualMemory;
     ESPstruct ComponentInfo ComponentInfo;
+    [min_ver("1.07")] string Exception;
 };
 
 
@@ -448,7 +451,7 @@ ESPresponse [encode(0), nil_remove, exceptions_inline] GetNodeGroupUsageResponse
 };
 
 //-------- service ---------
-ESPservice [auth_feature("DEFERRED"), version("1.16")] ws_machine
+ESPservice [auth_feature("DEFERRED"), version("1.17")] ws_machine
 {
     ESPmethod [resp_xsl_default("./smc_xslt/clusterprocesses.xslt"), exceptions_inline("./smc_xslt/exceptions.xslt")]
        GetTargetClusterInfo(GetTargetClusterInfoRequest, GetTargetClusterInfoResponse);
