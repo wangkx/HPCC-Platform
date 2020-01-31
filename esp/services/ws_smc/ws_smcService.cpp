@@ -148,8 +148,9 @@ void CWsSMCEx::init(IPropertyTree *cfg, const char *process, const char *service
 
     xpath.setf("Software/EspProcess[@name=\"%s\"]/EspService[@name=\"%s\"]/ActivityInfoCacheAutoRebuildSeconds", process, service);
     unsigned activityInfoCacheAutoRebuildSeconds = cfg->getPropInt(xpath.str(), defaultActivityInfoCacheAutoRebuildSecond);
-    activityInfoCacheReaderThread.setown(new CInfoCacheReaderThread(new CActivityInfoCacheReader(), "Activity Reader", activityInfoCacheAutoRebuildSeconds,
-        activityInfoCacheSeconds));
+    //activityInfoCacheReaderThread.setown(new CInfoCacheReader(new CActivityInfoCacheReader(), "Activity Reader", activityInfoCacheAutoRebuildSeconds,
+      //  activityInfoCacheSeconds));
+    activityInfoCacheReaderThread.setown(new CActivityInfoCacheReader("Activity Reader", activityInfoCacheAutoRebuildSeconds, activityInfoCacheSeconds));
 }
 
 struct CActiveWorkunitWrapper: public CActiveWorkunit
@@ -1401,7 +1402,7 @@ bool CWsSMCEx::onMoveJobDown(IEspContext &context, IEspSMCJobRequest &req, IEspS
             }
         }
         AccessSuccess(context, "Changed job priority %s",req.getWuid());
-        activityInfoCacheReaderThread->rebuild();
+        activityInfoCacheReaderThread->buildCachedInfo();
         resp.setRedirectUrl("/WsSMC/");
     }
     catch(IException* e)
@@ -1430,7 +1431,7 @@ bool CWsSMCEx::onMoveJobUp(IEspContext &context, IEspSMCJobRequest &req, IEspSMC
             }
         }
         AccessSuccess(context, "Changed job priority %s",req.getWuid());
-        activityInfoCacheReaderThread->rebuild();
+        activityInfoCacheReaderThread->buildCachedInfo();
         resp.setRedirectUrl("/WsSMC/");
     }
     catch(IException* e)
@@ -1476,7 +1477,7 @@ bool CWsSMCEx::onMoveJobBack(IEspContext &context, IEspSMCJobRequest &req, IEspS
             }
         }
         AccessSuccess(context, "Changed job priority %s",req.getWuid());
-        activityInfoCacheReaderThread->rebuild();
+        activityInfoCacheReaderThread->buildCachedInfo();
         resp.setRedirectUrl("/WsSMC/");
     }
     catch(IException* e)
@@ -1523,7 +1524,7 @@ bool CWsSMCEx::onMoveJobFront(IEspContext &context, IEspSMCJobRequest &req, IEsp
         }
 
         AccessSuccess(context, "Changed job priority %s",req.getWuid());
-        activityInfoCacheReaderThread->rebuild();
+        activityInfoCacheReaderThread->buildCachedInfo();
         resp.setRedirectUrl("/WsSMC/");
     }
     catch(IException* e)
@@ -1553,7 +1554,7 @@ bool CWsSMCEx::onRemoveJob(IEspContext &context, IEspSMCJobRequest &req, IEspSMC
             }
         }
         AccessSuccess(context, "Removed job %s",req.getWuid());
-        activityInfoCacheReaderThread->rebuild();
+        activityInfoCacheReaderThread->buildCachedInfo();
         resp.setRedirectUrl("/WsSMC/");
     }
     catch(IException* e)
@@ -1575,7 +1576,7 @@ bool CWsSMCEx::onStopQueue(IEspContext &context, IEspSMCQueueRequest &req, IEspS
             queue->stop(createQueueActionInfo(context, "stopped", req, info));
         }
         AccessSuccess(context, "Stopped queue %s", req.getCluster());
-        activityInfoCacheReaderThread->rebuild();
+        activityInfoCacheReaderThread->buildCachedInfo();
         double version = context.getClientVersion();
         if (version >= 1.19)
             getStatusServerInfo(context, req.getServerType(), req.getCluster(), req.getNetworkAddress(), req.getPort(), resp.updateStatusServerInfo());
@@ -1601,7 +1602,7 @@ bool CWsSMCEx::onResumeQueue(IEspContext &context, IEspSMCQueueRequest &req, IEs
             queue->resume(createQueueActionInfo(context, "resumed", req, info));
         }
         AccessSuccess(context, "Resumed queue %s", req.getCluster());
-        activityInfoCacheReaderThread->rebuild();
+        activityInfoCacheReaderThread->buildCachedInfo();
         double version = context.getClientVersion();
         if (version >= 1.19)
             getStatusServerInfo(context, req.getServerType(), req.getCluster(), req.getNetworkAddress(), req.getPort(), resp.updateStatusServerInfo());
@@ -1644,7 +1645,7 @@ bool CWsSMCEx::onPauseQueue(IEspContext &context, IEspSMCQueueRequest &req, IEsp
             queue->pause(createQueueActionInfo(context, "paused", req, info));
         }
         AccessSuccess(context, "Paused queue %s", req.getCluster());
-        activityInfoCacheReaderThread->rebuild();
+        activityInfoCacheReaderThread->buildCachedInfo();
         double version = context.getClientVersion();
         if (version >= 1.19)
             getStatusServerInfo(context, req.getServerType(), req.getCluster(), req.getNetworkAddress(), req.getPort(), resp.updateStatusServerInfo());
@@ -1674,7 +1675,7 @@ bool CWsSMCEx::onClearQueue(IEspContext &context, IEspSMCQueueRequest &req, IEsp
             queue->clear();
         }
         AccessSuccess(context, "Cleared queue %s",req.getCluster());
-        activityInfoCacheReaderThread->rebuild();
+        activityInfoCacheReaderThread->buildCachedInfo();
         double version = context.getClientVersion();
         if (version >= 1.19)
             getStatusServerInfo(context, req.getServerType(), req.getCluster(), req.getNetworkAddress(), req.getPort(), resp.updateStatusServerInfo());
@@ -1743,7 +1744,7 @@ bool CWsSMCEx::onSetJobPriority(IEspContext &context, IEspSMCPriorityRequest &re
             }
         }
 
-        activityInfoCacheReaderThread->rebuild();
+        activityInfoCacheReaderThread->buildCachedInfo();
         resp.setRedirectUrl("/WsSMC/");
     }
     catch(IException* e)

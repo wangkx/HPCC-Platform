@@ -156,11 +156,25 @@ public:
     inline IArrayOf<IEspDFUJob>& queryDFURecoveryJobs() { return DFURecoveryJobs; };
 };
 
-class CActivityInfoCacheReader : public CSimpleInterfaceOf<IInfoCacheReader>
+/*class CActivityInfoCacheReader : public CSimpleInterfaceOf<IInfoCacheReader>
 {
 public:
     CActivityInfoCacheReader() {};
 
+    virtual CInfoCache* read() override
+    {
+        Owned<IEspContext> espContext =  createEspContext();
+        Owned<CActivityInfo> info = new CActivityInfo();
+        info->createActivityInfo(*espContext);
+        return info.getClear();
+    };
+};*/
+
+class CActivityInfoCacheReader : public CInfoCacheReader
+{
+public:
+    CActivityInfoCacheReader(const char* _name, unsigned _autoRebuildSeconds, unsigned _forceRebuildSeconds)
+        : CInfoCacheReader(_name, _autoRebuildSeconds, _forceRebuildSeconds) {}
     virtual CInfoCache* read() override
     {
         Owned<IEspContext> espContext =  createEspContext();
@@ -184,7 +198,8 @@ class CWsSMCEx : public CWsSMC
     int m_BannerAction;
     bool m_EnableChatURL;
     CriticalSection crit;
-    Owned<CInfoCacheReaderThread>   activityInfoCacheReaderThread;
+    //Owned<CInfoCacheReaderThread>   activityInfoCacheReaderThread;
+    Owned<CInfoCacheReader>   activityInfoCacheReaderThread;
 
 public:
     IMPLEMENT_IINTERFACE;

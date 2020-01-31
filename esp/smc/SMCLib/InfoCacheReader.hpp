@@ -38,12 +38,18 @@ public:
 
 interface IInfoCacheReader : extends IInterface
 {
-    virtual CInfoCache* read() = 0;
+    virtual void buildCachedInfo() = 0;
+    virtual CInfoCache *getCachedInfo() const = 0;
+    virtual void setActive(bool active) = 0;
+    virtual bool isActive() const = 0;
 };
 
+class CInfoCacheReader;
 class CInfoCacheReaderThread : public CSimpleInterfaceOf<IThreaded>
 {
     StringAttr name;
+    CInfoCacheReader* infoCacheReader;
+
     bool stopping = false;
     bool active = true;
     bool first = true;
@@ -51,17 +57,15 @@ class CInfoCacheReaderThread : public CSimpleInterfaceOf<IThreaded>
     unsigned autoRebuildSeconds = defaultInfoCacheAutoRebuildSecond;
     unsigned forceRebuildSeconds = defaultInfoCacheForceBuildSecond;
     Owned<CInfoCache> infoCache;
-    Owned<IInfoCacheReader> infoCacheReader;
     Semaphore sem;
     CriticalSection crit;
     CThreaded threaded;
     std::atomic<bool> waiting = {false};
 
 public:
-    CInfoCacheReaderThread(IInfoCacheReader *_infoCacheReader, const char* _name, unsigned _autoRebuildSeconds, unsigned _forceRebuildSeconds)
-        : name(_name), autoRebuildSeconds(_autoRebuildSeconds), forceRebuildSeconds(_forceRebuildSeconds), threaded(_name)
+    CInfoCacheReaderThread(CInfoCacheReader* _reader, const char* _name, unsigned _autoRebuildSeconds, unsigned _forceRebuildSeconds)
+        : infoCacheReader(_reader), name(_name), autoRebuildSeconds(_autoRebuildSeconds), forceRebuildSeconds(_forceRebuildSeconds), threaded(_name)
     {
-        infoCacheReader.setown(_infoCacheReader);
         threaded.init(this);
     };
 
@@ -73,6 +77,7 @@ public:
     }
 
     virtual void threadmain() override;
+
     CInfoCache* getCachedInfo()
     {
         CLeavableCriticalBlock b(crit);
@@ -91,10 +96,10 @@ public:
         //Now, activityInfoCache should always be available.
         assertex(infoCache);
         if (active && !infoCache->isCachedInfoValid(forceRebuildSeconds))
-            rebuild();
+            buildCachedInfo();
         return infoCache.getLink();
     }
-    void rebuild()
+    void buildCachedInfo()
     {
         bool expected = true;
         if (waiting.compare_exchange_strong(expected, false))
@@ -116,10 +121,30 @@ public:
                 }
             }
             else
-                rebuild();
+                buildCachedInfo();
         }
     }
     bool isActive() const { return active; }
+};
+
+class CInfoCacheReader : implements IInfoCacheReader, public CInterface
+{
+public:
+    Owned<CInfoCacheReaderThread> infoCacheReaderThread;
+
+    IMPLEMENT_IINTERFACE;
+
+    CInfoCacheReader(const char* _name, unsigned _autoRebuildSeconds, unsigned _forceRebuildSeconds)
+    {
+        infoCacheReaderThread.setown(new CInfoCacheReaderThread(this, _name, _autoRebuildSeconds, _forceRebuildSeconds));
+    }
+
+    virtual CInfoCache* getCachedInfo() const { return infoCacheReaderThread->getCachedInfo(); }
+    virtual void buildCachedInfo() { infoCacheReaderThread->buildCachedInfo(); }
+    virtual void setActive(bool _active) { infoCacheReaderThread->setActive(_active); }
+    virtual bool isActive() const { return infoCacheReaderThread->isActive(); }
+
+    virtual CInfoCache* read() = 0;
 };
 
 #endif //_ESPWIZ_InfoCacheReader_HPP__
