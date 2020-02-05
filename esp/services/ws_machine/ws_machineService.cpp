@@ -2785,7 +2785,12 @@ void Cws_machineEx::readComponentUsageResult(IEspContext& context, IPropertyTree
                 xpath.setf("Folder[@path='%s']", aDiskPath);
                 IPropertyTree* folderTree = uniqueMachineReqTree->queryPropTree(xpath);
                 if (!folderTree)
-                    diskUsage->setDescription("No data returns.");
+                {
+                    if (version < 1.17)
+                        diskUsage->setDescription("No data returns.");
+                    else
+                        diskUsage->setException("No data returns.");
+                }
                 else
                 {
                     const char* error = folderTree->queryProp("@error");
