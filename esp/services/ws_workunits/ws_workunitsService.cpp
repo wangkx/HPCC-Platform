@@ -1792,7 +1792,7 @@ void readWUQuerySortOrder(const char* sortBy, const bool descending, WUSortField
         sortOrder = (WUSortField) (sortOrder | WUSFreverse);
 }
 
-void doWUQueryWithSort(IEspContext &context, IEspWUQueryRequest & req, IEspWUQueryResponse & resp)
+void doWUQueryWithSort(IEspContext &context, IEspWUQueryRequest & req, IEspWUQueryResponse & resp, StringArray& wuids)
 {
     SecAccessFlags accessOwn;
     SecAccessFlags accessOthers;
@@ -1880,6 +1880,7 @@ void doWUQueryWithSort(IEspContext &context, IEspWUQueryRequest & req, IEspWUQue
 
     Owned<IWorkUnitFactory> factory = getWorkUnitFactory(context.querySecManager(), context.queryUser());
     unsigned numWUs;
+    pagesize = 10000;
     PROGLOG("WUQuery: getWorkUnitsSorted");
     Owned<IConstWorkUnitIterator> it = factory->getWorkUnitsSorted(sortorder, filters, filterbuf.bufferBase(), begin, pagesize+1, &cacheHint, &numWUs); // MORE - need security flags here!
     if (version >= 1.41)
@@ -1903,7 +1904,7 @@ void doWUQueryWithSort(IEspContext &context, IEspWUQueryRequest & req, IEspWUQue
             numWUs--;
             continue;
         }
-
+        wuids.append(wuid);
         actualCount++;
         Owned<IEspECLWorkunit> info = createECLWorkunit("","");
         info->setWuid(cw.queryWuid());
@@ -2523,6 +2524,7 @@ bool CWsWorkunitsEx::onWUQuery(IEspContext &context, IEspWUQueryRequest & req, I
 {
     try
     {
+        StringArray wuids;
         StringBuffer wuidStr(req.getWuid());
         const char* wuid = wuidStr.trim().str();
 
@@ -2533,7 +2535,16 @@ bool CWsWorkunitsEx::onWUQuery(IEspContext &context, IEspWUQueryRequest & req, I
         else if (notEmpty(req.getLogicalFile()) && req.getLogicalFileSearchType() && strieq(req.getLogicalFileSearchType(), "Created"))
             doWUQueryByFile(context, req.getLogicalFile(), resp);
         else
-            doWUQueryWithSort(context, req, resp);
+            doWUQueryWithSort(context, req, resp, wuids);
+        ForEachItemIn(i, wuids)
+        {
+            const char* wuid = wuids.item(i);
+            WsWuInfo winfo(context, wuid);
+            Owned<IPropertyTree> archive = getWorkunitArchive(context, winfo, wuid, WUARCHIVE_CACHE_MINITES);
+            if (archive)
+                throw MakeStringException(ECLWATCH_INVALID_INPUT,"Found workunit archive for %s.", wuid);
+            continue;
+        }
 
         resp.setState(req.getState());
         resp.setCluster(req.getCluster());
