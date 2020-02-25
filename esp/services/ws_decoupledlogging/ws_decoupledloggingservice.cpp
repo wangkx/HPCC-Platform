@@ -76,6 +76,10 @@ void CWSDecoupledLogEx::init(IPropertyTree* cfg, const char* process, const char
         IUpdateLogThread* logThread = createUpdateLogThread(&loggingAgentTree, service, agentName, tankFileDir.get(), loggingAgent);
         if(!logThread)
             throw MakeStringException(-1, "Failed to create update log thread for %s", agentName);
+
+        CLogRequestReader* logRequestReader = logThread->getLogRequestReader();
+        if (!logRequestReader)
+            throw MakeStringException(-1, "CLogRequestReader not found for %s.", agentName);
         loggingAgentThreads.push_back(logThread);
     }
 }
@@ -84,26 +88,26 @@ bool CWSDecoupledLogEx::onGetLogAgentSetting(IEspContext& context, IEspGetLogAge
 {
     try
     {
+        BoolHash logAgentFound;
+        StringBuffer errorStatus;
         StringArray& agentNames = req.getAgentNames();
         IArrayOf<IEspLogAgentSetting> logAgentSettings;
         for (auto in : loggingAgentThreads)
         {
             IEspLogAgent* agent = in->getLogAgent();
-            if (!agent)
-                continue;
             const char* agentName = agent->getName();
-            if (isEmptyString(agentName))
-                continue;
             if (!checkName(agentName, agentNames, true))
                 continue;
 
+            logAgentFound.setValue(agentName, true);
             CLogRequestReader* logRequestReader = in->getLogRequestReader();
-            if (!logRequestReader)
-                throw MakeStringException(ECLWATCH_INTERNAL_ERROR, "CLogRequestReader not found for %s.", agentName);
-
             CLogRequestReaderSettings* settings = logRequestReader->getSettings();
             if (!settings)
+            {
+                errorStatus.appendf("Settings not found for %s.", agentName);
                 continue;
+            }
+  
             Owned<IEspLogAgentSetting> logAgentSetting = createLogAgentSetting();
             logAgentSetting->setAgentName(agentName);
             logAgentSetting->setAckedFileList(settings->ackedFileList);
@@ -114,6 +118,10 @@ bool CWSDecoupledLogEx::onGetLogAgentSetting(IEspContext& context, IEspGetLogAge
         }
         resp.setLogAgentSettings(logAgentSettings);
         resp.setTankFileDir(tankFileDir);
+
+        checkLogAgentInList(agentNames, logAgentFound, errorStatus);
+        if (!errorStatus.isEmpty())
+            resp.setErrorStatus(errorStatus);
     }
     catch(IException* e)
     {
@@ -127,10 +135,6 @@ bool CWSDecoupledLogEx::checkName(const char* name, StringArray& names, bool def
     if (!names.length())
         return defaultValue;
 
-    const char* v = names.item(0);
-    if (isEmptyString(v))
-        return defaultValue;
-
     ForEachItemIn(i, names)
     {
         const char* aName = names.item(i);
@@ -142,24 +146,34 @@ bool CWSDecoupledLogEx::checkName(const char* name, StringArray& names, bool def
 
 bool CWSDecoupledLogEx::onPauseLog(IEspContext& context, IEspPauseLogRequest& req, IEspPauseLogResponse& resp)
 {
+    BoolHash logAgentFound;
     bool pause = req.getPause();
     StringArray& agentNames = req.getAgentNames();
     for (auto in : loggingAgentThreads)
     {
-        IEspLogAgent* agent = in->getLogAgent();
-        if (!agent)
-            continue;
-        const char* agentName = agent->getName();
-        if (isEmptyString(agentName))
-            continue;
+        const char* agentName = in->getLogAgent()->getName();
         if (!checkName(agentName, agentNames, true))
             continue;
 
-        CLogRequestReader* logRequestReader = in->getLogRequestReader();
-        if (!logRequestReader)
-            throw MakeStringException(ECLWATCH_INTERNAL_ERROR, "CLogRequestReader not found for %s.", agentName);
-
-        logRequestReader->setPause(pause);
+        logAgentFound.setValue(agentName, true);
+        in->getLogRequestReader()->setPause(pause);
     }
+
+    StringBuffer errorStatus;
+    checkLogAgentInList(agentNames, logAgentFound, errorStatus);
+    if (!errorStatus.isEmpty())
+        resp.setErrorStatus(errorStatus);
+
     return true;
+}
+
+void CWSDecoupledLogEx::checkLogAgentInList(StringArray& namesToCheck, BoolHash& namesFound, StringBuffer& status)
+{
+    ForEachItemIn(i, namesToCheck)
+    {
+        const char* name = namesToCheck.item(i);
+        bool* found = namesFound.getValue(name);
+        if (!found || !*found)
+            status.appendf("LogAgent %s not found. ", name);
+    }
 }

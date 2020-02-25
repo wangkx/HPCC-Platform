@@ -64,7 +64,7 @@ class CLogRequestReader : public CInterface, implements IThreaded
     StringBuffer& getTankFileTimeString(const char* fileName, StringBuffer& timeString);
     bool readLogRequestsFromTankFile(const char* fileName, StringAttr& tankFileNotFinished, offset_t& tankFileNotFinishedPos);
     offset_t getReadFilePos(const char* fileName);
-    void parseLogRequest(MemoryBuffer& rawdata, StringBuffer& GUID, StringBuffer& data);
+    bool parseLogRequest(MemoryBuffer& rawdata, StringBuffer& GUID, StringBuffer& data);
     void addToAckedLogFileList(const char* fileName, const char* fileNameWithPath);
     void addPendingLogsToQueue();
     void updateAckedFileList();
@@ -77,12 +77,7 @@ public:
         threaded.init(this);
     };
 
-    ~CLogRequestReader()
-    {
-        stopping = true;
-        sem.signal();
-        threaded.join();
-    };
+    ~CLogRequestReader();
 
     virtual void threadmain() override;
 

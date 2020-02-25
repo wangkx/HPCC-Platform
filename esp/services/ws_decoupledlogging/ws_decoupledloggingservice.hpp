@@ -43,6 +43,7 @@ class CWSDecoupledLogEx : public CWSDecoupledLog
 
     IEspLogAgent* loadLoggingAgent(const char* name, const char* dll, const char* service, IPropertyTree* cfg);
     bool checkName(const char* name, StringArray& names, bool defaultValue);
+    void checkLogAgentInList(StringArray& namesToCheck, BoolHash& namesFound, StringBuffer& status);
 
 public:
     IMPLEMENT_IINTERFACE;

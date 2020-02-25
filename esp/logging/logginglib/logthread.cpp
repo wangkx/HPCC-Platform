@@ -33,6 +33,8 @@ const char* const PropAckedLogRequests = "AckedLogRequests";
 const char* const PropDefaultAckedLogRequests = "AckedLogRequests";
 const char* const PropPendingLogBufferSize = "PendingLogBufferSize";
 const char* const PropReadRequestWaitingSeconds = "ReadRequestWaitingSeconds";
+const char* const sendLogKeyword = "_sending_";
+const unsigned dateTimeStringLength = 19; //yyyy_mm_dd_hh_mm_ss
 
 #define     MaxLogQueueLength   500000 //Write a warning into log when queue length is greater than 500000
 #define     QueueSizeSignal     10000 //Write a warning into log when queue length is increased by 10000
@@ -87,12 +89,19 @@ CLogThread::CLogThread(IPropertyTree* _cfg , const char* _service, const char* _
         settings->ackedFileList.set(isEmptyString(ackedFiles) ? PropDefaultAckedFiles : ackedFiles);
         const char* ackedLogRequestFile = _cfg->queryProp(PropAckedLogRequests);
         settings->ackedLogRequestFile.set(isEmptyString(ackedLogRequestFile) ? PropDefaultAckedLogRequests : ackedLogRequestFile);
-        settings->pendingLogBufferSize = _cfg->getPropInt(PropPendingLogBufferSize, DEFAULTPENDINGLOGBUFFERSIZE);
-        settings->waitSeconds = _cfg->getPropInt(PropReadRequestWaitingSeconds, DEFAULTREADLOGREQUESTWAITSECOND);
+        int pendingLogBufferSize = _cfg->getPropInt(PropPendingLogBufferSize, DEFAULTPENDINGLOGBUFFERSIZE);
+        if (pendingLogBufferSize <= 0)
+            throw MakeStringException(-1, "The %s (%d) should be greater than 0.", PropPendingLogBufferSize, pendingLogBufferSize);
+
+        settings->pendingLogBufferSize = pendingLogBufferSize;
+        int waitSeconds = _cfg->getPropInt(PropReadRequestWaitingSeconds, DEFAULTREADLOGREQUESTWAITSECOND);
+        if (waitSeconds <= 0)
+            throw MakeStringException(-1, "The %s (%d) should be greater than 0.", PropReadRequestWaitingSeconds, waitSeconds);
+
+        settings->waitSeconds = waitSeconds;
         PROGLOG("%s %s: %s", agentName.get(), PropAckedFiles, settings->ackedFileList.str());
         PROGLOG("%s %s: %s", agentName.get(), PropDefaultAckedLogRequests, settings->ackedLogRequestFile.str());
-        PROGLOG("%s %s: %d", agentName.get(), PropReadRequestWaitingSeconds, settings->waitSeconds);
-        PROGLOG("%s %s: %d", agentName.get(), PropPendingLogBufferSize, settings->pendingLogBufferSize);
+        PROGLOG("%s %s: %d. %s: %d", agentName.get(), PropReadRequestWaitingSeconds, settings->waitSeconds, PropPendingLogBufferSize, settings->pendingLogBufferSize);
         logRequestReader.setown(new CLogRequestReader(settings.getClear(), this));
     }
     PROGLOG("%s CLogThread started.", agentName.get());
@@ -483,6 +492,12 @@ void CLogThread::checkPendingLogs(bool bOneRecOnly)
     }
 }
 
+//When the logData is read from a main tank file, it should be decrypted.
+//For non-decoupled logging agents, each logging agent may have its own tank file (with the location and
+//position of the main tank file). The logData from those agent tank files is not encrypted. So, it should
+//not be decrypted.
+//BTW: For non-decoupled logging agents, the logData from main tank file is read and decrypted in 
+//checkAndReadLogRequestFromSharedTankFile().
 IEspUpdateLogRequestWrap* CLogThread::unserializeLogRequestContent(const char* logData, bool decompress)
 {
     if (!logData && *logData)
@@ -538,6 +553,13 @@ IEspUpdateLogRequestWrap* CLogThread::readJobQueue()
         ESPLOG(LOG_LEVEL, "LThread:waitRQ: %dms", delta);
     return (IEspUpdateLogRequestWrap*)logQueue.dequeue();
 #undef LOG_LEVEL
+}
+
+CLogRequestReader::~CLogRequestReader()
+{
+    stopping = true;
+    sem.signal();
+    threaded.join();
 }
 
 void CLogRequestReader::threadmain()
@@ -598,7 +620,9 @@ void CLogRequestReader::readAcked(const char* fileName, std::set<std::string>& a
                 if (line.isEmpty())
                     continue;
 
-                line.setLength(line.length() - 2); //remove \r\n
+                unsigned len = line.length();
+                if ((len > 1) && (line.charAt(len - 2) == '\r') && (line.charAt(len - 1) == '\n'))
+                    line.setLength(len - 2); //remove \r\n
                 acked.insert(line.str());
                 PROGLOG("Found Acked %s from %s", line.str(), fileName);
             }
@@ -682,17 +706,17 @@ void CLogRequestReader::findTankFileNotFinished(StringAttr& tankFileNotFinished)
 
 StringBuffer& CLogRequestReader::getTankFileTimeString(const char* fileName, StringBuffer& timeString)
 {
-    const char* ptr = strstr(fileName, "_sending_");
+    const char* ptr = strstr(fileName, sendLogKeyword);
     if (!ptr)
         return timeString;
 
-    ptr += strlen("_sending_");
+    ptr += strlen(sendLogKeyword);
     if (!ptr)
         return timeString;
 
     ptr = strchr(ptr, '.');
-    if (ptr && (strlen(ptr) > 19))
-        timeString.append(19, ++ptr); //yyyy_mm_dd_hh_mm_ss
+    if (ptr && (strlen(ptr) > dateTimeStringLength))
+        timeString.append(dateTimeStringLength, ++ptr); //yyyy_mm_dd_hh_mm_ss
     return timeString;
 }
 
@@ -714,22 +738,13 @@ bool CLogRequestReader::readLogRequestsFromTankFile(const char* fileName, String
     unsigned totalMissed = 0;
     while(true)
     {
-        char dataSize[9];
-        memset(dataSize, 0, 9);
-        size32_t bytesRead = fileIO->read(finger,8,dataSize);
-        if (bytesRead == 0)
-            break;
-
         MemoryBuffer data;
-        int dataLen = atoi(dataSize);
-        finger += 9;
-        bytesRead = fileIO->read(finger, dataLen, data.reserveTruncate(dataLen));
-        if (bytesRead == 0)
+        CLogSerializer logSerializer;
+        if (!logSerializer.readALogLine(fileIO, finger, data))
             break;
 
         StringBuffer GUID, logRequest;
-        parseLogRequest(data, GUID, logRequest);
-        if (GUID.isEmpty() || logRequest.isEmpty())
+        if (!parseLogRequest(data, GUID, logRequest))
             IERRLOG("Invalid logging request in %s", fileName);
         else if (ackedLogRequests.find(GUID.str()) == ackedLogRequests.end())
         {//This QUID is not acked.
@@ -743,7 +758,6 @@ bool CLogRequestReader::readLogRequestsFromTankFile(const char* fileName, String
                     addPendingLogsToQueue();
             }
         }
-        finger += dataLen;
     }
 
     bool isTankFileNotFinished = !isEmptyString(tankFileNotFinished) && strieq(fileName, tankFileNotFinished);
@@ -763,24 +777,30 @@ offset_t CLogRequestReader::getReadFilePos(const char* fileName)
     return 0;
 }
 
-void CLogRequestReader::parseLogRequest(MemoryBuffer& rawdata, StringBuffer& GUID, StringBuffer& logLine)
+bool CLogRequestReader::parseLogRequest(MemoryBuffer& rawdata, StringBuffer& GUID, StringBuffer& logLine)
 {
     //The rawdata should be in the form of 2635473460.05_01_12_16_13_57\t<cache>...</cache>
     //parse it into GUID and logLine (as <cache>...</cache>)
     const char* begin = rawdata.toByteArray(); //no string termination character \0
     unsigned len = rawdata.length();
     if (!begin || (len == 0))
-        return;
+        return false;
 
-    const char* ptr = strchr(begin, '\t');
-    if (!ptr)
-        return;
+    const char* ptr = begin;
+    const char* end = begin + len;
+    while ((*ptr != '\t') && (ptr < end))
+        ptr++;
+
+    if (ptr == begin)
+        return false;
 
     GUID.append(ptr - begin, begin);
 
-    const char* end = begin + len;
-    if (++ptr < end)
-        logLine.append(end - ptr, ptr);
+    if ((++ptr >= end))
+        return false;
+
+    logLine.append(end - ptr, ptr);
+    return true;
 }
 
 void CLogRequestReader::addPendingLogsToQueue()
@@ -788,16 +808,11 @@ void CLogRequestReader::addPendingLogsToQueue()
     ESPLOG(LogMax, "#### Enter addPendingLogsToQueue()");
 
     //Add the pendingLogs to log queue
+    if (pendingLogs.size())
+        ESPLOG(LogMin, "Adding %zu Pending Log Request(s) to job queue", pendingLogs.size());
     StringArray queuedPendingLogs;
-    bool firstPendingLogs = true;
     for (auto const& x : pendingLogs)
     {
-        if (firstPendingLogs)
-        {
-            firstPendingLogs = false;
-            ESPLOG(LogMin, "Adding %lu Pending Log Request(s) to job queue", pendingLogs.size());
-        }
-
         Owned<IEspUpdateLogRequestWrap> logRequest = logThread->unserializeLogRequestContent(x.second.c_str(), true);
         if (!logRequest)
             IERRLOG("addPendingLogsToQueue: failed to unserialize: %s", x.second.c_str());
@@ -829,7 +844,7 @@ void CLogRequestReader::addACK(const char* GUID)
     ackedLogRequests.insert(GUID);
     pendingLogGUIDs.erase(GUID);
 
-    ESPLOG(LogMax, "#### addACK(): %s ached", GUID);
+    ESPLOG(LogMax, "#### addACK(): %s acked", GUID);
 }
 
 void CLogRequestReader::addToAckedLogFileList(const char* fileName, const char* fileNameWithPath)
@@ -846,11 +861,11 @@ void CLogRequestReader::updateAckedFileList()
 
     OwnedIFile ackedFiles = createIFile(settings->ackedFileList);
     if (!ackedFiles)
-        return; //Should never happend
+        return; //Should never happen
 
     OwnedIFileIO ackedFilesIO = ackedFiles->open(IFOwrite);
     if (!ackedFilesIO)
-        return; //Should never happend
+        return; //Should never happen
 
     offset_t pos = ackedFilesIO->size();
     ForEachItemIn(i, newAckedLogFiles)
@@ -892,7 +907,7 @@ void CLogRequestReader::updateAckedLogRequestList()
 
     OwnedIFileIO newAckedLogRequestFileIO = newAckedLogRequestFile->open(IFOwrite);
     if (!newAckedLogRequestFileIO)
-        return; //Should never happend
+        return; //Should never happen
 
     offset_t pos = 0;
     for (auto r : ackedLogRequests)

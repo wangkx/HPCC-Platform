@@ -35,6 +35,7 @@ ESPresponse [exceptions_inline, nil_remove, http_encode(0)] GetLogAgentSettingRe
 {
     string TankFileDir;
     ESParray<ESPstruct LogAgentSetting> LogAgentSettings;
+    string ErrorStatus;
 };
 
 ESPrequest [nil_remove] PauseLogRequest
@@ -45,6 +46,7 @@ ESPrequest [nil_remove] PauseLogRequest
 
 ESPresponse [exceptions_inline, nil_remove, http_encode(0)] PauseLogResponse
 {
+    string ErrorStatus;
 };
 
 ESPservice [auth_feature("NONE"), exceptions_inline("./smc_xslt/exceptions.xslt")] WSDecoupledLog
