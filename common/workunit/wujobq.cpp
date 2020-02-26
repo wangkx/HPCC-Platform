@@ -2071,7 +2071,9 @@ public:
         if (!connJobQueues)
             throw MakeStringException(-1, "CJQSnapshot::CJQSnapshot: /JobQueues not found");
 
+        DBGLOG("####CJQSnapshot before createPTreeFromIPT");
         jobQueueInfo.setown(createPTreeFromIPT(connJobQueues->queryRoot()));
+        DBGLOG("####CJQSnapshot after createPTreeFromIPT");
     }
 
     IJobQueueConst* getJobQueue(const char *name)

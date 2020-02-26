@@ -497,9 +497,13 @@ int init_main(int argc, char* argv[])
 int main(int argc, char* argv[])
 {
     start_init_main(argc, argv, init_main);
+    DBGLOG("####main before stopPerformanceMonitor");
     stopPerformanceMonitor();
+    DBGLOG("####main before UseSysLogForOperatorMessages");
     UseSysLogForOperatorMessages(false);
+    DBGLOG("####main before releaseAtoms");
     releaseAtoms();
+    DBGLOG("####main after releaseAtoms");
     return 0;
 }
 
