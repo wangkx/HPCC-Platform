@@ -2627,7 +2627,7 @@ void CActivityInfoReader::threadmain()
                 EspTimeSection timer("createActivityInfo");
                 Owned<IEspContext> espContext =  createEspContext();
                 Owned<CActivityInfo> activityInfo = new CActivityInfo();
-                activityInfo->createActivityInfo(*espContext);
+                ///activityInfo->createActivityInfo(*espContext);
                 PROGLOG("WsSMC CActivityInfoReader: ActivityInfo collected.");
 
                 CriticalBlock b(crit);

@@ -219,7 +219,9 @@ public:
 
     ~CEspConfig()
     {
+        DBGLOG("####CEspConfig before closedownClientProcess");
         closedownClientProcess();
+        DBGLOG("####CEspConfig after closedownClientProcess");
     }
 
     void initPtree(const char *location, bool isDali);
@@ -285,6 +287,7 @@ public:
 
     void clear()
     {
+        DBGLOG("####CEspConfig clear()");
         unloadBindings();
         unloadServices();
         unloadProtocols();

@@ -205,7 +205,7 @@ int start_init_main(int argc, char** argv, int (*init_main_func)(int,char**))
     return init_main_func(argc, argv);
 }
 
-int work_main(CEspConfig& config, CEspServer& server);
+int work_main(CEspConfig& config, CEspServer& server, bool stop);
 int do_work_main(CEspConfig& config, CEspServer& server)
 {
    int result; 
@@ -221,7 +221,7 @@ createworker:
    } 
    else if(childpid == 0) 
    {
-        result = work_main(config, server);
+        result = work_main(config, server, false);
    } 
    else 
    { 
@@ -255,11 +255,14 @@ void brokenpipe_handler(int sig)
 }
 
 
-int work_main(CEspConfig& config, CEspServer& server)
+int work_main(CEspConfig& config, CEspServer& server, bool stop)
 {
+    if (!stop)
+    {
     server.start();
     DBGLOG("ESP server started.");
     server.waitForExit(config);
+    }
     server.stop(true);
     config.stopping();
     config.clear();
@@ -468,6 +471,7 @@ int init_main(int argc, char* argv[])
             StringBuffer description;
             IERRLOG("ESP Unhandled IException (%d -- %s)", e->errorCode(), e->errorMessage(description).str());
             e->Release();
+            work_main(*config, *server.get(), true);
             return -1;
         }
         catch (...)
@@ -478,7 +482,7 @@ int init_main(int argc, char* argv[])
 
         writeSentinelFile(sentinelFile);
 
-        result = work_main(*config, *server.get());
+        result = work_main(*config, *server.get(), false);
     }
     else
     {

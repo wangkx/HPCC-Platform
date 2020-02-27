@@ -2491,21 +2491,21 @@ void PTree::clone(IPropertyTree &srcTree, IPropertyTree &dstTree, bool sub)
         DBGLOG("####PTree::clone1 8");
         if (iter->first())
         {
-            DBGLOG("####PTree::clone1 9");
+            //DBGLOG("####PTree::clone1 9");
             do
             {
-                DBGLOG("####PTree::clone1 91");
+                //DBGLOG("####PTree::clone1 91");
                 IPropertyTree &child = iter->query();
-                DBGLOG("####PTree::clone1 92");
+                //DBGLOG("####PTree::clone1 92");
                 IPropertyTree *newChild = clone(child, false, sub);
-                DBGLOG("####PTree::clone1 93");
+                //DBGLOG("####PTree::clone1 93");
                 dstTree.addPropTree(newChild->queryName(), newChild);
             }
             while (iter->next());
-            DBGLOG("####PTree::clone1 94");
+            //DBGLOG("####PTree::clone1 94");
         }
     }
-    DBGLOG("####Leave PTree::clone1");
+    //DBGLOG("####Leave PTree::clone1");
 }
 
 IPropertyTree *PTree::ownPTree(IPropertyTree *tree)

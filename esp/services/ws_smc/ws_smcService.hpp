@@ -185,10 +185,13 @@ public:
 
     ~CActivityInfoReader()
     {
+        DBGLOG("####Enter ~CActivityInfoReader()");
         stopping = true;
         sem.signal();
         firstSem.signal(); // in case
+        DBGLOG("####in ~CActivityInfoReader()");
         threaded.join();
+        DBGLOG("####Leave ~CActivityInfoReader()");
     }
 
     virtual void threadmain() override;
@@ -260,7 +263,10 @@ class CWsSMCEx : public CWsSMC
 public:
     IMPLEMENT_IINTERFACE;
     CWsSMCEx(){}
-    virtual ~CWsSMCEx(){};
+    virtual ~CWsSMCEx()
+    {
+        DBGLOG("####Enter ~CWsSMCEx()");
+    };
     virtual void init(IPropertyTree *cfg, const char *process, const char *service);
 
     bool onMoveJobDown(IEspContext &context, IEspSMCJobRequest &req, IEspSMCJobResponse &resp);
