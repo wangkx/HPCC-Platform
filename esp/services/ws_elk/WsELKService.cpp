@@ -20,7 +20,7 @@ void Cws_elkEx::init(IPropertyTree *cfg, const char *process, const char *servic
 #ifdef _DEBUG
     StringBuffer thexml;
     toXML(m_serviceCfg, thexml,0,0);
-    DBGLOG("^^^^^^%s", thexml.str());
+    ///DBGLOG("^^^^^^%s", thexml.str());
 #endif
 }
 

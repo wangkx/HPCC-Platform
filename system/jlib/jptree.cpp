@@ -2436,19 +2436,24 @@ void PTree::deserializeSelf(MemoryBuffer &src)
 
 IPropertyTree *PTree::clone(IPropertyTree &srcTree, bool self, bool sub)
 {
+//    DBGLOG("####Enter PTree::clone");
     IPropertyTree *_dstTree = self ? this : create(srcTree.queryName());
     PTree *dstTree = QUERYINTERFACE(_dstTree, PTree);
     dbgassertex(dstTree);
     if (self)
         dstTree->setName(srcTree.queryName());
     clone(srcTree, *dstTree, sub);
+  //  DBGLOG("####Leave PTree::clone");
     return _dstTree;
 }
 
 void PTree::clone(IPropertyTree &srcTree, IPropertyTree &dstTree, bool sub)
 {
+    //DBGLOG("####Enter PTree::clone1");
     PTree *_dstTree = QUERYINTERFACE((&dstTree), PTree); assertex(_dstTree); //JCSMORE
+//    DBGLOG("####PTree::clone1 1");
     flags = _dstTree->flags;
+  //  DBGLOG("####PTree::clone1 2");
     if (srcTree.isBinary(NULL))
     {
         MemoryBuffer mb;
@@ -2463,8 +2468,10 @@ void PTree::clone(IPropertyTree &srcTree, IPropertyTree &dstTree, bool sub)
     }
     else
         dstTree.setProp(NULL, srcTree.queryProp(NULL));
+    //DBGLOG("####PTree::clone1 3");
 
     IAttributeIterator *attrs = srcTree.getAttributes();
+    //DBGLOG("####PTree::clone1 4");
     if (attrs->first())
     {
         do
@@ -2473,22 +2480,32 @@ void PTree::clone(IPropertyTree &srcTree, IPropertyTree &dstTree, bool sub)
         }
         while (attrs->next());
     }
+    //DBGLOG("####PTree::clone1 5");
     attrs->Release();
+    DBGLOG("####PTree::clone1 6");
 
     if (sub)
     {
+        DBGLOG("####PTree::clone1 7");
         Owned<IPropertyTreeIterator> iter = srcTree.getElements("*");
+        DBGLOG("####PTree::clone1 8");
         if (iter->first())
         {
+            DBGLOG("####PTree::clone1 9");
             do
             {
+                DBGLOG("####PTree::clone1 91");
                 IPropertyTree &child = iter->query();
+                DBGLOG("####PTree::clone1 92");
                 IPropertyTree *newChild = clone(child, false, sub);
+                DBGLOG("####PTree::clone1 93");
                 dstTree.addPropTree(newChild->queryName(), newChild);
             }
             while (iter->next());
+            DBGLOG("####PTree::clone1 94");
         }
     }
+    DBGLOG("####Leave PTree::clone1");
 }
 
 IPropertyTree *PTree::ownPTree(IPropertyTree *tree)

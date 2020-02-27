@@ -253,7 +253,10 @@ void CActivityInfo::createActivityInfo(IEspContext& context)
 
     try
     {
+        DBGLOG("#### before createJQSnapshot");
         jobQueueSnapshot.setown(createJQSnapshot());
+        sleep(5);
+        DBGLOG("#### after createJQSnapshot");
     }
     catch(IException* e)
     {
@@ -2613,6 +2616,7 @@ void CActivityInfoReader::threadmain()
 {
 #ifndef _CONTAINERIZED
     PROGLOG("WsSMC CActivityInfoReader Thread started.");
+    //sleep(5);
     unsigned int autoRebuildMillSeconds = 1000*autoRebuildSeconds;
     while (!stopping)
     {

@@ -37,7 +37,7 @@ void CwsstoreEx::init(IPropertyTree *_cfg, const char *_process, const char *_se
 #ifdef _DEBUG
     StringBuffer thexml;
     toXML(_cfg, thexml,0,0);
-    fprintf(stderr, "%s", thexml.str());
+    ///fprintf(stderr, "%s", thexml.str());
 #endif
 
     StringBuffer xpath;
