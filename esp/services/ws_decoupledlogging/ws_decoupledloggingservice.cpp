@@ -51,36 +51,54 @@ void CWSDecoupledLogEx::init(IPropertyTree* cfg, const char* process, const char
     StringBuffer xpath;
     xpath.setf("Software/EspProcess[@name=\"%s\"]/EspService[@name=\"%s\"]", process, service);
     IPropertyTree *serviceCFG = cfg->queryPropTree(xpath.str());
-    tankFileDir.set(serviceCFG->queryProp("TankFileDir"));
-    if (!tankFileDir.length())
-        throw MakeStringException(-1, "Can't initialize CWSDecoupledLogEx, TankFileDir is NULL");
-
-    Owned<IPTreeIterator> loggingAgentSettings = serviceCFG->getElements("LogAgent");
-    ForEach(*loggingAgentSettings)
+    Owned<IPTreeIterator> agentGroupSettings = serviceCFG->getElements("LoggingAgentGroup");
+    ForEach(*agentGroupSettings)
     {
-        IPropertyTree& loggingAgentTree = loggingAgentSettings->query();
-        const char* agentName = loggingAgentTree.queryProp("@name");
-        const char* agentType = loggingAgentTree.queryProp("@type");
-        const char* agentPlugin = loggingAgentTree.queryProp("@plugin");
-        if (!agentName || !*agentName || !agentPlugin || !*agentPlugin)
+        IPropertyTree& agentGroupTree = agentGroupSettings->query();
+        const char* groupName = agentGroupTree.queryProp("@name");
+        if (isEmptyString(groupName))
             continue;
 
-        IEspLogAgent* loggingAgent = loadLoggingAgent(agentName, agentPlugin, service, cfg);
-        if (!loggingAgent)
+        const char* tankFileDir = agentGroupTree.queryProp("TankFileDir");
+        if (isEmptyString(tankFileDir))
+            throw MakeStringException(-1, "Can't initialize CWSDecoupledLogEx, TankFileDir is NULL fo LoggingAgentGroup %s", groupName);
+
+        WSDecoupledLogAgentGroup* group = new WSDecoupledLogAgentGroup;
+        group->name.set(groupName);
+        group->tankFileDir.set(tankFileDir);
+
+        const char* tankFileMask = agentGroupTree.queryProp("TankFileMask");
+        if (!isEmptyString(tankFileMask))
+            group->tankFileMask.set(tankFileMask);
+
+        Owned<IPTreeIterator> loggingAgentSettings = agentGroupTree.getElements("LogAgent");
+        ForEach(*loggingAgentSettings)
         {
-            OERRLOG(-1, "Failed to create logging agent for %s", agentName);
-            continue;
+            IPropertyTree& loggingAgentTree = loggingAgentSettings->query();
+            const char* agentName = loggingAgentTree.queryProp("@name");
+            const char* agentType = loggingAgentTree.queryProp("@type");
+            const char* agentPlugin = loggingAgentTree.queryProp("@plugin");
+            if (!agentName || !*agentName || !agentPlugin || !*agentPlugin)
+                continue;
+    
+            IEspLogAgent* loggingAgent = loadLoggingAgent(agentName, agentPlugin, service, cfg);
+            if (!loggingAgent)
+            {
+                OERRLOG(-1, "Failed to create logging agent for %s", agentName);
+                continue;
+            }
+            loggingAgent->init(agentName, agentType, &loggingAgentTree, service);
+            loggingAgent->initVariants(&loggingAgentTree);
+            IUpdateLogThread* logThread = createUpdateLogThread(&loggingAgentTree, service, agentName, tankFileDir, loggingAgent);
+            if(!logThread)
+                throw MakeStringException(-1, "Failed to create update log thread for %s", agentName);
+    
+            CLogRequestReader* logRequestReader = logThread->getLogRequestReader();
+            if (!logRequestReader)
+                throw MakeStringException(-1, "CLogRequestReader not found for %s.", agentName);
+            group->loggingAgentThreads.push_back(logThread);
         }
-        loggingAgent->init(agentName, agentType, &loggingAgentTree, service);
-        loggingAgent->initVariants(&loggingAgentTree);
-        IUpdateLogThread* logThread = createUpdateLogThread(&loggingAgentTree, service, agentName, tankFileDir.get(), loggingAgent);
-        if(!logThread)
-            throw MakeStringException(-1, "Failed to create update log thread for %s", agentName);
-
-        CLogRequestReader* logRequestReader = logThread->getLogRequestReader();
-        if (!logRequestReader)
-            throw MakeStringException(-1, "CLogRequestReader not found for %s.", agentName);
-        loggingAgentThreads.push_back(logThread);
+        logGroups.push_back(group);
     }
 }
 
@@ -92,32 +110,39 @@ bool CWSDecoupledLogEx::onGetLogAgentSetting(IEspContext& context, IEspGetLogAge
         StringBuffer errorStatus;
         StringArray& agentNames = req.getAgentNames();
         IArrayOf<IEspLogAgentSetting> logAgentSettings;
-        for (auto in : loggingAgentThreads)
+        for (auto gp : logGroups)
         {
-            IEspLogAgent* agent = in->getLogAgent();
-            const char* agentName = agent->getName();
-            if (!checkName(agentName, agentNames, true))
-                continue;
-
-            logAgentFound.setValue(agentName, true);
-            CLogRequestReader* logRequestReader = in->getLogRequestReader();
-            CLogRequestReaderSettings* settings = logRequestReader->getSettings();
-            if (!settings)
+            const char* tankFileDir = gp->tankFileDir.get();
+            const char* tankFileMask = gp->tankFileMask.get();
+            for (auto in : gp->loggingAgentThreads)
             {
-                errorStatus.appendf("Settings not found for %s.", agentName);
-                continue;
+                IEspLogAgent* agent = in->getLogAgent();
+                const char* agentName = agent->getName();
+                if (!checkName(agentName, agentNames, true))
+                    continue;
+    
+                logAgentFound.setValue(agentName, true);
+                CLogRequestReader* logRequestReader = in->getLogRequestReader();
+                CLogRequestReaderSettings* settings = logRequestReader->getSettings();
+                if (!settings)
+                {
+                    errorStatus.appendf("Settings not found for %s.", agentName);
+                    continue;
+                }
+      
+                Owned<IEspLogAgentSetting> logAgentSetting = createLogAgentSetting();
+                logAgentSetting->setAgentName(agentName);
+                logAgentSetting->setAckedFileList(settings->ackedFileList);
+                logAgentSetting->setAckedLogRequestFile(settings->ackedLogRequestFile);
+                logAgentSetting->setWaitSeconds(settings->waitSeconds);
+                logAgentSetting->setPendingLogBufferSize(settings->pendingLogBufferSize);
+                logAgentSetting->setTankFileDir(tankFileDir);
+                if (!isEmptyString(tankFileMask))
+                    logAgentSetting->setTankFileMask(tankFileMask);
+                logAgentSettings.append(*logAgentSetting.getClear());
             }
-  
-            Owned<IEspLogAgentSetting> logAgentSetting = createLogAgentSetting();
-            logAgentSetting->setAgentName(agentName);
-            logAgentSetting->setAckedFileList(settings->ackedFileList);
-            logAgentSetting->setAckedLogRequestFile(settings->ackedLogRequestFile);
-            logAgentSetting->setWaitSeconds(settings->waitSeconds);
-            logAgentSetting->setPendingLogBufferSize(settings->pendingLogBufferSize);
-            logAgentSettings.append(*logAgentSetting.getClear());
         }
         resp.setLogAgentSettings(logAgentSettings);
-        resp.setTankFileDir(tankFileDir);
 
         checkLogAgentInList(agentNames, logAgentFound, errorStatus);
         if (!errorStatus.isEmpty())
@@ -149,14 +174,17 @@ bool CWSDecoupledLogEx::onPauseLog(IEspContext& context, IEspPauseLogRequest& re
     BoolHash logAgentFound;
     bool pause = req.getPause();
     StringArray& agentNames = req.getAgentNames();
-    for (auto in : loggingAgentThreads)
+    for (auto gp : logGroups)
     {
-        const char* agentName = in->getLogAgent()->getName();
-        if (!checkName(agentName, agentNames, true))
-            continue;
-
-        logAgentFound.setValue(agentName, true);
-        in->getLogRequestReader()->setPause(pause);
+        for (auto in : gp->loggingAgentThreads)
+        {
+            const char* agentName = in->getLogAgent()->getName();
+            if (!checkName(agentName, agentNames, true))
+                continue;
+    
+            logAgentFound.setValue(agentName, true);
+            in->getLogRequestReader()->setPause(pause);
+        }
     }
 
     StringBuffer errorStatus;

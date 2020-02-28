@@ -37,26 +37,18 @@
                 </xs:annotation>
             </xs:attribute>
 
-            <xs:attribute name="TankFileDir" type="xs:string" use="optional">
-                <xs:annotation>
-                    <xs:appinfo>
-                        <tooltip>Where the Tank (Log Request) Files are stored.</tooltip>
-                    </xs:appinfo>
-                </xs:annotation>
-            </xs:attribute>
-
             <xs:sequence>
-                <xs:element name="ESPLoggingAgent" maxOccurs="unbounded">
+                <xs:element name="LoggingManager" maxOccurs="unbounded">
                     <xs:annotation>
                         <xs:appinfo>
-                            <title>ESP Logging Agents</title>
+                            <title>ESP Logging Managers</title>
                         </xs:appinfo>
                     </xs:annotation>
                     <xs:complexType>
-                        <xs:attribute name="ESPLoggingAgent" type="esploggingagentType" use="required">
+                        <xs:attribute name="LoggingManager" type="loggingmanagerType" use="required">
                             <xs:annotation>
                                 <xs:appinfo>
-                                    <tooltip>Specifies the ESP Logging Agent.</tooltip>
+                                    <tooltip>Specifies the Logging Manager.</tooltip>
                                 </xs:appinfo>
                             </xs:annotation>
                         </xs:attribute>

@@ -64,6 +64,20 @@
           </xs:appinfo>
         </xs:annotation>
       </xs:attribute>
+      <xs:attribute name="TankFileDir" type="xs:string" use="required">
+        <xs:annotation>
+          <xs:appinfo>
+            <tooltip>Where the Tank (Log Request) Files are stored.</tooltip>
+          </xs:appinfo>
+        </xs:annotation>
+      </xs:attribute>
+      <xs:attribute name="TankFileMask" type="xs:string" use="optional">
+        <xs:annotation>
+          <xs:appinfo>
+            <tooltip>A pattern of characters and wildcards used to match tank file names.</tooltip>
+          </xs:appinfo>
+        </xs:annotation>
+      </xs:attribute>
 
       <xs:sequence>
         <xs:element name="ESPLoggingAgent" maxOccurs="unbounded">

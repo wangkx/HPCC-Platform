@@ -36,11 +36,35 @@
             </xsl:call-template>
         </xsl:variable>
         <EspService name="{$serviceName}" type="{$serviceType}" plugin="{$servicePlugin}" >
-            <xsl:if test="string(@TankFileDir) = ''">
-                <xsl:message terminate="yes">TankFileDir is undefined!</xsl:message>
-            </xsl:if>
-            <TankFileDir><xsl:value-of select="@TankFileDir"/></TankFileDir>
-            <xsl:for-each select="ESPLoggingAgent">
+            <xsl:for-each select="LoggingManager">
+                <xsl:variable name="managerName" select="@LoggingManager"/>
+                <xsl:variable name="loggingManagerNode" select="/Environment/Software/LoggingManager[@name=$managerName]"/>
+                <xsl:if test="not($loggingManagerNode)">
+                    <xsl:message terminate="yes">Invalid LoggingManager: '<xsl:value-of select="$managerName"/>'.</xsl:message>
+                </xsl:if>
+                <xsl:call-template name="LoggingManager">
+                    <xsl:with-param name="loggingManagerNode" select="$loggingManagerNode"/>
+                </xsl:call-template>
+            </xsl:for-each>  
+        </EspService>
+
+        <EspBinding name="{$bindName}" service="{$serviceName}" protocol="{$bindingNode/@protocol}" type="{$bindType}" plugin="{$servicePlugin}" netAddress="0.0.0.0" port="{$bindingNode/@port}" defaultBinding="true">
+            <xsl:call-template name="bindAuthentication">
+                <xsl:with-param name="bindingNode" select="$bindingNode"/>
+                <xsl:with-param name="authMethod" select="$authNode/@method"/>
+                <xsl:with-param name="service" select="Properties/@type"/>
+            </xsl:call-template>
+        </EspBinding>
+    </xsl:template>
+
+    <xsl:template name="LoggingManager">
+        <xsl:param name="loggingManagerNode"/>
+        <xsl:variable name="managerName" select="$loggingManagerNode/@name"/>
+
+        <LoggingAgentGroup name="{$managerName}">
+            <TankFileDir><xsl:value-of select="$loggingManagerNode/@TankFileDir"/></TankFileDir>
+            <TankFileMask><xsl:value-of select="$loggingManagerNode/@TankFileMask"/></TankFileMask>
+            <xsl:for-each select="$loggingManagerNode/ESPLoggingAgent">
                 <xsl:variable name="agentName" select="@ESPLoggingAgent"/>
                 <xsl:variable name="agentNode" select="/Environment/Software/ESPLoggingAgent[@name=$agentName]"/>
                 <xsl:variable name="wsLogServiceESPAgentNode" select="/Environment/Software/WsLogServiceESPAgent[@name=$agentName]"/>
@@ -59,14 +83,7 @@
                     </xsl:otherwise>
                 </xsl:choose>
             </xsl:for-each>
-        </EspService>
-
-        <EspBinding name="{$bindName}" service="{$serviceName}" protocol="{$bindingNode/@protocol}" type="{$bindType}" plugin="{$servicePlugin}" netAddress="0.0.0.0" port="{$bindingNode/@port}" defaultBinding="true">
-            <xsl:call-template name="bindAuthentication">
-                <xsl:with-param name="bindingNode" select="$bindingNode"/>
-                <xsl:with-param name="authMethod" select="$authNode/@method"/>
-                <xsl:with-param name="service" select="Properties/@type"/>
-            </xsl:call-template>
-        </EspBinding>
+        </LoggingAgentGroup>
     </xsl:template>
 </xsl:stylesheet>
+

@@ -33,13 +33,18 @@ public:
         : CWSDecoupledLogSoapBinding(cfg, bindname, procname, level) { };
 };
 
+struct WSDecoupledLogAgentGroup
+{
+    StringAttr name;
+    StringAttr tankFileDir, tankFileMask;
+    std::vector<IUpdateLogThread*>  loggingAgentThreads;
+};
+
 class CWSDecoupledLogEx : public CWSDecoupledLog
 {
-    StringAttr espProcess, tankFileDir;
+    StringAttr espProcess;
     IEspContainer* container;
-
-    typedef std::vector<IUpdateLogThread*> LOGGING_AGENTTHREADS;
-    LOGGING_AGENTTHREADS  loggingAgentThreads;
+    std::vector<WSDecoupledLogAgentGroup*> logGroups;
 
     IEspLogAgent* loadLoggingAgent(const char* name, const char* dll, const char* service, IPropertyTree* cfg);
     bool checkName(const char* name, StringArray& names, bool defaultValue);

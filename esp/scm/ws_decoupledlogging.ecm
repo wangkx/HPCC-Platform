@@ -24,6 +24,8 @@ ESPStruct [nil_remove] LogAgentSetting
     string AckedLogRequestFile;
     unsigned WaitSeconds;
     unsigned PendingLogBufferSize;
+    string TankFileDir;
+    string TankFileMask;
 };
 
 ESPrequest [nil_remove] GetLogAgentSettingRequest
@@ -33,7 +35,6 @@ ESPrequest [nil_remove] GetLogAgentSettingRequest
 
 ESPresponse [exceptions_inline, nil_remove, http_encode(0)] GetLogAgentSettingResponse
 {
-    string TankFileDir;
     ESParray<ESPstruct LogAgentSetting> LogAgentSettings;
     string ErrorStatus;
 };
