@@ -17,6 +17,25 @@
 
 EspInclude(common);
 
+ESPStruct [nil_remove] LogAgentGroup
+{
+    string GroupName;
+    ESParray<string> AgentNames;
+};
+
+ESPStruct [nil_remove] LogAgentStatus
+{
+    string AgentName;
+    string Status;
+};
+
+ESPStruct [nil_remove] LogAgentGroupStatus
+{
+    string GroupName;
+    string GroupStatus;
+    ESParray<ESPstruct LogAgentStatus> LogAgentStatus;
+};
+
 ESPStruct [nil_remove] LogAgentSetting
 {
     string AgentName;
@@ -24,30 +43,37 @@ ESPStruct [nil_remove] LogAgentSetting
     string AckedLogRequestFile;
     unsigned WaitSeconds;
     unsigned PendingLogBufferSize;
+    string AgentStatus;
+};
+
+ESPStruct [nil_remove] LogAgentGroupSetting
+{
+    string GroupName;
+    string GroupStatus;
     string TankFileDir;
     string TankFileMask;
+    ESParray<ESPstruct LogAgentSetting> LogAgentSetting;
 };
 
 ESPrequest [nil_remove] GetLogAgentSettingRequest
 {
-    ESParray<string> AgentNames;
+    ESParray<ESPstruct LogAgentGroup> Groups;
 };
 
 ESPresponse [exceptions_inline, nil_remove, http_encode(0)] GetLogAgentSettingResponse
 {
-    ESParray<ESPstruct LogAgentSetting> LogAgentSettings;
-    string ErrorStatus;
+    ESParray<ESPstruct LogAgentGroupSetting> Settings;
 };
 
 ESPrequest [nil_remove] PauseLogRequest
 {
-    ESParray<string> AgentNames;
+    ESParray<ESPstruct LogAgentGroup> Groups;
     bool Pause(true); //false: resume
 };
 
 ESPresponse [exceptions_inline, nil_remove, http_encode(0)] PauseLogResponse
 {
-    string ErrorStatus;
+    ESParray<ESPstruct LogAgentGroupStatus> Status;
 };
 
 ESPservice [auth_feature("NONE"), exceptions_inline("./smc_xslt/exceptions.xslt")] WSDecoupledLog

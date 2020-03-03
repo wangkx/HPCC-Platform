@@ -33,22 +33,34 @@ public:
         : CWSDecoupledLogSoapBinding(cfg, bindname, procname, level) { };
 };
 
-struct WSDecoupledLogAgentGroup
+class WSDecoupledLogAgentGroup : public CSimpleInterfaceOf<IInterface>
 {
     StringAttr name;
     StringAttr tankFileDir, tankFileMask;
-    std::vector<IUpdateLogThread*>  loggingAgentThreads;
+    std::map<std::string, Owned<IUpdateLogThread>> loggingAgentThreads;
+
+public:
+    WSDecoupledLogAgentGroup(const char* _name, const char* _tankFileDir, const char* _tankFileMask)
+        : name(_name), tankFileDir(_tankFileDir), tankFileMask(_tankFileMask) {}
+
+    const char* getName() { return name.get(); }
+    const char* getTankFileDir() { return tankFileDir.get(); }
+    const char* getTankFileMask() { return tankFileMask.get(); }
+
+    std::map<std::string, Owned<IUpdateLogThread>>& getLoggingAgentThreads() { return loggingAgentThreads; }
+    void addLoggingAgentThread(const char* name, IUpdateLogThread* thread) { loggingAgentThreads.insert({name, thread}); }
+    IUpdateLogThread* getLoggingAgentThread(const char* name);
 };
 
 class CWSDecoupledLogEx : public CWSDecoupledLog
 {
     StringAttr espProcess;
     IEspContainer* container;
-    std::vector<WSDecoupledLogAgentGroup*> logGroups;
+    std::map<std::string, Owned<WSDecoupledLogAgentGroup>> logGroups;
 
     IEspLogAgent* loadLoggingAgent(const char* name, const char* dll, const char* service, IPropertyTree* cfg);
-    bool checkName(const char* name, StringArray& names, bool defaultValue);
-    void checkLogAgentInList(StringArray& namesToCheck, BoolHash& namesFound, StringBuffer& status);
+    void pauseAllLoggingAgentsInGroup(WSDecoupledLogAgentGroup* group, bool pause, IArrayOf<IEspLogAgentStatus>& agentStatusResp);
+    void getSettingsForAllLoggingAgentsInGroup(WSDecoupledLogAgentGroup* group, IArrayOf<IEspLogAgentSetting>& agentSettingResp);
 
 public:
     IMPLEMENT_IINTERFACE;

@@ -62,8 +62,8 @@
         <xsl:variable name="managerName" select="$loggingManagerNode/@name"/>
 
         <LoggingAgentGroup name="{$managerName}">
-            <TankFileDir><xsl:value-of select="$loggingManagerNode/@TankFileDir"/></TankFileDir>
-            <TankFileMask><xsl:value-of select="$loggingManagerNode/@TankFileMask"/></TankFileMask>
+            <FailSafeLogsDir><xsl:value-of select="$loggingManagerNode/@FailSafeLogsDir"/></FailSafeLogsDir>
+            <FailSafeLogsMask><xsl:value-of select="$loggingManagerNode/@FailSafeLogsMask"/></FailSafeLogsMask>
             <xsl:for-each select="$loggingManagerNode/ESPLoggingAgent">
                 <xsl:variable name="agentName" select="@ESPLoggingAgent"/>
                 <xsl:variable name="agentNode" select="/Environment/Software/ESPLoggingAgent[@name=$agentName]"/>

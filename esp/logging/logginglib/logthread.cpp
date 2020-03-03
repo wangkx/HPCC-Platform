@@ -34,6 +34,7 @@ const char* const PropDefaultAckedLogRequests = "AckedLogRequests";
 const char* const PropPendingLogBufferSize = "PendingLogBufferSize";
 const char* const PropReadRequestWaitingSeconds = "ReadRequestWaitingSeconds";
 const char* const sendLogKeyword = "_sending_";
+const unsigned sendLogKeywordLen = strlen(sendLogKeyword);
 const unsigned dateTimeStringLength = 19; //yyyy_mm_dd_hh_mm_ss
 
 #define     MaxLogQueueLength   500000 //Write a warning into log when queue length is greater than 500000
@@ -623,7 +624,10 @@ void CLogRequestReader::readAcked(const char* fileName, std::set<std::string>& a
                 unsigned len = line.length();
                 if ((len > 1) && (line.charAt(len - 2) == '\r') && (line.charAt(len - 1) == '\n'))
                     line.setLength(len - 2); //remove \r\n
-                acked.insert(line.str());
+                else if ((len > 0) && ((line.charAt(len - 1) == '\r') || (line.charAt(len - 1) == '\n')))
+                    line.setLength(len - 1); //remove \r or \n
+                if (line.length() > 0) //Check just in case
+                    acked.insert(line.str());
                 PROGLOG("Found Acked %s from %s", line.str(), fileName);
             }
         }
@@ -710,7 +714,7 @@ StringBuffer& CLogRequestReader::getTankFileTimeString(const char* fileName, Str
     if (!ptr)
         return timeString;
 
-    ptr += strlen(sendLogKeyword);
+    ptr += sendLogKeywordLen;
     if (!ptr)
         return timeString;
 
@@ -788,15 +792,15 @@ bool CLogRequestReader::parseLogRequest(MemoryBuffer& rawdata, StringBuffer& GUI
 
     const char* ptr = begin;
     const char* end = begin + len;
-    while ((*ptr != '\t') && (ptr < end))
+    while ((ptr < end) && (*ptr != '\t'))
         ptr++;
 
-    if (ptr == begin)
+    if ((ptr == end) || (ptr == begin))
         return false;
 
     GUID.append(ptr - begin, begin);
 
-    if ((++ptr >= end))
+    if ((++ptr == end))
         return false;
 
     logLine.append(end - ptr, ptr);

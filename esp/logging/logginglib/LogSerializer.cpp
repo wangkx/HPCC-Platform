@@ -32,7 +32,7 @@
 #define TRACE_INTERVAL 100
 
 const unsigned lineIDStringLength = 8; //line ID: 00009902
-const unsigned lineIDBufferSize = 9; //line ID: 00009902
+const unsigned lineIDBufferSize = lineIDStringLength + 1; //line ID: 00009902
 
 CLogSerializer::CLogSerializer()
 {
@@ -186,13 +186,13 @@ bool CLogSerializer::readALogLine(IFileIO* fileIO, offset_t& readPos, MemoryBuff
     char dataSize[lineIDBufferSize];
     memset(dataSize, 0, lineIDBufferSize);
     size32_t bytesRead = fileIO->read(readPos, lineIDStringLength, dataSize);
-    if (bytesRead == 0)
+    if (bytesRead < lineIDStringLength)
         return false;
 
     int dataLength = atoi(dataSize);
     readPos += lineIDBufferSize;
     bytesRead = fileIO->read(readPos, dataLength, data.reserveTruncate(dataLength));
-    if (bytesRead == 0)
+    if (bytesRead < dataLength)
         return false;
 
     readPos += dataLength;
