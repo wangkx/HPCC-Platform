@@ -33,7 +33,7 @@ ESPStruct [nil_remove] LogAgentGroupStatus
 {
     string GroupName;
     string GroupStatus;
-    ESParray<ESPstruct LogAgentStatus> LogAgentStatus;
+    ESParray<ESPstruct LogAgentStatus> AgentStatuses;
 };
 
 ESPStruct [nil_remove] LogAgentSetting
@@ -52,7 +52,7 @@ ESPStruct [nil_remove] LogAgentGroupSetting
     string GroupStatus;
     string TankFileDir;
     string TankFileMask;
-    ESParray<ESPstruct LogAgentSetting> LogAgentSetting;
+    ESParray<ESPstruct LogAgentSetting> AgentSettings;
 };
 
 ESPrequest [nil_remove] GetLogAgentSettingRequest
@@ -73,7 +73,7 @@ ESPrequest [nil_remove] PauseLogRequest
 
 ESPresponse [exceptions_inline, nil_remove, http_encode(0)] PauseLogResponse
 {
-    ESParray<ESPstruct LogAgentGroupStatus> Status;
+    ESParray<ESPstruct LogAgentGroupStatus> Statuses;
 };
 
 ESPservice [auth_feature("NONE"), exceptions_inline("./smc_xslt/exceptions.xslt")] WSDecoupledLog

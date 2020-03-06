@@ -59,7 +59,11 @@ class CWSDecoupledLogEx : public CWSDecoupledLog
     std::map<std::string, Owned<WSDecoupledLogAgentGroup>> logGroups;
 
     IEspLogAgent* loadLoggingAgent(const char* name, const char* dll, const char* service, IPropertyTree* cfg);
+    void pauseLoggingAgentsInGroup(WSDecoupledLogAgentGroup* group, StringArray* agentNames, bool pause,
+        IArrayOf<IEspLogAgentGroupStatus>& groupStatusResp);
     void pauseAllLoggingAgentsInGroup(WSDecoupledLogAgentGroup* group, bool pause, IArrayOf<IEspLogAgentStatus>& agentStatusResp);
+    void getSettingsForLoggingAgentsInGroup(WSDecoupledLogAgentGroup* group, StringArray* agentNames,
+        IArrayOf<IEspLogAgentGroupSetting>& groupSettingResp);
     void getSettingsForAllLoggingAgentsInGroup(WSDecoupledLogAgentGroup* group, IArrayOf<IEspLogAgentSetting>& agentSettingResp);
 
 public:

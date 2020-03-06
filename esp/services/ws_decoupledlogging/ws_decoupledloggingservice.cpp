@@ -61,7 +61,7 @@ void CWSDecoupledLogEx::init(IPropertyTree* cfg, const char* process, const char
 
         const char* tankFileDir = agentGroupTree.queryProp("FailSafeLogsDir");
         if (isEmptyString(tankFileDir))
-            throw MakeStringException(-1, "Can't initialize CWSDecoupledLogEx, FailSafeLogsDir is NULL fo LoggingAgentGroup %s", groupName);
+            throw MakeStringException(-1, "Can't initialize CWSDecoupledLogEx, FailSafeLogsDir is NULL for LoggingAgentGroup %s", groupName);
 
         Owned<WSDecoupledLogAgentGroup> group = new WSDecoupledLogAgentGroup(groupName, tankFileDir, agentGroupTree.queryProp("FailSafeLogsMask"));
         Owned<IPTreeIterator> loggingAgentSettings = agentGroupTree.getElements("LogAgent");
@@ -107,95 +107,31 @@ bool CWSDecoupledLogEx::onGetLogAgentSetting(IEspContext& context, IEspGetLogAge
         if (!groups.ordinality())
         {
             for (auto ml : logGroups)
-            {
-                IArrayOf<IEspLogAgentSetting> agentSettingResp;
-                getSettingsForAllLoggingAgentsInGroup(ml.second, agentSettingResp);
-
-                Owned<IEspLogAgentGroupSetting> groupSetting = createLogAgentGroupSetting();
-                groupSetting->setGroupName(ml.first.c_str());
-                groupSetting->setGroupStatus("Found");
-                const char* tankFileDir = ml.second->getTankFileDir();
-                const char* tankFileMask = ml.second->getTankFileMask();
-                groupSetting->setTankFileDir(tankFileDir);
-                if (!isEmptyString(tankFileMask))
-                    groupSetting->setTankFileMask(tankFileMask);
-                groupSetting->setLogAgentSetting(agentSettingResp);
-                groupSettingResp.append(*groupSetting.getClear());
-            }
-            resp.setSettings(groupSettingResp);
-            return true;
+                getSettingsForLoggingAgentsInGroup(ml.second, nullptr, groupSettingResp);
         }
-
-        ForEachItemIn(i, groups)
+        else
         {
-            IConstLogAgentGroup& g = groups.item(i);
-            const char* gName = g.getGroupName();
-            if (isEmptyString(gName))
-                throw MakeStringException(ECLWATCH_INVALID_INPUT, "Group name not specified.");
-    
-            Owned<IEspLogAgentGroupSetting> groupSetting = createLogAgentGroupSetting();
-            groupSetting->setGroupName(gName);
-    
-            auto match = logGroups.find(gName);
-            if (match == logGroups.end())
+            ForEachItemIn(i, groups)
             {
-                groupSetting->setGroupStatus("NotFound");
-                groupSettingResp.append(*groupSetting.getClear());
-                continue;
-            }
+                IConstLogAgentGroup& g = groups.item(i);
+                const char* gName = g.getGroupName();
+                if (isEmptyString(gName))
+                    throw MakeStringException(ECLWATCH_INVALID_INPUT, "Group name not specified.");
 
-            groupSetting->setGroupStatus("Found");
-            const char* tankFileDir = match->second->getTankFileDir();
-            const char* tankFileMask = match->second->getTankFileMask();
-            groupSetting->setTankFileDir(tankFileDir);
-            if (!isEmptyString(tankFileMask))
-                groupSetting->setTankFileMask(tankFileMask);
-
-            IArrayOf<IEspLogAgentSetting> agentSettingResp;
-            StringArray& agentNames = g.getAgentNames();
-            if (!agentNames.ordinality())
-            {
-                getSettingsForAllLoggingAgentsInGroup(match->second, agentSettingResp);
-                groupSetting->setLogAgentSetting(agentSettingResp);
-                groupSettingResp.append(*groupSetting.getClear());
-                continue;
-            }
-
-            ForEachItemIn(j, agentNames)
-            {
-                const char* agentName = agentNames.item(j);
-                if (isEmptyString(agentName))
-                    throw MakeStringException(ECLWATCH_INVALID_INPUT, "%s: logging agent name not specified.", gName);
-
-                Owned<IEspLogAgentSetting> agentSetting = createLogAgentSetting();
-                agentSetting->setAgentName(agentName);
-        
-                IUpdateLogThread* agentThread = match->second->getLoggingAgentThread(agentName);
-                if (!agentThread)
+                auto match = logGroups.find(gName);
+                if (match != logGroups.end())
                 {
-                    agentSetting->setAgentStatus("AgentNotFound");
-                    agentSettingResp.append(*agentSetting.getClear());
-                    continue;
+                    StringArray& agentNames = g.getAgentNames();
+                    getSettingsForLoggingAgentsInGroup(match->second, &agentNames, groupSettingResp);
                 }
-
-                CLogRequestReaderSettings* settings = agentThread->getLogRequestReader()->getSettings();
-                if (!settings)
+                else
                 {
-                    agentSetting->setAgentStatus("SettingsNotFound");
-                    agentSettingResp.append(*agentSetting.getClear());
-                    continue;
+                    Owned<IEspLogAgentGroupSetting> groupSetting = createLogAgentGroupSetting();
+                    groupSetting->setGroupName(gName);
+                    groupSetting->setGroupStatus("NotFound");
+                    groupSettingResp.append(*groupSetting.getClear());
                 }
-
-                agentSetting->setAgentStatus("Found");
-                agentSetting->setAckedFileList(settings->ackedFileList);
-                agentSetting->setAckedLogRequestFile(settings->ackedLogRequestFile);
-                agentSetting->setWaitSeconds(settings->waitSeconds);
-                agentSetting->setPendingLogBufferSize(settings->pendingLogBufferSize);
-
-                agentSettingResp.append(*agentSetting.getClear());
             }
-            groupSetting->setLogAgentSetting(agentSettingResp);
-            groupSettingResp.append(*groupSetting.getClear());
         }
         resp.setSettings(groupSettingResp);
     }
@@ -216,82 +152,129 @@ bool CWSDecoupledLogEx::onPauseLog(IEspContext& context, IEspPauseLogRequest& re
         if (!groups.ordinality())
         {
             for (auto ml : logGroups)
-            {
-                IArrayOf<IEspLogAgentStatus> agentStatusResp;
-                pauseAllLoggingAgentsInGroup(ml.second, pause, agentStatusResp);
-
-                Owned<IEspLogAgentGroupStatus> groupStatus = createLogAgentGroupStatus();
-                groupStatus->setGroupName(ml.first.c_str());
-                groupStatus->setGroupStatus("Found");
-                groupStatus->setLogAgentStatus(agentStatusResp);
-                groupStatusResp.append(*groupStatus.getClear());
-            }
-            resp.setStatus(groupStatusResp);
-            return true;
+                pauseLoggingAgentsInGroup(ml.second, nullptr, pause, groupStatusResp);
         }
-
-        ForEachItemIn(i, groups)
+        else
         {
-            IConstLogAgentGroup& g = groups.item(i);
-            const char* gName = g.getGroupName();
-            if (isEmptyString(gName))
-                throw MakeStringException(ECLWATCH_INVALID_INPUT, "Group name not specified.");
-    
-            Owned<IEspLogAgentGroupStatus> groupStatus = createLogAgentGroupStatus();
-            groupStatus->setGroupName(gName);
-    
-            auto match = logGroups.find(gName);
-            if (match == logGroups.end())
+            ForEachItemIn(i, groups)
             {
-                groupStatus->setGroupStatus("NotFound");
-                groupStatusResp.append(*groupStatus.getClear());
-                continue;
-            }
+                IConstLogAgentGroup& g = groups.item(i);
+                const char* gName = g.getGroupName();
+                if (isEmptyString(gName))
+                    throw MakeStringException(ECLWATCH_INVALID_INPUT, "Group name not specified.");
 
-            groupStatus->setGroupStatus("Found");
-
-            IArrayOf<IEspLogAgentStatus> agentStatusResp;
-            StringArray& agentNames = g.getAgentNames();
-            if (!agentNames.ordinality())
-            {
-                pauseAllLoggingAgentsInGroup(match->second, pause, agentStatusResp);
-                groupStatus->setLogAgentStatus(agentStatusResp);
-                groupStatusResp.append(*groupStatus.getClear());
-                continue;
-            }
-
-            ForEachItemIn(j, agentNames)
-            {
-                const char* agentName = agentNames.item(j);
-                if (isEmptyString(agentName))
-                    throw MakeStringException(ECLWATCH_INVALID_INPUT, "%s: logging agent name not specified.", gName);
-
-                Owned<IEspLogAgentStatus> agentStatus = createLogAgentStatus();
-                agentStatus->setAgentName(agentName);
-        
-                IUpdateLogThread* agentThread = match->second->getLoggingAgentThread(agentName);
-                if (agentThread)
+                auto match = logGroups.find(gName);
+                if (match != logGroups.end())
                 {
-                    agentThread->getLogRequestReader()->setPause(pause);
-                    agentStatus->setStatus(pause ? "Pausing" : "Resuming");
+                    StringArray& agentNames = g.getAgentNames();
+                    pauseLoggingAgentsInGroup(match->second, &agentNames, pause, groupStatusResp);
                 }
                 else
                 {
-                    agentStatus->setStatus("NotFound");
+                    Owned<IEspLogAgentGroupStatus> groupStatus = createLogAgentGroupStatus();
+                    groupStatus->setGroupName(gName);
+                    groupStatus->setGroupStatus("NotFound");
+                    groupStatusResp.append(*groupStatus.getClear());
                 }
-
-                agentStatusResp.append(*agentStatus.getClear());
             }
-            groupStatus->setLogAgentStatus(agentStatusResp);
-            groupStatusResp.append(*groupStatus.getClear());
         }
-        resp.setStatus(groupStatusResp);
+        resp.setStatuses(groupStatusResp);
     }
     catch(IException* e)
     {
         FORWARDEXCEPTION(context, e, ECLWATCH_INTERNAL_ERROR);
     }
     return true;
+}
+
+void CWSDecoupledLogEx::getSettingsForLoggingAgentsInGroup(WSDecoupledLogAgentGroup* group, StringArray* agentNames,
+    IArrayOf<IEspLogAgentGroupSetting>& groupSettingResp)
+{
+    IArrayOf<IEspLogAgentSetting> agentSettingResp;
+    if (!agentNames || !agentNames->ordinality())
+        getSettingsForAllLoggingAgentsInGroup(group, agentSettingResp);
+    else
+    {
+        ForEachItemIn(j, *agentNames)
+        {
+            const char* agentName = agentNames->item(j);
+            if (isEmptyString(agentName))
+                throw MakeStringException(ECLWATCH_INVALID_INPUT, "%s: logging agent name not specified.", group->getName());
+
+            Owned<IEspLogAgentSetting> agentSetting = createLogAgentSetting();
+            agentSetting->setAgentName(agentName);
+
+            IUpdateLogThread* agentThread = group->getLoggingAgentThread(agentName);
+            if (!agentThread)
+                agentSetting->setAgentStatus("NotFound");
+            else
+            {
+                CLogRequestReaderSettings* settings = agentThread->getLogRequestReader()->getSettings();
+                if (!settings)
+                    agentSetting->setAgentStatus("SettingsNotFound");
+                else
+                {
+                    agentSetting->setAgentStatus("Found");
+                    agentSetting->setAckedFileList(settings->ackedFileList);
+                    agentSetting->setAckedLogRequestFile(settings->ackedLogRequestFile);
+                    agentSetting->setWaitSeconds(settings->waitSeconds);
+                    agentSetting->setPendingLogBufferSize(settings->pendingLogBufferSize);
+                }
+            }
+
+            agentSettingResp.append(*agentSetting.getClear());
+        }
+    }
+
+    Owned<IEspLogAgentGroupSetting> groupSetting = createLogAgentGroupSetting();
+    groupSetting->setGroupName(group->getName());
+    groupSetting->setGroupStatus("Found");
+    const char* tankFileDir = group->getTankFileDir();
+    const char* tankFileMask = group->getTankFileMask();
+    groupSetting->setTankFileDir(tankFileDir);
+    if (!isEmptyString(tankFileMask))
+        groupSetting->setTankFileMask(tankFileMask);
+    groupSetting->setAgentSettings(agentSettingResp);
+    groupSettingResp.append(*groupSetting.getClear());
+}
+
+void CWSDecoupledLogEx::pauseLoggingAgentsInGroup(WSDecoupledLogAgentGroup* group, StringArray* agentNames, bool pause,
+    IArrayOf<IEspLogAgentGroupStatus>& groupStatusResp)
+{
+    IArrayOf<IEspLogAgentStatus> agentStatusResp;
+    if (!agentNames || !agentNames->ordinality())
+        pauseAllLoggingAgentsInGroup(group, pause, agentStatusResp);
+    else
+    {
+        ForEachItemIn(j, *agentNames)
+        {
+            const char* agentName = agentNames->item(j);
+            if (isEmptyString(agentName))
+                throw MakeStringException(ECLWATCH_INVALID_INPUT, "%s: logging agent name not specified.", group->getName());
+
+            Owned<IEspLogAgentStatus> agentStatus = createLogAgentStatus();
+            agentStatus->setAgentName(agentName);
+
+            IUpdateLogThread* agentThread = group->getLoggingAgentThread(agentName);
+            if (agentThread)
+            {
+                agentThread->getLogRequestReader()->setPause(pause);
+                agentStatus->setStatus(pause ? "Pausing" : "Resuming");
+            }
+            else
+            {
+                agentStatus->setStatus("NotFound");
+            }
+
+            agentStatusResp.append(*agentStatus.getClear());
+        }
+    }
+
+    Owned<IEspLogAgentGroupStatus> groupStatus = createLogAgentGroupStatus();
+    groupStatus->setGroupName(group->getName());
+    groupStatus->setGroupStatus("Found");
+    groupStatus->setAgentStatuses(agentStatusResp);
+    groupStatusResp.append(*groupStatus.getClear());
 }
 
 void CWSDecoupledLogEx::pauseAllLoggingAgentsInGroup(WSDecoupledLogAgentGroup* group, bool pause, IArrayOf<IEspLogAgentStatus>& agentStatusResp)
@@ -328,6 +311,9 @@ void CWSDecoupledLogEx::getSettingsForAllLoggingAgentsInGroup(WSDecoupledLogAgen
 
 IUpdateLogThread* WSDecoupledLogAgentGroup::getLoggingAgentThread(const char* name)
 {
+    if (isEmptyString(name))
+        return nullptr;
+
     auto match = loggingAgentThreads.find(name);
     if (match == loggingAgentThreads.end())
         return nullptr;
