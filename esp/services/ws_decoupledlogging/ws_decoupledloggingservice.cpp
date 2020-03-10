@@ -201,28 +201,7 @@ void CWSDecoupledLogEx::getSettingsForLoggingAgentsInGroup(WSDecoupledLogAgentGr
             if (isEmptyString(agentName))
                 throw MakeStringException(ECLWATCH_INVALID_INPUT, "%s: logging agent name not specified.", group->getName());
 
-            Owned<IEspLogAgentSetting> agentSetting = createLogAgentSetting();
-            agentSetting->setAgentName(agentName);
-
-            IUpdateLogThread* agentThread = group->getLoggingAgentThread(agentName);
-            if (!agentThread)
-                agentSetting->setAgentStatus("NotFound");
-            else
-            {
-                CLogRequestReaderSettings* settings = agentThread->getLogRequestReader()->getSettings();
-                if (!settings)
-                    agentSetting->setAgentStatus("SettingsNotFound");
-                else
-                {
-                    agentSetting->setAgentStatus("Found");
-                    agentSetting->setAckedFileList(settings->ackedFileList);
-                    agentSetting->setAckedLogRequestFile(settings->ackedLogRequestFile);
-                    agentSetting->setWaitSeconds(settings->waitSeconds);
-                    agentSetting->setPendingLogBufferSize(settings->pendingLogBufferSize);
-                }
-            }
-
-            agentSettingResp.append(*agentSetting.getClear());
+            getLoggingAgentSettings(agentName, group->getLoggingAgentThread(agentName), agentSettingResp);
         }
     }
 
@@ -252,21 +231,7 @@ void CWSDecoupledLogEx::pauseLoggingAgentsInGroup(WSDecoupledLogAgentGroup* grou
             if (isEmptyString(agentName))
                 throw MakeStringException(ECLWATCH_INVALID_INPUT, "%s: logging agent name not specified.", group->getName());
 
-            Owned<IEspLogAgentStatus> agentStatus = createLogAgentStatus();
-            agentStatus->setAgentName(agentName);
-
-            IUpdateLogThread* agentThread = group->getLoggingAgentThread(agentName);
-            if (agentThread)
-            {
-                agentThread->getLogRequestReader()->setPause(pause);
-                agentStatus->setStatus(pause ? "Pausing" : "Resuming");
-            }
-            else
-            {
-                agentStatus->setStatus("NotFound");
-            }
-
-            agentStatusResp.append(*agentStatus.getClear());
+            pauseLoggingAgent(agentName, group->getLoggingAgentThread(agentName), pause, agentStatusResp);
         }
     }
 
@@ -281,32 +246,53 @@ void CWSDecoupledLogEx::pauseAllLoggingAgentsInGroup(WSDecoupledLogAgentGroup* g
 {
     std::map<std::string, Owned<IUpdateLogThread>>&  agentThreadMap = group->getLoggingAgentThreads();
     for (auto mt : agentThreadMap)
-    {
-        mt.second->getLogRequestReader()->setPause(pause);
+        pauseLoggingAgent(mt.first.c_str(), mt.second, pause, agentStatusResp);
+}
 
-        Owned<IEspLogAgentStatus> agentStatus = createLogAgentStatus();
-        agentStatus->setAgentName(mt.first.c_str());
+void CWSDecoupledLogEx::pauseLoggingAgent(const char* agentName, IUpdateLogThread* agentThread, bool pause, IArrayOf<IEspLogAgentStatus>& agentStatusResp)
+{
+    Owned<IEspLogAgentStatus> agentStatus = createLogAgentStatus();
+    agentStatus->setAgentName(agentName);
+
+    if (!agentThread)
+        agentStatus->setStatus("NotFound");
+    else
+    {
+        agentThread->getLogRequestReader()->setPause(pause);
         agentStatus->setStatus(pause ? "Pausing" : "Resuming");
-        agentStatusResp.append(*agentStatus.getClear());
     }
+    agentStatusResp.append(*agentStatus.getClear());
 }
 
 void CWSDecoupledLogEx::getSettingsForAllLoggingAgentsInGroup(WSDecoupledLogAgentGroup* group, IArrayOf<IEspLogAgentSetting>& agentSettingResp)
 {
     std::map<std::string, Owned<IUpdateLogThread>>&  agentThreadMap = group->getLoggingAgentThreads();
     for (auto mt : agentThreadMap)
-    {
-        CLogRequestReaderSettings* settings = mt.second->getLogRequestReader()->getSettings();
+        getLoggingAgentSettings(mt.first.c_str(), mt.second, agentSettingResp);
+}
 
-        Owned<IEspLogAgentSetting> agentSetting = createLogAgentSetting();
-        agentSetting->setAgentName(mt.first.c_str());
-        agentSetting->setAgentStatus("Found");
-        agentSetting->setAckedFileList(settings->ackedFileList);
-        agentSetting->setAckedLogRequestFile(settings->ackedLogRequestFile);
-        agentSetting->setWaitSeconds(settings->waitSeconds);
-        agentSetting->setPendingLogBufferSize(settings->pendingLogBufferSize);
-        agentSettingResp.append(*agentSetting.getClear());
+void CWSDecoupledLogEx::getLoggingAgentSettings(const char* agentName, IUpdateLogThread* agentThread, IArrayOf<IEspLogAgentSetting>& agentSettingResp)
+{
+    Owned<IEspLogAgentSetting> agentSetting = createLogAgentSetting();
+    agentSetting->setAgentName(agentName);
+
+    if (!agentThread)
+        agentSetting->setAgentStatus("NotFound");
+    else
+    {
+        CLogRequestReaderSettings* settings = agentThread->getLogRequestReader()->getSettings();
+        if (!settings)
+            agentSetting->setAgentStatus("SettingsNotFound");
+        else
+        {
+            agentSetting->setAgentStatus("Found");
+            agentSetting->setAckedFileList(settings->ackedFileList);
+            agentSetting->setAckedLogRequestFile(settings->ackedLogRequestFile);
+            agentSetting->setWaitSeconds(settings->waitSeconds);
+            agentSetting->setPendingLogBufferSize(settings->pendingLogBufferSize);
+        }
     }
+    agentSettingResp.append(*agentSetting.getClear());
 }
 
 IUpdateLogThread* WSDecoupledLogAgentGroup::getLoggingAgentThread(const char* name)

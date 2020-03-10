@@ -65,6 +65,8 @@ class CWSDecoupledLogEx : public CWSDecoupledLog
     void getSettingsForLoggingAgentsInGroup(WSDecoupledLogAgentGroup* group, StringArray* agentNames,
         IArrayOf<IEspLogAgentGroupSetting>& groupSettingResp);
     void getSettingsForAllLoggingAgentsInGroup(WSDecoupledLogAgentGroup* group, IArrayOf<IEspLogAgentSetting>& agentSettingResp);
+    void pauseLoggingAgent(const char* agentName, IUpdateLogThread* agentThread, bool pause, IArrayOf<IEspLogAgentStatus>& agentStatusResp);
+    void getLoggingAgentSettings(const char* agentName, IUpdateLogThread* agentThread, IArrayOf<IEspLogAgentSetting>& agentSettingResp);
 
 public:
     IMPLEMENT_IINTERFACE;
