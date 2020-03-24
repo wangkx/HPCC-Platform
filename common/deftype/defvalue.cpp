@@ -2063,21 +2063,21 @@ unsigned RealValue::getHash(unsigned initval)
 
 const char *RealValue::generateECL(StringBuffer &s)
 {
-    if (isinf(val))
+    /*if (isinf(val))
         return s.append("Std.Math.INFINITY");
     else if (isnan(val))
         return s.append("Std.Math.NaN");
-    else
+    else*/
         return getStringValue(s);
 }
 
 const char *RealValue::generateCPP(StringBuffer &s, CompilerType compiler)
 {
-    if (isinf(val))
+    /*if (isinf(val))
         return s.append("rtlCreateRealInf()");
     else if (isnan(val))
         return s.append("rtlCreateRealNull()");
-    else
+    else*/
         return getStringValue(s);
 }
 

@@ -4869,8 +4869,8 @@ ECLRTL_API double rtlFMod(double numer, double denom, byte dbz)
 
 ECLRTL_API bool rtlFMatch(double a, double b, double epsilon)
 {
-    if (isnan(a) || isnan(b))
-        return false;
+    /*if (isnan(a) || isnan(b))
+        return false;*/
     return fabs(a-b) <= epsilon;
 }
 
@@ -4933,15 +4933,15 @@ double rtlCreateRealInf()
 
 bool rtlIsInfinite(double value)
 {
-    return isinf(value);
+    return true;//isinf(value);
 }
 bool rtlIsNaN(double value)
 {
-    return isnan(value);
+    return true;//isnan(value);
 }
 bool rtlIsFinite(double value)
 {
-    return isfinite(value);
+    return true;//isfinite(value);
 }
 
 
