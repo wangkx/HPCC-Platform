@@ -13715,27 +13715,6 @@ bool isValidMemoryValue(const char *memoryUnit)
     }
     return false;
 }
-
-extern WORKUNIT_API IWorkUnit * importWorkunitFromZAPFile(const char *zapReportFileName, const char *zapReportFilePath,
-    const char *zapReportPassword, const char *component, const char *instance, const char *app, const char *user,
-    ISecManager *secMgr, ISecUser *secUser)
-{
-    if (isEmptyString(zapReportFileName))
-        throw MakeStringException(WUERR_InvalidUserInput, "Empty ZAP report name");
-    if (isEmptyString(component))
-        throw MakeStringException(WUERR_InvalidUserInput, "Empty Component name");
-    if (isEmptyString(instance))
-        throw MakeStringException(WUERR_InvalidUserInput, "Empty Instance name");
-
-    Owned<IEnvironmentFactory> envFactory = getEnvironmentFactory(true);
-    Owned<IConstEnvironment> env = envFactory->openEnvironment();
-    Owned<IPropertyTree> root = &env->getPTree();
-
-    Owned<IWorkUnitFactory> wuFactory = getWorkUnitFactory();
-    return wuFactory->importWorkUnit(zapReportFileName, zapReportFilePath, zapReportPassword,
-        root->queryPropTree("Software/Directories"), component, instance, app, user, secMgr, secUser);
-}
-
 #ifdef _CONTAINERIZED
 
 static void setResources(StringBuffer &jobYaml, const IConstWorkUnit *workunit, const char *process)

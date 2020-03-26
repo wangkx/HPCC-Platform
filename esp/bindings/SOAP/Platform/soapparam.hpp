@@ -912,7 +912,8 @@ public:
     SoapEnumParamNew(enumtype defvalue_)
     {
         defvalue = defvalue_;
-        value = (enumtype)-1;
+        //value = (enumtype)-1;
+        value = defvalue;
         count_ = 0;
     }
 
@@ -926,6 +927,7 @@ public:
                 throw MakeStringException(-1, "Invalid value for type %s: %s", typeName_.get(), s);
             else
                 defvalue = (enumtype)tempval;
+            value = defvalue;
         }
     }
 
