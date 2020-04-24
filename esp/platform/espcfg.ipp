@@ -29,6 +29,7 @@
 #include "daclient.hpp"
 #include "environment.hpp"
 #include <dalienv.hpp>
+#include "espcontext.hpp"
 
 #include "bindutil.hpp"
 
@@ -157,6 +158,9 @@ private:
     bool m_detachedFromDali = false;
     bool m_subscribedToDali = false;
     StringBuffer m_daliAttachStateFileName;
+    bool sdsSessionEnsured = false;
+    bool sdsSessionNeeded = false;
+    int  serverSessionTimeoutSeconds = 120 * ESP_SESSION_TIMEOUT;//2 x clientSessionTimeoutSeconds
 
 private:
     CEspConfig(CEspConfig &);
@@ -233,8 +237,9 @@ public:
 
     const SocketEndpoint &getLocalEndpoint(){return m_address;}
 
-    void ensureESPSessionInTree(IPropertyTree* sessionRoot, const char* procName);
-    void ensureSDSSessionDomains();
+    void readSessionDomainsSetting();
+    void ensureSDSSessionApplications(IPropertyTree* espSession);
+    void ensureSDSSession();
 
     void loadProtocols();
     void loadServices();

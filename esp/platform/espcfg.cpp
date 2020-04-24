@@ -33,7 +33,6 @@
 #include "espplugin.ipp"
 #include "espcfg.ipp"
 #include "xslprocessor.hpp" 
-#include "espcontext.hpp"
 #include "mplog.hpp"
 #include "rmtfile.hpp"
 
@@ -120,38 +119,48 @@ int CSessionCleaner::run()
         PROGLOG("CSessionCleaner Thread started.");
 
         VStringBuffer xpath("%s*", PathSessionSession);
-        int checkSessionTimeoutMillSeconds = checkSessionTimeoutSeconds * 1000;
+        int checkSessionTimeoutMilliseconds = checkSessionTimeoutSeconds * 1000;
         while(!stopping)
         {
             if (!m_isDetached)
             {
-                Owned<IRemoteConnection> conn = querySDS().connect(espSessionSDSPath.get(), myProcessSession(), RTM_LOCK_WRITE, SESSION_SDS_LOCK_TIMEOUT);
-                if (!conn)
-                    throw MakeStringException(-1, "Failed to connect to %s.", PathSessionRoot);
-
-                CDateTime now;
-                now.setNow();
-                time_t timeNow = now.getSimple();
-
-                Owned<IPropertyTreeIterator> iter1 = conn->queryRoot()->getElements(PathSessionApplication);
-                ForEach(*iter1)
+                try
                 {
-                    ICopyArrayOf<IPropertyTree> toRemove;
-                    Owned<IPropertyTreeIterator> iter2 = iter1->query().getElements(xpath.str());
-                    ForEach(*iter2)
-                    {
-                        IPropertyTree& item = iter2->query();
-                        if (timeNow >= item.getPropInt64(PropSessionTimeoutAt, 0))
-                            toRemove.append(item);
-                    }
+                    Owned<IRemoteConnection> conn = querySDS().connect(espSessionSDSPath.get(), myProcessSession(), RTM_LOCK_WRITE, SESSION_SDS_LOCK_TIMEOUT);
+                    if (!conn)
+                        throw MakeStringException(-1, "Failed to connect to %s.", PathSessionRoot);
 
-                    ForEachItemIn(i, toRemove)
+                    CDateTime now;
+                    now.setNow();
+                    time_t timeNow = now.getSimple();
+
+                    Owned<IPropertyTreeIterator> iter1 = conn->queryRoot()->getElements(PathSessionApplication);
+                    ForEach(*iter1)
                     {
-                        iter1->query().removeTree(&toRemove.item(i));
+                        ICopyArrayOf<IPropertyTree> toRemove;
+                        Owned<IPropertyTreeIterator> iter2 = iter1->query().getElements(xpath.str());
+                        ForEach(*iter2)
+                        {
+                            IPropertyTree& item = iter2->query();
+                            if (timeNow >= item.getPropInt64(PropSessionTimeoutAt, 0))
+                                toRemove.append(item);
+                        }
+
+                        ForEachItemIn(i, toRemove)
+                        {
+                            iter1->query().removeTree(&toRemove.item(i));
+                        }
                     }
                 }
+                catch(IException* e)
+                {
+                    StringBuffer msg;
+                    IERRLOG("CSessionCleaner::run() Exception %d:%s. Will retry after %d milliseconds.",
+                        e->errorCode(), e->errorMessage(msg).str(), checkSessionTimeoutMilliseconds);
+                    e->Release();
+                }
             }
-            sem.wait(checkSessionTimeoutMillSeconds);
+            sem.wait(checkSessionTimeoutMilliseconds);
         }
     }
     catch(IException *e)
@@ -174,12 +183,11 @@ void CSessionCleaner::stop()
     join();
 }
 
-void CEspConfig::ensureSDSSessionDomains()
+void CEspConfig::readSessionDomainsSetting()
 {
     bool hasAuthDomainSettings = false;
     bool hasSessionAuth = false;
     bool hasDefaultSessionDomain = false;
-    int  serverSessionTimeoutSeconds = 120 * ESP_SESSION_TIMEOUT;
     Owned<IPropertyTree> proc_cfg = getProcessConfig(m_envpt, m_process.str());
     Owned<IPropertyTreeIterator> it = proc_cfg->getElements("AuthDomains/AuthDomain");
     ForEach(*it)
@@ -220,35 +228,66 @@ void CEspConfig::ensureSDSSessionDomains()
     }
     //Ensure SDS Session tree if there is session auth or there is no AuthDomain setting (ex. old environment.xml)
     if (hasSessionAuth || !hasAuthDomainSettings)
+        sdsSessionNeeded = true;
+}
+
+void CEspConfig::ensureSDSSession()
+{
+    Owned<IRemoteConnection> conn = getSDSConnectionWithRetry(PathSessionRoot, RTM_LOCK_WRITE|RTM_CREATE_QUERY,
+        SESSION_SDS_LOCK_TIMEOUT, SDSSESSION_CONNECT_MAX_RETRIES, SDSSESSION_CONNECT_RETRY_SECONDS);
+    if (!conn)
+        throw MakeStringException(-1, "Failed to connect to %s.", PathSessionRoot);
+
+    IPropertyTree* sessionRoot = conn->queryRoot();
+    VStringBuffer xpath("%s[@name=\"%s\"]", PathSessionProcess, m_process.str());
+    IPropertyTree* processSessionTree = sessionRoot->queryBranch(xpath);
+    if (!processSessionTree)
     {
-        Owned<IRemoteConnection> conn = querySDS().connect(PathSessionRoot, myProcessSession(), RTM_LOCK_WRITE|RTM_CREATE_QUERY, SESSION_SDS_LOCK_TIMEOUT);
-        if (!conn)
-            throw MakeStringException(-1, "Failed to connect to %s.", PathSessionRoot);
+        processSessionTree = sessionRoot->addPropTree(PathSessionProcess);
+        processSessionTree->setProp("@name", m_process);
+    }
 
-        ensureESPSessionInTree(conn->queryRoot(), m_process.str());
+    ensureSDSSessionApplications(processSessionTree);
+    sdsSessionEnsured = true;
 
-        if (serverSessionTimeoutSeconds != ESP_SESSION_NEVER_TIMEOUT)
+    if (serverSessionTimeoutSeconds != ESP_SESSION_NEVER_TIMEOUT)
+    {
+        VStringBuffer espSessionSDSPath("%s/%s[@name=\"%s\"]", PathSessionRoot, PathSessionProcess, m_process.str());
+        Owned<IPropertyTree> proc_cfg = getProcessConfig(m_envpt, m_process);
+        m_sessionCleaner.setown(new CSessionCleaner(espSessionSDSPath.str(), proc_cfg->getPropInt("@checkSessionTimeoutSeconds",
+            ESP_CHECK_SESSION_TIMEOUT)));
+        m_sessionCleaner->start();
+    }
+}
+
+void CEspConfig::ensureSDSSessionApplications(IPropertyTree* espSession)
+{
+    std::list<int> bindingPorts;
+
+    list<binding_cfg*>::iterator iter = m_bindings.begin();
+    while (iter!=m_bindings.end())
+    {
+        binding_cfg *pbfg = *iter;
+        auto it = std::find(bindingPorts.begin(), bindingPorts.end(), pbfg->port);
+        if (it == bindingPorts.end())
+            bindingPorts.push_back(pbfg->port);
+        iter++;
+    }
+
+    if (bindingPorts.empty())
+        throw MakeStringException(-1, "No binding port.");
+
+    for (std::list<int>::iterator it = bindingPorts.begin(); it != bindingPorts.end(); ++it)
+    {
+        VStringBuffer appStr("%s[@port=\"%d\"]", PathSessionApplication, *it);
+        IPropertyTree* appSessionTree = espSession->queryBranch(appStr.str());
+        if (!appSessionTree)
         {
-            VStringBuffer espSessionSDSPath("%s/%s[@name=\"%s\"]", PathSessionRoot, PathSessionProcess, m_process.str());
-            m_sessionCleaner.setown(new CSessionCleaner(espSessionSDSPath.str(), proc_cfg->getPropInt("@checkSessionTimeoutSeconds",
-                ESP_CHECK_SESSION_TIMEOUT)));
-            m_sessionCleaner->start();
+            IPropertyTree* newAppSessionTree = espSession->addPropTree(PathSessionApplication);
+            newAppSessionTree->setPropInt("@port", *it);
         }
     }
 }
-
-void CEspConfig::ensureESPSessionInTree(IPropertyTree* sessionRoot, const char* procName)
-{
-    VStringBuffer xpath("%s[@name=\"%s\"]", PathSessionProcess, procName);
-    IPropertyTree* procSessionTree = sessionRoot->queryBranch(xpath.str());
-    if (!procSessionTree)
-    {
-        IPropertyTree* processSessionTree = sessionRoot->addPropTree(PathSessionProcess);
-        processSessionTree->setProp("@name", procName);
-    }
-}
-
-
 
 CEspConfig::CEspConfig(IProperties* inputs, IPropertyTree* envpt, IPropertyTree* procpt, bool isDali)
 {
@@ -518,9 +557,14 @@ CEspConfig::CEspConfig(IProperties* inputs, IPropertyTree* envpt, IPropertyTree*
 
                 pt_iter->next();
             }
-    
+
             pt_iter->Release();
             pt_iter=NULL;
+        }
+        readSessionDomainsSetting();
+        if (sdsSessionNeeded && !daliservers.isEmpty() && !isDetachedFromDali() && !m_bindings.empty())
+        {
+            ensureSDSSession();
         }
     }
 }
@@ -549,7 +593,10 @@ void CEspConfig::initDali(const char *servers)
             throw MakeStringException(0, "Could not initialize dali client");
 
         serverstatus = new CSDSServerStatus("ESPserver");
-        ensureSDSSessionDomains();
+        //When esp is starting, the initDali() is called before m_bindings is set.
+        //We should not call ensureSDSSession() at that time.
+        if (sdsSessionNeeded && !sdsSessionEnsured && !m_bindings.empty())
+            ensureSDSSession();
 
         // for auditing
         startLogMsgParentReceiver();

@@ -27,6 +27,7 @@
 #include "espprotocol.hpp"
 #include "espsecurecontext.hpp"
 #include "ldapsecurity.ipp"
+#include "dasds.hpp"
 
 class CEspContext : public CInterface, implements IEspContext
 {
@@ -1018,3 +1019,31 @@ IEspServer* queryEspServer()
 {
     return dynamic_cast<IEspServer*>(getESPContainer());
 }
+
+IRemoteConnection* getSDSConnectionWithRetry(const char* xpath, unsigned mode, unsigned connectionTimeoutMS, int maxRetries, unsigned retrySeconds)
+{
+    int retries = 0;
+    while (true)
+    {
+        try
+        {
+            Owned<IRemoteConnection> conn = querySDS().connect(xpath, myProcessSession(), mode, connectionTimeoutMS);
+            if (!conn)
+                throw MakeStringException(-1, "Failed in SDS connect.");
+            return conn.getClear();
+        }
+        catch(IException* e)
+        {
+            if (retries == maxRetries)
+                return nullptr;
+
+            StringBuffer msg;
+            IERRLOG("getSDSConnectionWithRetry() Exception %d:%s. Will retry after %d seconds.",
+                e->errorCode(), e->errorMessage(msg).str(), retrySeconds);
+            e->Release();
+            sleep(retrySeconds);
+            retries++;
+        }
+    }
+}
+

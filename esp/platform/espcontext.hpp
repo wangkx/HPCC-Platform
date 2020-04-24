@@ -145,5 +145,10 @@ esp_http_decl const char* getBuildVersion();
 esp_http_decl void setBuildLevel(const char* buildLevel);
 esp_http_decl const char* getBuildLevel();
 esp_http_decl IEspServer* queryEspServer();
+
+#define SDSSESSION_CONNECT_RETRY_SECONDS 30
+#define SDSSESSION_CONNECT_MAX_RETRIES 6
+interface IRemoteConnection;
+esp_http_decl IRemoteConnection* getSDSConnectionWithRetry(const char* xpath, unsigned mode, unsigned connectionTimeoutMS, int maxRetries, unsigned retrySeconds);
 #endif
 
