@@ -120,38 +120,54 @@ int CSessionCleaner::run()
         PROGLOG("CSessionCleaner Thread started.");
 
         VStringBuffer xpath("%s*", PathSessionSession);
-        int checkSessionTimeoutMillSeconds = checkSessionTimeoutSeconds * 1000;
+        int checkSessionTimeoutMilliseconds = checkSessionTimeoutSeconds * 1000;
         while(!stopping)
         {
             if (!m_isDetached)
             {
-                Owned<IRemoteConnection> conn = querySDS().connect(espSessionSDSPath.get(), myProcessSession(), RTM_LOCK_WRITE, SESSION_SDS_LOCK_TIMEOUT);
-                if (!conn)
-                    throw MakeStringException(-1, "Failed to connect to %s.", PathSessionRoot);
-
-                CDateTime now;
-                now.setNow();
-                time_t timeNow = now.getSimple();
-
-                Owned<IPropertyTreeIterator> iter1 = conn->queryRoot()->getElements(PathSessionApplication);
-                ForEach(*iter1)
+                try
                 {
-                    ICopyArrayOf<IPropertyTree> toRemove;
-                    Owned<IPropertyTreeIterator> iter2 = iter1->query().getElements(xpath.str());
-                    ForEach(*iter2)
-                    {
-                        IPropertyTree& item = iter2->query();
-                        if (timeNow >= item.getPropInt64(PropSessionTimeoutAt, 0))
-                            toRemove.append(item);
-                    }
+//#define Test_Load_Binding
+#ifdef Test_Load_Binding
+                    Owned<IRemoteConnection> conn = querySDS().connect("/kw1", myProcessSession(), RTM_LOCK_WRITE, SESSION_SDS_LOCK_TIMEOUT);
+#else
+                    Owned<IRemoteConnection> conn = querySDS().connect(espSessionSDSPath.get(), myProcessSession(), RTM_LOCK_WRITE, SESSION_SDS_LOCK_TIMEOUT);
+#endif
+                    if (!conn)
+                        throw MakeStringException(-1, "Failed to connect to %s.", PathSessionRoot);
+                    DBGLOG("CSessionCleaner::run(): SDS connected.");
 
-                    ForEachItemIn(i, toRemove)
+                    CDateTime now;
+                    now.setNow();
+                    time_t timeNow = now.getSimple();
+
+                    Owned<IPropertyTreeIterator> iter1 = conn->queryRoot()->getElements(PathSessionApplication);
+                    ForEach(*iter1)
                     {
-                        iter1->query().removeTree(&toRemove.item(i));
+                        ICopyArrayOf<IPropertyTree> toRemove;
+                        Owned<IPropertyTreeIterator> iter2 = iter1->query().getElements(xpath.str());
+                        ForEach(*iter2)
+                        {
+                            IPropertyTree& item = iter2->query();
+                            if (timeNow >= item.getPropInt64(PropSessionTimeoutAt, 0))
+                                toRemove.append(item);
+                        }
+
+                        ForEachItemIn(i, toRemove)
+                        {
+                            iter1->query().removeTree(&toRemove.item(i));
+                        }
                     }
                 }
+                catch(IException* e)
+                {
+                    StringBuffer msg;
+                    IERRLOG("CSessionCleaner::run() Exception %d:%s. Will retry after %d milliseconds.",
+                        e->errorCode(), e->errorMessage(msg).str(), checkSessionTimeoutMilliseconds);
+                    e->Release();
+                }
             }
-            sem.wait(checkSessionTimeoutMillSeconds);
+            sem.wait(checkSessionTimeoutMilliseconds);
         }
     }
     catch(IException *e)

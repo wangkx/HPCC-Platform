@@ -7516,6 +7516,10 @@ void CCovenSDSManager::createConnection(SessionId sessionId, unsigned mode, unsi
     CRemoteTreeBase *_tree;
     Linked<CRemoteTreeBase> linkedTree;
     Owned<CServerConnection> connection;
+    if (streq(xpath, "/kw1"))
+    {
+        throw MakeSDSException(SDSExcpt_LockTimeout, "Lock timeout trying to establish lock to %s, existing lock info: KW...", xpath);
+    }
 
     StringBuffer _xpath;
     if (!xpath || '/'!=*xpath)

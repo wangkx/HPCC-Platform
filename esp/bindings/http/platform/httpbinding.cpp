@@ -48,6 +48,8 @@
 
 #define FILE_UPLOAD     "FileUploadAccess"
 #define DEFAULT_HTTP_PORT 80
+#define SETSDSSESSION_CONNECT_RETRY_SECONDS 6
+#define SETSDSSESSION_CONNECT_MAX_RETRIES 6
 
 static HINSTANCE getXmlLib()
 {
@@ -329,9 +331,37 @@ EspHttpBinding::EspHttpBinding(IPropertyTree* tree, const char *bindname, const 
 void EspHttpBinding::setSDSSession()
 {
     espSessionSDSPath.setf("%s/%s[@name=\"%s\"]", PathSessionRoot, PathSessionProcess, processName.get());
-    Owned<IRemoteConnection> conn = querySDS().connect(espSessionSDSPath.str(), myProcessSession(), RTM_LOCK_WRITE, SESSION_SDS_LOCK_TIMEOUT);
-    if (!conn)
-        throw MakeStringException(-1, "Failed to connect SDS ESP Session.");
+
+    unsigned retries = 0;
+    Owned<IRemoteConnection> conn;
+    while (true)
+    {
+        try
+        {
+            if ((m_port == 8002) && (retries < 4))
+            {
+                StringBuffer s("/kw1");
+                conn.setown(querySDS().connect(s, myProcessSession(), RTM_LOCK_WRITE, SESSION_SDS_LOCK_TIMEOUT));
+            }
+            else
+                conn.setown(querySDS().connect(espSessionSDSPath, myProcessSession(), RTM_LOCK_WRITE, SESSION_SDS_LOCK_TIMEOUT));
+            if (!conn)
+                throw MakeStringException(-1, "Failed to connect SDS ESP Session.");
+            break;
+        }
+        catch(IException* e)
+        {
+            if (retries == SETSDSSESSION_CONNECT_MAX_RETRIES)
+                throw;
+
+            StringBuffer msg;
+            IERRLOG("EspHttpBinding::setSDSSession() Exception %d:%s. Will retry after %d seconds.",
+                e->errorCode(), e->errorMessage(msg).str(), SETSDSSESSION_CONNECT_RETRY_SECONDS);
+            e->Release();
+            sleep(SETSDSSESSION_CONNECT_RETRY_SECONDS);
+            retries++;
+        }
+    }
 
     IPropertyTree* espSession = conn->queryRoot();
     VStringBuffer appStr("%s[@port=\"%d\"]", PathSessionApplication, m_port);
