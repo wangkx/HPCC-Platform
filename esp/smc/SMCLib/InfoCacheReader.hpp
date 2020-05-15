@@ -29,12 +29,15 @@ class TPWRAPPER_API CInfoCache : public CSimpleInterfaceOf<IInterface>
 {
 protected:
     CDateTime timeCached;
+    StringAttr exception;
 public:
 
     CInfoCache() {};
 
     bool isCachedInfoValid(unsigned timeOutSeconds);
     inline StringBuffer& queryTimeCached(StringBuffer& str) { return timeCached.getString(str, true); }
+    inline void setException(const char* e) { exception.set(e); }
+    inline const char* getException() { return exception.get(); }
 };
 
 interface IInfoCacheReader : extends IInterface

@@ -33,35 +33,38 @@ void CInfoCacheReaderThread::threadmain()
     {
         if (active)
         {
+            Owned<CInfoCache> info;
             try
             {
                 CCycleTimer timer;
-                Owned<CInfoCache> info = infoCacheReader->read();
+                info.setown(infoCacheReader->read());
                 PROGLOG("CInfoCacheReaderThread %s: InfoCache collected (%u seconds).", name.get(), timer.elapsedMs()/1000);
-
-                CriticalBlock b(crit);
-                infoCache.setown(info.getClear());
-
-                // if 1st and getActivityInfo blocked, release it.
-                if (first)
-                {
-                    first = false;
-                    if (firstBlocked)
-                    {
-                        firstBlocked = false;
-                        firstSem.signal();
-                    }
-                }
             }
             catch(IException *e)
             {
                 StringBuffer msg;
                 IERRLOG("Exception %d:%s in CInfoCacheReaderThread(%s)::run", e->errorCode(), e->errorMessage(msg).str(), name.get());
+                info.setown(new CInfoCache());
+                info->setException(msg.str());
                 e->Release();
             }
             catch(...)
             {
                 IERRLOG("Unknown exception in CInfoCacheReaderThread(%s)::run", name.get());
+            }
+
+            CriticalBlock b(crit);
+            infoCache.setown(info.getClear());
+
+            // if 1st and getActivityInfo blocked, release it.
+            if (first)
+            {
+                first = false;
+                if (firstBlocked)
+                {
+                    firstBlocked = false;
+                    firstSem.signal();
+                }
             }
         }
 

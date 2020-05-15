@@ -860,6 +860,7 @@ private:
     bool readDiskSpaceResponse(const char* buf, __int64& free, __int64& used, int& percentAvail, StringBuffer& pathUsed);
     void addChannels(CGetMachineInfoData& machineInfoData, IPropertyTree* envRoot, const char* componentType, const char* componentName);
     StringBuffer& setUsageTimeStr(CUsageCache* usageCache, StringBuffer& timeStr);
+    void checkAndThrowUsageException(CUsageCache* usage);
 
     //Still used in StartStop/Rexec, so keep them for now.
     enum OpSysType { OS_Windows, OS_Solaris, OS_Linux };

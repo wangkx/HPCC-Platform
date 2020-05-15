@@ -2890,8 +2890,7 @@ bool Cws_machineEx::onGetComponentUsage(IEspContext& context, IEspGetComponentUs
         else
         {
             usage.setown((CUsageCache*) usageCacheReader->getCachedInfo());
-            if (!usage)
-                throw MakeStringException(ECLWATCH_INTERNAL_ERROR, "Failed to get usage. Please try later.");
+            checkAndThrowUsageException(usage);
 
             ESPLOG(LogMax, "GetComponentUsage: found UsageCache.");
             uniqueUsages.set(usage->queryUsages());
@@ -2991,6 +2990,16 @@ void Cws_machineEx::readTargetClusterUsageResult(IEspContext& context, IProperty
     }
 }
 
+void Cws_machineEx::checkAndThrowUsageException(CUsageCache* usage)
+{
+    if (!usage)
+        throw MakeStringException(ECLWATCH_INTERNAL_ERROR, "Failed to get usage. Please try later.");
+
+    const char* exception = usage->getException();
+    if (!isEmptyString(exception))
+        throw makeStringException(ECLWATCH_INTERNAL_ERROR, exception);
+}
+
 bool Cws_machineEx::onGetTargetClusterUsage(IEspContext& context, IEspGetTargetClusterUsageRequest& req,
     IEspGetTargetClusterUsageResponse& resp)
 {
@@ -3025,8 +3034,7 @@ bool Cws_machineEx::onGetTargetClusterUsage(IEspContext& context, IEspGetTargetC
         else
         {
             usage.setown((CUsageCache*) usageCacheReader->getCachedInfo());
-            if (!usage)
-                throw MakeStringException(ECLWATCH_INTERNAL_ERROR, "Failed to get usage. Please try later.");
+            checkAndThrowUsageException(usage);
 
             ESPLOG(LogMax, "GetTargetClusterUsage: found UsageCache.");
             uniqueUsages.set(usage->queryUsages());
@@ -3225,8 +3233,7 @@ bool Cws_machineEx::onGetNodeGroupUsage(IEspContext& context, IEspGetNodeGroupUs
         else
         {
             usage.setown((CUsageCache*) usageCacheReader->getCachedInfo());
-            if (!usage)
-                throw MakeStringException(ECLWATCH_INTERNAL_ERROR, "Failed to get usage. Please try later.");
+            checkAndThrowUsageException(usage);
 
             ESPLOG(LogMax, "GetNodeGroupUsage: found UsageCache.");
             uniqueUsages.set(usage->queryUsages());
@@ -3326,6 +3333,7 @@ IPropertyTree* CUsageCacheReader::getUsageReqAllMachines()
     //Collect network addresses and HPCC folders for all HPCC machines.
     Owned<IEnvironmentFactory> envFactory = getEnvironmentFactory(true);
     Owned<IConstEnvironment> constEnv = envFactory->openEnvironment();
+    Owned<IPropertyTree> envRoot = &constEnv->getPTree();
 
     IArrayOf<IConstComponent> componentList;
     servicePtr->listComponentsForCheckingUsage(constEnv, componentList);

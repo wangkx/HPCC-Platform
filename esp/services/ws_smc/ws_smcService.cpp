@@ -1191,8 +1191,7 @@ bool CWsSMCEx::onActivity(IEspContext &context, IEspActivityRequest &req, IEspAc
             setBannerAndChatData(version, resp);
 
         Owned<CActivityInfo> activityInfo = (CActivityInfo*) activityInfoCacheReader->getCachedInfo();
-        if (!activityInfo)
-            throw MakeStringException(ECLWATCH_INTERNAL_ERROR, "Failed to get Activity Info. Please try later.");
+        checkAndThrowActivityInfoException(activityInfo);
         setActivityResponse(context, activityInfo, req, resp);
     }
     catch(IException* e)
@@ -2230,6 +2229,16 @@ bool CWsSMCEx::onGetStatusServerInfo(IEspContext &context, IEspGetStatusServerIn
     return true;
 }
 
+void CWsSMCEx::checkAndThrowActivityInfoException(CActivityInfo *info)
+{
+    if (!info)
+        throw MakeStringException(ECLWATCH_INTERNAL_ERROR, "Failed to get Activity Info. Please try later.");
+
+    const char* exception = info->getException();
+    if (!isEmptyString(exception))
+        throw makeStringException(ECLWATCH_INTERNAL_ERROR, exception);
+}
+
 void CWsSMCEx::getStatusServerInfo(IEspContext &context, const char *serverType, const char *server, const char *networkAddress, unsigned port,
     IEspStatusServerInfo& statusServerInfo)
 {
@@ -2237,8 +2246,7 @@ void CWsSMCEx::getStatusServerInfo(IEspContext &context, const char *serverType,
         throw MakeStringException(ECLWATCH_MISSING_PARAMS, "Server type not specified.");
 
     Owned<CActivityInfo> activityInfo = (CActivityInfo*) activityInfoCacheReader->getCachedInfo();
-    if (!activityInfo)
-        throw MakeStringException(ECLWATCH_INTERNAL_ERROR, "Failed to get Activity Info. Please try later.");
+    checkAndThrowActivityInfoException(activityInfo);
 
     if (strieq(serverType,STATUS_SERVER_THOR))
     {
