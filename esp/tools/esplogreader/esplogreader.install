@@ -1,0 +1,1 @@
+installFile "$binPath/esplogreader" "/usr/bin/esplogreader" 1 || exit 1

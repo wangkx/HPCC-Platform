@@ -1,5 +1,5 @@
-################################################################################
-#    HPCC SYSTEMS software Copyright (C) 2012 HPCC Systems®.
+/*##############################################################################
+#    HPCC SYSTEMS software Copyright (C) 2020 HPCC Systems®.
 #
 #    Licensed under the Apache License, Version 2.0 (the "License");
 #    you may not use this file except in compliance with the License.
@@ -12,6 +12,14 @@
 #    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
-################################################################################
-add_subdirectory (soapplus)
-add_subdirectory (esplogreader)
+############################################################################## */
+
+Usage: TODO
+   esplogreader [action/options]
+
+Actions: select one
+   -h/-? : show this usage page
+   -archive : archive tank files.
+
+Options: 
+   -url <[http|https]://[user:passwd@]host:port>: the url to send requests to.
