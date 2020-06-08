@@ -420,7 +420,7 @@ void CESPLogReader::writeAct()
         throw makeStringExceptionV(-1, "Failed to open %s.", outFileName.str());
 
     StringBuffer columns;
-    columns.append("\nstartTime;PID;TID;activeReqs;req;reqParam;soapMethod;from;totalTime;auth;warning\n");
+    columns.append("\nmsgID;startTime;PID;TID;activeReqs;req;reqParam;soapMethod;from;totalTime;auth;warning\n");
     offset_t pos =  outFileIO->write(0, columns.length(), columns.str());
 
     for (std::map<std::string, Owned<CESPActivity>>::iterator it=activityMap.begin(); it!=activityMap.end(); ++it)
@@ -428,8 +428,8 @@ void CESPLogReader::writeAct()
         CESPActivity* a = it->second;
 
         StringBuffer line;
-        line.appendf("%s;%s;%s;%s;%s;%s;",
-            a->startTime.str(), a->PID.str(), a->TID.str(), a->activeReqs.str(), a->req.str(), a->reqParam.str());
+        line.appendf("%s;%s;%s;%s;%s;%s;%s;",
+            a->msgID.str(), a->startTime.str(), a->PID.str(), a->TID.str(), a->activeReqs.str(), a->req.str(), a->reqParam.str());
         line.appendf("%s;%s;%s;%s;%s\n",
             a->soapMethod.str(), a->from.str(), a->totalTime.str(), a->auth.str(), a->warning.str());
         pos +=  outFileIO->write(pos, line.length(), line.str());
