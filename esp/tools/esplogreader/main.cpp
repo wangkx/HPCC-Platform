@@ -29,6 +29,7 @@ void usage()
     printf("    to_msg=<to_msg_id>\n");
     printf("    skip_reqs=<skip_reqs> a comma separated string specifying which requests should not be read.\n");
     printf("....summary=1\n");
+    printf("....short_list=1\n");
     printf("....next_days=0\n");
 }
 
@@ -75,6 +76,7 @@ class CESPLogReader : public CSimpleInterface
     StringArray espLogs, skipReqs;
     bool checkFromMSGID = false, checkToMSGID = false, summary = false;
     bool foundToMSGID = false;
+    bool outputShortList =  false;
     unsigned columnNumTime = 0, columnNumMsgID = 0, columnNumPID = 0, columnNumTID = 0;
     unsigned countActivities = 0, countWarnings = 0, countNoTxSummary = 0;
     unsigned nextDays = 0;
@@ -92,9 +94,10 @@ class CESPLogReader : public CSimpleInterface
     void parseTxSummary(const char* line, CESPActivity* activity);
     void trimNewLine(StringBuffer& s);
     void trimLastChar(StringBuffer& s, const char c);
+    void readOneDayLog(const char* logName, bool firstDay);
     void doSummary();
     void writeSummary(IFileIO* outFileIO, offset_t& pos);
-    void readOneDayLog(const char* logName, bool firstDay);
+    void writeActivies(IFileIO* outFileIO, offset_t& pos);
 public:
     CESPLogReader(IProperties* input)
     {
@@ -120,6 +123,7 @@ public:
         }
         if (input->hasProp("summary"))
             summary = input->getPropBool("summary", false);
+        outputShortList = input->getPropBool("short_list", false);
         printf("summary %d\n", summary);
     }
 
@@ -390,7 +394,7 @@ void CESPLogReader::doSummary()
 void CESPLogReader::writeSummary(IFileIO* outFileIO, offset_t& pos)
 {
     printf("\nSummary:\n");
-    pos +=  outFileIO->write(pos, 9, "\nSummary\n");
+    pos +=  outFileIO->write(pos, 11, "\nSummary:\n\n");
     for (std::map<std::string, unsigned>::iterator it=activityTypesCount.begin(); it!=activityTypesCount.end(); ++it)
     {
         VStringBuffer line("%s %u\n", it->first.c_str(), it->second);
@@ -408,6 +412,33 @@ void CESPLogReader::writeSummary(IFileIO* outFileIO, offset_t& pos)
     if (countNoTxSummary > 0)
         line1.appendf("  %s\n", msgIDsNoTxSummary.str());
     pos +=  outFileIO->write(pos, line1.length(), line1);
+    pos +=  outFileIO->write(pos, 7, "------\n");
+}
+
+void CESPLogReader::writeActivies(IFileIO* outFileIO, offset_t& pos)
+{
+    pos +=  outFileIO->write(pos, 12, "\nActivies:\n\n");
+
+    VStringBuffer columns("\nmsgID;startTime;PID;TID;activeReqs;req;reqParam;soapMethod;from;totalTime;auth;warning\n\n");
+    pos +=  outFileIO->write(pos, columns.length(), columns.str());
+
+    for (std::map<std::string, Owned<CESPActivity>>::iterator it=activityMap.begin(); it!=activityMap.end(); ++it)
+    {
+        CESPActivity* a = it->second;
+
+        if (outputShortList && a->foundTxSummary && a->warning.isEmpty())
+            continue;
+
+        StringBuffer line;
+        line.appendf("%s;%s;%s;%s;%s;%s;%s;",
+            a->msgID.str(), a->startTime.str(), a->PID.str(), a->TID.str(), a->activeReqs.str(), a->req.str(), a->reqParam.str());
+        line.appendf("%s;%s;%s;%s;%s\n",
+            a->soapMethod.str(), a->from.str(), a->totalTime.str(), a->auth.str(), a->warning.str());
+        pos +=  outFileIO->write(pos, line.length(), line.str());
+    }
+
+    pos +=  outFileIO->write(pos, columns.length(), columns.str());
+    pos +=  outFileIO->write(pos, 7, "------\n");
 }
 
 void CESPLogReader::writeAct()
@@ -419,23 +450,9 @@ void CESPLogReader::writeAct()
     if (!outFileIO)
         throw makeStringExceptionV(-1, "Failed to open %s.", outFileName.str());
 
-    StringBuffer columns;
-    columns.append("\nmsgID;startTime;PID;TID;activeReqs;req;reqParam;soapMethod;from;totalTime;auth;warning\n");
-    offset_t pos =  outFileIO->write(0, columns.length(), columns.str());
+    offset_t pos = 0;
 
-    for (std::map<std::string, Owned<CESPActivity>>::iterator it=activityMap.begin(); it!=activityMap.end(); ++it)
-    {
-        CESPActivity* a = it->second;
-
-        StringBuffer line;
-        line.appendf("%s;%s;%s;%s;%s;%s;%s;",
-            a->msgID.str(), a->startTime.str(), a->PID.str(), a->TID.str(), a->activeReqs.str(), a->req.str(), a->reqParam.str());
-        line.appendf("%s;%s;%s;%s;%s\n",
-            a->soapMethod.str(), a->from.str(), a->totalTime.str(), a->auth.str(), a->warning.str());
-        pos +=  outFileIO->write(pos, line.length(), line.str());
-    }
-    pos +=  outFileIO->write(pos, columns.length(), columns.str());
-    pos +=  outFileIO->write(pos, 7, "------\n");
+    writeActivies(outFileIO, pos);
 
     if (summary)
         writeSummary(outFileIO, pos);
