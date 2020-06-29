@@ -32,6 +32,7 @@
 #include "dllserver.hpp"
 #include "schedulectrl.hpp"
 #include "scheduleread.hpp"
+#include "HttpStreamingWriter.hpp"
 
 #define REQPATH_CREATEANDDOWNLOADZAP "/WsWorkunits/WUCreateAndDownloadZAPInfo"
 #define REQPATH_DOWNLOADFILES "/WsWorkunits/WUDownloadFiles"
@@ -1623,6 +1624,12 @@ int CWsWorkunitsSoapBindingEx::onGet(CHttpRequest* request, CHttpResponse* respo
         else if (!strnicmp(path.str(), REQPATH_DOWNLOADFILES, sizeof(REQPATH_DOWNLOADFILES) - 1))
         {
             downloadWUFiles(*ctx, request, response);
+            return 0;
+        }
+        else if (!strnicmp(path.str(), "/WsWorkunits/KWTest", 19))
+        {
+            Owned<CHttpStreamWriter> a = new CHttpStreamWriter(ctx, response);
+            a->write("test", nullptr, nullptr);
             return 0;
         }
     }

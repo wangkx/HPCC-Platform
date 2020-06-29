@@ -33,6 +33,7 @@ set (    SRCS
          TpWrapper.cpp 
          WUXMLInfo.cpp
          InfoCacheReader.cpp
+         HttpStreamingWriter.cpp
     )
 
 include_directories ( 
@@ -43,7 +44,7 @@ include_directories (
          ./../../../common/environment 
          ./../../services 
          ./../../../dali/ft 
-         ./../../bindings/SOAP/Platform 
+         ./../../bindings/SOAP/Platform
          ./../../../system/xmllib 
          ./../../../system/security/securesocket 
          ./../../../system/security/shared
@@ -56,6 +57,7 @@ include_directories (
          ./../../clients/LoggingClient 
          ./../../bindings 
          ./../../bindings/SOAP/xpp 
+         ./../../bindings/http/platform
          ./.. 
     )
 
