@@ -2209,8 +2209,9 @@ bool CWsWorkunitsEx::getQueryFiles(IEspContext &context, const char* wuid, const
             const char *lfn = rf.getLogicalName();
             if (lfn && *lfn)
             {
-                logicalFiles.append(lfn);
-                if (respSuperFiles && (rf.getFlags() & RefFileSuper))
+                if (!(rf.getFlags() & RefFileSuper))
+                    logicalFiles.append(lfn);
+                else if (respSuperFiles)
                     readSuperFiles(context, &rf, lfn, wufiles, respSuperFiles);
             }
         }
