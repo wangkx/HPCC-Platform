@@ -1556,6 +1556,12 @@ bool CWsWorkunitsEx::onWUListQueries(IEspContext &context, IEspWUListQueriesRequ
         IPropertyTree &query=it->query();
         const char *queryId = query.queryProp("@id");
         const char *queryTarget = query.queryProp("@querySetId");
+        {
+                    StringArray logicalFiles;
+                    IArrayOf<IEspQuerySuperFile> superFiles;
+                    const char *wuid = query.queryProp("@wuid");
+                    getQueryFiles(context, wuid, queryId, queryTarget, logicalFiles, &superFiles);
+                }
 
         Owned<IEspQuerySetQuery> q = createQuerySetQuery();
         q->setId(queryId);
@@ -2164,6 +2170,7 @@ void CWsWorkunitsEx::readSuperFiles(IEspContext &context, IReferencedFile* rf, c
     }
 
     Owned<IEspQuerySuperFile> newSuperFile = createQuerySuperFile();
+    DBGLOG("####fileName(%s)", fileName);
     newSuperFile->setName(fileName);
     if (subFiles.length())
     {
@@ -2195,6 +2202,7 @@ bool CWsWorkunitsEx::getQueryFiles(IEspContext &context, const char* wuid, const
         Owned<IConstWorkUnit> cw = factory->openWorkUnit(wuid);
         if (!cw)
             return false;
+        DBGLOG("####target(%s),query(%s)", target, query);
 
         StringArray superFileNames;
         Owned<IHpccPackageSet> ps = createPackageSet(process.str());
