@@ -1111,36 +1111,42 @@ bool CFileSprayEx::onGetDFUWorkunits(IEspContext &context, IEspGetDFUWorkunits &
             resultWU->setCommand(wu->getCommand());
             resultWU->setUser(wu->getUser(user).str());
 
-            const char* clusterName = wu->getClusterName(cluster).str();
-            if (clusterName)
+            try
             {
-                StringBuffer clusterForDisplay(clusterName);
-
-                if (clusterProcesses.ordinality())
+                const char* clusterName = wu->getClusterName(cluster).str();
+                if (!isEmptyString(clusterName))
                 {
-                    for (unsigned i = 0; i < clusterProcesses.length(); i++)
+                    ForEachItemIn(i, clusterProcesses)
                     {
-                        const char* clusterProcessName = clusterProcesses.item(i);
-                        if (!stricmp(clusterProcessName, clusterName))
+                        if (strieq(clusterProcesses.item(i), clusterName))
                         {
-                            clusterForDisplay.clear().append(targetClusters.item(i));
+                            clusterName = targetClusters.item(i);
                             break;
                         }
                     }
+                    resultWU->setClusterName(clusterName);
                 }
-                resultWU->setClusterName(clusterForDisplay.str());
-            }
 
-            resultWU->setIsProtected(wu->isProtected());
-            IConstDFUprogress *prog = wu->queryProgress();
-            if (prog != NULL)
+                resultWU->setIsProtected(wu->isProtected());
+                IConstDFUprogress *prog = wu->queryProgress();
+                if (prog != nullptr)
+                {
+                    DFUstate state = prog->getState();
+                    resultWU->setState(state);
+                    StringBuffer statemsg;
+                    encodeDFUstate(state,statemsg);
+                    resultWU->setStateMessage(statemsg);
+                    resultWU->setPercentDone(prog->getPercentDone());
+                }
+            }
+            catch (IException *e)
             {
-                DFUstate state = prog->getState();
-                resultWU->setState(state);
-                StringBuffer statemsg;
-                encodeDFUstate(state,statemsg);
-                resultWU->setStateMessage(statemsg.str());
-                resultWU->setPercentDone(prog->getPercentDone());
+                if (version >= 1.20)
+                {
+                    StringBuffer eMsg;
+                    resultWU->setESPException(e->errorMessage(eMsg));
+                }
+                e->Release();
             }
             result.append(*resultWU.getLink());
             itr->next();

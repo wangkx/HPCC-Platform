@@ -95,6 +95,7 @@ ESPStruct [nil_remove] DFUWorkunit
     [min_ver("1.10")] bool quotedTerminator(true);
     [min_ver("1.12")] bool preserveCompression(true);
     [min_ver("1.14")] int expireDays;
+    [min_ver("1.20")] string ESPException;
 };
 
 ESPStruct [nil_remove] GroupNode
@@ -687,7 +688,7 @@ ESPresponse [exceptions_inline, nil_remove] GetDFUServerQueuesResponse
 
 ESPservice [
     auth_feature("DEFERRED"),
-    version("1.19"),
+    version("1.20"),
     exceptions_inline("./smc_xslt/exceptions.xslt")] FileSpray
 {
     ESPmethod EchoDateTime(EchoDateTime, EchoDateTimeResponse);
