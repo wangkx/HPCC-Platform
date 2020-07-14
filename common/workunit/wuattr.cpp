@@ -247,6 +247,9 @@ extern WORKUNIT_API const char * queryAttributeValue(IPropertyTree & src, WuAttr
     case WaIdRemoteSubGraph:
         value = scratchpad.clear().append(ChildGraphScopePrefix).append(value).str();
         break;
+    case WaServiceName: //Should be default:?
+        scratchpad.set(value);
+        break;
     }
 
     return value;

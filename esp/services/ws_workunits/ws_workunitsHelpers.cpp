@@ -941,7 +941,81 @@ unsigned WsWuInfo::getTotalThorTime()
     aggregateStatistic(summary, cw, filter, StTimeElapsed);
     return nanoToMilli(summary.getSum());
 }
+class ScopeDumper : public IWuScopeVisitor
+{
+public:
+    virtual void noteStatistic(StatisticKind kind, unsigned __int64 value, IConstWUStatistic & cur) override
+    {
+        StringBuffer xml;
+        SCMStringBuffer curCreator;
+        SCMStringBuffer curDescription;
+        SCMStringBuffer curFormattedValue;
 
+        StatisticCreatorType curCreatorType = cur.getCreatorType();
+        StatisticScopeType curScopeType = cur.getScopeType();
+        StatisticMeasure curMeasure = cur.getMeasure();
+        unsigned __int64 count = cur.getCount();
+        unsigned __int64 max = cur.getMax();
+        unsigned __int64 ts = cur.getTimestamp();
+        const char * curScope = cur.queryScope();
+        cur.getCreator(curCreator);
+        cur.getDescription(curDescription, false);
+        cur.getFormattedValue(curFormattedValue);
+
+        if (kind != StKindNone)
+            xml.append(" kind='").append(queryStatisticName(kind)).append("'");
+        xml.append(" value='").append(value).append("'");
+        xml.append(" formatted='").append(curFormattedValue).append("'");
+        if (curMeasure != SMeasureNone)
+            xml.append(" unit='").append(queryMeasureName(curMeasure)).append("'");
+        if (curCreatorType != SCTnone)
+            xml.append(" ctype='").append(queryCreatorTypeName(curCreatorType)).append("'");
+        if (curCreator.length())
+            xml.append(" creator='").append(curCreator.str()).append("'");
+        if (count != 1)
+            xml.append(" count='").append(count).append("'");
+        if (max)
+            xml.append(" max='").append(value).append("'");
+        if (ts)
+        {
+            xml.append(" ts='");
+            formatStatistic(xml, ts, SMeasureTimestampUs);
+            xml.append("'");
+        }
+        if (curDescription.length())
+            xml.append(" desc='").append(curDescription.str()).append("'");
+        DBGLOG(" <attr%s/>\n", xml.str());
+    }
+    virtual void noteAttribute(WuAttr attr, const char * value)
+    {
+        StringBuffer xml;
+        xml.appendf("<attr kind='%s' value='", queryWuAttributeName(attr));
+        encodeXML(value, xml, ENCODE_NEWLINES, (unsigned)-1, true);
+        xml.append("'/>");
+        DBGLOG(" %s\n", xml.str());
+    }
+    virtual void noteHint(const char * kind, const char * value)
+    {
+        StringBuffer xml;
+        xml.appendf("<attr kind='hint:%s' value='%s'/>", kind, value);
+        DBGLOG(" %s\n", xml.str());
+    }
+    virtual void noteException(IConstWUException & exception) override
+    {
+        StringBuffer xml;
+        SCMStringBuffer source, message, timestamp, scope;
+
+        exception.getExceptionSource(source);
+        exception.getExceptionMessage(message);
+        exception.getTimeStamp(timestamp);
+
+        xml.appendf("<attr source='%s' message='%s' timestamp='%s' exceptionCode='%u' severity='%u' scope='%s' cost='%u'",
+                    source.str(), message.str(), timestamp.str(),
+                    exception.getExceptionCode(), exception.getSeverity(), nullText(exception.queryScope()), exception.getPriority());
+        xml.append("/>");
+        DBGLOG(" %s\n", xml.str());
+    }
+};
 void WsWuInfo::getCommon(IEspECLWorkunit &info, unsigned long flags)
 {
     info.setWuid(cw->queryWuid());
@@ -964,6 +1038,21 @@ void WsWuInfo::getCommon(IEspECLWorkunit &info, unsigned long flags)
         info.setState(cw->queryStateDesc());
     }
 
+    //WuScopeFilter filter("source[global]");
+    WuScopeFilter filter("depth[1,]");
+    filter.sourceFlags = SSFsearchGraph;
+    filter.addOutputAttribute(WaServiceName);
+    Owned<IConstWUScopeIterator> it = &cw->getScopeIterator(filter);
+    ForEach(*it)
+    {
+        if (it->getScopeType() != SSTactivity)
+            continue;
+
+        StringBuffer serviceName;
+        it->queryAttribute(WaServiceName, serviceName);
+        if (!serviceName.isEmpty())
+            DBGLOG("Found service: %s (%s)", it->queryAttribute(WaServiceName, serviceName), queryScopeTypeName(it->getScopeType()));
+    }
     if (cw->isPausing())
         info.setIsPausing(true);
 
