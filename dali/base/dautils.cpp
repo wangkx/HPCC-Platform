@@ -1855,6 +1855,8 @@ public:
         }
         if (!v)
             v = "";
+        //else
+        //    DBGLOG("####key%u(%s)(%s)", k, key, v);
         size32_t l = strlen(v)+1;
         val = (char *)buf.alloc(l);
         memcpy(val,v,l);

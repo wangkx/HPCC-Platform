@@ -3553,10 +3553,142 @@ WUAction getWorkunitAction(const char *actionStr)
     return (WUAction) getEnum(actionStr, actions);
 }
 
+EnumMapping workunitSortFields[] =
+{
+   { WUSFuser, "@submitID" },
+   { WUSFcluster, "@clusterName" },
+   { WUSFjob, "@jobName" },
+   { WUSFstate, "@state" },
+   { WUSFpriority, "@priorityClass" },
+   { WUSFprotected, "@protected" },
+   { WUSFwuid, "@" },
+   { WUSFecl, "Query/ShortText" },
+   { WUSFfileread, "FilesRead/File/@name" },
+   { WUSFtotalthortime, "@totalThorTime" },
+/*   { WUSFtotalthortime, "@totalThorTime|"
+                        "Statistics/Statistic[@c='summary'][@creator='thor'][@kind='TimeElapsed']/@value|"
+                        "Statistics/Statistic[@c='summary'][@creator='hthor'][@kind='TimeElapsed']/@value|"
+                        "Statistics/Statistic[@c='summary'][@creator='roxie'][@kind='TimeElapsed']/@value|"
+                        "Statistics/Statistic[@desc='Total thor time']/@value|"
+                        "Timings/Timing[@name='Total thor time']/@duration"                                 //Use Statistics first. If not found, use Timings
+   },*/
+   { WUSFwuidhigh, "@" },
+   { WUSFwildwuid, "@" },
+   { WUSFappvalue, "Application" },
+   { WUSFfilewritten, "Files/File/@name" },
+   { WUSFterm, NULL }
+};
+
 //==========================================================================================
 
 class CLightweightWorkunitInfo : public CInterfaceOf<IConstWorkUnitInfo>
 {
+    IConstWUScopeIterator * getScopeIterator1(IPropertyTree* p, const WuScopeFilter & filter) const
+    {
+        Owned<CompoundStatisticsScopeIterator> compoundIter = new CompoundStatisticsScopeIterator(filter);
+        CachedTags<CLocalWUStatistic,IConstWUStatistic> statistics;
+        statistics.loadBranch(p,"Statistics");
+        Owned<IConstWUScopeIterator> localStats(new WorkUnitStatisticsScopeIterator(statistics, filter.queryIterFilter()));
+        compoundIter->addIter(localStats);
+        return compoundIter.getClear();
+    }
+    IConstWUScopeIterator * getScopeIterator(IPropertyTree* p, const WuScopeFilter & filter) const
+    {
+        assertex(filter.isOptimized());
+        WuScopeSourceFlags sources = filter.querySources();
+
+        Owned<CompoundStatisticsScopeIterator> compoundIter = new CompoundStatisticsScopeIterator(filter);
+        if (sources & SSFsearchGlobalStats)
+        {
+            //CriticalBlock block(crit);
+            CachedTags<CLocalWUStatistic,IConstWUStatistic> statistics;
+            statistics.loadBranch(p,"Statistics");
+            Owned<IConstWUScopeIterator> localStats(new WorkUnitStatisticsScopeIterator(statistics, filter.queryIterFilter()));
+            compoundIter->addIter(localStats);
+        }
+
+        /*if (sources & SSFsearchGraphStats)
+        {
+            const char * wuid = p->queryName();
+            Owned<IConstWUScopeIterator> scopeIter(new CConstGraphProgressScopeIterator(wuid, filter.queryIterFilter(), filter.queryMinVersion()));
+            compoundIter->addIter(scopeIter);
+        }
+
+        if (sources & SSFsearchGraph)
+        {
+            Owned<IConstWUScopeIterator> graphIter(new GraphScopeIterator(this, filter.queryIterFilter()));
+            compoundIter->addIter(graphIter);
+        }
+
+        if (sources & SSFsearchWorkflow)
+        {
+            Owned<IConstWorkflowItemIterator> iter = getWorkflowItems();
+            if (iter)
+            {
+                Owned<IConstWUScopeIterator> workflowIter(new WorkflowStatisticsScopeIterator(iter));
+                compoundIter->addIter(workflowIter);
+            }
+        }
+        if (sources & SSFsearchExceptions)
+        {
+            Owned<IConstWUScopeIterator> notesIter(new NotesIterator(this,filter.queryIterFilter()));
+            compoundIter->addIter(notesIter);
+        }*/
+
+        return compoundIter.getClear();
+    }
+    unsigned getTotalThorTime(IPropertyTree* p)
+    {
+        //StringBuffer s1;
+        //toXML(p, s1);
+        //DBGLOG("####(%s)", s1.str());
+        const char *s = p->queryProp("@totalThorTime");
+        if (!isEmptyString(s))
+            return (unsigned)nanoToMilli(extractTimeCollatable(s, false));
+
+        unsigned __int64 d = p->getPropInt64("Timings/Timing[@name='Total thor time']/@duration", 0);
+        if (d > 0)
+            return (unsigned)nanoToMilli(d);
+
+        Owned<IPropertyTreeIterator> iter = p->getElements("Statistics/Statistic");
+        ForEach(*iter)
+        {
+            const char *desc = iter->query().queryProp("@desc");
+            if (desc && streq(desc, "Total thor time"))
+                return (unsigned)nanoToMilli(iter->query().getPropInt64("@value", 0));
+
+            const char *c = iter->query().queryProp("@c");
+            if (streq(c, "summary"))
+            {
+                const char *kind = iter->query().queryProp("@kind");
+                if (streq(kind, "TimeElapsed"))
+                {
+                    const char *creator = iter->query().queryProp("@creator");
+                    if (streq(creator, "thor") || streq(creator, "hthor") || streq(creator, "roxie"))
+                    {
+                        return (unsigned)nanoToMilli(iter->query().getPropInt64("@value", 0));
+                    }
+                }
+            }
+        }
+
+        return 0;
+    }
+    unsigned getTotalThorTime1(IPropertyTree* p)
+    {
+        StatsAggregation summary;
+        SimpleReferenceAggregator aggregator(StTimeElapsed, summary);
+        const WuScopeFilter filter("stype[graph],nested[0],stat[TimeElapsed]");
+        Owned<IConstWUScopeIterator> it = getScopeIterator(p, filter);
+        ForEach(*it)
+            it->playProperties(aggregator);
+        return (unsigned)nanoToMilli(summary.getSum());
+    }
+    unsigned getTotalThorTime2(IPropertyTree* p)
+    {
+        return (unsigned)nanoToMilli(extractTimeCollatable(p->queryProp(getEnumText(WUSFtotalthortime, workunitSortFields)), false));
+    }
+
 public:
     CLightweightWorkunitInfo(IPropertyTree &p)
     {
@@ -3571,6 +3703,8 @@ public:
         priorityLevel = calcPriorityValue(&p);
         wuscope.set(p.queryProp("@scope"));
         appvalues.loadBranch(&p,"Application");
+
+        //totalThorTime = getTotalThorTime(&p);
         totalThorTime = (unsigned)nanoToMilli(extractTimeCollatable(p.queryProp("@totalThorTime"), false));
         _isProtected = p.getPropBool("@protected", false);
     }
@@ -4757,31 +4891,6 @@ public:
     virtual bool next() { return it->next(); }
     virtual bool isValid() { return it->isValid(); }
     virtual IStringVal & str(IStringVal &s) { s.set(it->query().queryName()+1); return s; }
-};
-
-EnumMapping workunitSortFields[] =
-{
-   { WUSFuser, "@submitID" },
-   { WUSFcluster, "@clusterName" },
-   { WUSFjob, "@jobName" },
-   { WUSFstate, "@state" },
-   { WUSFpriority, "@priorityClass" },
-   { WUSFprotected, "@protected" },
-   { WUSFwuid, "@" },
-   { WUSFecl, "Query/ShortText" },
-   { WUSFfileread, "FilesRead/File/@name" },
-   { WUSFtotalthortime, "@totalThorTime|"
-                        "Statistics/Statistic[@c='summary'][@creator='thor'][@kind='TimeElapsed']/@value|"
-                        "Statistics/Statistic[@c='summary'][@creator='hthor'][@kind='TimeElapsed']/@value|"
-                        "Statistics/Statistic[@c='summary'][@creator='roxie'][@kind='TimeElapsed']/@value|"
-                        "Statistics/Statistic[@desc='Total thor time']/@value|"
-                        "Timings/Timing[@name='Total thor time']/@duration"                                 //Use Statistics first. If not found, use Timings
-   },
-   { WUSFwuidhigh, "@" },
-   { WUSFwildwuid, "@" },
-   { WUSFappvalue, "Application" },
-   { WUSFfilewritten, "Files/File/@name" },
-   { WUSFterm, NULL }
 };
 
 extern const char *queryFilterXPath(WUSortField field)
