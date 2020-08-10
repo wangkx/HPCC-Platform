@@ -24,6 +24,7 @@
 #include "jutil.hpp" // for StringArray
 #include "loggingcommon.hpp"
 #include "LogSerializer.hpp"
+#include "loggingagentbase.hpp"
 
 const unsigned long DEFAULT_SAFE_ROLLOVER_REQ_THRESHOLD = 500000L;
 const char* const PropSafeRolloverThreshold = "SafeRolloverThreshold";
@@ -32,8 +33,8 @@ const char* const DefaultFailSafeLogsDir = "./FailSafeLogs";
 
 interface ILogFailSafe : IInterface
 {
-    virtual void Add(const char*, const char *strContents, CLogRequestInFile* reqInFile)=0;//
-    virtual void Add(const char*,IInterface& pIn, CLogRequestInFile* reqInFile)=0;
+    virtual void Add(const char*, IPropertyTree* scriptValues, const char *strContents, CLogRequestInFile* reqInFile)=0;//
+    virtual void Add(const char*, IPropertyTree* scriptValues, IInterface& pIn, CLogRequestInFile* reqInFile)=0;
     virtual StringBuffer& GenerateGUID(StringBuffer& GUID,const char* seed="") = 0;
     virtual void AddACK(const char* GUID)=0;
     virtual void RollCurrentLog()=0;
@@ -46,6 +47,7 @@ interface ILogFailSafe : IInterface
     virtual void RolloverAllLogs()=0;//
     virtual bool PopPendingLogRecord(StringBuffer& GUID, StringBuffer& cache) = 0;//
     virtual bool canRollCurrentLog() = 0;
+    virtual void setLogVariants(IEspLogAgentVariantIterator* _logVariants) = 0;
 };
 
 extern LOGGINGCOMMON_API ILogFailSafe* createFailSafeLogger(IPropertyTree* cfg, const char* logType="");
@@ -61,11 +63,13 @@ class CLogFailSafe : implements ILogFailSafe, public CInterface
     StringBuffer m_logsdir;
     StringBuffer m_LogService;//
     StringArray oldLogs;
+    Owned<IEspLogAgentVariantIterator> logVariants;
 
     CriticalSection m_critSec;//
     GuidMap m_PendingLogs;//
     unsigned long safeRolloverReqThreshold = DEFAULT_SAFE_ROLLOVER_REQ_THRESHOLD;
     unsigned long safeRolloverSizeThreshold = 0;
+    bool decoupledLogging = false;
 
     void readCfg(IPropertyTree* cfg);
     void readSafeRolloverThresholdCfg(StringBuffer& safeRolloverThreshold);
@@ -84,8 +88,8 @@ public:
 
     virtual ~CLogFailSafe();
     StringBuffer& GenerateGUID(StringBuffer& GUID,const char* seed="");
-    virtual void Add(const char*, const char *strContents, CLogRequestInFile* reqInFile);//
-    virtual void Add(const char*,IInterface& pIn, CLogRequestInFile* reqInFile);
+    virtual void Add(const char*, IPropertyTree* scriptValues, const char *strContents, CLogRequestInFile* reqInFile);//
+    virtual void Add(const char*, IPropertyTree* scriptValues, IInterface& pIn, CLogRequestInFile* reqInFile);
     virtual void AddACK(const char* GUID);
     virtual void RollCurrentLog();
     virtual void RollOldLogs();
@@ -98,6 +102,7 @@ public:
     virtual void RolloverAllLogs();//
     virtual bool PopPendingLogRecord(StringBuffer& GUID, StringBuffer& cache);//
     virtual bool canRollCurrentLog() { return m_Added.getItemCount() == m_Cleared.getItemCount(); };
+    virtual void setLogVariants(IEspLogAgentVariantIterator* _logVariants) { logVariants.setown(_logVariants); };
 };
 
 #endif // !_LOGFAILSAFE_HPP__

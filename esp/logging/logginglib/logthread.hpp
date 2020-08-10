@@ -60,6 +60,7 @@ class CLogRequestReader : public CInterface, implements ILogRequestReader
     GuidSet pendingLogGUIDs;
     GuidMap pendingLogs; //used every time when go through tank files to avoid duplicated log requests
 
+    Owned<IEspLogAgentVariantIterator> logAgentVariants;
     Linked<CLogThread> logThread;
     CThreaded threaded;
     bool stopping = false;
@@ -73,7 +74,7 @@ class CLogRequestReader : public CInterface, implements ILogRequestReader
     StringBuffer& getTankFileTimeString(const char* fileName, StringBuffer& timeString);
     bool readLogRequestsFromTankFile(const char* fileName, StringAttr& tankFileNotFinished, offset_t& tankFileNotFinishedPos);
     offset_t getReadFilePos(const char* fileName);
-    bool parseLogRequest(MemoryBuffer& rawdata, StringBuffer& GUID, StringBuffer& data);
+    bool parseLogRequest(MemoryBuffer& rawdata, StringBuffer& GUID, StringBuffer& data, bool& skip);
     void addToAckedLogFileList(const char* fileName, const char* fileNameWithPath);
     void addPendingLogsToQueue();
     void updateAckedFileList();
@@ -91,6 +92,7 @@ public:
 
     virtual void threadmain() override;
 
+    void setLogAgentVariants(IEspLogAgentVariantIterator* _logAgentVariants) { logAgentVariants.setown(_logAgentVariants); };
     void addACK(const char* GUID);
     virtual CLogRequestReaderSettings* getSettings() override { return settings; };
     virtual void setPause(bool pause) override { paused = pause; };

@@ -73,11 +73,20 @@ CLogSerializer::~CLogSerializer()
     Close();
 }
 
-void CLogSerializer::Append(const char* GUID, const char* Data, CLogRequestInFile* reqInFile)
+void CLogSerializer::Append(const char* GUID, IPropertyTree* scriptValues, const char* Data, CLogRequestInFile* reqInFile)
 {
     StringBuffer toWrite,size;
 
-    toWrite.appendf("%s\t%s\r\n",GUID,Data);
+    toWrite.appendf("%s\t", GUID);
+    if (scriptValues)
+    {
+        appendXMLOpenTag(toWrite, LOGREQUEST_SCRIPTVALUES);
+        toXML(scriptValues, toWrite);
+        appendXMLCloseTag(toWrite, LOGREQUEST_SCRIPTVALUES);
+        toWrite.append("\t");
+    }
+    toWrite.append(Data);
+    toWrite.append("\r\n");
     size.appendf("%d",toWrite.length());
     while (size.length() < 8)
         size.insert(0,'0');
@@ -226,6 +235,8 @@ void CLogSerializer::splitLogRecord(MemoryBuffer& rawdata, StringBuffer& GUID, S
 
 bool CLogSerializer::readLogRequest(CLogRequestInFile* logRequestInFile, StringBuffer& logRequest)
 {
+    DBGLOG("####readLogRequest()");
+    //sleep(120);
     //Open the file if exists.
     StringBuffer fileName(logRequestInFile->getFileName());
     Owned<IFile> file = createIFile(fileName);
@@ -298,6 +309,8 @@ void CLogSerializer::loadSendLogs(GuidSet& ackSet, GuidMap& missedLogs, unsigned
 {
     try
     {
+        DBGLOG("####loadSendLogs()");
+        //sleep(120);
         Close(); //release old file io, if any
         m_file = createIFile(m_FilePath.str());
         m_fileio = m_file->open(IFOread);

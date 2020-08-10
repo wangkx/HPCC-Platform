@@ -471,4 +471,7 @@ public:
     virtual bool updateLog(IEspUpdateLogRequestWrap& req, IEspUpdateLogResponse& resp);
     virtual IEspUpdateLogRequestWrap* filterLogContent(IEspUpdateLogRequestWrap* req);
 };
+
+extern LOGGINGCOMMON_API bool checkSkipLogRequest(IPropertyTree *scriptValues, IEspLogAgentVariantIterator* logVariants);
+
 #endif  //_LOGGINGAGENT_HPP__

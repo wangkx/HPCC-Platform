@@ -23,6 +23,43 @@ static const char* const defaultTransactionTable = "transactions";
 static const char* const defaultTransactionAppName = "accounting_log";
 static const char* const defaultLoggingTransactionAppName = "logging_transaction";
 
+static bool checkEnabledLogVariant(IPropertyTree *scriptValues, const char *profile, const char *tracename, const char *group, const char *logtype)
+{
+    bool checkProfile = !isEmptyString(profile);
+    bool checkType = !isEmptyString(logtype);
+
+    if (checkProfile && (isEmptyString(group) || !strieq(profile, group)))
+    {
+        ESPLOG(LogNormal, "'%s' log entry disabled - log profile '%s' disabled", tracename, profile);
+        return false;
+    }
+    else if (checkType)
+    {
+        VStringBuffer xpath("@disable-log-type-%s", logtype);
+        if (scriptValues->getPropBool(xpath, false))
+        {
+            ESPLOG(LogNormal, "'%s' log entry disabled - log type '%s' disabled", tracename, logtype);
+            return false;
+        }
+     }
+    return true;
+}
+
+bool checkSkipLogRequest(IPropertyTree *scriptValues, IEspLogAgentVariantIterator* logVariants)
+{
+    const char *profile = scriptValues->queryProp("@profile");
+    if (isEmptyString(profile) && !logVariants->first())
+        return false;
+
+    ForEach(*logVariants)
+    {
+        const IEspLogAgentVariant& variant = logVariants->query();
+        if (checkEnabledLogVariant(scriptValues, profile, variant.getName(), variant.getGroup(), variant.getType()))
+            return false;
+    }
+    return true;
+}
+
 void CLogContentFilter::readAllLogFilters(IPropertyTree* cfg)
 {
     bool groupFilterRead = false;
@@ -155,6 +192,7 @@ void CLogContentFilter::filterLogContentTree(StringArray& filters, IPropertyTree
 IEspUpdateLogRequestWrap* CLogContentFilter::filterLogContent(IEspUpdateLogRequestWrap* req)
 {
     const char* logContent = req->getUpdateLogRequest();
+    Owned<IPropertyTree> scriptValues = req->getScriptValuesTree();
     Owned<IPropertyTree> logRequestTree = req->getLogRequestTree();
     Owned<IPropertyTree> updateLogRequestTree = createPTree("UpdateLogRequest");
 
@@ -186,6 +224,10 @@ IEspUpdateLogRequestWrap* CLogContentFilter::filterLogContent(IEspUpdateLogReque
 
             StringBuffer espContextXML, userContextXML, userRequestXML;
             IPropertyTree* logContentTree = ensurePTree(updateLogRequestTree, "LogContent");
+            if (scriptValues)
+            {
+                logContentTree->addPropTree(scriptValues->queryName(), LINK(scriptValues));
+            }
             if (espContext)
             {
                 logContentTree->addPropTree(espContext->queryName(), LINK(espContext));
@@ -328,7 +370,10 @@ IEspUpdateLogRequestWrap* CLogContentFilter::filterLogContent(IEspUpdateLogReque
     toXML(updateLogRequestTree, updateLogRequestXML);
     ESPLOG(LogMax, "filtered content and option: <%s>", updateLogRequestXML.str());
 
-    return new CUpdateLogRequestWrap(req->getGUID(), req->getOption(), updateLogRequestXML.str());
+    Owned<IEspUpdateLogRequestWrap> newReq = new CUpdateLogRequestWrap(req->getGUID(), req->getOption(), updateLogRequestXML.str());
+    if (scriptValues)
+        newReq->setScriptValuesTree(scriptValues);
+    return newReq.getClear();
 }
 
 CLogAgentBase::CVariantIterator::CVariantIterator(const CLogAgentBase& agent)

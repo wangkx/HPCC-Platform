@@ -40,10 +40,17 @@ bool CLoggingManager::init(IPropertyTree* cfg, const char* service)
         return false;
     }
 
+    StringAttr failSafeLogsDir;
     decoupledLogging = cfg->getPropBool("DecoupledLogging", false);
     oneTankFile = cfg->getPropBool("FailSafe", true);
     if (oneTankFile || decoupledLogging)
     {
+        const char* logsDir = cfg->queryProp(PropFailSafeLogsDir);
+        if (!isEmptyString(logsDir))
+            failSafeLogsDir.set(logsDir);
+        else
+            failSafeLogsDir.set(DefaultFailSafeLogsDir);
+
         logFailSafe.setown(createFailSafeLogger(cfg, service, cfg->queryProp("@name")));
         logContentFilter.readAllLogFilters(cfg);
     }
@@ -66,7 +73,7 @@ bool CLoggingManager::init(IPropertyTree* cfg, const char* service)
         }
         loggingAgent->init(agentName, agentType, &loggingAgentTree, service);
         loggingAgent->initVariants(&loggingAgentTree);
-        IUpdateLogThread* logThread = createUpdateLogThread(&loggingAgentTree, service, agentName, nullptr, loggingAgent);
+        IUpdateLogThread* logThread = createUpdateLogThread(&loggingAgentTree, service, agentName, failSafeLogsDir.get(), loggingAgent);
         if(!logThread)
             throw MakeStringException(-1, "Failed to create update log thread for %s", agentName);
         loggingAgentThreads.push_back(logThread);
@@ -203,23 +210,7 @@ bool CLoggingManager::updateLog(IEspContext* espContext, const char* option, IPr
     }
     return bRet;
 }
-
-bool CLoggingManager::updateLog(IEspContext* espContext, IEspUpdateLogRequestWrap& req, IEspUpdateLogResponse& resp, StringBuffer& status)
-{
-    bool bRet = updateLog(espContext, req, resp);
-    if (bRet)
-        status.set("Log request has been sent.");
-    else
-    {
-        const char* statusMsg = resp.getStatusMessage();
-        if (statusMsg && *statusMsg)
-            status.setf("Failed to update log: %s", statusMsg);
-        else
-            status.set("Failed to update log");
-    }
-    return bRet;
-}
-
+/*
 static bool checkEnabledLogVariant(IPropertyTree *scriptValues, const char *profile, const char *tracename, const char *group, const char *logtype)
 {
     bool checkProfile = !isEmptyString(profile);
@@ -262,6 +253,35 @@ bool checkSkipThreadQueue(IPropertyTree *scriptValues, IUpdateLogThread &logthre
             return false;
     }
     return true;
+}*/
+
+bool checkSkipThreadQueue(IPropertyTree *scriptValues, IUpdateLogThread &logthread)
+{
+    if (!scriptValues)
+        return false;
+
+    Linked<IEspLogAgent> agent = logthread.getLogAgent(); //badly named function get functions should link
+    if (!agent)
+        return false;
+
+    Owned<IEspLogAgentVariantIterator> variants = agent->getVariants();
+    return checkSkipLogRequest(scriptValues, variants);
+}
+
+bool CLoggingManager::updateLog(IEspContext* espContext, IEspUpdateLogRequestWrap& req, IEspUpdateLogResponse& resp, StringBuffer& status)
+{
+    bool bRet = updateLog(espContext, req, resp);
+    if (bRet)
+        status.set("Log request has been sent.");
+    else
+    {
+        const char* statusMsg = resp.getStatusMessage();
+        if (statusMsg && *statusMsg)
+            status.setf("Failed to update log: %s", statusMsg);
+        else
+            status.set("Failed to update log");
+    }
+    return bRet;
 }
 
 bool CLoggingManager::updateLog(IEspContext* espContext, IEspUpdateLogRequestWrap& req, IEspUpdateLogResponse& resp)
@@ -361,8 +381,16 @@ bool CLoggingManager::saveToTankFile(IEspUpdateLogRequestWrap& logRequest, CLogR
         return false;
     }
 
-    logFailSafe->AddACK(GUID);//Ack this logging request since the task will be done as soon as the next line is called.
-    logFailSafe->Add(GUID, reqBuf, reqInFile);
+    if (decoupledLogging)
+    {
+        Linked<IPropertyTree> scriptValues = logRequestFiltered->getScriptValuesTree();
+        logFailSafe->Add(GUID, scriptValues, reqBuf, reqInFile);
+    }
+    else
+    {
+        logFailSafe->AddACK(GUID);//Ack this logging request since the task will be done as soon as the next line is called.
+        logFailSafe->Add(GUID, nullptr, reqBuf, reqInFile);
+    }
 
     ESPLOG(LogNormal, "LThread:saveToTankFile: %dms\n", msTick() - startTime);
     return true;
@@ -375,6 +403,14 @@ unsigned CLoggingManager::serializeLogRequestContent(IEspUpdateLogRequestWrap* r
     const char* option = request->getOption();
     if (!isEmptyString(option))
         appendXMLTag(logData, LOGREQUEST_OPTION, option);
+
+    /*Linked<IPropertyTree> scriptValues = request->getScriptValuesTree();
+    if (scriptValues)
+    {
+        appendXMLOpenTag(logData, LOGREQUEST_SCRIPTVALUES);
+        toXML(scriptValues, logData);
+        appendXMLCloseTag(logData, LOGREQUEST_SCRIPTVALUES);
+    }*/
 
     appendXMLOpenTag(logData, LOGREQUEST);
 

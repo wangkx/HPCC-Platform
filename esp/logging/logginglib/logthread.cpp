@@ -80,13 +80,17 @@ CLogThread::CLogThread(IPropertyTree* _cfg , const char* _service, const char* _
     if(ensureFailSafe)
     {
         logFailSafe.setown(createFailSafeLogger(_cfg, _service, _agentName));
+
+        Owned<IEspLogAgentVariantIterator> variants = logAgent->getVariants();
+        if (variants->first())
+            logFailSafe->setLogVariants(variants.getClear());
         PROGLOG("FailSafe ensured for %s", agentName.get());
     }
 
     time_t tNow;
     time(&tNow);
     localtime_r(&tNow, &m_startTime);
-
+    PROGLOG("%s tankFileDir started.", tankFileDir.get());
     if (tankFileDir.get())
     {
         Owned<CLogRequestReaderSettings> settings = new CLogRequestReaderSettings();
@@ -113,6 +117,7 @@ CLogThread::CLogThread(IPropertyTree* _cfg , const char* _service, const char* _
         checkAndCreateFile(settings->ackedFileList);
         checkAndCreateFile(settings->ackedLogRequestFile);
         logRequestReader.setown(new CLogRequestReader(settings.getClear(), this));
+        logRequestReader->setLogAgentVariants(logAgent->getVariants());
     }
     PROGLOG("%s CLogThread started.", agentName.get());
 }
@@ -195,7 +200,10 @@ bool CLogThread::enqueue(IEspUpdateLogRequestWrap* logRequest, const char* guid)
             GUID.set(guid);
         logRequest->setGUID(GUID.str());
         if (serializeLogRequestContent(logRequest, reqBuf))
-            logFailSafe->Add(GUID, reqBuf.str(), nullptr);
+        {
+            Linked<IPropertyTree> scriptValues = logRequest->getScriptValuesTree();
+            logFailSafe->Add(GUID, scriptValues, reqBuf, nullptr);
+        }
         ESPLOG(LogNormal, "LThread:addToFailSafe: %dms\n", msTick() -  startTime);
     }
 
@@ -422,7 +430,10 @@ void CLogThread::checkRollOver()
             StringBuffer reqBuf;
             const char* GUID = pEspRequest->getGUID();
             if(GUID && *GUID && serializeLogRequestContent(pEspRequest, reqBuf))
-                logFailSafe->Add(GUID, reqBuf.str(), nullptr);
+            {
+                Linked<IPropertyTree> scriptValues = pEspRequest->getScriptValuesTree();
+                logFailSafe->Add(GUID, scriptValues, reqBuf, nullptr);
+            }
         }
         ESPLOG(LogNormal, "LThread:AddFailSafe: %dms\n", msTick() -  startTime);
     }
@@ -448,6 +459,13 @@ unsigned CLogThread::serializeLogRequestContent(IEspUpdateLogRequestWrap* pReque
         logData.append("<GUID>").append(GUID).append("</GUID>");
     if (option && *option)
         logData.append("<Option>").append(option).append("</Option>");
+    /*Linked<IPropertyTree> scriptValues = pRequest->getScriptValuesTree();
+    if (scriptValues)
+    {
+        appendXMLOpenTag(logData, LOGREQUEST_SCRIPTVALUES);
+        toXML(scriptValues, logData);
+        appendXMLCloseTag(logData, LOGREQUEST_SCRIPTVALUES);
+    }*/
     if (logRequest && *logRequest)
     {
         StringBuffer buffer;
@@ -853,9 +871,15 @@ bool CLogRequestReader::readLogRequestsFromTankFile(const char* fileName, String
         if (!logSerializer.readALogLine(fileIO, finger, data))
             break;
 
+        bool skip = false;
         StringBuffer GUID, logRequest;
-        if (!parseLogRequest(data, GUID, logRequest))
-            IERRLOG("Invalid logging request in %s", fileName);
+        if (!parseLogRequest(data, GUID, logRequest, skip))
+        {
+            if (skip)
+                ESPLOG(LogMax, "#### Skip: %s", GUID.str());
+            else
+                IERRLOG("Invalid logging request in %s", fileName);
+        }
         else if (ackedLogRequests.find(GUID.str()) == ackedLogRequests.end())
         {//This QUID is not acked.
             totalMissed++;
@@ -887,7 +911,7 @@ offset_t CLogRequestReader::getReadFilePos(const char* fileName)
     return 0;
 }
 
-bool CLogRequestReader::parseLogRequest(MemoryBuffer& rawdata, StringBuffer& GUID, StringBuffer& logLine)
+bool CLogRequestReader::parseLogRequest(MemoryBuffer& rawdata, StringBuffer& GUID, StringBuffer& logLine, bool& skip)
 {
     //The rawdata should be in the form of 2635473460.05_01_12_16_13_57\t<cache>...</cache>
     //parse it into GUID and logLine (as <cache>...</cache>)
@@ -896,6 +920,7 @@ bool CLogRequestReader::parseLogRequest(MemoryBuffer& rawdata, StringBuffer& GUI
     if (!begin || (len == 0))
         return false;
 
+    //Parse GUID
     const char* ptr = begin;
     const char* end = begin + len;
     while ((ptr < end) && (*ptr != '\t'))
@@ -908,6 +933,35 @@ bool CLogRequestReader::parseLogRequest(MemoryBuffer& rawdata, StringBuffer& GUI
 
     if (++ptr == end)
         return false;
+
+    VStringBuffer scriptValuesTag("<%s>", LOGREQUEST_SCRIPTVALUES);
+    if (strnicmp(ptr, scriptValuesTag, scriptValuesTag.length()) == 0)
+    {
+        //Check
+        const char* scriptValuesPtr = ptr + scriptValuesTag.length();
+        const char* scriptValuesBegin = scriptValuesPtr;
+        while ((scriptValuesPtr < end) && (*scriptValuesPtr != '\t'))
+            scriptValuesPtr++;
+
+        if (scriptValuesPtr == end)
+            return false;
+
+        const char* scriptValuesEnd = scriptValuesPtr - scriptValuesTag.length() - 1; //No include XML CloseTag
+        if (scriptValuesEnd < scriptValuesBegin)
+            return false;
+
+        StringBuffer scriptValuesStr;
+        scriptValuesStr.append(scriptValuesEnd - scriptValuesBegin, scriptValuesBegin);
+
+        Owned<IPropertyTree> scriptValues = createPTreeFromXMLString(scriptValuesStr);
+        if (checkSkipLogRequest(scriptValues, logAgentVariants))
+        {
+            skip = true;
+            return false;
+        }
+
+        ptr = scriptValuesPtr + 1;
+    }
 
     logLine.append(end - ptr, ptr);
     return true;
