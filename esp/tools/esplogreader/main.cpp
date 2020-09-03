@@ -69,10 +69,18 @@ public:
     bool foundTxSummary = false;
 };
 
+class CESPSYS : public CInterface
+{
+public:
+    CESPSYS() {};
+
+    StringBuffer msgID, time, ramUsage, swpUsage, memUsage;
+};
+
 class CESPLogReader : public CSimpleInterface
 {
-    StringAttr outFileName, fromMSGID, toMSGID;
-    StringBuffer msgIDsInWarning, msgIDsNoTxSummary;
+    StringAttr outFileName, fromMSGID, toMSGID, command;
+    StringBuffer msgIDsInWarning;
     StringArray espLogs, skipReqs;
     bool checkFromMSGID = false, checkToMSGID = false, summary = false;
     bool foundToMSGID = false;
@@ -80,8 +88,9 @@ class CESPLogReader : public CSimpleInterface
     unsigned columnNumTime = 0, columnNumMsgID = 0, columnNumPID = 0, columnNumTID = 0;
     unsigned countActivities = 0, countWarnings = 0, countNoTxSummary = 0;
     unsigned nextDays = 0;
-    CIArrayOf<CESPActivity> activities;
+    std::map<std::string, Owned<CESPSYS>> sysMap;
     std::map<std::string, Owned<CESPActivity>> activityMap;
+    std::map<std::string, Owned<CESPActivity>> activityNoTxSummaryMap;
     std::map<std::string, unsigned> activityTypesCount;
     MapStringTo<bool> activitiesSkip;
 
@@ -90,16 +99,18 @@ class CESPLogReader : public CSimpleInterface
     bool checkMSGID(const char* line);
     bool checkSkipReqs(const char* req);
     void parseFirstLine(const char* line, const char* firstLinePtr);
-    void appendActivity(const char* line);
+    void parseOtherLine(const char* line);
+    void parseSYSLine(const char* line, CESPSYS* sysLine);
     void parseTxSummary(const char* line, CESPActivity* activity);
     void trimNewLine(StringBuffer& s);
     void trimLastChar(StringBuffer& s, const char c);
     void readOneDayLog(const char* logName, bool firstDay);
     void doSummary();
     void writeSummary(IFileIO* outFileIO, offset_t& pos);
+    void writeSYS(IFileIO* outFileIO, offset_t& pos);
     void writeActivies(IFileIO* outFileIO, offset_t& pos);
 public:
-    CESPLogReader(IProperties* input)
+    CESPLogReader(IProperties* input, const char* _command) : command(_command)
     {
         espLogs.appendList(input->queryProp("esp_log"), ",");
         outFileName.set(input->queryProp("out"));
@@ -192,8 +203,26 @@ void CESPLogReader::parseFirstLine(const char* line, const char* firstLinePtr)
     }
 }
 
-void CESPLogReader::appendActivity(const char* line)
+void CESPLogReader::parseOtherLine(const char* line)
 {
+    //Find the Quoted content
+    const char* bptr = line;
+    while(*bptr && *bptr!='"') ++bptr;
+    if (isEmptyString(bptr))
+        return;
+    if (isEmptyString(++bptr)) //skip the '"'
+        return;
+
+    if (!strncmp(bptr, "SYS: ", 5))
+    {
+        Owned<CESPSYS> sysLine = new CESPSYS();
+        parseLogColumn(line, columnNumTime, sysLine->time);
+        parseLogColumn(line, columnNumMsgID, sysLine->msgID);
+        parseSYSLine(bptr + 5, sysLine);
+        sysMap.emplace(sysLine->msgID.str(), sysLine);
+        return;
+    }
+
     StringBuffer id, PID, TID;
     parseLogColumn(line, columnNumPID, PID);
     parseLogColumn(line, columnNumTID, TID);
@@ -205,14 +234,6 @@ void CESPLogReader::appendActivity(const char* line)
 
     auto match = activityMap.find(id.str());
     if (match == activityMap.end())
-        return;
-
-    //Find the Quoted content
-    const char* bptr = line;
-    while(*bptr && *bptr!='"') ++bptr;
-    if (isEmptyString(bptr))
-        return;
-    if (isEmptyString(++bptr)) //skip the '"'
         return;
 
     CESPActivity* activity = match->second;
@@ -236,6 +257,22 @@ void CESPLogReader::appendActivity(const char* line)
     }
     else if (!strncmp(bptr, "SOAP method <", 13))
         parseLogColumn(bptr+13, 0, activity->soapMethod);
+}
+
+void CESPLogReader::parseSYSLine(const char* str, CESPSYS* sysLine)
+{
+    StringArray items;
+    items.appendList(str, " ");
+    ForEachItemIn(i, items)
+    {
+        const char* item = items.item(i);
+        if (streq(item, "MU="))
+            sysLine->memUsage.set(items.item(i+1));
+        else if (!strncmp(item, "RAM=", 4))
+            sysLine->ramUsage.set(item + 4);
+        else if (!strncmp(item, "SWP=", 4))
+            sysLine->swpUsage.set(item + 4);
+    }
 }
 
 void CESPLogReader::parseTxSummary(const char* line, CESPActivity* activity)
@@ -347,7 +384,7 @@ void CESPLogReader::readOneDayLog(const char* logName, bool firstDay)
         if (firstLinePtr)
             parseFirstLine(line, firstLinePtr);
         else
-            appendActivity(line);
+            parseOtherLine(line);
 
         if (foundToMSGID)
             break;
@@ -385,7 +422,10 @@ void CESPLogReader::doSummary()
         }
         if (!a->foundTxSummary)
         {
-            msgIDsNoTxSummary.append(a->msgID).append(",");
+            /*msgIDsNoTxSummary.append(a->msgID);
+            tIDsNoTxSummary.append(a->TID);
+            firstLNoTxSummary.append(a->req);*/
+            activityNoTxSummaryMap.emplace(it->first, LINK(a));
             countNoTxSummary++;
         }
     }
@@ -409,17 +449,26 @@ void CESPLogReader::writeSummary(IFileIO* outFileIO, offset_t& pos)
         line1.appendf("  %s\n", msgIDsInWarning.str());
     pos +=  outFileIO->write(pos, line1.length(), line1);
     line1.setf("TxSummary not found:%u\n", countNoTxSummary);
-    if (countNoTxSummary > 0)
-        line1.appendf("  %s\n", msgIDsNoTxSummary.str());
     pos +=  outFileIO->write(pos, line1.length(), line1);
-    pos +=  outFileIO->write(pos, 7, "------\n");
+    //if (countNoTxSummary > 0)
+    //    line1.appendf("  %s\n", msgIDsNoTxSummary.str());
+    //pos +=  outFileIO->write(pos, line1.length(), line1);
+    //pos +=  outFileIO->write(pos, 7, "------\n");
+    unsigned count = 1;
+    for (std::map<std::string, Owned<CESPActivity>>::iterator it=activityNoTxSummaryMap.begin(); it!=activityNoTxSummaryMap.end(); ++it)
+    {
+        CESPActivity* a = it->second;
+        StringBuffer line;
+        line.appendf("%u: %s;%s;%s;%s;%s\n", count++, a->msgID.str(), a->startTime.str(), a->PID.str(), a->TID.str(), a->req.str());
+        pos +=  outFileIO->write(pos, line.length(), line.str());
+    }
 }
 
 void CESPLogReader::writeActivies(IFileIO* outFileIO, offset_t& pos)
 {
     pos +=  outFileIO->write(pos, 12, "\nActivies:\n\n");
 
-    VStringBuffer columns("\nmsgID;startTime;PID;TID;activeReqs;req;reqParam;soapMethod;from;totalTime;auth;warning\n\n");
+    VStringBuffer columns("\nstartTime: msgID;PID;TID;activeReqs;req;reqParam;soapMethod;from;totalTime;auth;warning\n\n");
     pos +=  outFileIO->write(pos, columns.length(), columns.str());
 
     for (std::map<std::string, Owned<CESPActivity>>::iterator it=activityMap.begin(); it!=activityMap.end(); ++it)
@@ -430,10 +479,30 @@ void CESPLogReader::writeActivies(IFileIO* outFileIO, offset_t& pos)
             continue;
 
         StringBuffer line;
-        line.appendf("%s;%s;%s;%s;%s;%s;%s;",
-            a->msgID.str(), a->startTime.str(), a->PID.str(), a->TID.str(), a->activeReqs.str(), a->req.str(), a->reqParam.str());
+        line.appendf("%s: %s;%s;%s;%s;%s;%s;",
+            a->startTime.str(), a->msgID.str(), a->PID.str(), a->TID.str(), a->activeReqs.str(), a->req.str(), a->reqParam.str());
         line.appendf("%s;%s;%s;%s;%s\n",
             a->soapMethod.str(), a->from.str(), a->totalTime.str(), a->auth.str(), a->warning.str());
+        pos +=  outFileIO->write(pos, line.length(), line.str());
+    }
+
+    pos +=  outFileIO->write(pos, columns.length(), columns.str());
+    pos +=  outFileIO->write(pos, 7, "------\n");
+}
+
+void CESPLogReader::writeSYS(IFileIO* outFileIO, offset_t& pos)
+{
+    pos +=  outFileIO->write(pos, 7, "\nSYS:\n\n");
+
+    VStringBuffer columns("\ntime: mem;ram;swp;msgID\n\n");
+    pos +=  outFileIO->write(pos, columns.length(), columns.str());
+
+    for (std::map<std::string, Owned<CESPSYS>>::iterator it=sysMap.begin(); it!=sysMap.end(); ++it)
+    {
+        CESPSYS* a = it->second;
+
+        StringBuffer line;
+        line.appendf("%s: %s;%s;%s;%s\n", a->time.str(), a->memUsage.str(), a->ramUsage.str(), a->swpUsage.str(), a->msgID.str());
         pos +=  outFileIO->write(pos, line.length(), line.str());
     }
 
@@ -450,7 +519,10 @@ void CESPLogReader::writeAct()
     if (!outFileIO)
         throw makeStringExceptionV(-1, "Failed to open %s.", outFileName.str());
 
-    offset_t pos = 0;
+    offset_t pos = outFileIO->write(0, command.length(), command.get());
+    pos +=  outFileIO->write(pos, 2, "\n\n");
+
+    writeSYS(outFileIO, pos);
 
     writeActivies(outFileIO, pos);
 
@@ -459,7 +531,7 @@ void CESPLogReader::writeAct()
     printf("Finish write() %s ...\n", outFileName.str());
 }
 
-bool processRequest(IProperties* input)
+bool processRequest(IProperties* input, const char* command)
 {
     const char* espLog = input->queryProp("esp_log");
     if (isEmptyString(espLog))
@@ -476,7 +548,7 @@ bool processRequest(IProperties* input)
     }
 
     printf("esplogreader version %s\n", version);
-    Owned<CESPLogReader> reader = new CESPLogReader(input);
+    Owned<CESPLogReader> reader = new CESPLogReader(input, command);
     reader->readLog();
     reader->writeAct();
 
@@ -487,6 +559,10 @@ int main(int argc, const char** argv)
 {
     InitModuleObjects();
 
+    StringBuffer command;
+    for(unsigned counter=0; counter<argc; counter++)
+        command.appendf((counter == 0) ? "%s" : " %s", argv[counter]);
+
     Owned<IProperties> input = createProperties(true);
     if (!getInput(argc, argv, input))
     {
@@ -496,7 +572,7 @@ int main(int argc, const char** argv)
 
     try
     {
-        processRequest(input);
+        processRequest(input, command);
     }
     catch(IException *excpt)
     {
