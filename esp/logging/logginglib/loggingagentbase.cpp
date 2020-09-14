@@ -26,23 +26,7 @@ static const char* const defaultLoggingTransactionAppName = "logging_transaction
 void CLogContentFilter::readAllLogFilters(IPropertyTree* cfg)
 {
     bool groupFilterRead = false;
-    VStringBuffer xpath("Filters/Filter[@type='%s']", espLogContentGroupNames[ESPLCGBackEndResp]);
-    IPropertyTree* filter = cfg->queryBranch(xpath.str());
-    if (filter && filter->hasProp("@value"))
-    {
-        logBackEndResp = filter->getPropBool("@value");
-        groupFilterRead = true;
-    }
-
-    xpath.setf("Filters/Filter[@type='%s']", espLogContentGroupNames[ESPLCGBackEndReq]);
-    filter = cfg->queryBranch(xpath.str());
-    if (filter && filter->hasProp("@value"))
-    {
-        logBackEndReq = filter->getPropBool("@value");
-        groupFilterRead = true;
-    }
-
-    for (unsigned i = 0; i < ESPLCGBackEndReq; i++)
+    for (unsigned i = 0; i < ESPLCGAll; i++)
     {
         if (readLogFilters(cfg, i))
             groupFilterRead = true;
@@ -57,12 +41,36 @@ void CLogContentFilter::readAllLogFilters(IPropertyTree* cfg)
 
 bool CLogContentFilter::readLogFilters(IPropertyTree* cfg, unsigned groupID)
 {
-    Owned<CESPLogContentGroupFilters> espLogContentGroupFilters = new CESPLogContentGroupFilters((ESPLogContentGroup) groupID);
     StringBuffer xpath;
     if (groupID != ESPLCGAll)
         xpath.appendf("Filters/Filter[@type='%s']", espLogContentGroupNames[groupID]);
     else
         xpath.append("Filters/Filter");
+
+    if ((groupID == ESPLCGBackEndReq) || (groupID == ESPLCGBackEndResp))
+    {
+        IPropertyTree* filter = cfg->queryBranch(xpath.str());
+        if (filter)
+        {
+            if (filter->hasProp("@value"))
+            {
+                if (!filter->getPropBool("@value"))
+                {
+                    Owned<CESPLogContentGroupFilters> espLogContentGroupFilters = new CESPLogContentGroupFilters((ESPLogContentGroup) groupID);
+                    groupFilters.append(*espLogContentGroupFilters.getClear());
+                }
+            }
+            else if (filter->hasProp("@removal") && filter->getPropBool("@removal"))
+            {
+                Owned<CESPLogContentGroupFilters> espLogContentGroupFilters = new CESPLogContentGroupFilters((ESPLogContentGroup) groupID);
+                groupFilters.append(*espLogContentGroupFilters.getClear());
+            }
+        }
+
+        return filter && (filter->hasProp("@value") || filter->hasProp("@removal"));
+    }
+
+    Owned<CESPLogContentGroupFilters> espLogContentGroupFilters = new CESPLogContentGroupFilters((ESPLogContentGroup) groupID);
     Owned<IPropertyTreeIterator> filters = cfg->getElements(xpath.str());
     ForEach(*filters)
     {
@@ -70,6 +78,9 @@ bool CLogContentFilter::readLogFilters(IPropertyTree* cfg, unsigned groupID)
         StringBuffer value(filter.queryProp("@value"));
         if (!value.length())
             continue;
+
+        if (!espLogContentGroupFilters->checkAndSetRemoval(filter.getPropBool("@removal")))
+            throw makeStringExceptionV(-1, "The same filter type (%s) must have the same @removal value.", espLogContentGroupNames[groupID]);
 
         //clean "//"
         unsigned idx = value.length()-1;
@@ -90,12 +101,15 @@ bool CLogContentFilter::readLogFilters(IPropertyTree* cfg, unsigned groupID)
         }
         else
         {
-            espLogContentGroupFilters->clearFilters();
+            if (espLogContentGroupFilters->isRemoval() && streq(value.str(), "*"))
+                espLogContentGroupFilters->setRemovalAll(true);
+            else
+                espLogContentGroupFilters->clearFilters();
             break;
         }
     }
 
-    bool hasFilter = espLogContentGroupFilters->getFilterCount() > 0;
+    bool hasFilter = espLogContentGroupFilters->isRemovalAll() || (espLogContentGroupFilters->getFilterCount() > 0);
     if (hasFilter)
         groupFilters.append(*espLogContentGroupFilters.getClear());
     return hasFilter;
@@ -138,13 +152,23 @@ void CLogContentFilter::filterAndAddLogContentBranch(StringArray& branchNamesInF
     }
 }
 
-void CLogContentFilter::filterLogContentTree(StringArray& filters, IPropertyTree* originalContentTree, IPropertyTree* newLogContentTree, bool& logContentEmpty)
+void CLogContentFilter::filterLogContentTree(CESPLogContentGroupFilters& filtersGroup, IPropertyTree* originalContentTree, IPropertyTree* newLogContentTree, bool& logContentEmpty)
 {
+    bool removal = filtersGroup.isRemoval();
+    StringArray& filters = filtersGroup.getFilters();
     ForEachItemIn(i, filters)
     {
         const char* logContentFilter = filters.item(i);
         if(!logContentFilter || !*logContentFilter)
             continue;
+
+        if (removal)
+        {
+            bool more;
+            do more = newLogContentTree->removeProp(logContentFilter);
+            while(more);
+            continue;
+        }
 
         StringArray branchNamesInFilter, branchNamesInLogContent;
         branchNamesInFilter.appendListUniq(logContentFilter, "/");
@@ -154,12 +178,13 @@ void CLogContentFilter::filterLogContentTree(StringArray& filters, IPropertyTree
 
 IEspUpdateLogRequestWrap* CLogContentFilter::filterLogContent(IEspUpdateLogRequestWrap* req)
 {
+    bool noFilter = (groupFilters.length() < 1);
     Owned<IPropertyTree> logRequestTree = req->getLogRequestTree();
     const char* logContent = req->getUpdateLogRequest();
     if (logRequestTree || !isEmptyString(logContent))
     {
-        if (groupFilters.length() < 1)
-        {//No filter
+        if (noFilter)
+        {
             if (!logRequestTree)
                 return LINK(req);
 
@@ -173,11 +198,30 @@ IEspUpdateLogRequestWrap* CLogContentFilter::filterLogContent(IEspUpdateLogReque
         if (!logRequestTree)
             logRequestTree.setown(createPTreeFromXMLString(logContent));
 
-        Owned<IPropertyTree> filteredLogRequestTree = createPTree(logRequestTree->queryName());
-        bool logContentEmpty = true;
-        filterLogContentTree(groupFilters.item(0).getFilters(), logRequestTree, filteredLogRequestTree, logContentEmpty);
-        if (logContentEmpty)
-            throw MakeStringException(EspLoggingErrors::UpdateLogFailed, "The filtered content is empty.");
+        Owned<IPropertyTree> filteredLogRequestTree;
+        CESPLogContentGroupFilters& filtersGroup = groupFilters.item(0);
+        if (filtersGroup.getGroup() == ESPLCGAll)
+        {
+            bool logContentEmpty = true;
+            if (filtersGroup.isRemoval())
+            {
+                filteredLogRequestTree.setown(createPTreeFromIPT(logRequestTree));
+                filterLogContentTree(filtersGroup, logRequestTree, filteredLogRequestTree, logContentEmpty);
+            }
+            else
+            {
+                filteredLogRequestTree.setown(createPTree(logRequestTree->queryName()));
+                filterLogContentTree(filtersGroup, logRequestTree, filteredLogRequestTree, logContentEmpty);
+                if (logContentEmpty)
+                    throw makeStringExceptionV(EspLoggingErrors::UpdateLogFailed, "The filtered content is empty.");
+            }
+        }
+        else
+        {
+            filteredLogRequestTree.setown(createPTree(logRequestTree->queryName()));
+            ensurePTree(filteredLogRequestTree, "LogContent");
+            filterLogContentTreeUsingGroupFilters(logRequestTree, filteredLogRequestTree);
+        }
 
         StringBuffer updateLogRequestXML;
         toXML(filteredLogRequestTree, updateLogRequestXML);
@@ -192,136 +236,17 @@ IEspUpdateLogRequestWrap* CLogContentFilter::filterLogContent(IEspUpdateLogReque
     Owned<IPropertyTree> updateLogRequestTree = createPTree("UpdateLogRequest");
     IPropertyTree* logContentTree = ensurePTree(updateLogRequestTree, "LogContent");
     StringBuffer source;
-    if (logBackEndReq && logBackEndResp && (groupFilters.length() < 1))
-    {//No filter. Add all the log items to the LogContent.
-        Owned<IPropertyTree> espContext = req->getESPContext();
-        Owned<IPropertyTree> userContext = req->getUserContext();
-        Owned<IPropertyTree> userRequest = req->getUserRequest();
-        const char* userResp = req->getUserResponse();
-        const char* logDatasets = req->getLogDatasets();
-        const char* backEndReq = req->getBackEndRequest();
-        const char* backEndResp = req->getBackEndResponse();
-        if (!espContext && !userContext && !userRequest && (!userResp || !*userResp) && (!backEndResp || !*backEndResp))
-            throw MakeStringException(EspLoggingErrors::UpdateLogFailed, "Failed to read log content");
-        source = userContext->queryProp("Source");
-
-        StringBuffer espContextXML, userContextXML, userRequestXML;
-        if (espContext)
-        {
-            logContentTree->addPropTree(espContext->queryName(), LINK(espContext));
-        }
-        if (userContext)
-        {
-            IPropertyTree* pTree = ensurePTree(logContentTree, espLogContentGroupNames[ESPLCGUserContext]);
-            pTree->addPropTree(userContext->queryName(), LINK(userContext));
-        }
-        if (userRequest)
-        {
-            IPropertyTree* pTree = ensurePTree(logContentTree, espLogContentGroupNames[ESPLCGUserReq]);
-            pTree->addPropTree(userRequest->queryName(), LINK(userRequest));
-        }
-        if (!isEmptyString(userResp))
-        {
-            IPropertyTree* pTree = ensurePTree(logContentTree, espLogContentGroupNames[ESPLCGUserResp]);
-            Owned<IPropertyTree> userRespTree = createPTreeFromXMLString(userResp);
-            pTree->addPropTree(userRespTree->queryName(), LINK(userRespTree));
-        }
-        if (!isEmptyString(logDatasets))
-        {
-            IPropertyTree* pTree = ensurePTree(logContentTree, espLogContentGroupNames[ESPLCGLogDatasets]);
-            Owned<IPropertyTree> logDatasetTree = createPTreeFromXMLString(logDatasets);
-            pTree->addPropTree(logDatasetTree->queryName(), LINK(logDatasetTree));
-        }
-        if (!isEmptyString(backEndReq))
-            logContentTree->addProp(espLogContentGroupNames[ESPLCGBackEndReq], backEndReq);
-        if (!isEmptyString(backEndResp))
-            logContentTree->addProp(espLogContentGroupNames[ESPLCGBackEndResp], backEndResp);
+    if (noFilter || skipFilter)
+    {
+        readLogRequest(req, source, logContentTree);
     }
     else
     {
-        bool logContentEmpty = true;
-
-        //Both ESPLCGBackEndReq and ESPLCGBackEndResp are handled after this loop.
-        for (unsigned group = 0; group < ESPLCGBackEndReq; group++)
-        {
-            Owned<IPropertyTree> originalContentTree;
-            if (group == ESPLCGESPContext)
-                originalContentTree.setown(req->getESPContext());
-            else if (group == ESPLCGUserContext)
-            {
-                originalContentTree.setown(req->getUserContext());
-                source = originalContentTree->queryProp("Source");
-            }
-            else if (group == ESPLCGUserReq)
-                originalContentTree.setown(req->getUserRequest());
-            else if (group == ESPLCGLogDatasets)
-            {
-                const char* logDatasets = req->getLogDatasets();
-                if (logDatasets && *logDatasets)
-                    originalContentTree.setown(createPTreeFromXMLString(logDatasets));
-            }
-            else //group = ESPLCGUserResp
-            {
-                const char* resp = req->getUserResponse();
-                if (!resp || !*resp)
-                    continue;
-                originalContentTree.setown(createPTreeFromXMLString(resp));
-            }
-            if (!originalContentTree)
-                continue;
-
-            bool foundGroupFilters  = false;
-            ForEachItemIn(i, groupFilters)
-            {
-                CESPLogContentGroupFilters& filtersGroup = groupFilters.item(i);
-                if (filtersGroup.getGroup() == group)
-                {
-                    IPropertyTree* newContentTree = ensurePTree(logContentTree, espLogContentGroupNames[group]);
-                    if (group != ESPLCGESPContext)//For non ESPLCGESPContext, we want to keep the root of original tree.
-                        newContentTree = ensurePTree(newContentTree, originalContentTree->queryName());
-                    filterLogContentTree(filtersGroup.getFilters(), originalContentTree, newContentTree, logContentEmpty);
-                    foundGroupFilters  =  true;
-                    break;
-                }
-            }
-
-            if (!foundGroupFilters )
-            {
-                if (group == ESPLCGESPContext)
-                {
-                    //The ESPContext tree itself already has the /ESPContext node
-                    //as the top tree node. We should not add another /ESPContext
-                    //node on the top of the ESPContext tree.
-                    logContentTree->addPropTree(originalContentTree->queryName(), LINK(originalContentTree));
-                }
-                else
-                {
-                    IPropertyTree* newContentTree = ensurePTree(logContentTree, espLogContentGroupNames[group]);
-                    newContentTree->addPropTree(originalContentTree->queryName(), LINK(originalContentTree));
-                }
-                logContentEmpty = false;
-            }
-        }
-        if (logBackEndReq)
-        {
-            const char* request = req->getBackEndRequest();
-            if (!isEmptyString(request))
-            {
-                logContentTree->addProp(espLogContentGroupNames[ESPLCGBackEndReq], request);
-                logContentEmpty = false;
-            }
-        }
-        if (logBackEndResp)
-        {
-            const char* resp = req->getBackEndResponse();
-            if (resp && *resp)
-            {
-                logContentTree->addProp(espLogContentGroupNames[ESPLCGBackEndResp], resp);
-                logContentEmpty = false;
-            }
-        }
-        if (logContentEmpty)
-            throw MakeStringException(EspLoggingErrors::UpdateLogFailed, "The filtered content is empty.");
+        CESPLogContentGroupFilters& filtersGroup = groupFilters.item(0);
+        if (filtersGroup.getGroup() == ESPLCGAll)
+            readLogRequestWithAllFilter(req, source, logContentTree);
+        else
+            readLogRequestWithGroupFilters(req, source, logContentTree);
     }
 
     Owned<IPropertyTree> scriptValues = req->getScriptValuesTree();
@@ -343,6 +268,274 @@ IEspUpdateLogRequestWrap* CLogContentFilter::filterLogContent(IEspUpdateLogReque
     if (scriptValues)
         newReq->setScriptValuesTree(scriptValues);
     return newReq.getClear();
+}
+
+void CLogContentFilter::filterLogContentTreeUsingGroupFilters(IPropertyTree* originalContentTree, IPropertyTree* newLogContentTree)
+{
+    bool logContentEmpty = true;
+    for (unsigned group = 0; group < ESPLCGAll; group++)
+    {
+        bool groupNoFilter  = true;
+        const char* xpath = espLogContentXPaths[group];
+        ForEachItemIn(i, groupFilters)
+        {
+            CESPLogContentGroupFilters& filtersGroup = groupFilters.item(i);
+            if (filtersGroup.getGroup() != group)
+                continue;
+
+            groupNoFilter  = false;
+            if ((group == ESPLCGBackEndReq) || (group == ESPLCGBackEndResp))
+                break; //The group filter for ESPLCGBackEndReq or ESPLCGBackEndResp means removalAll.
+
+            if (filtersGroup.isRemovalAll())
+                break;
+
+            IPropertyTree* originalGroup = originalContentTree->queryPropTree(xpath);
+            if (!originalGroup)
+                break;
+
+            IPropertyTree* newGroupTree = nullptr;
+            if (filtersGroup.isRemoval())
+            {
+                newGroupTree = newLogContentTree->addPropTree(xpath, createPTreeFromIPT(originalGroup));
+                //For ESPLCGUserReq and ESPLCGUserResp, the filter xpath is defined based on the data
+                //branch inside the originalGroup. The name of the data branch is given by ESDL service.
+                if ((group == ESPLCGUserReq) || (group == ESPLCGUserResp))
+                    newGroupTree = getFirstBranch(newGroupTree);
+                if (!newGroupTree)
+                    break;
+                logContentEmpty = false;
+            }
+            else
+            {
+                newGroupTree = ensurePTree(newLogContentTree, xpath);
+                if ((group == ESPLCGUserReq) || (group == ESPLCGUserResp))
+                {
+                    originalGroup = getFirstBranch(originalGroup);
+                    if (!originalGroup)
+                        break;
+                    newGroupTree = ensurePTree(newGroupTree, originalGroup->queryName());
+                }
+            }
+
+            filterLogContentTree(filtersGroup, originalGroup, newGroupTree, logContentEmpty);
+            break;
+        }
+
+        if (groupNoFilter)
+        { //add all
+            if ((group == ESPLCGBackEndReq) || (group == ESPLCGBackEndResp))
+            {
+                const char* data = originalContentTree->queryProp(xpath);
+                if (!isEmptyString(data))
+                {
+                    newLogContentTree->addProp(xpath, data);
+                    logContentEmpty = false;
+                }
+            }
+            else
+            {
+                IPropertyTree* originalGroup = originalContentTree->queryPropTree(xpath);
+                if (originalGroup)
+                {
+                    newLogContentTree->addPropTree(xpath, createPTreeFromIPT(originalGroup));
+                    logContentEmpty = false;
+                }
+            }
+        }
+    }
+
+    if (logContentEmpty)
+        throw makeStringExceptionV(EspLoggingErrors::UpdateLogFailed, "The filtered content is empty.");
+}
+
+IPropertyTree* CLogContentFilter::getFirstBranch(IPropertyTree* root)
+{
+    IPropertyTree* branch = nullptr;
+    Owned<IPropertyTreeIterator> itr = root->getElements("*");
+    ForEach(*itr)
+    {
+        branch = &itr->query();
+        break;
+    }
+    return branch;
+}
+
+void CLogContentFilter::readLogRequest(IEspUpdateLogRequestWrap* req, StringBuffer& source, IPropertyTree* logContentTree)
+{
+    Owned<IPropertyTree> espContext = req->getESPContext();
+    Owned<IPropertyTree> userContext = req->getUserContext();
+    Owned<IPropertyTree> userRequest = req->getUserRequest();
+    const char* userResp = req->getUserResponse();
+    const char* logDatasets = req->getLogDatasets();
+    const char* backEndReq = req->getBackEndRequest();
+    const char* backEndResp = req->getBackEndResponse();
+    if (!espContext && !userContext && !userRequest && (!userResp || !*userResp) && (!backEndResp || !*backEndResp))
+        throw makeStringExceptionV(EspLoggingErrors::UpdateLogFailed, "Failed to read log content");
+
+    source = userContext->queryProp("Source");
+
+    StringBuffer espContextXML, userContextXML, userRequestXML;
+    if (espContext)
+    {
+        logContentTree->addPropTree(espContext->queryName(), LINK(espContext));
+    }
+    if (userContext)
+    {
+        IPropertyTree* pTree = ensurePTree(logContentTree, espLogContentGroupNames[ESPLCGUserContext]);
+        pTree->addPropTree(userContext->queryName(), LINK(userContext));
+    }
+    if (userRequest)
+    {
+        IPropertyTree* pTree = ensurePTree(logContentTree, espLogContentGroupNames[ESPLCGUserReq]);
+        pTree->addPropTree(userRequest->queryName(), LINK(userRequest));
+    }
+    if (!isEmptyString(userResp))
+    {
+        IPropertyTree* pTree = ensurePTree(logContentTree, espLogContentGroupNames[ESPLCGUserResp]);
+        Owned<IPropertyTree> userRespTree = createPTreeFromXMLString(userResp);
+        pTree->addPropTree(userRespTree->queryName(), LINK(userRespTree));
+    }
+    if (!isEmptyString(logDatasets))
+    {
+        IPropertyTree* pTree = ensurePTree(logContentTree, espLogContentGroupNames[ESPLCGLogDatasets]);
+        Owned<IPropertyTree> logDatasetTree = createPTreeFromXMLString(logDatasets);
+        pTree->addPropTree(logDatasetTree->queryName(), LINK(logDatasetTree));
+    }
+    if (!isEmptyString(backEndReq))
+        logContentTree->addProp(espLogContentGroupNames[ESPLCGBackEndReq], backEndReq);
+    if (!isEmptyString(backEndResp))
+        logContentTree->addProp(espLogContentGroupNames[ESPLCGBackEndResp], backEndResp);
+}
+
+void CLogContentFilter::readLogRequestWithAllFilter(IEspUpdateLogRequestWrap* req, StringBuffer& source, IPropertyTree* logContentTree)
+{
+    bool logContentEmpty = true;
+    CESPLogContentGroupFilters& filtersGroup = groupFilters.item(0);
+    if (filtersGroup.isRemoval())
+    {
+        readLogRequest(req, source, logContentTree);
+        filterLogContentTree(filtersGroup, nullptr, logContentTree, logContentEmpty);
+    }
+    else
+    {
+        Owned<IPropertyTree> logRequestTree = createPTree("LogContent");
+        readLogRequest(req, source, logRequestTree);
+
+        filterLogContentTree(groupFilters.item(0), logRequestTree, logContentTree, logContentEmpty);
+        if (logContentEmpty)
+            throw makeStringExceptionV(EspLoggingErrors::UpdateLogFailed, "The filtered content is empty.");
+    }
+}
+
+void CLogContentFilter::readLogRequestWithGroupFilters(IEspUpdateLogRequestWrap* req, StringBuffer& source, IPropertyTree* logContentTree)
+{
+    bool logContentEmpty = true;
+    for (unsigned group = 0; group < ESPLCGAll; group++)
+    {
+        if ((group == ESPLCGBackEndReq) || (group == ESPLCGBackEndResp))
+        {
+            bool noFilter = true;
+            ForEachItemIn(i, groupFilters)
+            {
+                CESPLogContentGroupFilters& filtersGroup = groupFilters.item(i);
+                if (filtersGroup.getGroup() == group)
+                {
+                    noFilter = false;
+                    break;
+                }
+            }
+
+            if (noFilter)
+            { //No filter for this group (ESPLCGBackEndReq or ESPLCGBackEndResp). Add it to the logContentTree.
+                const char* data = (group == ESPLCGBackEndReq) ? req->getBackEndRequest() : req->getBackEndResponse();
+                if (!isEmptyString(data))
+                {
+                    logContentTree->addProp(espLogContentGroupNames[group], data);
+                    logContentEmpty = false;
+                }
+            }
+            continue;
+        }
+
+        Owned<IPropertyTree> originalContentTree;
+        if (group == ESPLCGESPContext)
+            originalContentTree.setown(req->getESPContext());
+        else if (group == ESPLCGUserContext)
+        {
+            originalContentTree.setown(req->getUserContext());
+            source = originalContentTree->queryProp("Source");
+        }
+        else if (group == ESPLCGUserReq)
+            originalContentTree.setown(req->getUserRequest());
+        else if (group == ESPLCGLogDatasets)
+        {
+            const char* logDatasets = req->getLogDatasets();
+            if (logDatasets && *logDatasets)
+                originalContentTree.setown(createPTreeFromXMLString(logDatasets));
+        }
+        else //group = ESPLCGUserResp
+        {
+            const char* resp = req->getUserResponse();
+            if (!resp || !*resp)
+                continue;
+            originalContentTree.setown(createPTreeFromXMLString(resp));
+        }
+        if (!originalContentTree)
+            continue;
+
+        bool foundGroupFilters  = false;
+        ForEachItemIn(i, groupFilters)
+        {
+            CESPLogContentGroupFilters& filtersGroup = groupFilters.item(i);
+            if (filtersGroup.getGroup() == group)
+            {
+                foundGroupFilters  =  true;
+                if (filtersGroup.isRemovalAll())
+                    break;
+
+                IPropertyTree* newContentTree = nullptr;
+                if (filtersGroup.isRemoval())
+                {
+                    if (group == ESPLCGESPContext)
+                        newContentTree = logContentTree->addPropTree(espLogContentGroupNames[group], createPTreeFromIPT(originalContentTree));
+                    else //For non ESPLCGESPContext, we want to keep the root of original tree.
+                    {
+                        newContentTree = ensurePTree(logContentTree, espLogContentGroupNames[group]);
+                        newContentTree = newContentTree->addPropTree(originalContentTree->queryName(), createPTreeFromIPT(originalContentTree));
+                    }
+                    logContentEmpty = false;
+                }
+                else
+                {
+                    newContentTree = ensurePTree(logContentTree, espLogContentGroupNames[group]);
+                    if (group != ESPLCGESPContext)//For non ESPLCGESPContext, we want to keep the root of original tree.
+                        newContentTree = ensurePTree(newContentTree, originalContentTree->queryName());
+                }
+                filterLogContentTree(filtersGroup, originalContentTree, newContentTree, logContentEmpty);
+                break;
+            }
+        }
+
+        if (!foundGroupFilters )
+        {
+            if (group == ESPLCGESPContext)
+            {
+                //The ESPContext tree itself already has the /ESPContext node
+                //as the top tree node. We should not add another /ESPContext
+                //node on the top of the ESPContext tree.
+                logContentTree->addPropTree(originalContentTree->queryName(), LINK(originalContentTree));
+            }
+            else
+            {
+                IPropertyTree* newContentTree = ensurePTree(logContentTree, espLogContentGroupNames[group]);
+                newContentTree->addPropTree(originalContentTree->queryName(), LINK(originalContentTree));
+            }
+            logContentEmpty = false;
+        }
+    }
+    if (logContentEmpty)
+        throw makeStringExceptionV(EspLoggingErrors::UpdateLogFailed, "The filtered content is empty.");
 }
 
 CLogAgentBase::CVariantIterator::CVariantIterator(const CLogAgentBase& agent)

@@ -225,8 +225,15 @@
                   <xs:enumeration value="UserRequest"/>
                   <xs:enumeration value="UserResponse"/>
                   <xs:enumeration value="BackEndResponse"/>
-                 </xs:restriction>
-               </xs:simpleType>              
+                </xs:restriction>
+              </xs:simpleType>              
+            </xs:attribute>
+            <xs:attribute name="removal" type="xs:boolean" use="optional" default="false">
+              <xs:annotation>
+                <xs:appinfo>
+                  <colIndex>3</colIndex>
+                </xs:appinfo>
+              </xs:annotation>
             </xs:attribute>
           </xs:complexType>
         </xs:element>

@@ -191,7 +191,7 @@ xmlns:set="http://exslt.org/sets">
             </xsl:call-template>
             <Filters>
                 <xsl:for-each select="$agentNode/Filter">
-                    <Filter value="{current()/@filter}" type="{current()/@type}"/>
+                    <Filter value="{current()/@filter}" type="{current()/@type}" removal="{current()/@removal}"/>
                 </xsl:for-each>
             </Filters>
         </LogAgent>

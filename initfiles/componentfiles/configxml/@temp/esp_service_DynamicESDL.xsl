@@ -86,7 +86,7 @@
                     </xsl:if>
                     <Filters>
                         <xsl:for-each select="$managerNode/Filter">
-                            <Filter value="{current()/@filter}" type="{current()/@type}"/>
+				<Filter value="{current()/@filter}" type="{current()/@type}" removal="{current()/@removal}"/>
                         </xsl:for-each>
                     </Filters>
 

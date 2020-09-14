@@ -51,6 +51,18 @@ enum ESPLogContentGroup
 static const char * const espLogContentGroupNames[] = { "ESPContext", "UserContext", "UserRequest", "UserResponse",
     "LogDatasets", "BackEndRequest", "BackEndResponse", "", NULL };
 
+static const char * espLogContentXPaths[] = {
+    "LogContent/ESPContext",
+    "LogContent/UserContext",
+    "LogContent/UserRequest",
+    "LogContent/UserResponse",
+    "LogContent/LogDatasets",
+    "LogContent/BackEndRequest",
+    "LogContent/BackEndResponse",
+    "",
+    nullptr
+};
+
 #define UPDATELOGTHREADWAITINGTIME 3000
 
 //The 'TransactionXYZ' is expected for the following key strings
@@ -324,6 +336,9 @@ class CESPLogContentGroupFilters : public CInterface, implements IInterface
 {
     ESPLogContentGroup group;
     StringArray filters;
+    bool removal = false;
+    bool removalAll = false;
+    bool removalSet = false;
 
 public:
     IMPLEMENT_IINTERFACE;
@@ -338,20 +353,42 @@ public:
         if (filter && *filter)
             filters.append(filter);
     };
+    bool checkAndSetRemoval(bool _removal)
+    {
+        if (!_removal)
+            return true;
+        if (removalSet)
+        {
+            if (removal != _removal)
+                return false;
+        }
+        else
+        {
+            removal = _removal;
+            removalSet = true;
+        }
+        return true;
+    }
+    bool isRemoval() { return removal; }
+    bool isRemovalAll() { return removalAll; }
+    void setRemovalAll(bool _removalAll) { removalAll = _removalAll; }
 };
 
 class LOGGINGCOMMON_API CLogContentFilter : public CInterface
 {
-    bool            logBackEndReq = true;
-    bool            logBackEndResp = true;
     StringArray     logContentFilters;
     CIArrayOf<CESPLogContentGroupFilters> groupFilters;
 
     bool readLogFilters(IPropertyTree* cfg, unsigned groupID);
-    void filterLogContentTree(StringArray& filters, IPropertyTree* originalContentTree, IPropertyTree* newLogContentTree, bool& logContentEmpty);
+    void filterLogContentTree(CESPLogContentGroupFilters& filtersGroup, IPropertyTree* originalContentTree, IPropertyTree* newLogContentTree, bool& logContentEmpty);
     void filterAndAddLogContentBranch(StringArray& branchNamesInFilter, unsigned idx, StringArray& branchNamesInLogContent,
         IPropertyTree* in, IPropertyTree* updateLogRequestTree, bool& logContentEmpty);
     void addLogContentBranch(StringArray& branchNames, IPropertyTree* contentToLogBranch, IPropertyTree* updateLogRequestTree);
+    void readLogRequest(IEspUpdateLogRequestWrap* req, StringBuffer& source, IPropertyTree* logContentTree);
+    void readLogRequestWithAllFilter(IEspUpdateLogRequestWrap* req, StringBuffer& source, IPropertyTree* logContentTree);
+    void readLogRequestWithGroupFilters(IEspUpdateLogRequestWrap* req, StringBuffer& source, IPropertyTree* logContentTree);
+    void filterLogContentTreeUsingGroupFilters(IPropertyTree* originalContentTree, IPropertyTree* newLogContentTree);
+    IPropertyTree* getFirstBranch(IPropertyTree* root);
 public:
     IMPLEMENT_IINTERFACE;
 
@@ -359,6 +396,7 @@ public:
 
     void readAllLogFilters(IPropertyTree* cfg);
     IEspUpdateLogRequestWrap* filterLogContent(IEspUpdateLogRequestWrap* req);
+    bool skipFilter = true; //TODO: remove this test line
 };
 
 class LOGGINGCOMMON_API CLogAgentBase : public CInterface, implements IEspLogAgent

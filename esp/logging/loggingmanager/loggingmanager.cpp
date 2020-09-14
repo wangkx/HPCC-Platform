@@ -317,7 +317,12 @@ bool CLoggingManager::saveToTankFile(IEspUpdateLogRequestWrap& logRequest, CLogR
     reqInFile->setOption(logRequest.getOption());
 
     StringBuffer reqBuf;
+    logContentFilter.skipFilter = false;
     Owned<IEspUpdateLogRequestWrap> logRequestFiltered = logContentFilter.filterLogContent(&logRequest);
+    /*logContentFilter.skipFilter = false;
+    DBGLOG("####Second call to filterLogContent");
+    logRequestFiltered.setown(logContentFilter.filterLogContent(logRequestFiltered));*/
+    logContentFilter.skipFilter = true;
     if (!serializeLogRequestContent(logRequestFiltered, GUID, reqBuf))
     {
         ERRLOG("CLoggingManager::saveToTankFile: failed in serializeLogRequestContent().");
