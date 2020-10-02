@@ -110,6 +110,55 @@ function disableInputControls(form)
     }
 }
 
+function testPage()
+{
+      alert("timeout");
+}
+
+var sessionTimeout = 0;
+var sessionTimer = null;
+
+function getSessionTimeout()
+{
+    return 1;
+}
+
+function setSessionTimeout(mins) 
+{
+    if (sessionTimeout != mins) 
+    {
+        if (sessionTimer)
+        {
+            clearTimeout(sessionTimer);
+            sessionTimer = null;
+        }
+        if (mins > 0)
+            sessionTimer = setTimeout("testPage()", Math.ceil(parseFloat(mins) * 60 * 1000));
+        sessionTimeout = mins;
+    }
+}
+
+function resetSessionTimer() 
+{
+    if (sessionTimer)
+    {
+        clearTimeout(sessionTimer);
+        sessionTimer = null;
+    }
+    if (sessionTimeout > 0)
+        sessionTimer = setTimeout("testPage()", Math.ceil(parseFloat(sessionTimeout) * 60 * 1000));
+}
+
+var handleKeyDown = function(event)
+{
+    alert("KeyDown");
+    resetSessionTimer();
+}
+
+var handleMouseDown = function(event)
+{
+    resetSessionTimer();
+}
 
 function onPageLoad() 
 {   
@@ -130,7 +179,11 @@ function onPageLoad()
    //if (isIE) return true;
    // FF 1.5 history cache works, but seems to stop working afterwards
    restoreDataFromCache();    
-             
+    
+   document.onkeydown = handleKeyDown;
+   document.onmousedown = handleMouseDown;
+    
+   setSessionTimeout(getSessionTimeout());
    return true;
 }
 
