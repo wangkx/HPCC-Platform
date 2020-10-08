@@ -110,35 +110,26 @@ function disableInputControls(form)
     }
 }
 
-function testPage()
-{
-      alert("timeout");
-}
-
 var sessionTimeout = 0;
 var sessionTimer = null;
+var prevReset = Date.now();
+const SESSION_RESET_FREQ = 30 * 1000;
 
-function getSessionTimeout()
+var readESPSessionTimeoutSeconds = function()
 {
-    return 1;
+   var sessionTimeoutCookie = document.cookie.indexOf("ESPSessionTimeoutSeconds");
+   if (sessionTimeoutCookie == -1)
+	return;
+
+   var str = document.cookie.substring(sessionTimeoutCookie + 25); //Skip "ESPSessionTimeoutSeconds="
+   var pos = str.indexOf(";");
+   if (pos != -1)
+      str = str.substring(0, pos);
+   sessionTimeout = parseInt(str);
+//   sessionTimeout = 180;
 }
 
-function setSessionTimeout(mins) 
-{
-    if (sessionTimeout != mins) 
-    {
-        if (sessionTimer)
-        {
-            clearTimeout(sessionTimer);
-            sessionTimer = null;
-        }
-        if (mins > 0)
-            sessionTimer = setTimeout("testPage()", Math.ceil(parseFloat(mins) * 60 * 1000));
-        sessionTimeout = mins;
-    }
-}
-
-function resetSessionTimer() 
+var resetSessionTimer = function() 
 {
     if (sessionTimer)
     {
@@ -146,13 +137,34 @@ function resetSessionTimer()
         sessionTimer = null;
     }
     if (sessionTimeout > 0)
-        sessionTimer = setTimeout("testPage()", Math.ceil(parseFloat(sessionTimeout) * 60 * 1000));
+        sessionTimer = setTimeout("testPage()", sessionTimeout * 1000);
+}
+
+var sendResetSessionTimeout = function()
+{
+   if (Date.now() - prevReset < SESSION_RESET_FREQ)
+      return;
+
+   var resetSessionRequest = new XMLHttpRequest();
+   resetSessionRequest.onreadystatechange = function()
+   {
+      if (resetSessionRequest.readyState == 4)
+      {
+         if (resetSessionRequest.status != 200)
+            console.log("Reset session: HTTP error " + resetSessionRequest.status);
+	 else
+            console.log("Session reset.");
+      }
+   }
+   resetSessionRequest.open('POST', '/esp/reset_session_timeout', true);
+   resetSessionRequest.send();
+   prevReset = Date.now();
 }
 
 var handleKeyDown = function(event)
 {
-    alert("KeyDown");
     resetSessionTimer();
+    sendResetSessionTimeout();
 }
 
 var handleMouseDown = function(event)
@@ -180,10 +192,14 @@ function onPageLoad()
    // FF 1.5 history cache works, but seems to stop working afterwards
    restoreDataFromCache();    
     
-   document.onkeydown = handleKeyDown;
-   document.onmousedown = handleMouseDown;
-    
-   setSessionTimeout(getSessionTimeout());
+   readESPSessionTimeoutSeconds();
+   if (sessionTimeout != 0)
+   {
+      document.onkeydown = handleKeyDown;
+      document.onmousedown = handleMouseDown;
+
+      resetSessionTimer();
+   }
    return true;
 }
 
@@ -376,6 +392,25 @@ function doBookmark(form)
 // Save dynamically generate content, and user input values(non-IE browsers only)
 function onSubmit(reqType)  // reqType: 0: regular form, 1: soap, 2: form param passing
 {
+	/*if (reqType == 4)
+	{
+		var obj = document.getElementById('lockDialog');
+		if (obj == null)
+                        return;
+		if (obj.style.visibility == 'visible')
+                    {
+		//alert(5);
+                        obj.style.display = 'none';
+                        obj.style.visibility = 'hidden';
+		    }
+		else
+		{
+		//alert(6);
+		    obj.style.display = 'inline';
+		    obj.style.visibility = 'visible';
+		}
+		return;
+	}*/
     var form = document.forms['esp_form'];
     if (!form)  return false;
 
