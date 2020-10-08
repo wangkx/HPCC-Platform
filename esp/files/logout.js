@@ -29,3 +29,65 @@ function logout()
   logoutRequest.open( "GET", '/esp/logout', true );            
   logoutRequest.send( null );
 }
+
+var lockSession = function()
+{
+    var lockRequest = new XMLHttpRequest();
+    lockRequest.onreadystatechange = function()
+    {
+        if (lockRequest.readyState == 4)
+	{
+            if (lockRequest.status != 200)
+		alert("HTTP " + lockRequest.status + " received.");
+            else
+            {
+                var obj = document.getElementById('lockDialog');
+                if (obj != null)
+                {
+                    obj.style.display = 'inline';
+                    obj.style.visibility = 'visible';
+                }
+            }
+        }
+    }
+
+    lockRequest.open('POST', "/esp/lock", true);
+    lockRequest.send();
+}
+
+var enableUnlockBtn = function()
+{
+    document.getElementById('UnlockBtn').disabled = document.getElementById('UnlockUsername').value == '' || document.getElementById('UnlockPassword').value == '';
+}
+
+var unlockSession = function(event)
+{
+    var username = document.getElementById('UnlockUsername').value;
+    var password = document.getElementById('UnlockPassword').value;
+    if (username == '' || password == '')
+        alert("Empty username or password not allowed");
+
+    var unlockRequest = new XMLHttpRequest();
+    unlockRequest.onreadystatechange = function()
+    {
+        if (unlockRequest.readyState == 4)
+        {
+            if (unlockRequest.status != 200)
+                alert("HTTP error " + unlockRequest.status);
+            else
+            {
+                var obj = document.getElementById('lockDialog');
+                if (obj != null)
+                {
+                    obj.style.display = 'none';
+                    obj.style.visibility = 'hidden';
+                }
+            }
+        }
+    }
+
+    var url = "/esp/unlock?username=" + username + "&password=" + password;
+    unlockRequest.open('POST', url, true);
+    unlockRequest.send();
+}
+
