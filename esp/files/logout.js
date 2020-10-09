@@ -30,25 +30,34 @@ function logout()
   logoutRequest.send( null );
 }
 
+var handleLockCallback = function(response, unlock)
+{
+    var errors = response.getElementsByTagName("Error");
+    if (errors[0].textContent == "0") //false: no error
+    {
+        var obj = document.getElementById('lockDialog');
+        if (obj != null)
+        {
+            obj.style.display = unlock ? 'none' : 'inline';
+            obj.style.visibility = unlock ? 'hidden' : 'visible';
+        }
+    }
+    else
+    {
+        var msgs = response.getElementsByTagName("Message");
+        if (msgs.length == 0)
+            alert("Unknown error");
+        else
+            alert("Error: " + msgs[0].textContent);
+    }
+}
+
 var lockSession = function()
 {
     var lockRequest = new XMLHttpRequest();
-    lockRequest.onreadystatechange = function()
+    lockRequest.onload = function()
     {
-        if (lockRequest.readyState == 4)
-	{
-            if (lockRequest.status != 200)
-		alert("HTTP " + lockRequest.status + " received.");
-            else
-            {
-                var obj = document.getElementById('lockDialog');
-                if (obj != null)
-                {
-                    obj.style.display = 'inline';
-                    obj.style.visibility = 'visible';
-                }
-            }
-        }
+        handleLockCallback(this.responseXML, false);
     }
 
     lockRequest.open('POST', "/esp/lock", true);
@@ -60,7 +69,7 @@ var enableUnlockBtn = function()
     document.getElementById('UnlockBtn').disabled = document.getElementById('UnlockUsername').value == '' || document.getElementById('UnlockPassword').value == '';
 }
 
-var unlockSession = function(event)
+var unlockSession = function()
 {
     var username = document.getElementById('UnlockUsername').value;
     var password = document.getElementById('UnlockPassword').value;
@@ -68,22 +77,9 @@ var unlockSession = function(event)
         alert("Empty username or password not allowed");
 
     var unlockRequest = new XMLHttpRequest();
-    unlockRequest.onreadystatechange = function()
+    unlockRequest.onload = function()
     {
-        if (unlockRequest.readyState == 4)
-        {
-            if (unlockRequest.status != 200)
-                alert("HTTP error " + unlockRequest.status);
-            else
-            {
-                var obj = document.getElementById('lockDialog');
-                if (obj != null)
-                {
-                    obj.style.display = 'none';
-                    obj.style.visibility = 'hidden';
-                }
-            }
-        }
+        handleLockCallback(this.responseXML, true);
     }
 
     var url = "/esp/unlock?username=" + username + "&password=" + password;

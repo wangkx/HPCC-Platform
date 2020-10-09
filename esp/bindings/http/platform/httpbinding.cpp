@@ -1391,7 +1391,7 @@ int EspHttpBinding::onGetSoapBuilder(IEspContext &context, CHttpRequest* request
         xform->setParameter("showLogout", "1");
         const char* userId = context.queryUserId();
         if (!isEmptyString(userId))
-            xform->setParameter("username", userId);
+            xform->setStringParameter("username", userId);
     }
 
     StringBuffer page;
