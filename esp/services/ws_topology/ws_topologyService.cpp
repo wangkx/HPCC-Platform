@@ -1322,6 +1322,7 @@ bool CWsTopologyEx::onTpLogicalClusterQuery(IEspContext &context, IEspTpLogicalC
         IArrayOf<IEspTpLogicalCluster> clusters;
         CConstWUClusterInfoArray wuClusters;
 #ifdef _CONTAINERIZED
+aaa
         Owned<IPropertyTreeIterator> iter = queryComponentConfig().getElements("queues");
         ForEach(*iter)
         {
