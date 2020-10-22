@@ -459,12 +459,13 @@ bool Cws_machineEx::onGetMetrics(IEspContext &context, IEspMetricsRequest &req,
         context.ensureFeatureAccess(METRICS_FEATURE_URL, SecAccess_Read, ECLWATCH_METRICS_ACCESS_DENIED, "Failed to Get Metrics. Permission denied.");
 
         //insert entries in an array - one per IP address, sorted by IP address
-        //
+#ifndef _CONTAINERIZED
         const char* clusterName = req.getCluster();
         if (!clusterName || !*clusterName)
             throw MakeStringException(ECLWATCH_INVALID_CLUSTER_NAME, "Cluster name not defined.");
 
         resp.setCluster(clusterName);
+#endif
 
         StringArray &addresses = req.getAddresses();
         unsigned int ordinality= addresses.ordinality();
@@ -504,110 +505,6 @@ bool Cws_machineEx::onGetMetrics(IEspContext &context, IEspMetricsRequest &req,
         }
 
         CFieldInfoMap fieldInfoMap; //shared across all threads processing this request
-#ifdef OLD
-        CIArrayOf<CMetricsThreadParam> threadParamArray;
-
-        //process this array (sorted by IP address)
-        //
-        // TBD IPV6 (cannot use long for netaddress)
-        StringBuffer ipBuf;
-        unsigned* lptr = buffer;
-        for (index=0; index<addressCount; index++)
-        {
-            IpAddress ip;
-            ip.setNetAddress(sizeof(unsigned),lptr++);
-            ip.getIpText(ipBuf.clear());
-            
-            CMetricsThreadParam* pThreadReq = 
-                    new CMetricsThreadParam(ipBuf.str(), req.getSecurityString(), 
-                fieldInfoMap, this);
-            threadParamArray.append(*::LINK(pThreadReq));
-            pThreadReq->m_threadHandle = m_threadPool->start( pThreadReq );
-        }
-
-        if (buffer)
-            ::free(buffer);
-
-        //block for worker theads to finish, if necessary and then collect results
-        //
-        CMetricsThreadParam** pThreadParam = (CMetricsThreadParam**) threadParamArray.getArray();
-        unsigned count=threadParamArray.ordinality();
-        unsigned i;
-        for (i = 0; i < count; i++, pThreadParam++) 
-            m_threadPool->join((*pThreadParam)->m_threadHandle);
-
-        //collect field information for all fields
-        CFieldInfoMap::iterator iInfo;
-        CFieldInfoMap::iterator iInfoEnd = fieldInfoMap.end();
-        for (iInfo=fieldInfoMap.begin(); iInfo!=iInfoEnd; iInfo++)
-        {
-            CFieldInfo* pFieldInfo = (*iInfo).second;
-            pFieldInfo->StandardDeviation = ( pFieldInfo->Count > 1 ? sqrt(pFieldInfo->SumSquaredDeviations / (pFieldInfo->Count-1)) : 0);
-        }
-
-        //respect user's wishes to only show some columns
-        //
-        StringArray& showColumns = req.getShowColumns();
-        unsigned int columnsToShow = showColumns.ordinality();
-        if (columnsToShow == 0)
-        {
-            static const char* defaultColumns[] = {
-                "heapBlocksAllocated", "hiQueryActive", "hiQueryAverage", "hiQueryCount", "hiMax", "hiMin", 
-                "lastQueryDate", "lastQueryTime", "loMax", "loMin", "loQueryActive", "loQueryAverage", 
-                "loQueryCount", "retriesNeeded", "slavesActive"
-            };
-
-            columnsToShow = sizeof(defaultColumns)/sizeof(defaultColumns[0]);
-            for (unsigned int i=0; i<columnsToShow; i++)
-            {
-                iInfo = fieldInfoMap.find(defaultColumns[i]);
-                if (iInfo != iInfoEnd)
-                    (*iInfo).second->Hide = 0;          
-            }
-        }
-        else
-            for (index=0; index<columnsToShow; index++)
-            {
-                const char *columnName = showColumns.item(index);
-                iInfo = fieldInfoMap.find(columnName);
-                if (iInfo != iInfoEnd)
-                    (*iInfo).second->Hide = 0;
-            }
-
-        //create a separate thread to do post processing i.e. serialize field map
-        //to field array while filling in any absent fields and set warnings for fields 
-        //with very high deviation
-        //
-        pThreadParam = (CMetricsThreadParam**) threadParamArray.getArray();
-        for (i = 0; i < count; i++, pThreadParam++) 
-        {
-            (*pThreadParam)->m_bPostProcessing = true;
-            (*pThreadParam)->m_threadHandle = m_threadPool->start( ::LINK(*pThreadParam) );
-        }
-
-        StringBuffer xml;
-        fieldInfoMap.serialize(xml);
-        resp.setFieldInformation(xml);
-
-        xml.clear();
-        pThreadParam = (CMetricsThreadParam**) threadParamArray.getArray();
-        for (i = 0; i < count; i++, pThreadParam++) 
-        {
-            xml.append("<MetricsInfo><Address>");
-            xml.append( (*pThreadParam)->m_sAddress );
-            xml.append("</Address>");
-
-            //block for worker theads to finish, if necessary, and then collect results
-            //
-            m_threadPool->join((*pThreadParam)->m_threadHandle);
-            (*pThreadParam)->m_fieldMap.serialize(xml);
-
-            xml.append("</MetricsInfo>");
-        }
-
-        resp.setMetrics(xml);
-
-#else
         //process this array (sorted by IP address)
         //
         // TBD IPV6 (cannot use long for netaddress)
@@ -625,15 +522,22 @@ bool Cws_machineEx::onGetMetrics(IEspContext &context, IEspMetricsRequest &req,
         if (buffer)
             ::free(buffer);
 
+#ifndef _CONTAINERIZED
         int port;
         StringBuffer netAddress;
         SocketEndpoint ep;
         getRoxieClusterConfig("RoxieCluster", clusterName, "RoxieServerProcess[1]", netAddress, port);
-
+#endif
         StringArray& showColumns = req.getShowColumns();
         unsigned int columnsToShow = showColumns.ordinality();
 
+#ifndef _CONTAINERIZED
         ep.set(netAddress.str(), port);
+#else
+        int port = 9876; //TODO: not hard coded here. Read from req if available
+        SocketEndpoint ep;
+        ep.set(ipList.item(0), port);
+#endif
         Owned<IRoxieCommunicationClient> roxieClient = createRoxieCommunicationClient(ep, 5000);
         Owned<IPropertyTree> result = roxieClient->retrieveRoxieMetrics(ipList);
 
@@ -770,7 +674,7 @@ bool Cws_machineEx::onGetMetrics(IEspContext &context, IEspMetricsRequest &req,
         }
 
         resp.setMetrics(xml);
-#endif
+
         double version = context.getClientVersion();
         if (version > 1.05)
         {
