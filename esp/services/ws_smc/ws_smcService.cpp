@@ -237,12 +237,14 @@ struct CActiveWorkunitWrapper: public CActiveWorkunit
 
 void CActivityInfo::createActivityInfo(IEspContext& context)
 {
+#ifndef _CONTAINERIZED
     Owned<IEnvironmentFactory> factory = getEnvironmentFactory(true);
     Owned<IConstEnvironment> env = factory->openEnvironment();
 
     CConstWUClusterInfoArray clusters;
     Owned<IPropertyTree> envRoot= &env->getPTree();
     getEnvironmentClusterInfo(envRoot, clusters);
+#endif
 
     try
     {
@@ -260,8 +262,13 @@ void CActivityInfo::createActivityInfo(IEspContext& context)
 
     IPropertyTree* serverStatusRoot = connStatusServers->queryRoot();
 
+#ifndef _CONTAINERIZED
     readTargetClusterInfo(clusters, serverStatusRoot);
     readActiveWUsAndQueuedWUs(context, envRoot, serverStatusRoot);
+#else
+    readTargetClusterInfoContainer(serverStatusRoot);
+    readActiveWUsAndQueuedWUs(context, nullptr, serverStatusRoot);
+#endif
 
     timeCached.setNow();
 }
@@ -280,6 +287,100 @@ void CActivityInfo::readTargetClusterInfo(CConstWUClusterInfoArray& clusters, IP
         else
             hthorTargetClusters.append(*targetCluster.getClear());
     }
+}
+
+void CActivityInfo::readTargetClusterInfoContainer(IPropertyTree* serverStatusRoot)
+{
+    StringArray roxieNames;
+    Owned<IPropertyTreeIterator> queues = queryComponentConfig().getElements("queues");
+    ForEach(*queues)
+    {
+        IPropertyTree& queue = queues->query();
+        const char* type = queue.queryProp("@type");
+        const char* name = queue.queryProp("@name");
+        if (isEmptyString(type) || isEmptyString(name))
+            continue;
+
+        if (streq(type, "roxie"))
+            roxieNames.append(name);
+        else
+        {
+            Owned<CWsSMCTargetCluster> targetCluster = readTargetClusterInfoContainer(name, type, serverStatusRoot);
+            thorTargetClusters.append(*targetCluster.getClear());
+        }
+    }
+
+    Owned<IPropertyTreeIterator> services = queryComponentConfig().getElements("services[@type='roxie']");
+    ForEach(*services)
+    {
+        IPropertyTree& service = services->query();
+        const char* targetName = service.queryProp("@target");
+        if (!isEmptyString(targetName))
+            roxieNames.appendUniq(targetName);
+    }
+
+    ForEachItemIn(i, roxieNames)
+    {
+        Owned<CWsSMCTargetCluster> targetCluster = readTargetClusterInfoContainer(roxieNames.item(i), "roxie", serverStatusRoot);
+        roxieTargetClusters.append(*targetCluster.getClear());
+    }
+}
+
+CWsSMCTargetCluster* CActivityInfo::readTargetClusterInfoContainer(const char* targetName, const char* type,
+    IPropertyTree* serverStatusRoot)
+{ //For review: see the original readTargetClusterInfo() below.
+    Owned<CWsSMCTargetCluster> targetCluster = new CWsSMCTargetCluster();
+    targetCluster->clusterName.set(targetName);
+
+    StringBuffer s;
+    s.setf("%s.eclserver", targetName);
+    targetCluster->serverQueue.queueName.set(s);
+    s.setf("%s.agent", targetName);
+    targetCluster->agentQueue.queueName.set(s);
+
+    StringBuffer statusServerName;
+    CWsSMCQueue* smcQueue = nullptr;
+    if (streq(type, "thor"))
+    {
+        targetCluster->clusterType = ThorLCRCluster;
+        statusServerName.set(getStatusServerTypeName(WsSMCSSTThorLCRCluster));
+        smcQueue = &targetCluster->clusterQueue;
+
+        s.setf("%s.thor", targetName);
+        smcQueue->queueName.set(s);
+    }
+    else if (streq(type, "roxie"))
+    {
+        targetCluster->clusterType = RoxieCluster;
+        statusServerName.set(getStatusServerTypeName(WsSMCSSTRoxieCluster));
+        smcQueue = &targetCluster->agentQueue;
+    }
+    else
+    {
+        targetCluster->clusterType = HThorCluster;
+        statusServerName.set(getStatusServerTypeName(WsSMCSSTHThorCluster));
+        smcQueue = &targetCluster->agentQueue;
+    }
+
+    targetCluster->statusServerName.set(statusServerName.str());
+    targetCluster->queueName.set(smcQueue->queueName.str());
+
+    bool validQueue = readJobQueue(smcQueue->queueName.str(), targetCluster->queuedWUIDs, smcQueue->queueState, smcQueue->queueStateDetails);
+    if (!validQueue)
+        smcQueue->notFoundInJobQueues = true;
+    if (validQueue && smcQueue->queueState.length())
+        targetCluster->queueStatus.set(smcQueue->queueState.str());
+
+    if (serverStatusRoot)
+    {
+        smcQueue->foundQueueInStatusServer = findQueueInStatusServer(serverStatusRoot, statusServerName.str(), targetCluster->queueName.get());
+        if (!smcQueue->foundQueueInStatusServer)
+            targetCluster->clusterStatusDetails.appendf("Cluster %s not listening for workunits (%s-%s); ", targetName, statusServerName.str(), targetCluster->queueName.get());
+    }
+
+    targetCluster->serverQueue.notFoundInJobQueues = !readJobQueue(targetCluster->serverQueue.queueName.str(), targetCluster->wuidsOnServerQueue, targetCluster->serverQueue.queueState, targetCluster->serverQueue.queueStateDetails);
+
+    return targetCluster.getClear();
 }
 
 void CActivityInfo::readTargetClusterInfo(IConstWUClusterInfo& cluster, IPropertyTree* serverStatusRoot, CWsSMCTargetCluster* targetCluster)
@@ -418,7 +519,9 @@ void CActivityInfo::readActiveWUsAndQueuedWUs(IEspContext& context, IPropertyTre
     readRunningWUsAndJobQueueforOtherStatusServers(context, serverStatusRoot);
     //TODO: add queued WUs for ECLCCServer/ECLServer here. Right now, they are under target clusters.
 
+#ifndef _CONTAINERIZED //TODO: Need a way to find out DFU Server queues for containerized HPCC
     getDFUServersAndWUs(context, envRoot, serverStatusRoot);
+#endif
     getDFURecoveryJobs();
 }
 

@@ -115,6 +115,9 @@ class CActivityInfo : public CInfoCache
     IArrayOf<IEspServerJobQueue> serverJobQueues;
     IArrayOf<IEspDFUJob> DFURecoveryJobs;
 
+    void readTargetClusterInfoContainer(IPropertyTree* serverStatusRoot);
+    CWsSMCTargetCluster* readTargetClusterInfoContainer(const char* targetName, const char* type,
+        IPropertyTree* serverStatusRoot);
     void readTargetClusterInfo(CConstWUClusterInfoArray& clusters, IPropertyTree* serverStatusRoot);
     void readTargetClusterInfo(IConstWUClusterInfo& cluster, IPropertyTree* serverStatusRoot, CWsSMCTargetCluster* targetCluster);
     bool findQueueInStatusServer(IPropertyTree* serverStatusRoot, const char* serverName, const char* queueName);
