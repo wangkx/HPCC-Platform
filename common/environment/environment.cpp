@@ -3215,3 +3215,45 @@ unsigned getEnvironmentThorClusterNames(StringArray &thorNames, StringArray &gro
     }
     return thorNames.ordinality();
 }
+
+IConstWUClusterInfo *getContainerTargetClusterInfo(IPropertyTree *queue)
+{
+    IArrayOf<IPropertyTree> thors;
+    Owned<IPropertyTree> roxie = nullptr;
+    const char *name = queue->queryProp("@name");
+    const char *type = queue->queryProp("@type");
+    if (strieq(type, "thor"))
+    {
+        Owned<IPropertyTree> thor = createPTree(name, ipt_caseInsensitive);
+        thors.append(*thor.getClear());
+    }
+    else if (strieq(type, "roxie"))
+    {
+        roxie.setown(createPTree(name, ipt_caseInsensitive));
+    }
+
+    IArrayOf<IPropertyTree> eclServers;
+    Owned<IPropertyTree> agent = createPTree(name, ipt_caseInsensitive);
+
+    return new CEnvironmentClusterInfo(name, nullptr, nullptr, agent, eclServers, false, nullptr, thors, roxie);
+}
+
+extern ENVIRONMENT_API unsigned getContainerClusterInfo(const char *processType, CConstWUClusterInfoArray &clusters)
+{
+    Owned<IPropertyTreeIterator> queues = queryComponentConfig().getElements("queues");
+    ForEach(*queues)
+    {
+        IPropertyTree &queue = queues->query();
+        if (!isEmptyString(processType))
+        {
+            const char *type = queue.queryProp("@type");
+            if (isEmptyString(type) || !strieq(type, processType))
+                continue;
+        }
+
+        Owned<IConstWUClusterInfo> cluster = getContainerTargetClusterInfo(&queue);
+        clusters.append(*cluster.getClear());
+    }
+
+    return clusters.ordinality();
+}

@@ -237,12 +237,16 @@ struct CActiveWorkunitWrapper: public CActiveWorkunit
 
 void CActivityInfo::createActivityInfo(IEspContext& context)
 {
+    CConstWUClusterInfoArray clusters;
+#ifndef _CONTAINERIZED
     Owned<IEnvironmentFactory> factory = getEnvironmentFactory(true);
     Owned<IConstEnvironment> env = factory->openEnvironment();
 
-    CConstWUClusterInfoArray clusters;
     Owned<IPropertyTree> envRoot= &env->getPTree();
     getEnvironmentClusterInfo(envRoot, clusters);
+#else
+    getContainerClusterInfo(nullptr, clusters);
+#endif
 
     try
     {
@@ -261,7 +265,11 @@ void CActivityInfo::createActivityInfo(IEspContext& context)
     IPropertyTree* serverStatusRoot = connStatusServers->queryRoot();
 
     readTargetClusterInfo(clusters, serverStatusRoot);
+#ifndef _CONTAINERIZED
     readActiveWUsAndQueuedWUs(context, envRoot, serverStatusRoot);
+#else
+    readActiveWUsAndQueuedWUs(context, nullptr, serverStatusRoot);
+#endif
 
     timeCached.setNow();
 }
@@ -385,8 +393,12 @@ const char *CActivityInfo::getStatusServerTypeName(WsSMCStatusServerType type)
 
 bool CActivityInfo::findQueueInStatusServer(IPropertyTree* serverStatusRoot, const char* serverName, const char* queueName)
 {
+#ifndef _CONTAINERIZED
     VStringBuffer path("Server[@name=\"%s\"]", serverName);
     Owned<IPropertyTreeIterator> it(serverStatusRoot->getElements(path.str()));
+#else
+    Owned<IPropertyTreeIterator> it(serverStatusRoot->getElements("Server"));
+#endif
     ForEach(*it)
     {
         IPropertyTree& serverStatusNode = it->query();
@@ -418,7 +430,10 @@ void CActivityInfo::readActiveWUsAndQueuedWUs(IEspContext& context, IPropertyTre
     readRunningWUsAndJobQueueforOtherStatusServers(context, serverStatusRoot);
     //TODO: add queued WUs for ECLCCServer/ECLServer here. Right now, they are under target clusters.
 
+#ifndef _CONTAINERIZED
     getDFUServersAndWUs(context, envRoot, serverStatusRoot);
+    //For containerized HPCC, we do not know how to find out DFU Server queues, as well as running DFU WUs, for now.
+#endif
     getDFURecoveryJobs();
 }
 
