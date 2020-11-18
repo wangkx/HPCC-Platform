@@ -900,6 +900,13 @@ int main(int argc, const char *argv[])
         const char *wuid = globals->queryProp("@workunit");
         if (wuid)
         {
+#ifdef _CONTAINERIZED
+            CSDSServerStatus serverstatus("ECLCCserverThread");
+            serverstatus.queryProperties()->setProp("@cluster", globals->queryProp("@name"));
+            serverstatus.queryProperties()->setProp("WorkUnit", wuid);
+            serverstatus.commitProperties();
+#endif
+
             // One shot mode
             EclccCompileThread compiler(0);
             compiler.init(const_cast<char *>(wuid));
