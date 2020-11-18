@@ -23,12 +23,14 @@
 #include "ws_workunitsHelpers.hpp"
 #include "dasds.hpp"
 #include "environment.hpp"
+#include "TpWrapper.hpp"
 
 #ifdef _USE_ZLIB
 #include "zcrypt.hpp"
 #endif
 #include "referencedfilelist.hpp"
 #include "ws_wuresult.hpp"
+#include "jsmartsock.ipp"
 
 #define UFO_DIRTY                                0x01
 #define UFO_RELOAD_TARGETS_CHANGED_PMID          0x02
@@ -62,17 +64,24 @@ private:
 
     void updateUsers()
     {
-        Owned<IStringIterator> clusters = getTargetClusters("RoxieCluster", NULL);
+#ifndef _CONTAINERIZED
+        Owned<IStringIterator> clusters = getTargetClusters("RoxieCluster", nullptr);
+#else
+        Owned<IStringIterator> clusters = getContainerTargetClusters("roxie", nullptr);
+#endif
         ForEach(*clusters)
         {
             SCMStringBuffer target;
             clusters->str(target);
 
+#ifndef _CONTAINERIZED
             Owned<IConstWUClusterInfo> info = getTargetClusterInfo(target.str());
             Owned<IUserDescriptor> user = createUserDescriptor();
             user->set(info->getLdapUser(), info->getLdapPassword());
             roxieUserMap.setValue(target.str(), user);
             roxieUsers.append(*user.getClear());
+#else
+#endif
         }
     }
 
@@ -316,6 +325,7 @@ public:
     void setPort(unsigned short _port){port=_port;}
 
     bool isQuerySuspended(const char* query, IConstWUClusterInfo *clusterInfo, unsigned wait, StringBuffer& errorMessage);
+    bool isContainerQuerySuspended(const char* query, const char* target, unsigned wait, StringBuffer& errorMessage);
     bool onWUCreateZAPInfo(IEspContext &context, IEspWUCreateZAPInfoRequest &req, IEspWUCreateZAPInfoResponse &resp);
     bool onWUGetZAPInfo(IEspContext &context, IEspWUGetZAPInfoRequest &req, IEspWUGetZAPInfoResponse &resp);
     bool onWUCheckFeatures(IEspContext &context, IEspWUCheckFeaturesRequest &req, IEspWUCheckFeaturesResponse &resp);
@@ -422,6 +432,7 @@ private:
 
 public:
     QueryFilesInUse filesInUse;
+    MapStringToMyClass<ISmartSocketFactory> roxieConnMap;
     StringAttr zapEmailTo, zapEmailFrom, zapEmailServer;
     unsigned zapEmailMaxAttachmentSize = 0;
     unsigned zapEmailServerPort = 0;

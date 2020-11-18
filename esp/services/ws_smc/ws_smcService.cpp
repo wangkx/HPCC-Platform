@@ -140,6 +140,10 @@ void CWsSMCEx::init(IPropertyTree *cfg, const char *process, const char *service
     if (portalURL && *portalURL)
         m_PortalURL.append(portalURL);
 
+#ifdef _CONTAINERIZED
+    initContainerRoxieTargets(roxieConnMap);
+#endif
+
     xpath.setf("Software/EspProcess[@name=\"%s\"]/EspService[@name=\"%s\"]/ActivityInfoCacheSeconds", process, service);
     unsigned activityInfoCacheSeconds = cfg->getPropInt(xpath.str(), defaultActivityInfoCacheForceBuildSecond);
     xpath.setf("Software/EspProcess[@name=\"%s\"]/EspService[@name=\"%s\"]/LogDaliConnection", process, service);
@@ -237,12 +241,16 @@ struct CActiveWorkunitWrapper: public CActiveWorkunit
 
 void CActivityInfo::createActivityInfo(IEspContext& context)
 {
+    CConstWUClusterInfoArray clusters;
+#ifndef _CONTAINERIZED
     Owned<IEnvironmentFactory> factory = getEnvironmentFactory(true);
     Owned<IConstEnvironment> env = factory->openEnvironment();
 
-    CConstWUClusterInfoArray clusters;
     Owned<IPropertyTree> envRoot= &env->getPTree();
     getEnvironmentClusterInfo(envRoot, clusters);
+#else
+    getContainerClusterInfo(nullptr, clusters);
+#endif
 
     try
     {
@@ -261,7 +269,11 @@ void CActivityInfo::createActivityInfo(IEspContext& context)
     IPropertyTree* serverStatusRoot = connStatusServers->queryRoot();
 
     readTargetClusterInfo(clusters, serverStatusRoot);
+#ifndef _CONTAINERIZED
     readActiveWUsAndQueuedWUs(context, envRoot, serverStatusRoot);
+#else
+    readActiveWUsAndQueuedWUs(context, nullptr, serverStatusRoot);
+#endif
 
     timeCached.setNow();
 }
@@ -385,8 +397,12 @@ const char *CActivityInfo::getStatusServerTypeName(WsSMCStatusServerType type)
 
 bool CActivityInfo::findQueueInStatusServer(IPropertyTree* serverStatusRoot, const char* serverName, const char* queueName)
 {
+#ifndef _CONTAINERIZED
     VStringBuffer path("Server[@name=\"%s\"]", serverName);
     Owned<IPropertyTreeIterator> it(serverStatusRoot->getElements(path.str()));
+#else
+    Owned<IPropertyTreeIterator> it(serverStatusRoot->getElements("Server"));
+#endif
     ForEach(*it)
     {
         IPropertyTree& serverStatusNode = it->query();
@@ -418,7 +434,9 @@ void CActivityInfo::readActiveWUsAndQueuedWUs(IEspContext& context, IPropertyTre
     readRunningWUsAndJobQueueforOtherStatusServers(context, serverStatusRoot);
     //TODO: add queued WUs for ECLCCServer/ECLServer here. Right now, they are under target clusters.
 
+#ifndef _CONTAINERIZED //TODO: Need a way to find out DFU Server queues for containerized HPCC
     getDFUServersAndWUs(context, envRoot, serverStatusRoot);
+#endif
     getDFURecoveryJobs();
 }
 
@@ -1758,11 +1776,16 @@ bool CWsSMCEx::onGetThorQueueAvailability(IEspContext &context, IEspGetThorQueue
     {
         context.ensureFeatureAccess(FEATURE_URL, SecAccess_Read, ECLWATCH_THOR_QUEUE_ACCESS_DENIED, QUEUE_ACCESS_DENIED);
 
+#ifndef _CONTAINERIZED
         StringArray thorNames, groupNames, targetNames, queueNames;
         getEnvironmentThorClusterNames(thorNames, groupNames, targetNames, queueNames);
+#else
+        StringArray targetNames, queueNames;
+        getContainerThorClusterNames(targetNames, queueNames);
+#endif
 
         IArrayOf<IEspThorCluster> ThorClusters;
-        ForEachItemIn(x, thorNames)
+        ForEachItemIn(x, targetNames)
         {
             const char* targetName = targetNames.item(x);
             const char* queueName = queueNames.item(x);
@@ -1894,23 +1917,11 @@ bool CWsSMCEx::onBrowseResources(IEspContext &context, IEspBrowseResourcesReques
 
         double version = context.getClientVersion();
 
-        Owned<IEnvironmentFactory> factory = getEnvironmentFactory(true);
-        Owned<IConstEnvironment> constEnv = factory->openEnvironment();
-
-        //The resource files will be downloaded from the same box of ESP (not dali)
-        StringBuffer ipStr;
-        IpAddress ipaddr = queryHostIP();
-        ipaddr.getIpText(ipStr);
-        if (ipStr.length() > 0)
-        {
-            resp.setNetAddress(ipStr.str());
-            Owned<IConstMachineInfo> machine = constEnv->getMachineByAddress(ipStr.str());
-            if (machine)
-            {
-                int os = machine->getOS();
-                resp.setOS(os);
-            }
-        }
+#ifdef _WIN32
+        resp.setOS(MachineOsW2K);
+#else
+        resp.setOS(MachineOsLinux);
+#endif
 
         if (m_PortalURL.length() > 0)
             resp.setPortalURL(m_PortalURL.str());
@@ -1925,18 +1936,10 @@ bool CWsSMCEx::onBrowseResources(IEspContext &context, IEspBrowseResourcesReques
         //Now, get a list of resources stored inside the ESP box
         IArrayOf<IEspHPCCResourceRepository> resourceRepositories;
 
-        Owned<IPropertyTree> pEnvRoot = &constEnv->getPTree();
-        const char* ossInstall = pEnvRoot->queryProp("EnvSettings/path");
-        if (!ossInstall || !*ossInstall)
-        {
-            OWARNLOG("Failed to get EnvSettings/Path in environment settings.");
-            return true;
-        }
-
-        StringBuffer path;
-        path.appendf("%s/componentfiles/files/downloads", ossInstall);
+        StringBuffer path(getCFD());
+        addPathSepChar(path).append("files/downloads");
         Owned<IFile> f = createIFile(path.str());
-        if(!f->exists() || !f->isDirectory())
+        if (!f->exists() || (f->isDirectory() != fileBool::foundYes))
         {
             OWARNLOG("Invalid resource folder");
             return true;
@@ -2192,16 +2195,29 @@ bool CWsSMCEx::onRoxieControlCmd(IEspContext &context, IEspRoxieControlCmdReques
 {
     context.ensureFeatureAccess(ROXIE_CONTROL_URL, SecAccess_Full, ECLWATCH_SMC_ACCESS_DENIED, SMC_ACCESS_DENIED);
 
-    const char *process = req.getProcessCluster();
-    if (!process || !*process)
-        throw MakeStringException(ECLWATCH_MISSING_PARAMS, "Process cluster not specified.");
     const char *controlReq = controlCmdMessage(req.getCommand());
+
+#ifndef _CONTAINERIZED
+    const char *process = req.getProcessCluster();
+    if (isEmptyString(process))
+        throw makeStringException(ECLWATCH_MISSING_PARAMS, "Process cluster not specified.");
 
     SocketEndpointArray addrs;
     getRoxieProcessServers(process, addrs);
     if (!addrs.length())
-        throw MakeStringException(ECLWATCH_CANNOT_GET_ENV_INFO, "Process cluster not found.");
+        throw makeStringException(ECLWATCH_CANNOT_GET_ENV_INFO, "Process cluster not found.");
     Owned<IPropertyTree> controlResp = sendRoxieControlAllNodes(addrs.item(0), controlReq, true, req.getWait());
+#else
+    const char *target = req.getTargetCluster();
+    if (isEmptyString(target))
+        throw makeStringException(ECLWATCH_MISSING_PARAMS, "Target cluster not specified.");
+
+    ISmartSocketFactory *conn = roxieConnMap.getValue(target);
+    if (!conn)
+        throw makeStringExceptionV(ECLWATCH_CANNOT_GET_ENV_INFO, "roxie target cluster not mapped: %s", target);
+
+    Owned<IPropertyTree> controlResp = sendRoxieControlAllNodes(conn->nextEndpoint(), controlReq, true, req.getWait());
+#endif
     if (!controlResp)
         throw MakeStringException(ECLWATCH_INTERNAL_ERROR, "Failed to get control response from roxie.");
 
