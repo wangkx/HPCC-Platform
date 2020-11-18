@@ -3221,7 +3221,7 @@ IConstWUClusterInfo* getContainerTargetClusterInfo(IPropertyTree *queue)
     IArrayOf<IPropertyTree> thors;
     Owned<IPropertyTree> roxie = nullptr;
     const char *name = queue->queryProp("@name");
-    const char* type = queue->queryProp("@type");
+    const char *type = queue->queryProp("@type");
     if (strieq(type, "thor"))
     {
         Owned<IPropertyTree> thor = createPTree(name, ipt_caseInsensitive);
@@ -3238,15 +3238,35 @@ IConstWUClusterInfo* getContainerTargetClusterInfo(IPropertyTree *queue)
     return new CEnvironmentClusterInfo(name, nullptr, nullptr, agent, eclServers, false, nullptr, thors, roxie);
 }
 
-extern ENVIRONMENT_API unsigned getContainerClusterInfo(const char* processType, CConstWUClusterInfoArray &clusters)
+extern ENVIRONMENT_API IConstWUClusterInfo *getContainerTargetClusterInfo(const char *clustName)
 {
     Owned<IPropertyTreeIterator> queues = queryComponentConfig().getElements("queues");
     ForEach(*queues)
     {
-        IPropertyTree& queue = queues->query();
+        IPropertyTree &queue = queues->query();
+        const char *name = queue.queryProp("@name");
+        if (!isEmptyString(name) && strieq(name, clustName))
+            return getContainerTargetClusterInfo(&queue);
+    }
+    return nullptr;
+}
+
+extern ENVIRONMENT_API bool validateContainerTargetClusterName(const char *clustName)
+{
+    VStringBuffer xpath("queues[@name=\"%s\"]", clustName);
+    return (queryComponentConfig().queryPropTree(xpath) != nullptr);
+}
+
+extern ENVIRONMENT_API unsigned getContainerClusterInfo(const char *processType, CConstWUClusterInfoArray &clusters)
+
+{
+    Owned<IPropertyTreeIterator> queues = queryComponentConfig().getElements("queues");
+    ForEach(*queues)
+    {
+        IPropertyTree &queue = queues->query();
         if (!isEmptyString(processType))
         {
-            const char* type = queue.queryProp("@type");
+            const char *type = queue.queryProp("@type");
             if (isEmptyString(type) || !strieq(type, processType))
                 continue;
         }
@@ -3256,4 +3276,20 @@ extern ENVIRONMENT_API unsigned getContainerClusterInfo(const char* processType,
     }
 
     return clusters.ordinality();
+}
+
+extern ENVIRONMENT_API unsigned getContainerThorClusterNames(StringArray &targetNames, StringArray &queueNames)
+{
+    CConstWUClusterInfoArray clusters;
+    getContainerClusterInfo("thor", clusters);
+    ForEachItemIn(c, clusters)
+    {
+        IConstWUClusterInfo &cluster = clusters.item(c);
+        SCMStringBuffer targetName, queueName;
+        cluster.getName(targetName);
+        cluster.getThorQueue(queueName);
+        targetNames.append(targetName.str());
+        queueNames.append(queueName.str());
+    }
+    return targetNames.ordinality();
 }

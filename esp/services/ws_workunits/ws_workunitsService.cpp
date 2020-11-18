@@ -47,7 +47,6 @@
 #include "fvresultset.ipp"
 #include "ws_wudetails.hpp"
 #include "wuerror.hpp"
-#include "TpWrapper.hpp"
 #include "LogicFileWrapper.hpp"
 
 #include "rtlformat.hpp"
@@ -438,6 +437,9 @@ void CWsWorkunitsEx::init(IPropertyTree *cfg, const char *process, const char *s
     getConfigurationDirectory(directories, "data", "esp", process, dataDirectory);
     wuFactory.setown(getWorkUnitFactory());
 
+#ifdef _CONTAINERIZED
+    initContainerRoxieTargets(roxieConnMap);
+#endif
     m_sched.start();
     filesInUse.subscribe();
 
@@ -478,7 +480,11 @@ bool CWsWorkunitsEx::isValidCluster(const char *cluster)
     bool* found = validClusters.getValue(cluster);
     if (found && *found)
         return true;
+#ifndef _CONTAINERIZED
     if (validateTargetClusterName(cluster))
+#else
+    if (validateContainerTargetClusterName(cluster))
+#endif
     {
         refreshValidClusters();
         return true;
