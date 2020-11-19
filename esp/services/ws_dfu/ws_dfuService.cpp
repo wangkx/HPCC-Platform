@@ -2637,6 +2637,11 @@ void CWsDfuEx::doGetFileDetails(IEspContext &context, IUserDescriptor *udesc, co
 
 bool CWsDfuEx::getQueryFile(const char *logicalName, const char *querySet, const char *queryID, IEspDFUFileDetail &fileDetails)
 {
+#ifdef _CONTAINERIZED
+    StringBuffer process;
+    if (!getContainerClusterProcess(querySet, "roxie", process))
+        return false;
+#else
     Owned<IConstWUClusterInfo> info = getTargetClusterInfo(querySet);
     if (!info || (info->getPlatform()!=RoxieCluster))
         return false;
@@ -2645,6 +2650,7 @@ bool CWsDfuEx::getQueryFile(const char *logicalName, const char *querySet, const
     info->getRoxieProcess(process);
     if (!process.length())
         return false;
+#endif
 
     Owned<IHpccPackageSet> ps = createPackageSet(process.str());
     if (!ps)

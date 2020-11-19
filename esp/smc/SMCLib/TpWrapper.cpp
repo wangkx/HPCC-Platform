@@ -2051,3 +2051,21 @@ extern TPWRAPPER_API IStringIterator* getContainerTargetClusters(const char* pro
     }
     return ret.getClear();
 }
+
+extern TPWRAPPER_API const char* getContainerClusterProcess(const char* targetClusterName,
+    const char* targetClusterType, StringBuffer& process)
+{
+    VStringBuffer xpath("services[@type='%s']", targetClusterType);
+    Owned<IPropertyTreeIterator> services = queryComponentConfig().getElements(xpath);
+    ForEach(*services)
+    {
+        IPropertyTree& service = services->query();
+        const char* targetName = service.queryProp("@target");
+        if (isEmptyString(targetName) || !streq(targetName, targetClusterName))
+        {
+            process.set(service.queryProp("@name"));
+            break;
+        }
+    }
+    return process.str();
+}
