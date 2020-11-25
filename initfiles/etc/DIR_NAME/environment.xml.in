@@ -422,6 +422,11 @@
                          resource="CodeSignAccess"
                          service="ws_codesign"/>
     <AuthenticateFeature authenticate="Yes"
+                         description="Access to ws dali"
+                         path="WsDaliAccess"
+                         resource="WsDaliAccess"
+                         service="ws_dali"/>
+    <AuthenticateFeature authenticate="Yes"
                          description="Access to ws Decoupled Log service"
                          path="WsDecoupledLogAccess"
                          resource="WsDecoupledLogAccess"
@@ -753,6 +758,10 @@
                          path="CodeSignAccess"
                          resource="CodeSignAccess"
                          service="ws_codesign"/>
+    <AuthenticateFeature description="Access to ws dali"
+                         path="WsDaliAccess"
+                         resource="WsDaliAccess"
+                         service="ws_dali"/>
     <AuthenticateFeature description="Access to ws Decoupled Log service"
                          path="WsDecoupledLogAccess"
                          resource="WsDecoupledLogAccess"
@@ -1141,6 +1150,10 @@
                           path="CodeSignAccess"
                           resource="CodeSignAccess"
                           service="ws_codesign"/>
+     <AuthenticateFeature description="Access to ws dali"
+                          path="WsDaliAccess"
+                          resource="WsDaliAccess"
+                          service="ws_dali"/>
      <AuthenticateFeature description="Access to ws Decoupled Log service"
                           path="WsDecoupledLogAccess"
                           resource="WsDecoupledLogAccess"

@@ -406,6 +406,11 @@
                          path="CodeSignAccess"
                          resource="CodeSignAccess"
                          service="ws_codesign"/>
+    <AuthenticateFeature authenticate="Yes"
+                         description="Access to ws dali"
+                         path="WsDaliAccess"
+                         resource="WsDaliAccess"
+                         service="ws_dali"/>
     <Authenticate access="Read"
                   description="Root access to SMC service"
                   path="/"
@@ -650,6 +655,10 @@
                          path="CodeSignAccess"
                          resource="CodeSignAccess"
                          service="ws_codesign"/>
+    <AuthenticateFeature description="Access to ws dali"
+                         path="WsDaliAccess"
+                         resource="WsDaliAccess"
+                         service="ws_dali"/>
     <ProcessFilters>
      <Platform name="Windows">
       <ProcessFilter name="any">
@@ -949,6 +958,10 @@
                           path="CodeSignAccess"
                           resource="CodeSignAccess"
                           service="ws_codesign"/>
+    <AuthenticateFeature  description="Access to ws dali"
+                          path="WsDaliAccess"
+                          resource="WsDaliAccess"
+                          service="ws_dali"/>
      <ProcessFilters>
       <Platform name="Windows">
        <ProcessFilter name="any">

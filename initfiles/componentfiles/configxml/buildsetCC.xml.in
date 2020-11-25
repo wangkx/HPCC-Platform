@@ -221,6 +221,10 @@
                         path="CodeSignAccess"
                         resource="CodeSignAccess"
                         service="ws_codesign"/>
+                    <AuthenticateFeature description="Access to ws dali"
+                        path="WsDaliAccess"
+                        resource="WsDaliAccess"
+                        service="ws_dali"/>
                     <ProcessFilters>
                         <Platform name="Windows">
                             <ProcessFilter name="any">
