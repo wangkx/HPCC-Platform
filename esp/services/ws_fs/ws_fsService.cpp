@@ -2353,8 +2353,9 @@ bool CFileSprayEx::onDespray(IEspContext &context, IEspDespray &req, IEspDespray
                 throw MakeStringException(ECLWATCH_INVALID_INPUT, "Destination file not specified.");
         }
 
-        StringBuffer srcTitle;
+        StringBuffer srcTitle, fileMask;
         ParseLogicalPath(srcname, srcTitle);
+        constructFileMask(srcname, fileMask);
 
         Owned<IDFUWorkUnitFactory> factory = getDFUWorkUnitFactory();
         Owned<IDFUWorkUnit> wu = factory->createWorkUnit();
@@ -2369,6 +2370,8 @@ bool CFileSprayEx::onDespray(IEspContext &context, IEspDespray &req, IEspDespray
         IDFUoptions *options = wu->queryUpdateOptions();
 
         source->setLogicalName(srcname);
+        source->setFileMask(fileMask);
+        destination->setFileMask(fileMask);
 
         if(dstxml.length() == 0)
         {
