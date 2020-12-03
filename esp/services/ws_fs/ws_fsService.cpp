@@ -3224,12 +3224,11 @@ bool CFileSprayEx::onDropZoneFiles(IEspContext &context, IEspDropZoneFilesReques
 
                 IpAddress ipAddr;
                 ipAddr.ipset(server.str());
-                ipAddr.getIpText(networkAddress);
 
                 Owned<IEspDropZone> aDropZone = createDropZone();
                 aDropZone->setName(dropZoneName.str());
                 aDropZone->setComputer(name.str());
-                aDropZone->setNetAddress(networkAddress.str());
+                aDropZone->setNetAddress(server);
 
                 aDropZone->setPath(directory.str());
                 if (isLinux)
