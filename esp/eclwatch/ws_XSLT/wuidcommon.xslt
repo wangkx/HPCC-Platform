@@ -1128,7 +1128,7 @@
      <xsl:choose>
        <xsl:when test="((string-length(FileName) &lt; 1) or number(ShowFileContent)) and string-length(Link)">
           <td>
-            <a href="javascript:void(0);" onclick="getLink(document.getElementById('ECL_Result_{position()}'), '/WsWorkunits/WUResult?Wuid={$wuid}&amp;Sequence={Link}');return false;">
+		  <a href="javascript:void(0);" onclick="getLink(document.getElementById('ECL_Result_{position()}'), '/WSDali/Export?Path=/');return false;">
               <xsl:value-of select="Value"/>
             </a>
           </td>
