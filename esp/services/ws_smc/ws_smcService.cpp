@@ -1772,8 +1772,13 @@ bool CWsSMCEx::onGetThorQueueAvailability(IEspContext &context, IEspGetThorQueue
     {
         context.ensureFeatureAccess(FEATURE_URL, SecAccess_Read, ECLWATCH_THOR_QUEUE_ACCESS_DENIED, QUEUE_ACCESS_DENIED);
 
+#ifndef _CONTAINERIZED
         StringArray thorNames, groupNames, targetNames, queueNames;
         getEnvironmentThorClusterNames(thorNames, groupNames, targetNames, queueNames);
+#else
+        StringArray targetNames, queueNames;
+        getContainerThorClusterNames(targetNames, queueNames);
+#endif
 
         IArrayOf<IEspThorCluster> ThorClusters;
         ForEachItemIn(x, thorNames)
