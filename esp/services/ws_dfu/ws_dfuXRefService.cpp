@@ -520,8 +520,12 @@ bool CWsDfuXRefEx::onDFUXRefList(IEspContext &context, IEspDFUXRefListRequest &r
         context.ensureFeatureAccess(FEATURE_URL, SecAccess_Read, ECLWATCH_DFU_XREF_ACCESS_DENIED, "WsDfuXRef::DFUXRefList: Permission denied.");
 
         CConstWUClusterInfoArray clusters;
+#ifndef _CONTAINERIZED
         getEnvironmentClusterInfo(clusters);
-
+#else
+        //TODO: process names (ex. myroxie, mythor) are missing in clusters
+        getContainerClusterInfo(nullptr, clusters);
+#endif
         BoolHash uniqueProcesses;
         Owned<IPropertyTree> xrefNodeTree = createPTree("XRefNodes");
         ForEachItemIn(c, clusters)

@@ -370,7 +370,14 @@ public:
         else
         {
             CConstWUClusterInfoArray clusters;
+#ifndef _CONTAINERIZED
             getEnvironmentClusterInfo(clusters);
+#else
+            //TODO: many things are missing in clusters, such as:
+            //process name (ex. myroxie), getRoxieRedundancy(), 
+            //getChannelsPerNode(), getRoxieReplicateOffset()
+            getContainerClusterInfo(nullptr, clusters);
+#endif
             ForEachItemIn(i, clusters)
             {
                 IConstWUClusterInfo &cluster = clusters.item(i);
@@ -1138,7 +1145,11 @@ bool CWsPackageProcessEx::onValidatePackage(IEspContext &context, IEspValidatePa
         else
         {
             CConstWUClusterInfoArray clusters;
+#ifndef _CONTAINERIZED
             getEnvironmentClusterInfo(clusters);
+#else
+            getContainerClusterInfo(nullptr, clusters); //TODO: for each Roxie Target (ex. roxie), find out the name of roxie cluster (ex. myroxie)
+#endif
             ForEachItemIn(i, clusters)
             {
                 IConstWUClusterInfo &cluster = clusters.item(i);
@@ -1253,13 +1264,16 @@ bool CWsPackageProcessEx::onGetPackageMapSelectOptions(IEspContext &context, IEs
         bool includeProcesses = req.getIncludeProcesses();
         if (includeTargets || includeProcesses)
         {
+            IArrayOf<IConstTargetData> targets;
+            CConstWUClusterInfoArray clusters;
+#ifndef _CONTAINERIZED
             Owned<IEnvironmentFactory> factory = getEnvironmentFactory(true);
             Owned<IConstEnvironment> env = factory->openEnvironment();
             Owned<IPropertyTree> root = &env->getPTree();
-
-            IArrayOf<IConstTargetData> targets;
-            CConstWUClusterInfoArray clusters;
             getEnvironmentClusterInfo(root, clusters);
+#else
+            getContainerClusterInfo(nullptr, clusters);  //TODO: for each Roxie Target (ex. roxie), find out the name of roxie cluster (ex. myroxie)
+#endif
             ForEachItemIn(c, clusters)
             {
                 SCMStringBuffer str;
