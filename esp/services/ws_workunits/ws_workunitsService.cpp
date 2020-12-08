@@ -47,7 +47,6 @@
 #include "fvresultset.ipp"
 #include "ws_wudetails.hpp"
 #include "wuerror.hpp"
-#include "TpWrapper.hpp"
 #include "LogicFileWrapper.hpp"
 
 #include "rtlformat.hpp"
@@ -478,7 +477,11 @@ bool CWsWorkunitsEx::isValidCluster(const char *cluster)
     bool* found = validClusters.getValue(cluster);
     if (found && *found)
         return true;
+#ifndef _CONTAINERIZED
     if (validateTargetClusterName(cluster))
+#else
+    if (validateContainerTargetClusterName(cluster))
+#endif
     {
         refreshValidClusters();
         return true;

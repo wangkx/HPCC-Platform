@@ -23,6 +23,7 @@
 #include "ws_workunitsHelpers.hpp"
 #include "dasds.hpp"
 #include "environment.hpp"
+#include "TpWrapper.hpp"
 
 #ifdef _USE_ZLIB
 #include "zcrypt.hpp"
@@ -62,17 +63,24 @@ private:
 
     void updateUsers()
     {
-        Owned<IStringIterator> clusters = getTargetClusters("RoxieCluster", NULL);
+#ifndef _CONTAINERIZED
+        Owned<IStringIterator> clusters = getTargetClusters("RoxieCluster", nullptr);
+#else
+        Owned<IStringIterator> clusters = getContainerTargetClusters("roxie", nullptr);
+#endif
         ForEach(*clusters)
         {
             SCMStringBuffer target;
             clusters->str(target);
 
+#ifndef _CONTAINERIZED
             Owned<IConstWUClusterInfo> info = getTargetClusterInfo(target.str());
             Owned<IUserDescriptor> user = createUserDescriptor();
             user->set(info->getLdapUser(), info->getLdapPassword());
             roxieUserMap.setValue(target.str(), user);
             roxieUsers.append(*user.getClear());
+#else
+#endif
         }
     }
 

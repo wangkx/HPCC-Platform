@@ -3238,6 +3238,25 @@ IConstWUClusterInfo* getContainerTargetClusterInfo(IPropertyTree *queue)
     return new CEnvironmentClusterInfo(name, nullptr, nullptr, agent, eclServers, false, nullptr, thors, roxie);
 }
 
+extern ENVIRONMENT_API IConstWUClusterInfo *getContainerTargetClusterInfo(const char *clustName)
+{
+    Owned<IPropertyTreeIterator> queues = queryComponentConfig().getElements("queues");
+    ForEach(*queues)
+    {
+        IPropertyTree &queue = queues->query();
+        const char *name = queue.queryProp("@name");
+        if (!isEmptyString(name) && strieq(name, clustName))
+            return getContainerTargetClusterInfo(&queue);
+    }
+    return nullptr;
+}
+
+extern ENVIRONMENT_API bool validateContainerTargetClusterName(const char *clustName)
+{
+    VStringBuffer xpath("queues[@name=\"%s\"]", clustName);
+    return (queryComponentConfig().queryPropTree(xpath) != nullptr);
+}
+
 extern ENVIRONMENT_API unsigned getContainerClusterInfo(const char* processType, CConstWUClusterInfoArray &clusters)
 {
     Owned<IPropertyTreeIterator> queues = queryComponentConfig().getElements("queues");
