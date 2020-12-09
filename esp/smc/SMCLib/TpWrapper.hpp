@@ -42,7 +42,7 @@
 #include <string>
 #include <set>
 #include "sacmd.hpp"
-
+#include "jsmartsock.ipp"
 
 using std::set;
 using std::string;
@@ -212,6 +212,7 @@ private:
 
 extern TPWRAPPER_API ISashaCommand* archiveOrRestoreWorkunits(StringArray& wuids, IProperties* params, bool archive, bool dfu);
 extern TPWRAPPER_API IStringIterator *getContainerTargetClusters(const char* processType, const char* processName);
+extern TPWRAPPER_API void initContainerRoxieTargets(MapStringToMyClass<ISmartSocketFactory>& connMap);
 
 #endif //_ESPWIZ_TpWrapper_HPP__
 

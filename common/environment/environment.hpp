@@ -287,7 +287,8 @@ extern ENVIRONMENT_API bool isProcessCluster(const char *remoteDali, const char 
 extern ENVIRONMENT_API bool isProcessCluster(const char *process);
 extern ENVIRONMENT_API unsigned getEnvironmentThorClusterNames(StringArray &thorNames, StringArray &groupNames, StringArray &targetNames, StringArray &queueNames);
 
-extern ENVIRONMENT_API unsigned getContainerClusterInfo(const char* processType, CConstWUClusterInfoArray& clusters);
+extern ENVIRONMENT_API unsigned getContainerClusterInfo(const char *processType, CConstWUClusterInfoArray &clusters);
+extern ENVIRONMENT_API unsigned getContainerThorClusterNames(StringArray &targetNames, StringArray &queueNames);
 
 #endif // _ENVIRONMENT_INCL
 //end
