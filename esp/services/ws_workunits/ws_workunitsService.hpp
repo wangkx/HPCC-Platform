@@ -29,6 +29,7 @@
 #endif
 #include "referencedfilelist.hpp"
 #include "ws_wuresult.hpp"
+#include "jsmartsock.ipp"
 
 #define UFO_DIRTY                                0x01
 #define UFO_RELOAD_TARGETS_CHANGED_PMID          0x02
@@ -316,6 +317,7 @@ public:
     void setPort(unsigned short _port){port=_port;}
 
     bool isQuerySuspended(const char* query, IConstWUClusterInfo *clusterInfo, unsigned wait, StringBuffer& errorMessage);
+    bool isContainerQuerySuspended(const char* query, const char* target, unsigned wait, StringBuffer& errorMessage);
     bool onWUCreateZAPInfo(IEspContext &context, IEspWUCreateZAPInfoRequest &req, IEspWUCreateZAPInfoResponse &resp);
     bool onWUGetZAPInfo(IEspContext &context, IEspWUGetZAPInfoRequest &req, IEspWUGetZAPInfoResponse &resp);
     bool onWUCheckFeatures(IEspContext &context, IEspWUCheckFeaturesRequest &req, IEspWUCheckFeaturesResponse &resp);
@@ -422,6 +424,7 @@ private:
 
 public:
     QueryFilesInUse filesInUse;
+    MapStringToMyClass<ISmartSocketFactory> roxieConnMap;
     StringAttr zapEmailTo, zapEmailFrom, zapEmailServer;
     unsigned zapEmailMaxAttachmentSize = 0;
     unsigned zapEmailServerPort = 0;
