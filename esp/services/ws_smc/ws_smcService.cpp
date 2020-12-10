@@ -1781,7 +1781,7 @@ bool CWsSMCEx::onGetThorQueueAvailability(IEspContext &context, IEspGetThorQueue
 #endif
 
         IArrayOf<IEspThorCluster> ThorClusters;
-        ForEachItemIn(x, thorNames)
+        ForEachItemIn(x, targetNames)
         {
             const char* targetName = targetNames.item(x);
             const char* queueName = queueNames.item(x);
@@ -1913,23 +1913,11 @@ bool CWsSMCEx::onBrowseResources(IEspContext &context, IEspBrowseResourcesReques
 
         double version = context.getClientVersion();
 
-        Owned<IEnvironmentFactory> factory = getEnvironmentFactory(true);
-        Owned<IConstEnvironment> constEnv = factory->openEnvironment();
-
-        //The resource files will be downloaded from the same box of ESP (not dali)
-        StringBuffer ipStr;
-        IpAddress ipaddr = queryHostIP();
-        ipaddr.getIpText(ipStr);
-        if (ipStr.length() > 0)
-        {
-            resp.setNetAddress(ipStr.str());
-            Owned<IConstMachineInfo> machine = constEnv->getMachineByAddress(ipStr.str());
-            if (machine)
-            {
-                int os = machine->getOS();
-                resp.setOS(os);
-            }
-        }
+#ifdef _WIN32
+        resp.setOS(MachineOsW2K);
+#else
+        resp.setOS(MachineOsLinux);
+#endif
 
         if (m_PortalURL.length() > 0)
             resp.setPortalURL(m_PortalURL.str());
@@ -1944,18 +1932,10 @@ bool CWsSMCEx::onBrowseResources(IEspContext &context, IEspBrowseResourcesReques
         //Now, get a list of resources stored inside the ESP box
         IArrayOf<IEspHPCCResourceRepository> resourceRepositories;
 
-        Owned<IPropertyTree> pEnvRoot = &constEnv->getPTree();
-        const char* ossInstall = pEnvRoot->queryProp("EnvSettings/path");
-        if (!ossInstall || !*ossInstall)
-        {
-            OWARNLOG("Failed to get EnvSettings/Path in environment settings.");
-            return true;
-        }
-
-        StringBuffer path;
-        path.appendf("%s/componentfiles/files/downloads", ossInstall);
+        StringBuffer path(getCFD());
+        addPathSepChar(path).append("files/downloads");
         Owned<IFile> f = createIFile(path.str());
-        if(!f->exists() || !f->isDirectory())
+        if (!f->exists() || (f->isDirectory() != fileBool::foundYes))
         {
             OWARNLOG("Invalid resource folder");
             return true;
