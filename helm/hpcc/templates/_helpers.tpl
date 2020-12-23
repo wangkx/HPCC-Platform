@@ -455,7 +455,9 @@ A kludge to ensure mounted storage (e.g. for nfs, minikube or docker for desktop
 # NB: this includes where the filing system is on the containers host machine .
 # Examples include, minikube, docker for desktop, or NFS mounted storage.
 # NB: uid=10000 and gid=10001 are the uid/gid of the hpcc user, built into platform-core
-{{- $permCmd := printf "chown -R 10000:10001 %s" .volumePath }}
+# {{- $permCmd := printf "chown -R 10000:10001 %s" .volumePath }}
+# NB: uid=999 and gid=1000 are the uid/gid of the hpcc user, built into platform-core
+{{- $permCmd := printf "chown -R 999:1000 %s" .volumePath }}
 - name: volume-mount-hack
   image: busybox
   command: [
@@ -534,9 +536,12 @@ securityContext:
   allowPrivilegeEscalation: false
 {{- end }}
   runAsNonRoot: true
-  runAsUser: 10000
-  runAsGroup: 10001
-  readOnlyRootFilesystem: true
+#  runAsUser: 10000
+#  runAsGroup: 10001
+#  readOnlyRootFilesystem: true
+  runAsUser: 999
+  runAsGroup: 1000
+  readOnlyRootFilesystem: false
 {{ end -}}
 
 {{/*
