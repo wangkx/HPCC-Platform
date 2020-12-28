@@ -261,6 +261,10 @@ int work_main(CEspConfig& config, CEspServer& server)
 {
     server.start();
     DBGLOG("ESP server started.");
+    const IPropertyTree& conf = queryComponentConfig();
+    StringBuffer s;
+    toXML(&conf, s);
+    DBGLOG("####ESP server config(%s).", s.str());
     server.waitForExit(config);
     server.stop(true);
     config.stopping();

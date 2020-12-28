@@ -1383,6 +1383,11 @@ int CCD_API roxie_main(int argc, const char *argv[], const char * defaultYaml)
                 writeSentinelFile(sentinelFile);
                 DBGLOG("Startup completed - LPT=%u APT=%u", queryNumLocalTrees(), queryNumAtomTrees());
                 DBGLOG("Waiting for queries");
+    const IPropertyTree& conf = queryComponentConfig();
+    StringBuffer s;
+    toXML(&conf, s);
+    DBGLOG("####roxie config(%s).", s.str());
+
                 if (pingInterval)
                     startPingTimer();
                 LocalIAbortHandler abortHandler(waiter);

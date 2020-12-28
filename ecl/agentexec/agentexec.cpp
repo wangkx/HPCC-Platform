@@ -150,6 +150,11 @@ int CEclAgentExecutionServer::run()
             }
 #endif
             PROGLOG("AgentExec: Waiting on queue(s) '%s'", queueNames.str());
+    const IPropertyTree& conf = queryComponentConfig();
+    StringBuffer s;
+    toXML(&conf, s);
+    DBGLOG("####roxie config(%s).", s.str());
+
             Owned<IJobQueueItem> item = queue->dequeue();
             if (item.get())
             {
