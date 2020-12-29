@@ -1991,7 +1991,11 @@ bool CwssqlEx::isValidCluster(const char *cluster)
     CriticalBlock block(crit);
     if (validClusters.getValue(cluster))
         return true;
+#ifndef _CONTAINERIZED
     if (validateTargetClusterName(cluster))
+#else
+    if (validateContainerTargetClusterName(cluster))
+#endif
     {
         refreshValidClusters();
         return true;

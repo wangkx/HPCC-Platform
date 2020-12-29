@@ -1290,11 +1290,15 @@ bool WsWuInfo::getClusterInfo(IEspECLWorkunit &info, unsigned long flags)
     {
         int clusterTypeFlag = 0;
 
+#ifndef _CONTAINERIZED
         Owned<IEnvironmentFactory> envFactory = getEnvironmentFactory(true);
         Owned<IConstEnvironment> constEnv = envFactory->openEnvironment();
         Owned<IPropertyTree> root = &constEnv->getPTree();
 
         Owned<IConstWUClusterInfo> clusterInfo = getTargetClusterInfo(clusterName.str());
+#else
+        Owned<IConstWUClusterInfo> clusterInfo = getContainerTargetClusterInfo(clusterName.str());
+#endif
         if (clusterInfo.get())
         {//Set thor flag or roxie flag in order to display some options for thor or roxie
             ClusterType platform = clusterInfo->getPlatform();

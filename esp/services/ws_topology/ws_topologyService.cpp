@@ -1384,7 +1384,11 @@ bool CWsTopologyEx::onTpClusterInfo(IEspContext &context, IEspTpClusterInfoReque
         Owned<IRemoteConnection> conn = querySDS().connect("/Status/Servers/", myProcessSession(),RTM_SUB,SDS_LOCK_TIMEOUT);
         if (conn)
         {
+#ifndef _CONTAINERIZED
             Owned<IConstWUClusterInfo> clusterInfo = getTargetClusterInfo(req.getName());
+#else
+            Owned<IConstWUClusterInfo> clusterInfo = getContainerTargetClusterInfo(req.getName());
+#endif
             if (clusterInfo == nullptr)
                 throw MakeStringException(ECLWATCH_INVALID_CLUSTER_NAME, "Invalid Target Cluster name provided: '%s'", req.getName());
 

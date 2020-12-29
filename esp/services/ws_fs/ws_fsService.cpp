@@ -649,15 +649,25 @@ bool CFileSprayEx::onDFUWUSearch(IEspContext &context, IEspDFUWUSearchRequest & 
     {
         context.ensureFeatureAccess(DFU_WU_URL, SecAccess_Read, ECLWATCH_DFU_WU_ACCESS_DENIED, "Access to DFU workunit is denied.");
 
+        StringArray dfuclusters;
+#ifdef _CONTAINERIZED
+        Owned<IStringIterator> targets = getContainerTargetClusters(nullptr, nullptr);
+        ForEach(*targets)
+        {
+            SCMStringBuffer target;
+            targets->str(target);
+            dfuclusters.append(target.str());
+        }
+#else
         Owned<IEnvironmentFactory> factory = getEnvironmentFactory(true);
         Owned<IConstEnvironment> environment = factory->openEnvironment();
         Owned<IPropertyTree> root = &environment->getPTree();
 
-        StringArray dfuclusters;
         Owned<IPropertyTreeIterator> clusterIterator = root->getElements("Software/Topology/Cluster");
         if (clusterIterator->first())
         {
-            do {
+            do
+            {
                 IPropertyTree &cluster = clusterIterator->query();
                 const char *clusterName = cluster.queryProp("@name");
                 if (!clusterName || !*clusterName)
@@ -666,6 +676,7 @@ bool CFileSprayEx::onDFUWUSearch(IEspContext &context, IEspDFUWUSearchRequest & 
                 dfuclusters.append(clusterName);
             } while (clusterIterator->next());
         }
+#endif
 
         resp.setClusterNames(dfuclusters);
     }
