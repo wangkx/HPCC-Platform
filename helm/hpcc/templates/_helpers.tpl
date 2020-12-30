@@ -536,7 +536,7 @@ securityContext:
   runAsNonRoot: true
   runAsUser: 10000
   runAsGroup: 10001
-  readOnlyRootFilesystem: true
+  readOnlyRootFilesystem: false
 {{ end -}}
 
 {{/*
