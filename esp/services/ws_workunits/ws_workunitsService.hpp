@@ -23,6 +23,7 @@
 #include "ws_workunitsHelpers.hpp"
 #include "dasds.hpp"
 #include "environment.hpp"
+#include "TpWrapper.hpp"
 
 #ifdef _USE_ZLIB
 #include "zcrypt.hpp"
