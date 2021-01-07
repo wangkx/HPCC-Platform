@@ -263,6 +263,9 @@ void CActivityInfo::createActivityInfo(IEspContext& context)
         throw MakeStringException(ECLWATCH_CANNOT_GET_STATUS_INFO, "Failed to get status server information.");
 
     IPropertyTree* serverStatusRoot = connStatusServers->queryRoot();
+    StringBuffer s;
+    toXML(serverStatusRoot, s);
+    DBGLOG("####Servers(%s)", s.str());
 
     readTargetClusterInfo(clusters, serverStatusRoot);
 #ifndef _CONTAINERIZED
