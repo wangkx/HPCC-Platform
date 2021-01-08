@@ -105,7 +105,7 @@ class CActivityInfo : public CInfoCache
 {
     BoolHash uniqueECLWUIDs;
 
-    IArrayOf<IEspActiveWUsQueue> awqs;
+    StringArray targets;
     Owned<IJQSnapshot> jobQueueSnapshot;
 
     CIArrayOf<CWsSMCTargetCluster> thorTargetClusters;
@@ -142,7 +142,7 @@ class CActivityInfo : public CInfoCache
     bool checkSetUniqueECLWUID(const char* wuid);
     void addQueuedServerQueueJob(IEspContext& context, const char* serverName, const char* queueName, const char* instanceName, CIArrayOf<CWsSMCTargetCluster>& targetClusters);
 
-    void createActiveWUsQueues(IEspContext& context);
+    void getActiveWUsQueues(IEspContext& context, bool running);
 
 public:
     CActivityInfo() {};
@@ -157,6 +157,8 @@ public:
     inline IArrayOf<IEspActiveWorkunit>& queryActiveWUs() { return aws; };
     inline IArrayOf<IEspServerJobQueue>& queryServerJobQueues() { return serverJobQueues; };
     inline IArrayOf<IEspDFUJob>& queryDFURecoveryJobs() { return DFURecoveryJobs; };
+    inline StringArray& getTargets() { return targets; };
+    //inline void appendTarget(const char* target) { targets.append(target); };
 };
 
 class CActivityInfoCacheReader : public CInfoCacheReader
@@ -266,6 +268,7 @@ private:
     void setActiveWUs(IEspContext &context, const char *serverType, const char *instance, const IArrayOf<IEspActiveWorkunit>& aws, IEspStatusServerInfo& statusServerInfo);
     void setActiveWUs(IEspContext &context, IEspActiveWorkunit& wu, IEspActiveWorkunit* wuToSet);
     void addLockInfo(CLockMetaData& lD, const char* xPath, const char* lfn, unsigned msNow, time_t ttNow, IArrayOf<IEspLock>& locks);
+    void setActiveWUQueuesResponse(IEspContext& context, CActivityInfo* activityInfo, IEspGetActiveWUsRequest& req, IEspGetActiveWUsResponse& resp);
 };
 
 

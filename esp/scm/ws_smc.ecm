@@ -166,7 +166,7 @@ ESPresponse [exceptions_inline] ActivityResponse
 
 ESPStruct [nil_remove] ActiveWUsQueue
 {
-    string target;
+    string Target;
     ESParray<ESPstruct ActiveWorkunit> Workunits;
 };
 

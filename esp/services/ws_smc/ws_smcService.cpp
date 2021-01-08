@@ -235,17 +235,46 @@ struct CActiveWorkunitWrapper: public CActiveWorkunit
     }
 };
 
-void CActivityInfo::createActiveWUsQueues(IEspContext& context)
+void CActivityInfo::getActiveWUsQueues(IEspContext& context, bool running)
 {
+    unsigned numWUs;
+    __int64 cacheHint = 0;
+    WUSortField filters[10];
+    MemoryBuffer filterbuf;
+    filters[0] = WUSFstate;
+    filters[1] = WUSFterm;
+    if (running)
+        filterbuf.append("running");
+    else
+        filterbuf.append("submitted");
+    WUSortField sortorder = (WUSortField) (WUSFwuid | WUSFnocase);
+
+    Owned<IWorkUnitFactory> factory = getWorkUnitFactory(context.querySecManager(), context.queryUser());
+    Owned<IConstWorkUnitIterator> it = factory->getWorkUnitsSorted(sortorder, filters, filterbuf.bufferBase(), 0, 10000, &cacheHint, &numWUs);
+    ForEach(*it)
+    {
+        IConstWorkUnitInfo& cw = it->query();
+        Owned<IEspActiveWorkunit> wu = new CActiveWorkunitWrapper(cw.queryWuid(), cw.queryUser(), cw.queryJobName(),
+            cw.queryStateDesc(), cw.queryPriorityDesc());
+        wu->setClusterName(cw.queryClusterName());
+        aws.append(*wu.getClear());
+    }
 };
 
 void CActivityInfo::createActivityInfo(IEspContext& context)
 {
 #ifdef _CONTAINERIZED
-    createActiveWUsQueues(context);
-    return;
-#endif
+    Owned<IStringIterator> ts = getContainerTargetClusters(nullptr, nullptr);
+    ForEach(*ts)
+    {
+        SCMStringBuffer target;
+        ts->str(target);
+        targets.append(target.str());
+    }
 
+    getActiveWUsQueues(context, true);
+    getActiveWUsQueues(context, false);
+#else
     Owned<IEnvironmentFactory> factory = getEnvironmentFactory(true);
     Owned<IConstEnvironment> env = factory->openEnvironment();
 
@@ -271,7 +300,7 @@ void CActivityInfo::createActivityInfo(IEspContext& context)
 
     readTargetClusterInfo(clusters, serverStatusRoot);
     readActiveWUsAndQueuedWUs(context, envRoot, serverStatusRoot);
-
+#endif
     timeCached.setNow();
 }
 
@@ -2644,7 +2673,7 @@ bool CWsSMCEx::onGetActiveWUs(IEspContext &context, IEspGetActiveWUsRequest &req
         Owned<CActivityInfo> activityInfo = (CActivityInfo*) activityInfoCacheReader->getCachedInfo();
         if (!activityInfo)
             throw MakeStringException(ECLWATCH_INTERNAL_ERROR, "Failed to get Activity Info. Please try later.");
-        //setActiveWUQueuesResponse(context, activityInfo, req, resp);
+        setActiveWUQueuesResponse(context, activityInfo, req, resp);
     }
     catch(IException* e)
     {
@@ -2652,4 +2681,34 @@ bool CWsSMCEx::onGetActiveWUs(IEspContext &context, IEspGetActiveWUsRequest &req
     }
 
     return true;
+}
+
+void CWsSMCEx::setActiveWUQueuesResponse(IEspContext &context, CActivityInfo *activityInfo,
+    IEspGetActiveWUsRequest &req, IEspGetActiveWUsResponse &resp)
+{
+    StringBuffer s;
+    resp.setActiveTime(activityInfo->queryTimeCached(s));
+
+    IArrayOf<IEspActiveWUsQueue> activeWUsQueues;
+    const IArrayOf<IEspActiveWorkunit>& aws = activityInfo->queryActiveWUs();
+    StringArray &targets = activityInfo->getTargets();
+    ForEachItemIn(i, targets)
+    {
+        const char *target = targets.item(i);
+        Owned<IEspActiveWUsQueue> activeWUsQueue = createActiveWUsQueue();
+        activeWUsQueue->setTarget(target);
+
+        IArrayOf<IConstActiveWorkunit> &activeWUs = activeWUsQueue->getWorkunits();
+        ForEachItemIn(ii, aws)
+        {
+            IEspActiveWorkunit& wu = aws.item(ii);
+            const char *wuTarget = wu.getClusterName();
+            if (wuTarget && streq(target, wuTarget))
+                activeWUs.append(*LINK(&wu));
+        }
+        activeWUsQueues.append(*activeWUsQueue.getClear());
+    }
+
+    resp.setActiveWUsQueues(activeWUsQueues);
+    return;
 }
