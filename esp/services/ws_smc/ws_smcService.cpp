@@ -235,8 +235,17 @@ struct CActiveWorkunitWrapper: public CActiveWorkunit
     }
 };
 
+void CActivityInfo::createActiveWUsQueues(IEspContext& context)
+{
+};
+
 void CActivityInfo::createActivityInfo(IEspContext& context)
 {
+#ifdef _CONTAINERIZED
+    createActiveWUsQueues(context);
+    return;
+#endif
+
     Owned<IEnvironmentFactory> factory = getEnvironmentFactory(true);
     Owned<IConstEnvironment> env = factory->openEnvironment();
 
@@ -2617,6 +2626,25 @@ bool CWsSMCEx::onGetBuildInfo(IEspContext &context, IEspGetBuildInfoRequest &req
             buildInfo.append(*namedValue.getClear());
         }
         resp.setBuildInfo(buildInfo);
+    }
+    catch(IException* e)
+    {
+        FORWARDEXCEPTION(context, e,  ECLWATCH_INTERNAL_ERROR);
+    }
+
+    return true;
+}
+
+bool CWsSMCEx::onGetActiveWUs(IEspContext &context, IEspGetActiveWUsRequest &req, IEspGetActiveWUsResponse &resp)
+{
+    try
+    {
+        context.ensureFeatureAccess(FEATURE_URL, SecAccess_Read, ECLWATCH_SMC_ACCESS_DENIED, SMC_ACCESS_DENIED);
+
+        Owned<CActivityInfo> activityInfo = (CActivityInfo*) activityInfoCacheReader->getCachedInfo();
+        if (!activityInfo)
+            throw MakeStringException(ECLWATCH_INTERNAL_ERROR, "Failed to get Activity Info. Please try later.");
+        //setActiveWUQueuesResponse(context, activityInfo, req, resp);
     }
     catch(IException* e)
     {

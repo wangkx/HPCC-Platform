@@ -105,6 +105,7 @@ class CActivityInfo : public CInfoCache
 {
     BoolHash uniqueECLWUIDs;
 
+    IArrayOf<IEspActiveWUsQueue> awqs;
     Owned<IJQSnapshot> jobQueueSnapshot;
 
     CIArrayOf<CWsSMCTargetCluster> thorTargetClusters;
@@ -140,6 +141,8 @@ class CActivityInfo : public CInfoCache
     CWsSMCTargetCluster* findTargetCluster(const char* clusterName, CIArrayOf<CWsSMCTargetCluster>& targetClusters);
     bool checkSetUniqueECLWUID(const char* wuid);
     void addQueuedServerQueueJob(IEspContext& context, const char* serverName, const char* queueName, const char* instanceName, CIArrayOf<CWsSMCTargetCluster>& targetClusters);
+
+    void createActiveWUsQueues(IEspContext& context);
 
 public:
     CActivityInfo() {};
@@ -204,6 +207,7 @@ public:
     bool onClearQueue(IEspContext &context, IEspSMCQueueRequest &req, IEspSMCQueueResponse &resp);
     bool onIndex(IEspContext &context, IEspSMCIndexRequest &req, IEspSMCIndexResponse &resp);
     bool onActivity(IEspContext &context, IEspActivityRequest &req, IEspActivityResponse &resp);
+    bool onGetActiveWUs(IEspContext &context, IEspGetActiveWUsRequest &req, IEspGetActiveWUsResponse &resp);
     bool onSetJobPriority(IEspContext &context, IEspSMCPriorityRequest &req, IEspSMCPriorityResponse &resp);
     bool onGetThorQueueAvailability(IEspContext &context, IEspGetThorQueueAvailabilityRequest &req, IEspGetThorQueueAvailabilityResponse& resp);
     bool onSetBanner(IEspContext &context, IEspSetBannerRequest &req, IEspSetBannerResponse& resp);

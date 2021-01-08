@@ -164,6 +164,22 @@ ESPresponse [exceptions_inline] ActivityResponse
     [min_ver("1.22")] bool DaliDetached;
 };
 
+ESPStruct [nil_remove] ActiveWUsQueue
+{
+    string target;
+    ESParray<ESPstruct ActiveWorkunit> Workunits;
+};
+
+ESPrequest [nil_remove] GetActiveWUsRequest
+{
+};
+
+ESPresponse [exceptions_inline] GetActiveWUsResponse
+{
+    ESParray<ESPstruct ActiveWUsQueue> ActiveWUsQueues;
+    string ActiveTime;
+};
+
 ESPrequest SMCIndexRequest
 {
 };
@@ -417,6 +433,7 @@ ESPservice [auth_feature("DEFERRED"), noforms, version("1.23"), exceptions_inlin
 {
     ESPmethod Index(SMCIndexRequest, SMCIndexResponse);
     ESPmethod [resp_xsl_default("/esp/xslt/index.xslt")] Activity(ActivityRequest, ActivityResponse);
+    ESPmethod GetActiveWUs(GetActiveWUsRequest, GetActiveWUsResponse);
 
     ESPmethod ClearQueue(SMCQueueRequest, SMCQueueResponse);
     ESPmethod PauseQueue(SMCQueueRequest, SMCQueueResponse);
