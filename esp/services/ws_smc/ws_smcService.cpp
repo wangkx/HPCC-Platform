@@ -250,7 +250,9 @@ void CActivityInfo::getActiveWUsQueues(IEspContext& context, bool running)
     WUSortField sortorder = (WUSortField) (WUSFwuid | WUSFnocase);
 
     Owned<IWorkUnitFactory> factory = getWorkUnitFactory(context.querySecManager(), context.queryUser());
+    PROGLOG("####Before getWorkUnitsSorted(): %s", running ? "running" : "submitted");
     Owned<IConstWorkUnitIterator> it = factory->getWorkUnitsSorted(sortorder, filters, filterbuf.bufferBase(), 0, 10000, &cacheHint, &numWUs);
+    PROGLOG("####After getWorkUnitsSorted(): %s", running ? "running" : "submitted");
     ForEach(*it)
     {
         IConstWorkUnitInfo& cw = it->query();
@@ -263,6 +265,7 @@ void CActivityInfo::getActiveWUsQueues(IEspContext& context, bool running)
 
 void CActivityInfo::createActivityInfo(IEspContext& context)
 {
+    PROGLOG("####Enter createActivityInfo()");
 #ifdef _CONTAINERIZED
     Owned<IStringIterator> ts = getContainerTargetClusters(nullptr, nullptr);
     ForEach(*ts)
@@ -302,6 +305,7 @@ void CActivityInfo::createActivityInfo(IEspContext& context)
     readActiveWUsAndQueuedWUs(context, envRoot, serverStatusRoot);
 #endif
     timeCached.setNow();
+    PROGLOG("####Leave createActivityInfo()");
 }
 
 void CActivityInfo::readTargetClusterInfo(CConstWUClusterInfoArray& clusters, IPropertyTree* serverStatusRoot)
@@ -2668,12 +2672,14 @@ bool CWsSMCEx::onGetActiveWUs(IEspContext &context, IEspGetActiveWUsRequest &req
 {
     try
     {
+        PROGLOG("####Enter WsSMCEx::onGetActiveWUs");
         context.ensureFeatureAccess(FEATURE_URL, SecAccess_Read, ECLWATCH_SMC_ACCESS_DENIED, SMC_ACCESS_DENIED);
 
         Owned<CActivityInfo> activityInfo = (CActivityInfo*) activityInfoCacheReader->getCachedInfo();
         if (!activityInfo)
             throw MakeStringException(ECLWATCH_INTERNAL_ERROR, "Failed to get Activity Info. Please try later.");
         setActiveWUQueuesResponse(context, activityInfo, req, resp);
+        PROGLOG("####Leave WsSMCEx::onGetActiveWUs");
     }
     catch(IException* e)
     {
