@@ -2213,3 +2213,68 @@ extern TPWRAPPER_API void initContainerRoxieTargets(MapStringToMyClass<ISmartSoc
     }
 }
 
+extern TPWRAPPER_API unsigned getThorClusterNames(StringArray& targetNames, StringArray& queueNames)
+{
+#ifndef _CONTAINERIZED
+    StringArray thorNames, groupNames;
+    getEnvironmentThorClusterNames(thorNames, groupNames, targetNames, queueNames);
+#else
+    Owned<IStringIterator> targets = getContainerTargetClusters("thor", nullptr);
+    ForEach(*targets)
+    {
+        SCMStringBuffer target;
+        targets->str(target);
+        targetNames.append(target.str());
+
+        StringBuffer qName;
+        queueNames.append(getClusterThorQueueName(qName, target.str()));
+    }
+#endif
+    return targetNames.ordinality();
+}
+
+static BoolHash validTargets;
+static CriticalSection validTargetSect;
+
+extern TPWRAPPER_API void refreshValidTargets()
+{
+    validTargets.kill();
+#ifdef _CONTAINERIZED
+    // discovered from generated cluster names
+    Owned<IStringIterator> it = getContainerTargetClusters(nullptr, nullptr);
+#else
+    Owned<IStringIterator> it = getTargetClusters(nullptr, nullptr);
+#endif
+    ForEach(*it)
+    {
+        SCMStringBuffer s;
+        IStringVal& val = it->str(s);
+        bool* found = validTargets.getValue(val.str());
+        if (!found || !*found)
+        {
+            validTargets.setValue(val.str(), true);
+            PROGLOG("adding valid target: %s", val.str());
+        }
+    }
+}
+
+extern TPWRAPPER_API void validateTargetName(const char* target)
+{
+    if (isEmptyString(target))
+        throw makeStringException(ECLWATCH_INVALID_CLUSTER_NAME, "Empty target name.");
+
+    CriticalBlock block(validTargetSect);
+    bool* found = validTargets.getValue(target);
+    if (found && *found)
+        return;
+
+#ifndef _CONTAINERIZED
+    if (!validateTargetClusterName(target))
+#else
+    VStringBuffer xpath("queues[@name=\"%s\"]", target);
+    if (queryComponentConfig().queryPropTree(xpath) == nullptr)
+#endif
+        throw MakeStringException(ECLWATCH_INVALID_CLUSTER_NAME, "Invalid target name: %s", target);
+
+    refreshValidTargets();
+}
