@@ -1762,12 +1762,12 @@ bool CWsSMCEx::onGetThorQueueAvailability(IEspContext &context, IEspGetThorQueue
         StringArray thorNames, groupNames, targetNames, queueNames;
         getEnvironmentThorClusterNames(thorNames, groupNames, targetNames, queueNames);
 #else
-        StringArray thorNames, queueNames;
+        StringArray targetNames, queueNames;
         getContainerThorClusterNames(targetNames, queueNames);
 #endif
 
         IArrayOf<IEspThorCluster> ThorClusters;
-        ForEachItemIn(x, thorNames)
+        ForEachItemIn(x, targetNames)
         {
             const char* targetName = targetNames.item(x);
             const char* queueName = queueNames.item(x);
@@ -1899,6 +1899,12 @@ bool CWsSMCEx::onBrowseResources(IEspContext &context, IEspBrowseResourcesReques
 
         double version = context.getClientVersion();
 
+        //The resource files will be downloaded from the same box of ESP (not dali)
+        StringBuffer ipStr;
+        IpAddress ipaddr = queryHostIP();
+        ipaddr.getIpText(ipStr);
+        if (ipStr.length() > 0)
+            resp.setNetAddress(ipStr.str());
 #ifdef _WIN32
         resp.setOS(MachineOsW2K);
 #else
