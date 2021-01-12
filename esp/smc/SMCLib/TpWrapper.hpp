@@ -216,6 +216,10 @@ extern TPWRAPPER_API unsigned getContainerWUClusterInfo(CConstWUClusterInfoArray
 
 extern TPWRAPPER_API IStringIterator *getContainerTargetClusters(const char* processType, const char* processName);
 extern TPWRAPPER_API void initContainerRoxieTargets(MapStringToMyClass<ISmartSocketFactory>& connMap);
+extern TPWRAPPER_API unsigned getContainerThorClusterNames(StringArray& targetNames, StringArray& queueNames);
+extern TPWRAPPER_API bool validateContainerTargetClusterName(const char* clustName);
+extern TPWRAPPER_API void refreshValidTargets();
+extern TPWRAPPER_API void validateTargetName(const char* target);
 
 #endif //_ESPWIZ_TpWrapper_HPP__
 
