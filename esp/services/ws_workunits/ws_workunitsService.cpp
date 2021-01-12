@@ -478,7 +478,11 @@ bool CWsWorkunitsEx::isValidCluster(const char *cluster)
     bool* found = validClusters.getValue(cluster);
     if (found && *found)
         return true;
+#ifndef _CONTAINERIZED
     if (validateTargetClusterName(cluster))
+#else
+    if (validateContainerTargetClusterName(cluster))
+#endif
     {
         refreshValidClusters();
         return true;

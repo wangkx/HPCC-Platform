@@ -212,6 +212,8 @@ private:
 
 extern TPWRAPPER_API ISashaCommand* archiveOrRestoreWorkunits(StringArray& wuids, IProperties* params, bool archive, bool dfu);
 extern TPWRAPPER_API IStringIterator *getContainerTargetClusters(const char* processType, const char* processName);
+extern TPWRAPPER_API unsigned getContainerThorClusterNames(StringArray& targetNames, StringArray& queueNames);
+extern TPWRAPPER_API bool validateContainerTargetClusterName(const char* clustName);
 
 #endif //_ESPWIZ_TpWrapper_HPP__
 

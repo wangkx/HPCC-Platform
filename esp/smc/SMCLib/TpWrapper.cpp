@@ -26,6 +26,7 @@
 #include "exception_util.hpp"
 #include "portlist.h"
 
+#include "daqueue.hpp"
 
 const char* MSG_FAILED_GET_ENVIRONMENT_INFO = "Failed to get environment information.";
 
@@ -2050,4 +2051,24 @@ extern TPWRAPPER_API IStringIterator* getContainerTargetClusters(const char* pro
         ret->append_unique(targetName);
     }
     return ret.getClear();
+}
+
+extern TPWRAPPER_API unsigned getContainerThorClusterNames(StringArray& targetNames, StringArray& queueNames)
+{
+    Owned<IStringIterator> targets = getContainerTargetClusters("thor", nullptr);
+    ForEach(*targets)
+    {
+        SCMStringBuffer target;
+        targets->str(target);
+        targetNames.append(target.str());
+        StringBuffer queueName(target.str());
+        queueNames.append(queueName.append(THOR_QUEUE_EXT));
+    }
+    return targetNames.ordinality();
+}
+
+extern TPWRAPPER_API bool validateContainerTargetClusterName(const char* clustName)
+{
+    VStringBuffer xpath("queues[@name=\"%s\"]", clustName);
+    return (queryComponentConfig().queryPropTree(xpath) != nullptr);
 }
