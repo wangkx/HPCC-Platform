@@ -24,35 +24,29 @@
 class CWSDaliEx : public CWSDali
 {
     StringAttr espProcess;
-    IEspContainer* container = nullptr;
     std::atomic<bool> daliDetached{false};
 
 public:
     IMPLEMENT_IINTERFACE;
-
-    virtual void setContainer(IEspContainer* container)
-    {
-        container = container;
-    }
 
     bool isDaliDetached()
     {
         return daliDetached;
     }
 
-    bool attachServiceToDali() override
+    virtual bool attachServiceToDali() override
     {
         daliDetached = false;
         return true;
     }
 
-    bool detachServiceFromDali() override
+    virtual bool detachServiceFromDali() override
     {
         daliDetached = true;
         return true;
     }
 
-    virtual void init(IPropertyTree* cfg, const char* process, const char* service);
+    virtual void init(IPropertyTree* cfg, const char* process, const char* service) override;
 };
 
 class CWSDaliSoapBindingEx : public CWSDaliSoapBinding
@@ -66,9 +60,9 @@ public:
     CWSDaliSoapBindingEx(IPropertyTree* cfg, const char* bindName, const char* procName, http_soap_log_level level = hsl_none)
         : CWSDaliSoapBinding(cfg, bindName, procName, level) { }
 
-    int onGet(CHttpRequest* request, CHttpResponse* response);
+    virtual int onGet(CHttpRequest* request, CHttpResponse* response) override;
 
-    virtual void addService(const char* name, const char* host, unsigned short port, IEspService& service)
+    virtual void addService(const char* name, const char* host, unsigned short port, IEspService& service) override
     {
         wsdService = dynamic_cast<CWSDaliEx*>(&service);
         CWSDaliSoapBinding::addService(name, host, port, service);

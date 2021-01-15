@@ -74,7 +74,7 @@ int CWSDaliSoapBindingEx::onGet(CHttpRequest* request, CHttpResponse* response)
         request->queryContext()->ensureSuperUser(ECLWATCH_SUPER_USER_ACCESS_DENIED, "Access denied, administrators only.");
 #endif
         if (wsdService->isDaliDetached())
-            throw MakeStringException(ECLWATCH_CANNOT_CONNECT_DALI, "Dali detached.");
+            throw makeStringException(ECLWATCH_CANNOT_CONNECT_DALI, "Dali detached.");
 
         StringBuffer path;
         request->getPath(path);
