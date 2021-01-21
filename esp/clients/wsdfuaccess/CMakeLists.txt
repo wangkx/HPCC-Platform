@@ -48,6 +48,7 @@ include_directories (
          ${HPCC_SOURCE_DIR}/rtl/include
          ${HPCC_SOURCE_DIR}/rtl/eclrtl
          ${HPCC_SOURCE_DIR}/dali/base
+         ${HPCC_SOURCE_DIR}/dali/sasha
          ${HPCC_SOURCE_DIR}/system/mp
          ${HPCC_SOURCE_DIR}/esp/bindings
          ${HPCC_SOURCE_DIR}/esp/bindings/SOAP/client
@@ -74,6 +75,7 @@ target_link_libraries ( wsdfuaccess
          thorhelper
          dalibase
          environment
+         SMCLib
          ${CPPUNIT_LIBRARIES}
     )
 

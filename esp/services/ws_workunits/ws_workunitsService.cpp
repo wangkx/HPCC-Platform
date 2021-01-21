@@ -1564,13 +1564,30 @@ void getArchivedWUInfo(IEspContext &context, const char* sashaServerIP, unsigned
 
 #define WUDETAILS_REFRESH_MINS 1
 
+void test()
+{
+    IPropertyTree& config = queryComponentConfig();
+    StringBuffer s;
+    toXML(&config, s);
+    DBGLOG("####Config(%s)", s.str());
+
+    std::vector<std::string> dfuServiceUrls;
+    getContainerAccessibleServiceURLList("eclwatch", dfuServiceUrls);
+    for (auto &s1: dfuServiceUrls)
+        DBGLOG("####eclwatch URL(%s)", s1.c_str());
+
+    std::vector<std::string> urls;
+    getContainerAccessibleServiceURLList("eclqueries", urls);
+    for (auto &s1: urls)
+        DBGLOG("####eclqueries URL(%s)", s1.c_str());
+}
 bool CWsWorkunitsEx::onWUInfo(IEspContext &context, IEspWUInfoRequest &req, IEspWUInfoResponse &resp)
 {
     try
     {
         StringBuffer wuid(req.getWuid());
         WsWuHelpers::checkAndTrimWorkunit("WUInfo", wuid);
-
+test();
         double version = context.getClientVersion();
         if (req.getType() && strieq(req.getType(), "archived workunits"))
             getArchivedWUInfo(context, sashaServerIp.get(), sashaServerPort, wuid.str(), resp);

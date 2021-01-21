@@ -2193,6 +2193,22 @@ extern TPWRAPPER_API unsigned getContainerWUClusterInfo(CConstWUClusterInfoArray
     return clusters.ordinality();
 }
 
+extern TPWRAPPER_API unsigned getContainerAccessibleServiceURLList(const char* serviceType, std::vector<std::string>& list)
+{
+    unsigned added = 0;
+    StringBuffer url;
+    VStringBuffer xPath("services[@type='%s']", serviceType);
+    Owned<IPropertyTreeIterator> services = queryComponentConfig().getElements(xPath);
+    ForEach(*services)
+    {
+        IPropertyTree& service = services->query();
+        url.setf("https://%s:%d", service.queryProp("@name"), service.getPropInt("@port"));
+        list.push_back(url.str());
+        ++added;
+    }
+    return added;
+}
+
 extern TPWRAPPER_API void initContainerRoxieTargets(MapStringToMyClass<ISmartSocketFactory>& connMap)
 {
     Owned<IPropertyTreeIterator> services = queryComponentConfig().getElements("services[@type='roxie']");
@@ -2212,4 +2228,3 @@ extern TPWRAPPER_API void initContainerRoxieTargets(MapStringToMyClass<ISmartSoc
         connMap.setValue(target, sf.get());
     }
 }
-

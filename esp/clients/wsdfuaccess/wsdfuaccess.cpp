@@ -31,6 +31,7 @@
 #include "thorcommon.hpp"
 #include "digisign.hpp"
 #include "rmtclient.hpp"
+#include "TpWrapper.hpp"
 
 #include "eclwatch_errorlist.hpp" // only for ECLWATCH_FILE_NOT_EXIST
 #include "soapmessage.hpp"
@@ -55,7 +56,11 @@ void ensureAccessibleDfuServiceURLList()
     bool expected = false;
     if (dfuServiceUrlsDiscovered.compare_exchange_strong(expected, true))
     {
+#ifdef _CONTAINERIZED
+        getContainerAccessibleServiceURLList("eclwatch", dfuServiceUrls);
+#else
         getAccessibleServiceURLList("WsSMC", dfuServiceUrls);
+#endif
         if (0 == dfuServiceUrls.size())
             throw MakeStringException(-1, "Could not find any DFU services in the target HPCC configuration.");
 
