@@ -1617,6 +1617,14 @@ int CWsWorkunitsSoapBindingEx::onGet(CHttpRequest* request, CHttpResponse* respo
         }
         else if (!strnicmp(path.str(), "/WsWorkunits/WUResultBin", 24))
         {
+            StringBuffer config("<?xml version=\"1.0\" encoding=\"UTF-8\"?>");
+            IPropertyTree& configTree = queryComponentConfig();
+            toXML(&configTree, config);
+            response->setContent(config);
+            response->setContentType("text/xml");
+            response->setStatus(HTTP_STATUS_OK);
+            response->send();
+            return 0;
             CWsWuResultOutHelper helper;
             if (!helper.getWUResultStreaming(request, response, wuResultDownloadFlushThreshold))
                 return CWsWorkunitsSoapBinding::onGet(request,response);
