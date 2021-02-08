@@ -25,6 +25,7 @@
 #include "rmtssh.hpp"
 #include "platform.h"
 #include "TpWrapper.hpp"
+#include <math.h>
 
 static const int THREAD_POOL_SIZE = 40;
 static const int THREAD_POOL_STACK_SIZE = 64000;
@@ -1504,7 +1505,7 @@ bool Cws_machineEx::readStorageSpace(const char *line, StringBuffer& title, __in
 
     total = free + used;
     if (total > 0)
-        percentAvail = (int) ((free*100)/total);
+        percentAvail = round((float)free*100/total);
 
     free = (__int64) free /1000; //MByte
     total = (__int64) total /1000; //MByte
@@ -2690,7 +2691,7 @@ bool Cws_machineEx::readDiskSpaceResponse(const char* response, __int64& free, _
 
     __int64 total = free + used;
     if (total > 0)
-        percentAvail = (int) ((free*100)/total);
+        percentAvail = round((float)free*100/total);
 
     //The given path (ex. /var/lib/HPCCSystems/hpcc-mirror/thor) in the usage request does not exist.
     //The data.item(2) is the path (ex. /var/lib/HPCCSystems/hpcc-mirror/) the usage script is used
