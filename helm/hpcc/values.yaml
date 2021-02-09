@@ -128,6 +128,9 @@ storage:
   #   hosts: <name>                         # Name of the host group for bare metal - must match the name of the storage plane..
   #   secret: <secret-id>                   # what secret is required to access the files.  This could optionally become a list if required (or add secrets:).
   #   options:                              # not sure if it is needed
+  - name: myblob
+    prefix: /172.18.60.201/mnt/c/hpccdata/dropzone
+    hosts: 
 
   dllStorage:
     storageSize: 3Gi
