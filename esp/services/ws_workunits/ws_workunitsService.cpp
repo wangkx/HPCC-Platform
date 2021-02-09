@@ -1522,6 +1522,12 @@ bool CWsWorkunitsEx::onWUInfo(IEspContext &context, IEspWUInfoRequest &req, IEsp
 {
     try
     {
+        StringBuffer output, error;
+        unsigned ret = runExternalCommand(output, error, "kubectl get svc", nullptr);
+        DBGLOG("###kubectl output: %s", output.trimRight().str());
+        if (!error.isEmpty())
+            DBGLOG("###kubectl error: %s", error.trimRight().str());
+
         StringBuffer wuid(req.getWuid());
         WsWuHelpers::checkAndTrimWorkunit("WUInfo", wuid);
 
