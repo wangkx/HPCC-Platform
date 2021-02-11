@@ -17,6 +17,8 @@ data:
       services:
 {{ include "hpcc.generateConfigMapServices" .root | indent 6 }}
 {{ include "hpcc.generateVaultConfig" (dict "root" .root "categories" .secretsCategories ) | indent 6 }}
+    thor:
+{{ include "hpcc.addThors" .root | indent 4 }}
     global:
 {{ include "hpcc.generateGlobalConfigMap" .root | indent 6 }}
 {{- end -}}

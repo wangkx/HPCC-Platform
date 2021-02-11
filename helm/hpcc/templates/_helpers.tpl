@@ -594,6 +594,18 @@ Generate list of available services
 {{- end -}}
 
 {{/*
+Generate list of thors
+*/}}
+{{- define "hpcc.addThors" -}}
+{{- range $thor := $.Values.thor -}}
+- name: {{ $thor.name }}
+  maxGraphs: {{ $thor.maxGraphs }}
+  maxJobs: {{ $thor.maxJobs }}
+  numWorkers: {{ $thor.numWorkers }}
+{{ end -}}
+{{- end -}}
+
+{{/*
 Add resource object
 Pass in a dictionary with me defined
 */}}
