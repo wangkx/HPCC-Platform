@@ -39,6 +39,7 @@
 #include "danqs.hpp"
 #include "environment.hpp"
 #include "ws_topology.hpp"
+#include "ws_container.hpp"
 #include <string>
 #include <set>
 #include "sacmd.hpp"
@@ -185,6 +186,7 @@ public:
     void getTpDkcSlaves(IArrayOf<IConstTpDkcSlave>& list);
     void getTpGenesisServers(IArrayOf<IConstTpGenesisServer>& list);
     void getTpSparkThors(double clientVersion, const char* name, IArrayOf<IConstTpSparkThor>& list);
+    void getContainerServices(double version, const char* serviceType, const char* serviceName, IArrayOf<IConstContainerService>& list);
 
     void queryTargetClusters(double version, const char* clusterType, const char* clusterName, IArrayOf<IEspTpTargetCluster>& clusterList);
     void getTargetClusterList(IArrayOf<IEspTpLogicalCluster>& clusters, const char* clusterType = NULL, const char* clusterName = NULL);

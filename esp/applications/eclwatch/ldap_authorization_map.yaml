@@ -146,6 +146,11 @@ ldap:
          -  path: ConfigAccess
             resource: ConfigAccess
             description: Access to super computer environment
+      ws_container:
+         Feature:
+         -  path: ContainerAccess
+            resource: ContainerAccess
+            description: Access to container environment
       WsPackageProcess: []
       ws_account: []
       ws_access: []

@@ -29,6 +29,7 @@ include(${HPCC_SOURCE_DIR}/esp/scm/smcscm.cmake)
 set (    SRCS
          ${HPCC_SOURCE_DIR}/dali/sasha/sacmd.cpp
          ${ESPSCM_GENERATED_DIR}/ws_topology_esp.cpp 
+         ${ESPSCM_GENERATED_DIR}/ws_container_esp.cpp 
          LogicFileWrapper.cpp 
          TpWrapper.cpp 
          WUXMLInfo.cpp
