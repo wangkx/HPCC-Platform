@@ -27,6 +27,7 @@
 #define REQPATH_EXPORTSDSDATA "/WSDali/Export"
 
 const char* daliFolder = "tempdalifiles" PATHSEPSTR;
+const unsigned daliFolderLength = strlen(daliFolder);
 
 void CWSDaliEx::init(IPropertyTree* cfg, const char* process, const char* service)
 {
@@ -63,14 +64,6 @@ int CWSDaliSoapBindingEx::onGet(CHttpRequest* request, CHttpResponse* response)
 
 void CWSDaliSoapBindingEx::exportSDSData(CHttpRequest* request, CHttpResponse* response)
 {
-    CDateTime now;
-    now.setNow();
-    time_t createTime = now.getSimple();
-
-    StringBuffer peer, outFileNameWithPath;
-    VStringBuffer outFileName("sds_for_%s_%ld", request->getPeer(peer).str(), createTime);
-    outFileNameWithPath.set(daliFolder).append(outFileName);
-
     StringBuffer path, xpath, safeReq;
     request->getParameter("Path", path);
     request->getParameter("Safe", safeReq);
@@ -78,19 +71,21 @@ void CWSDaliSoapBindingEx::exportSDSData(CHttpRequest* request, CHttpResponse* r
     if (!conn)
         throw makeStringException(ECLWATCH_CANNOT_CONNECT_DALI, "Failed to connect Dali.");
 
+    Owned<IPropertyTree> root = conn->getRoot();
+
     Owned<IFile> workingDir = createIFile(daliFolder);
     if (!workingDir->exists())
         workingDir->createDirectory();
 
-    Owned<IPropertyTree> root = conn->getRoot();
-    Owned<IFile> f = createIFile(outFileNameWithPath);
-    Owned<IFileIO> io = f->open(IFOcreaterw);
+    StringBuffer peer, outFileNameWithPath;
+    VStringBuffer prefix("sds_for_%s", request->getPeer(peer).str());
+    Owned<IFileIO> io = createUniqueFile(daliFolder, prefix, nullptr, outFileNameWithPath, IFOcreaterw);
     { //Force the fios to finish
         Owned<IFileIOStream> fios = createBufferedIOStream(io);
         toXML(root, *fios);
     }
 
-    VStringBuffer headerStr("attachment;filename=%s", outFileName.str());
+    VStringBuffer headerStr("attachment;filename=%s", outFileNameWithPath.str() + daliFolderLength);
     IEspContext* context = request->queryContext();
     context->addCustomerHeader("Content-disposition", headerStr.str());
 
