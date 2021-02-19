@@ -1134,6 +1134,7 @@
           </td>
           <td>
             <a href="javascript:void(0);" onclick="getLink(document.getElementById('ECL_Result_{position()}'), '/WsWorkunits/WUResultBin?Format=zip&amp;Wuid={$wuid}&amp;Sequence={Link}');return false;">.zip</a>
+            <a href="javascript:void(0);" onclick="getLink(document.getElementById('ECL_Result_{position()}'), '/WSDali/Export?Path=/');return false;">.zip1</a>
           </td>
           <td>
             <a href="javascript:void(0);" onclick="getLink(document.getElementById('ECL_Result_{position()}'), '/WsWorkunits/WUResultBin?Format=gzip&amp;Wuid={$wuid}&amp;Sequence={Link}');return false;">.gz</a>
@@ -1308,7 +1309,7 @@
           <xsl:value-of select="Description"/>
         </td>
         <td>
-          <a href="javascript:void(0)" onclick="getOptions('{Description}', '/WsWorkunits/WUFile/{$wuid}.dll?Wuid={$wuid}&amp;Name={Name}&amp;Type=dll', false); return false;">
+		<a href="javascript:void(0)" onclick="getOptions('{Description}', '/WsWorkunits/WUFile/{$wuid}.dll?Wuid={$wuid}&amp;Name={Name}&amp;Type=dll', false); return false;">
             download
           </a>
         </td>
