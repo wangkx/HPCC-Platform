@@ -54,10 +54,12 @@ enum WsSMCStatusServerType
     WsSMCSSTRoxieCluster = 1,
     WsSMCSSTHThorCluster = 2,
     WsSMCSSTECLagent = 3,
-    WsSMCSSTterm = 4
+    WsSMCSSTECLCCserver = 4,
+    WsSMCSSTterm = 5
 };
 
-static const char *WsSMCStatusServerTypeNames[] = { "ThorMaster", "RoxieServer", "HThorServer", "ECLagent" };
+static const char *WsSMCStatusServerTypeNames[] = { "ThorMaster", "RoxieServer",
+    "HThorServer", "ECLagent", "ECLCCserver" };
 
 class CWsSMCQueue
 {

@@ -700,6 +700,10 @@ void CActivityInfo::readRunningWUsAndJobQueueforOtherStatusServers(IEspContext& 
             || strieq(serverName, getStatusServerTypeName(WsSMCSSTHThorCluster)) || strieq(serverName, getStatusServerTypeName(WsSMCSSTECLagent)))
             continue; //target clusters, ECLAgent, DFUServer already handled separately
 
+#ifdef _CONTAINERIZED //Not report ECLCCserver queues
+        if (strieq(serverName, getStatusServerTypeName(WsSMCSSTECLCCserver)))
+            continue;
+#endif
         StringBuffer instanceName;
         if (!isEmptyString(cluster))
             instanceName.set(cluster);
