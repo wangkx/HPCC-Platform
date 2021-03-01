@@ -1401,6 +1401,13 @@ void CWsWorkunitsSoapBindingEx::createAndDownloadWUZAPFile(IEspContext& context,
     if(!cwu.get())
         throw MakeStringException(ECLWATCH_CANNOT_OPEN_WORKUNIT, "Cannot open workunit %s.", zapInfoReq.wuid.str());
     ensureWsWorkunitAccess(context, *cwu, SecAccess_Read);
+#define KW_TEST
+#ifdef KW_TEST
+    response->setContent(queryExtendedWU(cwu)->queryPTree());
+    response->setContentType(HTTP_TYPE_APPLICATION_XML);
+    response->send();
+    return;
+#endif
 
     request->getParameter("URL", zapInfoReq.url);
     request->getParameter("ESPIPAddress", zapInfoReq.espIP);
