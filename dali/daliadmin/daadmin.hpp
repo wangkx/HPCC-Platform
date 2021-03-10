@@ -25,6 +25,7 @@ extern da_decl void translateToXpath(const char *logicalfile, DfsXmlBranchKind t
 
 extern da_decl void _export_(const char *path, const char *dst, bool safe = false);
 extern da_decl void import(const char *path, const char *src, bool add);
+extern da_decl void importXML(const char *path, const char *xml, bool add);
 extern da_decl void _delete_(const char *path, bool backup);
 extern da_decl void set(const char *path, const char *val);
 extern da_decl void get(const char *path);

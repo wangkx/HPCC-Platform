@@ -23,6 +23,7 @@
 #include "jlib.hpp"
 #include "dautils.hpp"
 #include "dasds.hpp"
+#include "daadmin.hpp"
 
 #define REQPATH_EXPORTSDSDATA "/WSDali/Export"
 
@@ -32,6 +33,57 @@ const unsigned daliFolderLength = strlen(daliFolder);
 void CWSDaliEx::init(IPropertyTree* cfg, const char* process, const char* service)
 {
     espProcess.set(process);
+}
+
+bool CWSDaliEx::onImport(IEspContext& context, IEspImportRequest& req, IEspImportResponse& resp)
+{
+    try
+    {
+#ifdef _USE_OPENLDAP
+        context.ensureSuperUser(ECLWATCH_SUPER_USER_ACCESS_DENIED, "Access denied, administrators only.");
+#endif
+        if (isDaliDetached())
+            throw makeStringException(ECLWATCH_CANNOT_CONNECT_DALI, "Dali detached.");
+
+        const char* xml = req.getXML();
+        const char* path = req.getPath();
+        if (isEmptyString(xml))
+            throw makeStringException(ECLWATCH_INVALID_INPUT, "Data XML not specified.");
+        if (isEmptyString(path))
+            throw makeStringException(ECLWATCH_INVALID_INPUT, "Data path not specified.");
+
+        importXML(path, xml, req.getAdd());
+        resp.setMessage("Dali updated.");
+    }
+    catch(IException* e)
+    {
+        FORWARDEXCEPTION(context, e,  ECLWATCH_INTERNAL_ERROR);
+    }
+    return true;
+}
+
+bool CWSDaliEx::onDelete(IEspContext& context, IEspDeleteRequest& req, IEspDeleteResponse& resp)
+{
+    try
+    {
+#ifdef _USE_OPENLDAP
+        context.ensureSuperUser(ECLWATCH_SUPER_USER_ACCESS_DENIED, "Access denied, administrators only.");
+#endif
+        if (isDaliDetached())
+            throw makeStringException(ECLWATCH_CANNOT_CONNECT_DALI, "Dali detached.");
+
+        const char* path = req.getPath();
+        if (isEmptyString(path))
+            throw makeStringException(ECLWATCH_INVALID_INPUT, "Data path not specified.");
+
+        _delete_(path, false);
+        resp.setMessage("Dali updated.");
+    }
+    catch(IException* e)
+    {
+        FORWARDEXCEPTION(context, e,  ECLWATCH_INTERNAL_ERROR);
+    }
+    return true;
 }
 
 int CWSDaliSoapBindingEx::onGet(CHttpRequest* request, CHttpResponse* response)
@@ -95,4 +147,49 @@ void CWSDaliSoapBindingEx::exportSDSData(CHttpRequest* request, CHttpResponse* r
 
     io.clear();
     removeFileTraceIfFail(outFileNameWithPath);
+}
+
+int CWSDaliSoapBindingEx::onStartUpload(IEspContext &ctx, CHttpRequest* request, CHttpResponse* response, const char *serv, const char *method)
+{
+    StringArray fileNames, files;
+    VStringBuffer source("WsDali::%s()", method);
+    Owned<IMultiException> me = MakeMultiException(source);
+    try
+    {
+#ifdef _USE_OPENLDAP
+        request->queryContext()->ensureSuperUser(ECLWATCH_SUPER_USER_ACCESS_DENIED, "Access denied, administrators only.");
+#endif
+        if (wsdService->isDaliDetached())
+            throw makeStringException(ECLWATCH_CANNOT_CONNECT_DALI, "Dali detached.");
+
+        if (strieq(method, "Import"))
+        {
+            StringBuffer path, add;
+            request->getParameter("Path", path);
+            request->getParameter("Add", add);
+            if (isEmptyString(path))
+                throw makeStringException(ECLWATCH_INVALID_INPUT, "Data path not specified.");
+
+            request->readContentToFiles(nullptr, daliFolder, fileNames);
+            unsigned count = fileNames.ordinality();
+            if (count == 0)
+                throw makeStringException(ECLWATCH_INVALID_INPUT, "Failed to read upload content.");
+            if (count > 1)
+                throw makeStringException(ECLWATCH_INVALID_INPUT, "Only one file is allowed.");
+
+            VStringBuffer fileName("%s%s", daliFolder, fileNames.item(0));
+            import(path, fileName, strToBool(add));
+        }
+        else
+            throw makeStringExceptionV(ECLWATCH_INVALID_INPUT, "WsWorkunits::%s does not support the upload_ option.", method);
+    }
+    catch (IException* e)
+    {
+        me->append(*e);
+    }
+    catch (...)
+    {
+        me->append(*makeStringException(ECLWATCH_INTERNAL_ERROR, "Unknown Exception"));
+    }
+    return onFinishUpload(ctx, request, response, serv, method, fileNames, files, me);
 }

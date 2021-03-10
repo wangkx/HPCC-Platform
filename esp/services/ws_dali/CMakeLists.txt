@@ -27,6 +27,7 @@ include(${HPCC_SOURCE_DIR}/esp/scm/espscm.cmake)
 
 set (    SRCS
          ${ESPSCM_GENERATED_DIR}/ws_dali_esp.cpp
+         ${HPCC_SOURCE_DIR}/dali/daliadmin/daadmin.cpp
          ws_daliplugin.cpp
          ws_daliservice.cpp
     )
@@ -45,7 +46,12 @@ include_directories (
          ${HPCC_SOURCE_DIR}/system/security/shared
          ${HPCC_SOURCE_DIR}/system/mp 
          ${HPCC_SOURCE_DIR}/common/thorhelper
+         ${HPCC_SOURCE_DIR}/common/workunit
+         ${HPCC_SOURCE_DIR}/common/dllserver
          ${HPCC_SOURCE_DIR}/dali/base
+         ${HPCC_SOURCE_DIR}/dali/ft
+         ${HPCC_SOURCE_DIR}/dali/daliadmin
+         ${HPCC_SOURCE_DIR}/fs/dafsclient
     )
 
 ADD_DEFINITIONS( -D_USRDLL )

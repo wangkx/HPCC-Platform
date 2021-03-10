@@ -162,7 +162,13 @@ void import(const char *path,const char *src,bool add)
     size32_t sz = (size32_t)iFile->size();
     StringBuffer xml;
     iFileIO->read(0, sz, xml.reserve(sz));
-    Owned<IPropertyTree> branch = createPTreeFromXMLString(xml.str());
+    importXML(path, xml, add);
+    OUTLOG("Branch %s loaded from '%s'",path, src);
+}
+
+void importXML(const char *path, const char *xml, bool add)
+{
+    Owned<IPropertyTree> branch = createPTreeFromXMLString(xml);
     StringBuffer head;
     StringBuffer tmp;
     const char *tail=splitpath(path,head,tmp);
@@ -202,7 +208,6 @@ void import(const char *path,const char *src,bool add)
         oldEnvironment.setown(createPTreeFromIPT(conn->queryRoot()));
     root->addPropTree(tail,LINK(branch));
     conn->commit();
-    OUTLOG("Branch %s loaded from '%s'",path,src);
     conn->close();
     if (*path=='/')
         path++;
