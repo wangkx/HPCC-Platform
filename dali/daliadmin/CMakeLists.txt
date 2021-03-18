@@ -24,7 +24,8 @@
 
 project( daliadmin ) 
 
-set (    SRCS 
+set (    SRCS
+         daadmin.cpp 
          daliadmin.cpp 
     )
 
