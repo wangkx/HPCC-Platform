@@ -36,7 +36,7 @@
 #include "mpbase.hpp"
 #include "mpcomm.hpp"
 
-#include "daclient.hpp"
+//#include "daclient.hpp"
 #include "dadiags.hpp"
 #include "danqs.hpp"
 #include "dadfs.hpp"
