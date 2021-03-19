@@ -16,10 +16,8 @@
 ############################################################################## */
 
 #include "dautils.hpp"
-#include "workunit.hpp"
 
-static unsigned daliConnectTimeoutMs = 5000;
-
+extern da_decl void setDaliConnectTimeoutMs(unsigned timeoutMs);
 extern da_decl void xmlSize(const char *filename, double pc);
 extern da_decl void translateToXpath(const char *logicalfile, DfsXmlBranchKind tailType = DXB_File);
 

@@ -46,7 +46,7 @@
 
 #include "rmtfile.hpp"
 
-//#include "workunit.hpp"
+#include "workunit.hpp"
 #include "dllserver.hpp"
 #include "seclib.hpp"
 
@@ -58,6 +58,8 @@
 #endif
 
 #include "daadmin.hpp"
+
+static unsigned daliConnectTimeoutMs = 5000;
 
 static bool noninteractive=false;
 
@@ -128,6 +130,11 @@ static unsigned __int64 hextoll(const char *str, bool &error)
     }
     error = false;
     return rolling;
+}
+
+void setDaliConnectTimeoutMs(unsigned timeoutMs)
+{
+    daliConnectTimeoutMs = timeoutMs;
 }
 
 //=============================================================================
