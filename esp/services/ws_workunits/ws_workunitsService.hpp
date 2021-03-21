@@ -30,6 +30,7 @@
 #include "referencedfilelist.hpp"
 #include "ws_wuresult.hpp"
 #include "jsmartsock.ipp"
+#include "loggingmanager.h"
 
 #define UFO_DIRTY                                0x01
 #define UFO_RELOAD_TARGETS_CHANGED_PMID          0x02
@@ -426,6 +427,7 @@ public:
     StringAttr zapEmailTo, zapEmailFrom, zapEmailServer;
     unsigned zapEmailMaxAttachmentSize = 0;
     unsigned zapEmailServerPort = 0;
+    Owned<ILoggingManager> loggingManager;
 };
 
 class CWsWorkunitsSoapBindingEx : public CWsWorkunitsSoapBinding

@@ -1068,6 +1068,18 @@ void EsdlServiceImpl::handleServiceRequest(IEspContext &context,
     ESPLOG(LogMax,"Customer Response: %s", out.str());
 }
 
+void logForTest(IEspContext &espcontext, IEsdlScriptContext *scriptContext, IEsdlDefService &srvdef, IEsdlDefMethod &mthdef, IPropertyTree * reqcontext, IPropertyTree * request,const char *rawreq, const char * rawresp, const char * finalresp, const char * logdata)
+{
+    StringBuffer s;
+    toXML(reqcontext, s);
+    DBGLOG("####reqcontext(%s)", s.str());
+
+    toXML(request, s.clear());
+    DBGLOG("####request(%s)", s.str());
+
+    DBGLOG("####finalresp(%s)", finalresp);
+}
+
 bool EsdlServiceImpl::handleResultLogging(IEspContext &espcontext, IEsdlScriptContext *scriptContext, IEsdlDefService &srvdef, IEsdlDefMethod &mthdef, IPropertyTree * reqcontext, IPropertyTree * request,const char *rawreq, const char * rawresp, const char * finalresp, const char * logdata)
 {
     StringBuffer temp;
@@ -1101,6 +1113,7 @@ bool EsdlServiceImpl::handleResultLogging(IEspContext &espcontext, IEsdlScriptCo
         entry->setLogDatasets(logdata);
         if (scriptContext)
             entry->setOwnScriptValuesTree(scriptContext->createPTreeFromSection(ESDLScriptCtxSection_Logging));
+        logForTest(espcontext, scriptContext, srvdef, mthdef, reqcontext, request, rawreq, rawresp, finalresp, logdata);
         StringBuffer logresp;
         success = loggingManager()->updateLog(entry, logresp);
         ESPLOG(LogMin,"ESDLService: Attempted to log ESP transaction: %s", logresp.str());

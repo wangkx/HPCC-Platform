@@ -346,6 +346,49 @@ static void checkUpdateQuerysetLibraries()
     }
 }
 
+#define LOGTEST_FOLDER "/var/lib/HPCCSystems/hpcc-data/esp/tests/"
+
+void readFromFile(const char* file, MemoryBuffer& out)
+{
+    Owned<IFile> rf = createIFile(file);
+    if (!rf->exists())
+        throw makeStringExceptionV(-1, "Cannot open %s.", file);
+
+    Owned <IFileIO> fio = rf->open(IFOread);
+    read(fio, 0, (size32_t) rf->size(), out);
+}
+
+void testLogging(IEspContext &context, ILoggingManager* manager)
+{
+    if (!manager)
+        return;
+
+    StringBuffer reqcontextFile, requestFile, finalrespFile;
+    reqcontextFile.append(LOGTEST_FOLDER).append("reqcontext.xml");
+    requestFile.append(LOGTEST_FOLDER).append("request.xml");
+    finalrespFile.append(LOGTEST_FOLDER).append("finalresp.xml");
+
+    Owned<IPropertyTree> reqcontext = createPTreeFromXMLFile(reqcontextFile);
+    Owned<IPropertyTree> request = createPTreeFromXMLFile(requestFile);
+    MemoryBuffer finalresp;
+    readFromFile(finalrespFile, finalresp);
+
+    Owned<IEspLogEntry> entry = manager->createLogEntry();
+    entry->setOption(LOGGINGDBSINGLEINSERT);
+    entry->setOwnEspContext(LINK(&context));
+    entry->setOwnUserContextTree(LINK(reqcontext));
+    entry->setOwnUserRequestTree(LINK(request));
+    entry->setUserResp(finalresp.toByteArray());
+    entry->setBackEndReq(nullptr);
+    entry->setBackEndResp(nullptr);
+    entry->setLogDatasets(nullptr);
+    //if (scriptContext)
+      //  entry->setOwnScriptValuesTree(scriptContext->createPTreeFromSection(ESDLScriptCtxSection_Logging));
+    StringBuffer logresp;
+    manager->updateLog(entry, logresp);
+    ESPLOG(LogMin,"ESDLService: Attempted to log ESP transaction: %s", logresp.str());
+}
+
 void CWsWorkunitsEx::init(IPropertyTree *cfg, const char *process, const char *service)
 {
     if (!daliClientActive())
@@ -448,6 +491,18 @@ void CWsWorkunitsEx::init(IPropertyTree *cfg, const char *process, const char *s
     Owned<CClusterQueryStateThreadFactory> threadFactory = new CClusterQueryStateThreadFactory();
     clusterQueryStatePool.setown(createThreadPool("CheckAndSetClusterQueryState Thread Pool", threadFactory, NULL,
             cfg->getPropInt(xpath.str(), CHECK_QUERY_STATUS_THREAD_POOL_SIZE)));
+
+    /*StringBuffer configurationWsTestFile;
+    configurationWsTestFile.append(LOGTEST_FOLDER).append("loggingmanagercfg.xml");
+    Owned<IPropertyTree> configurationWsTest = createPTreeFromXMLFile(configurationWsTestFile);
+    if (!configurationWsTest)
+        throw MakeStringException(-1, "%s could not read logging manager cfg", "WsTest");
+
+    static CLoggingManagerLoader loader(nullptr, nullptr, nullptr, nullptr);
+    loggingManager.setown(loader.create(*configurationWsTest));
+    if (!loggingManager)
+        throw MakeStringException(-1, "%s could not load logging manager", "WsTest");
+    loggingManager->init(configurationWsTest, "WsTest");*/
 }
 
 bool CWsWorkunitsEx::onWUCreate(IEspContext &context, IEspWUCreateRequest &req, IEspWUCreateResponse &resp)
@@ -1523,6 +1578,8 @@ bool CWsWorkunitsEx::onWUInfo(IEspContext &context, IEspWUInfoRequest &req, IEsp
 {
     try
     {
+        testLogging(context, loggingManager);
+
         StringBuffer wuid(req.getWuid());
         WsWuHelpers::checkAndTrimWorkunit("WUInfo", wuid);
 

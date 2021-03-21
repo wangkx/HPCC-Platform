@@ -284,6 +284,7 @@ bool CLoggingManager::updateLog(IEspContext* espContext, IEspUpdateLogRequestWra
                 appendXMLTag(logContent, LOGCONTENTINFILE_FILEPOS, v.append(reqInFile->getPos()));
                 appendXMLTag(logContent, LOGCONTENTINFILE_FILESIZE, v.clear().append(reqInFile->getSize()));
                 appendXMLTag(logContent, LOGREQUEST_GUID, reqInFile->getGUID());
+                DBGLOG("####logInFile(%s)(%s)", reqInFile->getOption(), logContent.str());
 
                 Owned<IEspUpdateLogRequest> logRequest = new CUpdateLogRequest("", "");
                 logRequest->setOption(reqInFile->getOption());
@@ -354,6 +355,7 @@ bool CLoggingManager::saveToTankFile(IEspUpdateLogRequestWrap& logRequest, CLogR
         ERRLOG("CLoggingManager::saveToTankFile: failed in serializeLogRequestContent().");
         return false;
     }
+    DBGLOG("####kw_reqBuf(%s)", reqBuf.str());
 
     if (decoupledLogging)
     {
