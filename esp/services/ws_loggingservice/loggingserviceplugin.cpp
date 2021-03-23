@@ -44,7 +44,7 @@ extern "C"
         //binding names ending in _http are being added so the names can be made more consistent and can therefore be automatically generated
         //  the name also better reflects that these bindings are for all HTTP based protocols, not just SOAP
         //  both "SoapBinding" and "_http" names instantiate the same objects.
-        if (strieq(type, "loggingservice_binding")||strieq(type, "wsloggingservice_http"))
+        if (strieq(type, "loggingservice_binding")||strieq(type, "ws_loggingservice_http"))
             return new CWsLoggingServiceSoapBinding(cfg, name, process, hsl_none);
 
         return NULL;
