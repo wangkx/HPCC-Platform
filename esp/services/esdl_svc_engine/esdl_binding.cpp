@@ -251,6 +251,33 @@ void EsdlServiceImpl::init(const IPropertyTree *cfg,
 
         xpath.setf("EspBinding[@service=\"%s\"]", service); //get this service's binding cfg
         m_oEspBindingCfg.set(espcfg->queryPropTree(xpath.str()));
+
+        /*if (!m_oDynamicLoggingManager)
+        {
+            IPropertyTree* cfg1 = m_esdlBndCfg->queryPropTree("Definition[1]/LoggingManager");
+            if (cfg1)
+            {
+                StringBuffer s;
+                toXML(cfg1, s);
+                DBGLOG("####read logging manager cfg(%s)");
+                loadLoggingManager(m_oDynamicLoggingManager, cfg1);
+                 if (loggingManager())
+                {
+                    StringAttrMapping trxidbasics;
+                    StringBuffer creationTime;
+                    creationTime.setf("%u", context.queryCreationTime());
+
+                    trxidbasics.setValue(sTransactionDateTime, creationTime.str());
+                    trxidbasics.setValue(sTransactionMethod, mthName);
+                    trxidbasics.setValue(sTransactionIdentifier, uniqueId.str());
+
+                    StringBuffer trxid;
+                    StringBuffer trxidstatus;
+                    if (!loggingManager()->getTransactionID(&trxidbasics, trxid, trxidstatus))
+                        ESPLOG(LogMin,"DESDL: Logging Agent generated Transaction ID failed: %s", trxidstatus.str());
+                }
+            }
+        }*/
     }
     else
         throw MakeStringException(-1, "Could not access ESDL service configuration: esp process '%s' service name '%s'", process, service);
@@ -667,9 +694,35 @@ void EsdlServiceImpl::configureTargets(IPropertyTree *cfg, const char *service)
         DBGLOG("ESDL Binding: While configuring method targets: method configuration not found for %s.", service);
 }
 
+
+void test(ILoggingManager* dynamicLoggingManager)
+{
+    DBGLOG("####test()");
+    if (dynamicLoggingManager)
+    {
+        DBGLOG("####test() 1");
+        StringAttrMapping trxidbasics;
+        StringBuffer creationTime;
+        creationTime.setf("123123123112");
+        VStringBuffer uniqueId("10.0.1.15:7878-%u", (unsigned) (memsize_t) GetCurrentThreadId());
+
+        trxidbasics.setValue(sTransactionDateTime, creationTime.str());
+        trxidbasics.setValue(sTransactionMethod, "mthName");
+        trxidbasics.setValue(sTransactionIdentifier, uniqueId.str());
+
+        StringBuffer trxid;
+        StringBuffer trxidstatus;
+        DBGLOG("####test()");
+        if (!dynamicLoggingManager->getTransactionID(&trxidbasics, trxid, trxidstatus))
+            ESPLOG(LogMin,"DESDL: Logging Agent generated Transaction ID failed: %s", trxidstatus.str());
+    }
+    DBGLOG("####test() done");
+}
+
 void EsdlServiceImpl::configureLogging(IPropertyTree* cfg)
 {
     loadLoggingManager(m_oDynamicLoggingManager, cfg);
+    test(m_oDynamicLoggingManager);
 }
 
 String* EsdlServiceImpl::getExplicitNamespace(const char* method) const
