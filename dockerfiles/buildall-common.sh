@@ -76,6 +76,9 @@ build_image() {
   [[ -z ${label} ]] && label=$BUILD_LABEL
   [[ -z ${buildTag} ]] && buildTag=$BUILD_TAG
 
+echo label=${label}
+echo BUILD_TAG =${BUILD_TAG}
+
   if ! docker pull ${DOCKER_REPO}/${name}:${label} ; then
     docker image build -t ${DOCKER_REPO}/${name}:${label} \
        --build-arg BASE_VER=${BASE_VER} \
