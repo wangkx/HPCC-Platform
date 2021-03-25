@@ -205,6 +205,30 @@ bool EsdlServiceImpl::loadLoggingManager(Owned<ILoggingManager>& manager, IPTree
     return true;
 }
 
+void test(ILoggingManager* loggingManager)
+{
+    DBGLOG("####test()");
+    if (loggingManager)
+    {
+        DBGLOG("####test() 1");
+        StringAttrMapping trxidbasics;
+        StringBuffer creationTime;
+        creationTime.setf("123123123112");
+        VStringBuffer uniqueId("10.0.1.15:7878-%u", (unsigned) (memsize_t) GetCurrentThreadId());
+
+        trxidbasics.setValue(sTransactionDateTime, creationTime.str());
+        trxidbasics.setValue(sTransactionMethod, "mthName");
+        trxidbasics.setValue(sTransactionIdentifier, uniqueId.str());
+
+        StringBuffer trxid;
+        StringBuffer trxidstatus;
+        DBGLOG("####test()");
+        if (!loggingManager->getTransactionID(&trxidbasics, trxid, trxidstatus))
+            ESPLOG(LogMin,"DESDL: Logging Agent generated Transaction ID failed: %s", trxidstatus.str());
+    }
+    DBGLOG("####test() done");
+}
+
 void EsdlServiceImpl::init(const IPropertyTree *cfg,
                            const char *process,
                            const char *service)
@@ -227,7 +251,57 @@ void EsdlServiceImpl::init(const IPropertyTree *cfg,
         if (m_espServiceType.length() <= 0)
             throw MakeStringException(-1, "Could not determine ESDL service configuration type: esp process '%s' service name '%s'", process, service);
 
-        loadLoggingManager(m_oStaticLoggingManager, srvcfg->queryPropTree("LoggingManager"));
+        //loadLoggingManager(m_oStaticLoggingManager, srvcfg->queryPropTree("LoggingManager"));
+        if (!m_oStaticLoggingManager)
+        {
+            StringBuffer sTemp;
+            sTemp.append("<LoggingManager name=\"fsma_logman\">");
+            sTemp.append("<FailSafe>true</FailSafe>");
+            sTemp.append("<FailSafeLogsDir>/var/log/HPCCSystems/FailSafeLogs</FailSafeLogsDir>");
+            sTemp.append("<Filters/>");
+            sTemp.append("<LogAgent xmlns:set=\"http://exslt.org/sets\" name=\"accounting_log\" type=\"LogAgent\"");
+              sTemp.append("services=\"GetTransactionSeed,UpdateLog,GetTransactionID\" plugin=\"wslogserviceespagent\">");
+            sTemp.append("<LoggingServer url=\"http://10.173.132.5:7506/WsLogService\" user=\"\" password=\"\"/>");
+            sTemp.append("<FailSafe>false</FailSafe>");
+            sTemp.append("<MaxLogQueueLength>500000</MaxLogQueueLength>");
+            sTemp.append("<MaxTriesGTS>3</MaxTriesGTS>");
+            sTemp.append("<MaxTriesRS>3</MaxTriesRS>");
+            sTemp.append("<QueueSizeSignal>10000</QueueSizeSignal>");
+            sTemp.append("<SafeRolloverThreshold>100M</SafeRolloverThreshold>");
+            sTemp.append("<LogDataXPath>");
+              sTemp.append("<LogDataItem name=\"ServiceName\" XPath=\"LogContent/UserContext/Context/Row/Common/ESP/ServiceName\" xsl=\"\" encode=\"\" default=\"\"/>");
+              sTemp.append("<LogDataItem name=\"ESDLBindingID\" XPath=\"LogContent/ESPContext/ESDLBindingID\" xsl=\"\" encode=\"\" default=\"\"/>");
+              sTemp.append("<LogInfo name=\"transaction_id\" default=\"\" XPath=\"LogContent/UserContext/Context/Row/Common/TransactionId\"");
+                 sTemp.append("xsl=\"\" multiple=\"\" encode=\"\" type=\"Value\"/>");
+#ifdef BK
+              <LogInfo name="record_count" default="1" XPath="LogContent/UserResponse/*/response/RecordCount" xsl="" multiple="" encode="" type="Value"/>
+              <LogInfo name="login_history_id" default="" XPath="LogContent/UserRequest/*/User/LoginHistoryId" xsl="" multiple="" encode="" type="Value"/>
+              <LogInfo name="billing_code" default="" XPath="LogContent/UserRequest/*/User/BillingCode" xsl="" multiple="" encode="" type="Value"/>
+              <LogInfo name="source_code" default="" XPath="LogContent/UserRequest/*/User/SourceCode" xsl="" multiple="" encode="" type="Value"/>
+              <LogInfo name="data_source" default="" XPath="LogContent/UserRequest/*/User/DataSource" xsl="" multiple="" encode="" type="Value"/>
+              <LogInfo name="company_id" default="" XPath="LogContent/LogDatasets/LogDatasets/Dataset[@name='DesdlSoapRequestEcho']/Row/roxierequest/_CompanyId" xsl="" multiple="" encode="" type="Value"/>
+              <LogInfo name="dl_purpose" default="" XPath="LogContent/LogDatasets/LogDatasets/Dataset[@name='DesdlSoapRequestEcho']/Row/roxierequest/esprequest/Row/User/DLPurpose" xsl="" multiple="" encode="" type="Value"/>
+              <LogInfo name="rerence_code" default="" XPath="LogContent/UserRequest/*/User/ReferenceCode" xsl="" multiple="" encode="" type="Value"/>
+              <LogInfo name="glb_purpose" default="" XPath="LogContent/LogDatasets/LogDatasets/Dataset[@name='DesdlSoapRequestEcho']/Row/roxierequest/esprequest/Row/User/GLBPurpose" xsl="" multiple="" encode="" type="Value"/>
+              <LogInfo name="phone" default="" XPath="LogContent/UserRequest/*/*/AuthorizedRep1/Phone" xsl="" multiple="" encode="" type="Value"/>
+              <LogInfo name="unique_id" default="" XPath="LogContent/UserRequest/*/*/AuthorizedRep1/UniqueId" xsl="" multiple="" encode="" type="Value"/>
+              <LogInfo name="full_name" default="" XPath="LogContent/UserRequest/*/*/AuthorizedRep1/Name/Full" xsl="" multiple="" encode="" type="Value"/>
+              <LogInfo name="lname" default="" XPath="LogContent/UserRequest/*/*/AuthorizedRep1/Name/Last" xsl="" multiple="" encode="" type="Value"/>
+              <LogInfo name="fname" default="" XPath="LogContent/UserRequest/*/*/AuthorizedRep1/Name/First" xsl="" multiple="" encode="" type="Value"/>
+              <LogInfo name="mname" default="" XPath="LogContent/UserRequest/*/*/AuthorizedRep1/Name/Middle" xsl="" multiple="" encode="" type="Value"/>
+              <LogInfo name="business_name" default="" XPath="LogContent/UserRequest/*/*/SearchBy/Company/CompanyName" xsl="" multiple="" encode="" type="Value"/>
+              <LogInfo name="ip_address" default="" XPath="LogContent/LogDatasets/LogDatasets/Dataset[@name='DesdlSoapRequestEcho']/Row/roxierequest/_ClientIP" xsl="" multiple="" encode="" type="Value"/>
+#endif
+              sTemp.append("</LogDataXPath>");
+              sTemp.append("<Variant type=\"accounting_log\" group=\"\"/>");
+            sTemp.append("</LogAgent>");
+            sTemp.append("</LoggingManager>");
+
+            Owned<IPropertyTree> tTemp = createPTreeFromXMLString(sTemp.str());
+            loadLoggingManager(m_oStaticLoggingManager, tTemp);
+        }
+        if (m_oStaticLoggingManager)
+            test(m_oStaticLoggingManager);
 
         m_usesURLNameSpace = false;
         m_namespaceScheme.set(srvcfg->queryProp("@namespaceScheme"));
@@ -695,34 +769,9 @@ void EsdlServiceImpl::configureTargets(IPropertyTree *cfg, const char *service)
 }
 
 
-void test(ILoggingManager* dynamicLoggingManager)
-{
-    DBGLOG("####test()");
-    if (dynamicLoggingManager)
-    {
-        DBGLOG("####test() 1");
-        StringAttrMapping trxidbasics;
-        StringBuffer creationTime;
-        creationTime.setf("123123123112");
-        VStringBuffer uniqueId("10.0.1.15:7878-%u", (unsigned) (memsize_t) GetCurrentThreadId());
-
-        trxidbasics.setValue(sTransactionDateTime, creationTime.str());
-        trxidbasics.setValue(sTransactionMethod, "mthName");
-        trxidbasics.setValue(sTransactionIdentifier, uniqueId.str());
-
-        StringBuffer trxid;
-        StringBuffer trxidstatus;
-        DBGLOG("####test()");
-        if (!dynamicLoggingManager->getTransactionID(&trxidbasics, trxid, trxidstatus))
-            ESPLOG(LogMin,"DESDL: Logging Agent generated Transaction ID failed: %s", trxidstatus.str());
-    }
-    DBGLOG("####test() done");
-}
-
 void EsdlServiceImpl::configureLogging(IPropertyTree* cfg)
 {
     loadLoggingManager(m_oDynamicLoggingManager, cfg);
-    test(m_oDynamicLoggingManager);
 }
 
 String* EsdlServiceImpl::getExplicitNamespace(const char* method) const
