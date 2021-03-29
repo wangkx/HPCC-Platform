@@ -23,6 +23,7 @@
 #include "jlib.hpp"
 #include "dautils.hpp"
 #include "dasds.hpp"
+#include "daadmin.hpp"
 
 #define REQPATH_EXPORTSDSDATA "/WSDali/Export"
 
@@ -95,4 +96,58 @@ void CWSDaliSoapBindingEx::exportSDSData(CHttpRequest* request, CHttpResponse* r
 
     io.clear();
     removeFileTraceIfFail(outFileNameWithPath);
+}
+
+void CWSDaliEx::checkAccess(IEspContext& context)
+{
+#ifdef _USE_OPENLDAP
+    context.ensureSuperUser(ECLWATCH_SUPER_USER_ACCESS_DENIED, "Access denied, administrators only.");
+#endif
+    if (isDaliDetached())
+        throw makeStringException(ECLWATCH_CANNOT_CONNECT_DALI, "Dali detached.");
+}
+
+bool CWSDaliEx::onSetValue(IEspContext& context, IEspSetValueRequest& req, IEspSetValueResponse& resp)
+{
+    try
+    {
+        checkAccess(context);
+
+        const char* path = req.getPath();
+        if (isEmptyString(path))
+            throw makeStringException(ECLWATCH_INVALID_INPUT, "Data path not specified.");
+        const char* value = req.getValue();
+        if (isEmptyString(value))
+            throw makeStringException(ECLWATCH_INVALID_INPUT, "Data value not specified.");
+
+        StringBuffer result;
+        setValue(path, value, result);
+        resp.setResult(result);
+    }
+    catch(IException* e)
+    {
+        FORWARDEXCEPTION(context, e,  ECLWATCH_INTERNAL_ERROR);
+    }
+    return true;
+}
+
+bool CWSDaliEx::onGetValue(IEspContext& context, IEspGetValueRequest& req, IEspGetValueResponse& resp)
+{
+    try
+    {
+        checkAccess(context);
+
+        const char* path = req.getPath();
+        if (isEmptyString(path))
+            throw makeStringException(ECLWATCH_INVALID_INPUT, "Data path not specified.");
+
+        StringBuffer result;
+        getValue(path, result);
+        resp.setResult(result);
+    }
+    catch(IException* e)
+    {
+        FORWARDEXCEPTION(context, e,  ECLWATCH_INTERNAL_ERROR);
+    }
+    return true;
 }

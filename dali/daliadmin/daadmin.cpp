@@ -258,7 +258,7 @@ void _delete_(const char *path,bool backup)
 
 //=============================================================================
 
-void set(const char *path,const char *val)
+void setValue(const char *path,const char *val,StringBuffer &out)
 {
     StringBuffer head;
     StringBuffer tmp;
@@ -275,13 +275,13 @@ void set(const char *path,const char *val)
     root->setProp(tail,val);
     conn->commit();
     root->getProp(tail,newv);
-    OUTLOG("Changed %s from '%s' to '%s'",path,oldv.str(),newv.str());
+    out.appendf("Changed %s from '%s' to '%s'",path,oldv.str(),newv.str());
     conn->close();
 }
 
 //=============================================================================
 
-void get(const char *path)
+void getValue(const char *path,StringBuffer &out)
 {
     StringBuffer head;
     StringBuffer tmp;
@@ -294,7 +294,7 @@ void get(const char *path)
     Owned<IPropertyTree> root = conn->getRoot();
     StringBuffer val;
     root->getProp(tail,val);
-    OUTLOG("Value of %s is: '%s'",path,val.str());
+    out.appendf("Value of %s is: '%s'",path,val.str());
     conn->close();
 }
 
