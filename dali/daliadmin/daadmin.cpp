@@ -281,7 +281,7 @@ void setValue(const char *path,const char *val,StringBuffer &out)
 
 //=============================================================================
 
-void getValue(const char *path,StringBuffer &out)
+void getValue(const char *path,StringBuffer &val)
 {
     StringBuffer head;
     StringBuffer tmp;
@@ -292,9 +292,7 @@ void getValue(const char *path,StringBuffer &out)
         return;
     }
     Owned<IPropertyTree> root = conn->getRoot();
-    StringBuffer val;
     root->getProp(tail,val);
-    out.appendf("Value of %s is: '%s'",path,val.str());
     conn->close();
 }
 

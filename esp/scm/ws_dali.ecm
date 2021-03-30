@@ -35,7 +35,7 @@ ESPrequest [nil_remove] GetValueRequest
 
 ESPresponse [exceptions_inline, nil_remove] GetValueResponse
 {
-    string Result;
+    string Value;
 };
 
 ESPservice [auth_feature("NONE"), //This declares that the method logic handles feature level authorization

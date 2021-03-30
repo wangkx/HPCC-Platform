@@ -276,7 +276,7 @@ int main(int argc, const char* argv[])
                     else if (strieq(cmd,"get")) {
                         CHECKPARAMS(1,1);
                         getValue(params.item(1),out);
-                        PROGLOG("%s",out.str());
+                        PROGLOG("Value of %s is: '%s'",params.item(1),out.str());
                     }
                     else if (strieq(cmd,"bget")) {
                         CHECKPARAMS(2,2);

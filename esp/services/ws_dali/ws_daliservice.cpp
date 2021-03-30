@@ -141,9 +141,9 @@ bool CWSDaliEx::onGetValue(IEspContext& context, IEspGetValueRequest& req, IEspG
         if (isEmptyString(path))
             throw makeStringException(ECLWATCH_INVALID_INPUT, "Data path not specified.");
 
-        StringBuffer result;
-        getValue(path, result);
-        resp.setResult(result);
+        StringBuffer value;
+        getValue(path, value);
+        resp.setValue(value);
     }
     catch(IException* e)
     {
