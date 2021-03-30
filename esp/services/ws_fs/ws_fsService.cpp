@@ -2250,7 +2250,7 @@ void CFileSprayEx::getDropZoneInfoByDestPlane(double clientVersion, const char* 
     }
     else
     {
-        destFileOut.append(destFileIn);
+        destFileOut.append(fullDropZoneDir).append(destFileIn);
     }
     plane->getProp("@umask", umask);
 }
@@ -2378,6 +2378,10 @@ bool CFileSprayEx::onDespray(IEspContext &context, IEspDespray &req, IEspDespray
             throw MakeStringException(ECLWATCH_INVALID_INPUT, "Source logical file not specified.");
 
         PROGLOG("Despray %s", srcname);
+        StringBuffer sss;
+         IPropertyTree & global = queryGlobalConfig();
+         toXML(&global, sss);
+         DBGLOG("####(%s)", sss.str());
         double version = context.getClientVersion();
         const char* destip = req.getDestIP();
         StringBuffer destPath;
