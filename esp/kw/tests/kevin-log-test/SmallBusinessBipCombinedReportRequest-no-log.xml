@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/" xmlns:SOAP-ENC="http://schemas.xmlsoap.org/soap/encoding/" xmlns="urn:hpccsystems:ws:wsanalytics:smallbusinessbipcombinedreport(internal)@ver=3">
+ <soap:Body>
+  <SmallBusinessBipCombinedReportRequest>
+   <User>
+    <QueryId>off</QueryId>
+   </User>
+   <Options>
+    <Blind>0</Blind>
+    <Encrypt>0</Encrypt>
+    <IncludeCreditReport>0</IncludeCreditReport>
+    <BusinessCreditReportType>0</BusinessCreditReportType>
+    <LimitPaymentHistory24Months>0</LimitPaymentHistory24Months>
+   </Options>
+   <SearchBy>
+    <Company>
+     <BusinessIds>
+      <SeleID>9951</SeleID>
+      <OrgID>9951</OrgID>
+      <UltID>9951</UltID>
+     </BusinessIds>
+    </Company>
+    <AuthorizedRep1>
+     <Name>
+      <First>Repfirst</First>
+      <Middle>Repmiddle</Middle>
+      <Last>REplast</Last>
+     </Name>
+     <Address>
+      <StreetAddress1>123 Authrep Blvd</StreetAddress1>
+      <City>Authrepington</City>
+      <State>AR</State>
+      <Zip5>98765</Zip5>
+     </Address>
+    </AuthorizedRep1>
+   </SearchBy>
+  </SmallBusinessBipCombinedReportRequest>
+ </soap:Body>
+</soap:Envelope>

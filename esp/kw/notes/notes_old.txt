@@ -1,0 +1,1405 @@
+  cd HPCC-Platform
+  git remote add upstream https://github.com/hpcc-systems/HPCC-Platform.git
+  git fetch upstream
+  git merge --ff-only upstream/master
+     git submodule update --init
+  git submodule update --init --recursive
+
+sudo /etc/init.d/memcached stop
+
+sudo service haproxy stop
+
+sudo /usr/bin/eclipse
+
+sudo /opt/HPCCSystems/sbin/configmgr
+
+sudo /etc/init.d/hpcc-init start
+
+sudo soapplus -s -p 9999 -i wsinsurancerepWithlogging.xml  -d 0
+
+meld file1 file2
+
+sudo /opt/HPCCSystems/bin/updtdalienv /etc/HPCCSystems/environment.xml -f
+
+----IRC
+
+http://webchat.freenode.net/
+
+Login with user id (I have the same one for IRC, github and JIRA)
+The channels is hpccsystems
+HPCC-23657 Add WsWorkunits.WUGetPlugins
+
+19476ffa8e1ac3b7a5741ee3ed8018fb6f6c37e9
+
+git diff HEAD..HEAD~1 > h11785.txt
+patch -p1 < h11785.txt
+
+-------------------
+For Virtaul box:
+download/install Virtaul box: VirtualBox-5.0.6-103037-Win.exe
+download/install ubuntu image: ubuntu-14.04-desktop-amd64.iso
+
+network: bridge or NAT + Host-only...
+
+install guest edition: Device > Insert ...
+enable copy/paste: Settings->General->Advanced->Shared Clipboard (Bidirectional)
+enable ssh access: sudo apt-get install openssh-server
+
+For vmware:
+download/install vmware player: http://www.vmware.com/products/player/
+download/install ubuntu:
+  http://www.ubuntu.com/download/desktop/thank-you?country=US&version=14.04&architecture=amd64
+  in vmware player: ...
+
+C:\Users\wangkx\Documents\vm_backups
+-------------------
+
+download/install cmake:
+  sudo apt-get install cmake
+  (http://www.cmake.org/cmake/resources/software.html)
+
+download/install git
+  (https://help.github.com/articles/set-up-git#platform-linux)
+  sudo apt-get install git
+
+sudo apt-get install gitk
+
+Set Up Git
+  git config --global user.name "wangkx"
+  git config --global user.email "kevin.wang@lexisnexis.com"
+  git config --global credential.helper 'cache --timeout=3600'
+
+get code from git
+  git clone https://github.com/wangkx/HPCC-Platform.git
+  git clone https://github.com/wangkx/LN.git
+
+  (https://github.com/hpcc-systems/HPCC-Platform/wiki/Git-step-by-step)
+
+Build HPCC dependencies: use the apt-get command in: https://github.com/hpcc-systems/HPCC-Platform/wiki/Building-HPCC
+/*  sudo apt-get install g++ gcc make cmake bison flex binutils-dev libldap2-dev 
+  sudo apt-get install libcppunit-dev libicu-dev libxalan-c-dev zlib1g-dev 
+  sudo apt-get install libboost-regex-dev libssl-dev libarchive-dev python2.7-dev 
+  sudo apt-get install libv8-dev openjdk-6-jdk libapr1-dev libaprutil1-dev libiberty-dev
+sudo apt-get -f install libtbb2 libtbb-dev
+sudo apt-get install libxslt1-dev*/
+sudo apt-get install libmemcached-dev
+
+sudo apt-get install libsvm3
+sudo apt-get -f install
+
+--Install node.js
+sudo apt-get install curl
+curl -sL https://deb.nodesource.com/setup | sudo bash -
+sudo apt-get install -y nodejs
+
+sudo apt-get install expect
+
+sudo apt-get install eclipse eclipse-cdt g++
+
+-------------------
+undoing-a-git-rebase
+
+# The easiest way would be to find the head commit of the branch as it was immediately before the rebase started in the reflog...
+git reflog
+# and to reset the current branch to it (with the usual caveats about being absolutely sure before reseting with the --hard option).
+
+# Suppose the old commit was HEAD@{5} in the ref log
+git reset --hard HEAD@{?}
+
+-------------------
+
+
+install eclipse and eclipse C++ by searching software center
+
+-DSUPPRESS_REMBED=ON -DECLWATCH_BUILD_STRATEGY=SOURCES 
+
+//For unit test
+-DUSE_CPPUNIT=ON
+
+cmake -G "Eclipse CDT4 - Unix Makefiles" -DCMAKE_BUILD_TYPE=Debug -DUSE_OPTIONAL=ON -DINCLUDE_PLUGINS=OFF -DUSE_CBLAS=OFF -DUSE_MEMCACHED=OFF -DUSE_TBBMALLOC=OFF -DUSE_TBB=OFF -DUSE_LIBXSLT=ON ../HPCC-Platform
+
+cmake -G "Eclipse CDT4 - Unix Makefiles" -DCMAKE_BUILD_TYPE=Debug -DUSE_OPTIONAL=ON -DINCLUDE_PLUGINS=OFF -DUSE_CBLAS=OFF -DUSE_MEMCACHED=OFF -DUSE_TBBMALLOC=OFF -DUSE_TBB=OFF -DUSE_LIBXSLT=ON -DUSE_MYSQL=ON -DBUILD_LEVEL=INTERNAL ../LN
+
+
+USE_CASSANDRA
+  cd ../my_cmake
+  cmake -DCMAKE_BUILD_TYPE:STRING=Debug ../HPCC-Platform
+  cmake -G "Eclipse CDT4 - Unix Makefiles" -DCMAKE_BUILD_TYPE=Debug -DUSE_APR=false -DUSE_LIBARCHIVE=false -DUSE_BOOST_REGEX=false -DUSE_LIBXSLT=false ../HPCC-Platform
+  cmake -G "Eclipse CDT4 - Unix Makefiles" -DCMAKE_BUILD_TYPE=Debug -DUSE_APR=false -DUSE_LIBARCHIVE=false -DUSE_BOOST_REGEX=false -DUSE_LIBXSLT=false -DCLIENTTOOLS=OFF -DUSE_CASSANDRA=OFF -DUSE_PYTHON=OFF -DUSE_JNI=OFF -DUSE_RINSIDE=OFF ../HPCC-Platform
+
+  cmake -G "Eclipse CDT4 - Unix Makefiles" -DCMAKE_BUILD_TYPE=Debug -DCLIENTTOOLS=OFF -DUSE_CASSANDRA=OFF -DUSE_PYTHON=OFF -DUSE_JNI=OFF -DUSE_RINSIDE=OFF -DUSE_APR=false -DUSE_LIBARCHIVE=false -DUSE_BOOST_REGEX=false -DUSE_LIBXSLT=false ../HPCC-Platform
+
+  cmake -G "Eclipse CDT4 - Unix Makefiles" -DCMAKE_BUILD_TYPE=Debug -DCLIENTTOOLS=OFF -DUSE_TBB=OFF -DUSE_PYTHON=OFF -DUSE_V8=OFF -DUSE_JNI=OFF -DUSE_RINSIDE=OFF -DUSE_MYSQL=OFF -DUSE_SQLITE3=OFF   -DUSE_CASSANDRA=ON  -DCASSANDRAEMBED=ON  -DUSE_MEMCACHED=OFF -DUSE_LIBXSLT=ON -DUSE_REDIS=OFF ../HPCC-Platform
+
+  cmake -G "Eclipse CDT4 - Unix Makefiles" -DUSE_TBB=OFF -DUSE_PYTHON=OFF -DUSE_V8=OFF -DUSE_JNI=OFF -DUSE_RINSIDE=OFF -DUSE_MYSQL=OFF -DUSE_SQLITE3=OFF   -DUSE_CASSANDRA=OFF  -DUSE_MEMCACHED=OFF -DUSE_LIBXSLT=ON -DUSE_REDIS=OFF -DCMAKE_BUILD_TYPE=Debug -DCLIENTTOOLS=ON -DBUILD_LEVEL=INTERNAL ../LN
+
+ cmake -G "Eclipse CDT4 - Unix Makefiles" -DCMAKE_BUILD_TYPE=Debug -DPLUGIN=ON -DCLIENTTOOLS=OFF -DUSE_TBB=OFF -DUSE_PYTHON=OFF -DUSE_V8=OFF -DUSE_JNI=OFF -DUSE_RINSIDE=OFF -DUSE_MYSQL=OFF -DUSE_SQLITE3=OFF   -DUSE_CASSANDRA=ON -DCASSANDRAEMBED=ON -DUSE_MEMCACHED=OFF -DUSE_LIBXSLT=ON -DUSE_REDIS=OFF ../HPCC-Platform
+
+//cmake  -DUSE_LIBXSLT=OFF -DUSE_MYSQL=OFF -DUSE_SQLITE3=OFF -DUSE_V8=OFF -DBUILD_LEVEL=INTERNAL ../LN
+
+Create network map to \\10.176.32.10\data3 (user/password: netshare/hpcc). Assume mapped drive is Z.
+Copy sign directory from Z:/build/windows to the parent of HPCC-Platform (source) directory.
+
+"C:\Program Files (x86)\CMake\bin\cmake" -G "Visual Studio 14 2015" -D CMAKE_BUILD_TYPE=Debug -DUSE_NATIVE_LIBRARIES=OFF -DCHECK_GIT_TAG=0 -DCLIENTTOOLS_ONLY=OFF -DSIGN_DIRECTORY=c:\seisint\git1\my_cmake\sign -DEXTERNALS_DIRECTORY=z:/build/windows/platform_externals_vs2015 -DUSE_APR=OFF -DUSE_XALAN=ON -DUSE_CASSANDRA=OFF -DUSE_CBLAS=OFF ../HPCC-Platform
+
+"C:\Program Files (x86)\CMake\bin\cmake" -G "Visual Studio 14 2015" -D CMAKE_BUILD_TYPE=Release -DUSE_NATIVE_LIBRARIES=OFF -DCHECK_GIT_TAG=0 -DCLIENTTOOLS_ONLY=ON -DSIGN_DIRECTORY=c:\seisint\git1\my_cmake\sign -DEXTERNALS_DIRECTORY=z:/build/windows/platform_externals_vs2015 -DUSE_APR=OFF -DUSE_XALAN=ON -DUSE_CASSANDRA=OFF -DUSE_CBLAS=OFF ../LN
+"C:\Program Files (x86)\CMake\bin\cmake" -G "Visual Studio 14 2015" -D CMAKE_BUILD_TYPE=Debug -DUSE_NATIVE_LIBRARIES=OFF -DCHECK_GIT_TAG=0 -DCLIENTTOOLS_ONLY=OFF -DSIGN_DIRECTORY=c:\seisint\git1\my_cmake\sign -DEXTERNALS_DIRECTORY=z:/build/windows/platform_externals_vs2015 -DUSE_APR=OFF -DUSE_XALAN=ON -DUSE_CASSANDRA=OFF -DUSE_CBLAS=OFF ../LN
+
+"C:\Program Files (x86)\CMake\bin\cmake" -G "Visual Studio 14 2015" -D CMAKE_BUILD_TYPE=Release -DUSE_NATIVE_LIBRARIES=OFF -DCHECK_GIT_TAG=0 -DEXTERNALS_DIRECTORY=c:\seisint\ext2\m -DUSE_APR=OFF -DUSE_XALAN=ON -DUSE_CASSANDRA=OFF ../HPCC-Platform
+"C:\Program Files (x86)\CMake\bin\cmake" -G "Visual Studio 14 2015" -D CMAKE_BUILD_TYPE=Debug -DBUILD_LEVEL=INTERNAL -DUSE_NATIVE_LIBRARIES=OFF -DCHECK_GIT_TAG=0 -DEXTERNALS_DIRECTORY=c:\seisint\ext2\m -DUSE_APR=OFF -DUSE_XALAN=ON -DUSE_CASSANDRA=OFF ../LN
+
+
+test: "C:\Program Files (x86)\CMake\bin\cmake" -G "Visual Studio 14 2015" -DEXTERNALS_DIRECTORY=z:/build/windows/platform_externals_vs2015 -DUSE_BOOST_REGEX=0 -DCMAKE_BUILD_TYPE=Debug -DUSE_NATIVE_LIBRARIES=OFF -DUSE_GIT_DESCRIBE=0 -DUSE_CPPUNIT=1 -DUSE_OPENLDAP=0 -DUSE_APR=0 -DUSE_SQLITE3=0 -DUSE_MYSQL_REPOSITORY=0 -DUSE_PYTHON=0 -DUSE_V8=0 -DUSE_JNI=0 -DUSE_RINSIDE=0 -DUSE_CASSANDRA=0 -DUSE_LIBXSLT=0 -DUSE_LIBARCHIVE=0 -DUSE_CPPUNIT=0 -DUSE_CBLAS=0 ../HPCC-Platform
+
+
+
+cmake --build . --config Release
+
+sudo netstat -anltp|grep :8010
+
+sudo /opt/HPCCSystems/sbin/configmgr
+
+--test file overwrite
+
+ds := DATASET(10, TRANSFORM({unsigned id}, SELF.id := COUNTER), DISTRIBUTED);
+output(ds,,'~mytestfile', OVERWRITE);
+
+
+--Enable SSH
+
+sudo apt-get update
+sudo apt-get install openssh-server
+
+-----------Using eclipse
+
+download/install eclipse:
+  sudo apt-get install eclipse-cdt
+  (https://www.eclipse.org/downloads/download.php?file=/technology/epp/downloads/release/kepler/SR2/eclipse-cpp-kepler-SR2-linux-gtk-x86_64.tar.gz
+
+  sudo /usr/bin/eclipse
+
+
+Import existing project
+  Select File > Import
+  expand C/C++ and select Existing Code as Makefile project. > Next
+  In the Project name field, type a name for the project: hpcc_e
+  Location: /home/lexis/hpcc/src/git1/my_cmake_e
+  Choose: Linux GCC
+
+Config debug
+  Select Run > Debug Configuration
+  Right Click C/C++ Attach to Application > new
+  C/C++ Application: /home/lexis/hpcc/src/git1/my_cmake_for_e
+  Project: hpcc_e
+
+--undo git commit
+
+//The last three commits (HEAD, HEAD^, and HEAD~2) were bad and you do not want to ever see them again. 
+//This action is in your local only.
+git reset --hard HEAD~3
+
+//If you want to leaves all your changed files in the "Changes to be committed" state
+
+git reset --soft
+
+//it rollback last commit
+git reset HEAD~1
+
+-- git cherry-pick
+git remote add ??? https://github.com/???/HPCC-Platform.git
+git fetch ???
+git cherry-pick 7db9c9ed41aa5f85548f532cd921c4f0e06f75c3
+
+-- clean
+
+sudo dpkg -r hpcc
+
+sudo rm -rf /opt/HPCCSystems
+sudo rm -rf /var/log/HPCCSystems
+sudo rm -rf /var/lib/HPCCSystems
+sudo rm -rf /var/run/HPCCSystems
+sudo rm -rf /var/lock/HPCCSystems
+
+sudo rm -rf /etc/[NAME]/[INST]" name="conf"/>
+
+sudo cp Debug/libs/* /opt/HPCCSystems/lib/
+sudo cp Debug/bin/* /opt/HPCCSystems/bin/
+sudo service hpcc-init start
+sudo service hpcc-init -c myesp stop
+
+--- ECLWatch JS Debug
+
+cd ../my_cmake
+cp ../../eclwatch_ui/* ./
+
+sudo ./doInstall.sh
+
+cd ../HPCC-Platform/esp/src/
+
+npm install
+
+npm run build
+
+sudo /etc/init.d/hpcc-init start
+
+http://192.168.56.101:8010/?nopack=1
+
+-- Regress
+
+vi ecl-test.json: make sure both "regressionDir" and "logDir" dir are under current dir.
+
+cd git1/HPCC-Platform/testing/regress
+./ecl-test list
+./ecl-test setup -t all
+./ecl-test run -t all
+
+sudo dpkg --purge hpccsystems-platform
+----Check locks
+
+/opt/HPCCSystems/bin/daliadmin dali_ip setprotect file owner
+
+/opt/HPCCSystems/bin/daliadmin 10.176.152.183 holdlock data::name1 read
+
+daliadmin <dali-ip> dalilocks 
+
+>Debug/bin/dalidiag 10.176.152.178 -filelocks 10.176.152.1*
+10.176.152.178:7286, 21, 2015, data::name1
+
+>
+>Debug/bin/daliadmin 10.176.152.178 dalilocks 10.176.152.1* files 
+
+
+type=..(READ,WRITE)|durationLow=500(ms)|durationHigh=10000(ms)|epIP=..|xpath=/Files/Scope[@name="thor400"]
+
+type=read,epip=10.176.152.1*,xpath=/Files*
+
+
+Server IP         , session   ,mode, time              ,duration ,XPath
+==================,===========,===,====================,=========,=====
+10.176.152.178:7422, 25000014dc, 541, 2015-05-19T13:57:16, 48202, /Status/Servers/Server/
+10.176.152.178:8877, 250000190b, 541, 2015-05-19T13:57:19, 45936, /Status/Servers/Server/
+10.176.152.178:7232, 250000042a, 541, 2015-05-19T13:57:10, 54425, /Status/Servers/Server/
+10.176.152.178:7468, 2500000009, 541, 2015-05-19T13:57:09, 55677, /Status/Servers/Server/
+10.176.152.178:7313, 25000010c8, 541, 2015-05-19T13:57:15, 49497, /Status/Servers/Server/
+10.176.152.178:20000, 250000192b, 541, 2015-05-19T13:57:28, 36201, /Status/Servers/Server/
+10.176.152.178:7302, 250000084e, 541, 2015-05-19T13:57:13, 51944, /Status/Servers/Server/
+
+Server IP         , session   ,mode, time              ,duration ,File
+==================,===========,===,====================,=========,=====
+10.176.152.178:7344, 2500001d5f, 21, 2015-05-19T13:58:01, 3685, data::name1
+
+
+?? /opt/HPCCSystems/bin/daliadmin 10.176.152.178 dalilocks 10.176.152.17* "/Files/Scope[@name=\"data\"]/*" 1 0 5000
+
+
+Russell, can you grab and forward the stacks from the Esp and Dali processes?
+The command I use to do that is, e.g.:
+
+gdb --batch --quiet -ex "set interactive-mode off" -ex "thread apply all bt" -ex "quit" /opt/HPCCSystems/bin/esp {process-id} > stacks.txt
+
+
+---Check logical file
+
+/opt/HPCCSystems/bin/daliadmin 10.241.12.201 dfsfile scoringqa::out::nonfcra::leadintegrity_xml_generic_msn1106_0_v4_20151002_core_roxie_test
+
+-----debug preflight for remote dali at 10.239.190.102
+
+on 10.239.190.102:
+mkdir /mnt/disk1/home/wangkx/temp/
+sudo su -
+sudo cp -r /Users/hpcc/.ssh /mnt/disk1/home/wangkx/temp/
+
+chown -R wangkx:wangkx /mnt/disk1/home/wangkx/temp/.ssh
+
+on local:
+
+sudo su -
+
+cd .ssh
+
+ls
+
+scp wangkx@10.239.190.102://mnt/disk1/home/wangkx/temp/.ssh/* ./
+
+sudo chown -R hpcc.hpcc .ssh
+
+chmod 600 authorized_keys
+chmod 600 id_rsa
+
+sudo su hpcc
+
+/opt/HPCCSystems/bin/esp config=/home/lexis/hpcc/test/esp/esp_with_auth1.xml
+
+ssh -o StrictHostKeyChecking=no -o ConnectTimeout=5 10.239.20.52 '//opt/HPCCSystems/sbin/preflight -p=/var/run/HPCCSystems -n=thor2,thorslave_thor1_1 -d=ALL' 2>&1
+
+ssh -i $home/$user/.ssh/id_rsa -o LogLevel=QUIET $user@$_ip $CMD;
+ssh -i $home/$user/.ssh/id_rsa -o BatchMode=yes -o LogLevel=QUIET -o StrictHostKeyChecking=no $user@$_ip exit
+
+
+-----testsocket
+
+testsocket roxieip "<control:resetquerystats><Query id='myquery'/></control:resetquerystats>"
+
+-----DFUPlus
+
+sudo /opt/HPCCSystems/bin/dfuplus action=copy srcdali=10.239.20.10 srcusername=_kwang srcpassword=Seisint1 dstname=testCP7 dstcluster=mythor server=192.168.108.129 srcname=key::salt29_lorraine::bdid::efr
+
+sudo hpcc/src/git2/my_cmake_ln/Debug/bin/dfuplus  action=despray server=10.176.152.178 srcname=.::clean_hpcc dstfile=test_0513001
+
+
+
+import Std.File AS FileServices;
+File := '~clean_hpcc';
+SrcIP := 'localhost'; // or '127.0.0.1'
+DestFile := 'despray002_0511001';
+FileServices.Despray( File,
+SrcIp,
+destinationPath := DestFile,
+ALLOWOVERWRITE := true);
+
+-----XML HTTP GET
+
+http://10.176.152.178:8010/WsTopology/TpClusterQuery.xml
+http://10.176.152.178:8010/WsTopology/TpGroupQuery.xml
+
+http://10.239.190.101:8010/WsTopology/TpClusterQuery.xml
+
+-----SOAPPlus
+
+cd ~/hpcc/test/soapplus
+../../src/git_master/my_cmake_ln/Debug/bin/soapplus -c -url http://kwang:seisint1@10.176.152.197:8010/WsTopology -i TpGroupQuery
+
+
+/opt/HPCCSystems/bin/soapplus -c -url http://kevin_test_user:Seisint1@10.172.152.178:8010/WsTopology -i TpGroupQuery
+
+lexis@ubuntu:~/hpcc/test/soapplus$ sudo /opt/HPCCSystems/bin/soapplus -c -url http://localhost:8010/WsWorkunits -i WUQuery
+
+soapplus -c -url http://10.176.152.129:8006/ -i add_this_soapreq -stress 2 1
+
+for i in {1..2}
+do
+    soapplus -url http://kwang:seisint1@10.176.152.111:8010/WsWorkunits/WUQuery -stress 50 1
+    sleep 1
+done
+
+---esplogreader
+cp Debug/bin/esplogreader /home/lexis/hpcc/test/esp/logs/
+
+./esplogreader -i 100173084202/esp_main.2015_04_21.log_1 -l 000006BA
+
+./esplogreader -i 100173084202/esp_main.2015_04_21.log,100173084202/esp_main.2015_04_22.log -dbserver 10.176.152.195 -dbname log_db -dbtable test0508002 -dbuser root -dbpassword lexis -l 00268E8A
+
+./esplogreader -i 100173084202/esp_main.2015_04_21.log,100173084202/esp_main.2015_04_22.log -dbserver 10.176.152.195 -dbname log_db -dbtable new_table -dbuser root -dbpassword lexis -l 000001E8 -s 1
+
+DROP TABLE IF EXISTS esp_log;
+
+
+
+CREATE TABLE esp_log (
+id INT NOT NULL PRIMARY KEY AUTO_INCREMENT,
+process_id INT NOT NULL,
+thread_id INT NOT NULL,
+first_line_id VARCHAR(8) NOT NULL,
+start_date VARCHAR(10) NOT NULL,
+start_time VARCHAR(12) NOT NULL,
+last_line_id VARCHAR(8),
+end_date VARCHAR(10),
+end_time VARCHAR(12),
+http_method VARCHAR(4) NOT NULL,
+http_url TEXT NOT NULL,
+req_from VARCHAR(80),
+client_version VARCHAR(10),
+soap_method VARCHAR(80),
+active_reqs INT, 
+time_taken INT, 
+finished bit(1) DEFAULT 0,
+date_added DATETIME);
+
+
+----gdb
+
+> gbd
+(gbd) exec /opt/HPCCSystems/bin/esp
+(gbd) r
+(gbd)
+
+-----
+LDD *.so
+
+objdump -T *.so
+
+-----Russ's LDAP
+<ldapSecurity name="ldapserver" ldapProtocol="ldap" localDomain="localdomain" authMethod="kerberos" maxConnections="10" passwordExpirationWarningDays="10" ldapAddress="10.176.142.65" cacheTimeout="5" description="LDAP server process" filesBasedn="ou=files,ou=ecl" groupsBasedn="ou=groups,ou=ecl" ldapPort="389" ldapSecurePort="636" resourcesBasedn="ou=modules,ou=ecl" serverType="ActiveDirectory" sudoersBasedn="ou=SUDOers" systemBasedn="cn=Users" systemCommonName="WhitehWR" systemPassword="vOq5o8bJfG/fH+3Epau54A==" systemUser="WhitehWR" usersBasedn="ou=users,ou=ecl" workunitsBasedn="ou=workunits,ou=ecl"/>
+<EspProtocol name="http" type="http_protocol" plugin="esphttp" maxRequestEntityLength="8000000"/>
+
+TheAdminMyAdmin  -- P@ssw0rd
+
+sudo gdb /opt/HPCCSystems/bin/esp -core core.24597
+
+bt full
+
+-----Build and test centos build
+
+Setup build:
+http://10.176.32.6/view/Custom-Builds/job/CE-Candidate-6.0.0-kevin/ 
+change config: Configuration: Source Code Management: 
+  Repository URL: https://github.com/wangkx/HPCC-Platform.git
+  Credential: ...
+  Branch Specifier: h8462
+build: Build Now
+
+Check build:
+ssh -i hpcc_key_pair ubuntu@10.176.32.6   
+ssh root@10.10.8.8  
+cd /var/lib/jenkins/workspace/CE-Candidate-6.0.0-kevin/CE/CentOS-6.4-x86_64-1/build
+
+Test build:
+ssh -i hpcc_key_pair ubuntu@10.176.32.6   
+cd kevin_test
+scp root@10.10.8.8://var/lib/jenkins/workspace/CE-Candidate-6.0.0-kevin/CE/CentOS-6.4-x86_64-1/build/hpccsystems-platform-community_6.0.0-beta1.el6.x86_64.rpm ./
+
+ssh -i hpcc_key_pair centos@10.176.32.25
+cd kevin_test
+scp ubuntu@10.176.32.6://home/ubuntu/kevin_test/hpccsystems-platform-community_6.0.0-beta1.el6.x86_64.rpm ./
+
+
+sudo rpm -e hpccsystems-platform-5.6.4-rc1.x86_64
+
+sudo rpm -Uvh hpccsystems-platform-internal-with-plugins_5.6.4-rc1.el6.x86_64.rpm
+
+sudo rpm -Uvh hpccsystems-platform-community_6.0.0-beta1.el6.x86_64.rpm
+
+yum install numactl-devel
+
+----Linux Chinese 
+http://10.176.4.2/horizon/project/instances/85e167fd-40c2-4511-8fe1-42db80837b22/  
+user: hpcctest. password: hpcc secret password
+
+12:08:41 PM) xwang2713: win7 chinese system 10.176.32.37  user/pwd: hpccbuild/<hpcc password>
+
+---Valgrind: http://www.cprogramming.com/debugging/valgrind.html
+
+bzip2 -d valgrind-XYZ.tar.bz2
+tar -xf valgrind-XYZ.tar
+
+./configure
+make
+make install
+
+sudo apt-get install libc6-dbg
+
+sudo service hpcc-init start
+sudo service hpcc-init -c myesp stop
+
+cd ~/hpcc/backups/valgrind-3.13.0
+
+valgrind --tool=memcheck --leak-check=full --show-leak-kinds=definite --track-origins=yes --num-callers=30 /opt/HPCCSystems/bin/esp config=/home/lexis/hpcc/test/esp/esp_with_auth1.xml >& out
+valgrind --tool=memcheck --leak-check=full --show-leak-kinds=definite --track-origins=yes --num-callers=30 /opt/HPCCSystems/bin/esp config=/var/lib/HPCCSystems/myesp/esp.xml >& out
+
+--leak-check=summary 
+
+
+while [ : ]
+do
+now=$(date +"%T")
+    mem=`free -m | head -n 3 | tail -n 1 | awk '{print $3,$4}'`
+    echo $now: $mem
+    cat /proc/61859/status | grep Vm
+    sleep 1
+done
+
+
+sudo LD_PRELOAD=/home/lexis/hpcc/src/jemal/jemalloc/lib/libjemalloc.so.2 /opt/HPCCSystems/bin/esp config=esp_with_auth1.xml
+
+---Add wsLogging service to installtion
+
+add mysqlloggingagentType to HPCC-Platform\deployment\deployutils/deployutils.cpp
+ 
+add LN/initfiles/componentfiles/configxml/mysqlloggingagent.xsd
+add LN/initfiles/componentfiles/configxml/wslogging.xsd
+add mysqlloggingagent.xsd and wslogging.xsd to LN/initfiles/componentfiles/configxml/CMakeLists.txt
+
+add LN/initfiles/componentfiles/configxml/@temp/esp_service_wslogging.xsl
+add esp_service_wslogging.xsl to LN/initfiles/componentfiles/configxml/@temp/CMakeLists.txt
+
+add Component mysqlloggingagent and Component WsLogging to LN/initfiles/componentfiles/configxml/cgencomplist_linux_EE.xml.in
+add Component mysqlloggingagent and Component WsLogging to LN/initfiles/componentfiles/configxml/cgencomplist_linux_LN.xml.in
+add Component mysqlloggingagent and Component WsLogging to LN/initfiles/componentfiles/configxml/cgencomplist_win_EE.xml.in
+add Component mysqlloggingagent and Component WsLogging to LN/initfiles/componentfiles/configxml/cgencomplist_win_EE.xml.in
+
+add wsloggingagent and WsLogging to LN/initfiles/etc/DIR_NAME/genevrules.conf
+
+add BuildSet mysqlloggingagent and BuildSet wslogging to LN/initfiles/componentfiles/configxml/buildsetEE.xml.in
+add BuildSet mysqlloggingagent to LN/initfiles/componentfiles/configxml/buildsetLN.xml.in
+
+---udp
+
+sudo Release/bin/udptransport -send -destA 239.1.1.2 -numSends 1 -numSizes 1 -numPackers 1
+
+./utmulticast -send -ip 239.1.1.2 -port 7003 -packageSize 70 -numGroupsToSend 2 -numPackagetsInGroup 5 -delayBetweenGroups 3000
+
+sudo ./udptransport -receive -getUnpackerTimeout 50000
+
+./utmulticast -ip 239.1.1.2 -port 7003 -packageSize 70
+
+lexis@ubuntu:~$ ssh -i hpcc_key_pair centos@10.176.32.31
+
+cd ~/.ssh
+scp -i hpcc_key_pair /home/lexis/hpcc/test/test_udp/package_test_multicast/utmulticast      ubuntu@10.176.32.27:/home/ubuntu/kevin_test/multicast_test_package/
+
+scp utmulticast  10.20.8.33:/home/ubuntu/kevin_test/multicast_test_package/
+
+---SVN
+
+https://svn.br.seisint.com/ecl/branches/702series/
+https://svn.br.seisint.com/ecl/branches/scapps_dev/
+
+https://trac.br.seisint.com/tracdb/browser/branches/702series
+
+For specific 702 builds, refer to the specific tags from https://trac.br.seisint.com/tracdb/browser/tags
+
+----Test Get Roxie State for preflight
+
+void Cws_machineEx::readRoxieStatus(const Owned<IPropertyTree> controlResp, CIArrayOf<CRoxieStateData>& roxieStates)
+{
+    StateHashes stateHashes;
+    unsigned totalHashes = 0;
+#if 0
+    Owned<IPropertyTreeIterator> roxieEndpoints = controlResp->getElements("Endpoint");
+    ForEach(*roxieEndpoints)
+    {
+        IPropertyTree& roxieEndpoint = roxieEndpoints->query();
+        const char *ep = roxieEndpoint.queryProp("@ep");
+        if (!ep || !*ep)
+            continue;
+
+        bool ok = false, attached = false, detached = false;
+        const char *status = roxieEndpoint.queryProp("Status");
+        if (status && strieq(status, "ok"))
+            ok = true;
+        const char *stateHash = roxieEndpoint.queryProp("State/@hash");
+        if (roxieEndpoint.hasProp("Dali/@connected"))
+        {
+            if (roxieEndpoint.getPropBool("Dali/@connected"))
+                attached = true;
+            else
+                detached = true;
+        }
+
+        StringArray locations;
+        locations.appendListUniq(ep, ":");
+        Owned<CRoxieStateData> roxieState = new CRoxieStateData(locations.item(0), addRoxieStateHash(stateHash, stateHashes, totalHashes));
+        roxieState->setState(ok, attached, detached, stateHash);
+        roxieStates.append(*roxieState.getClear());
+    }
+#else
+    Owned<CRoxieStateData> roxieState = new CRoxieStateData("10.20.0.1", addRoxieStateHash("stateHash", stateHashes, totalHashes));
+    roxieState->setState(true, true, false, "stateHash");
+    roxieStates.append(*roxieState.getClear());
+    Owned<CRoxieStateData> roxieState2 = new CRoxieStateData("10.176.152.214", addRoxieStateHash("stateHash2", stateHashes, totalHashes));
+    roxieState2->setState(true, true, false, "stateHash2");
+    roxieStates.append(*roxieState2.getClear());
+    Owned<CRoxieStateData> roxieState3 = new CRoxieStateData("10.20.0.3", addRoxieStateHash("stateHash", stateHashes, totalHashes));
+    roxieState3->setState(true, true, false, "stateHash");
+    roxieStates.append(*roxieState3.getClear());
+#endif
+    if (totalHashes > 1)
+        updateMajorRoxieStateHash(stateHashes, roxieStates);
+}
+
+----JOBqueue tests
+
+void testJobQueueConst1(IJobQueueConst* queue)
+{
+    CJobQueueContents contents;
+    StringBuffer state, stateDetails;
+    StringBuffer state1, stateDetails1;
+    unsigned count = queue->ordinality();
+    DBGLOG("count=<%d>", count);
+    //try
+    {
+        unsigned waiting = queue->waiting();
+        DBGLOG("waiting=<%d>", waiting);
+        if (count > waiting)
+            waiting =  count;
+    }
+    /*catch(IException* e)
+    {
+        StringBuffer eMsg;
+        ERRLOG("testJobQueueConst1: %s", e->errorMessage(eMsg).str());
+        e->Release();
+    }*/
+
+    /*queue->getState(state1, stateDetails1);
+    DBGLOG("getState: state1=<%s>", state1.str());
+    DBGLOG("getState: stateDetails1=<%s>", stateDetails1.str());*/
+
+    queue->copyItemsAndState(contents, state, stateDetails);
+    DBGLOG("copyItemsAndState: state=<%s>", state.str());
+    DBGLOG("copyItemsAndState: stateDetails=<%s>", stateDetails.str());
+
+    Owned<IJobQueueIterator> iter = contents.getIterator();
+    ForEach(*iter)
+    {
+        const char* wuid = iter->query().queryWUID();
+        if (!wuid || !*wuid)
+            continue;
+        DBGLOG("copyItemsAndState: wuid =<%s>", wuid );
+    }
+    /*StringArray wuids;
+    queue->getWUIDs(wuids);
+    ForEachItemIn(di, wuids)
+    {
+        const char* wuid = wuids.item(di);
+        if (!wuid || !*wuid)
+            continue;
+        DBGLOG("getWUIDs: wuid =<%s>", wuid );
+    }*/
+
+    if (count > 0)
+    {
+        IJobQueueItem *item = queue->getItem(0);
+        const char* wuid = item->queryWUID();
+        DBGLOG("getItem(0) (0 th job in any one queue): wuid=<%s>", wuid);
+
+        IJobQueueItem *item0 = queue->getHead();
+        DBGLOG("getHead (first job in the first queue): wuid=<%s>", item0->queryWUID());
+
+        IJobQueueItem *itemn = queue->getTail();
+        const char* wuid1 = itemn->queryWUID();
+        DBGLOG("getTail (first job in the last queue): wuid=<%s>", wuid1);
+
+        IJobQueueItem *itemA = queue->find(wuid);
+        if (itemA)
+            DBGLOG("Found <%s>: rank<%d>, priority<%d>", wuid, queue->findRank(wuid), itemA->getPriority());
+
+        IJobQueueItem *itemA1 = queue->find(wuid1);
+        if (itemA1)
+            DBGLOG("Found <%s>: rank<%d>, priority<%d>", wuid1, queue->findRank(wuid1), itemA1->getPriority());
+    }
+
+    StringAttr wuidStr;
+    CDateTime enqueuedt;
+    int priority;
+    if (queue->getLastDequeuedInfo(wuidStr, enqueuedt, priority))
+        DBGLOG("LastDequeuedInfo <%s>: priority<%d>", wuidStr.get(), priority);
+
+    CJobQueueContents dest;
+    unsigned copied = queue->copyItems(dest);  // takes a snapshot copy of the entire queue (returns number copied)
+    DBGLOG("copyItems: <%d> job copied.", copied);
+    Owned<IJobQueueIterator> iter1 = dest.getIterator();
+    ForEach(*iter1)
+    {
+        const char* wuid = iter1->query().queryWUID();
+        if (!wuid || !*wuid)
+            continue;
+        DBGLOG("copyItems: wuid =<%s>", wuid );
+    }
+}
+
+void testJobQueueConst(const char* queueName, IJQSnapshot *jobQueueSnapshot)
+{
+    DBGLOG("=== Create JobQueue for %s====", queueName);
+    Owned<IJobQueue> queue = createJobQueue(queueName);
+    testJobQueueConst1(queue);
+    DBGLOG("=== Create JobQueueConst ====");
+    if (jobQueueSnapshot)
+    {
+        Owned<IJobQueueConst> queue1 = jobQueueSnapshot->getJobQueue(queueName);
+        if (queue1)
+            testJobQueueConst1(queue1);
+    }
+}
+
+
+
+----JNI_test
+
+Install a jar file:
+java -jar packagename.jar
+
+View content of a jar fle:
+jar tf
+
+View signature of a java class:
+javap -s -p TestInputOutput
+
+build class/jar file using java 1.6
+
+add test code into espp.cpp
+
+/usr/lib/jvm/java-6-openjdk-amd64/lib:/usr/lib/jvm/java-6-openjdk-amd64/jre/lib:
+
+--- MAC test
+
+in 10.176.141.40:
+cd /Users/hpccbuild/build/kw/my_build
+. ~/.bashrc
+cmake ../HPCC-Platform -DCHECK_GIT_TAG=0 -DCLIENTTOOLS_ONLY=ON -DUSE_PYTHON=OFF -DUSE_V8=OFF -DUSE_JNI=OFF -DUSE_RINSIDE=OFF -DUSE_MYSQL=OFF -DUSE_SQLITE3=OFF  -DUSE_BINUTILS=OFF -DUSE_LIBXSLT=ON
+make -j9 package
+
+in 10.176.141.41: http://10.176.152.123/wiki/index.php/OS_X
+
+cd /Users/hpccbuild/kw_test
+scp hpccbuild@10.176.141.40://Users/hpccbuild/build/kw/my_build/hpccsystems-clienttools_community-5.0.4-rc5Darwin-x86_64.dmg ./
+hdiutil mount hpccsystems-clienttools_community-5.0.4-rc5Darwin-x86_64.dmg
+sudo installer -package /Volumes/hpccsystems-clienttools_community-5.0.4-rc5Darwin-x86_64/hpccsystems-clienttools_community-5.0.4-rc5Darwin-x86_64.pkg -target /
+/opt/HPCCSystems/5.0.4/clienttools/bin/eclplus server=10.176.152.201 cluster=thor queue=thor ecl=@t1.ecl
+
+hdiutil unmount /Volumes/hpccsystems-clienttools_community-5.0.4-rc5Darwin-x86_64
+
+hpccdmac02:kw_test hpccbuild$ /opt/HPCCSystems/5.0.2/clienttools/bin/eclplus server=10.176.152.201 cluster=thor queue=thor ecl=@t1.ecl
+
+Workunit W20141203-155338 submitted
+[Result 1]
+Segmentation fault: 11
+
+----More
+//check disk size:
+du -ch /home/tecmint
+du -ah /home/tecmint
+
+udp: xwang2713: 10.176,32.27 (10.20.8.29-33) user: ubuntu/no pwd
+
+cd  c:\Program FIles <x86>\HPCCSystems\5.0.0\KEL
+java -jar KEL.jar C:\seisint\tests\kel\first_test.kel --output C:\seisint\tests\kel\first_test_processed.ecl
+
+---Access permission in ECLWatch
+
+OwnWorkunitsAccess
+OthersWorkunitsAccess
+
+WsEclAccess: ws_ecl_service
+EclDirectAccess
+
+ESDLConfigAccess: ws_esdlconfig
+
+DfuWorkunitsAccess
+DfuExceptionsAccess
+FileScopeAccess
+FileSprayAccess
+FileDesprayAccess
+
+FileUploadAccess
+
+DfuAccess: onDFUSearch, onDFUQuery, onDFUInfo, etc
+DfuXrefAccess: WsDfuXRef
+
+FileIOAccess: onCreateFile, onReadFileData, onWriteFileData, etc
+
+ConfigAccess?: ws_config
+
+RoxieControlAccess
+SmcAccess: onActivity, onGetThorQueueAvailability, onBrowseResources
+ThorQueueAccess: onMoveJobDown etc
+
+ClusterTopologyAccess: many methods in WsTopology
+MachineInfoAccess: returned in the repsonse of onTpMachineQuery, onGetMachineInfo, etc
+MetricsAccess:
+ExecuteAccess?
+
+----Setup logging server
+sudo apt-get install libmysqlclient-dev
+
+http://10.176.152.188:1268/?ver_=1.98
+
+sudo /opt/HPCCSystems/sbin/configmgr
+
+create the computer for mysql server
+add mysql server
+add mysqlloggingagent
+add the mysql server to the mysqlloggingagent
+<MySQL server="10.176.152.236" dbTableName="esdl_activity2" dbUser="root" dbPassword="ucWUuB1fhS16lbAJ903UNA==" dbName="log_db"/>
+
+add FieldMap to mysqlloggingagent
+<Fieldmap name="esdl_activity2">
+  <Field name="ESPContext/UserName/" mapto="user_id" type="string" default="unknown"/>
+  <Field name="ESPContext/SourceIP/" mapto="user_ip_address" type="string"/>
+  <Field name="UserContext/MyUserContext/Target[@username]" mapto="request_user_id" type="string"/>
+  <Field name="UserContext/MyUserContext/Target[@url]" mapto="target_url" type="string"/>
+  <Field name="UserRequest/" mapto="request" type="string"/>
+  <Field name="UserResponse/" mapto="actual_response" type="string"/>
+  <!--Field name="*ActualResponse*/" mapto="actual_response" type="string"/-->
+</Fieldmap>
+
+add LogSourcePath: 
+logSourcePath="UserContext/Context/Row/Common/ESP/ServiceName"
+
+add ws_logging service
+add the mysqlloggingagent to the ws_logging service
+add the binding for ws_logging service to esp
+
+Follows: H:\My Documents\new\docs\logging_agent_6.2.txt
+
+----Setup logging client
+open environment settings ConfigMgr
+create the computer for esp logging server
+add esploggingagent
+add ESPServer to the esploggingagent
+add Filters to the esploggingagent
+<Filters>
+<Filter type="ESPContext" value="UserName"/>
+<Filter type="ESPContext" value="SourceIP"/>
+<Filter type="UserContext" value="Target"/>
+<Filter type="UserRequest" value="*"/>
+<Filter type="UserResponse" value="*"/>
+<Filter type="BackEndResponse" value="true"/>
+</Filters>
+
+add loggingmanager
+add the esploggingagent to the loggingmanager
+add the loggingmanager to the client where the loggingmanager should be used.
+
+----Test logging
+sudo service hpcc-init -c mydali start
+cd ~/hpcc/test/logging
+sudo ../../src/git2/my_cmake/Debug/bin/esp config=esp.xml
+
+Run logging_test: 
+  ~/hpcc/test/logging$ sudo ../../src/git2/my_cmake/Debug/bin/logging_test -i log_test1_in.xml
+
+sudo ../../src/git_master2/my_cmake_ln/Debug/bin/logging_test -i log_test1_in.xml
+
+----ecl publish
+../../src/git_master2/my_cmake_ln/Debug/bin/ecl publish --target=roxie_eclccserver --name=IdentityManagement_Services.ReportService --main=IdentityManagement_Services.ReportService --activate --daliip=prod_dali.br.seisint.com --priority=HIGH --comment=TEST_ECL_CC -s=10.176.152.197 -u=kwang -pw=s
+
+// environment_gitlab_boca.xml
+ecl publish --target roxie -main=_Certification.ReadIndexService --name Certification.ReadIndexService
+
+Create a gitlab project: Boca with _Certification
+Add options to EclCCserver config:
+<EclCCserver build="_" daliServers="10.173.1.137:7070" enableSysLog="false" generatePrecompiledHeader="true" maxEclccProcesses="8" name="eclccserver_cert_boolean" traceLevel="2">
+<Option name="eclcc-hook" value="/opt/HPCCSystems/bin/git.sh"/>
+<Option name="Boca-url" value="https://gitlab.ins.risk.regn.net/risk-engineering/Boca.git"/>
+<Option name="git-repositories" value="Boca"/>
+<Option name="Boca-branch-locked" value="0"/>
+<Option name="eclcc-legacyimport" value="1"/>
+<Option name="eclcc-legacywhen" value="1"/>
+</EclCCserver>
+
+---- zapgen 
+Debug/bin/ecl zapgen W20171019-145938 --path /home/lexis1604/hpcc/test -u kwang -pw seisint1
+
+----Test/debug ECL generated code
+
+~/hpcc/test/ecl$ ../../src//git_master2/my_cmake_ln/Debug/bin/ecl run hthor --debug -g test_lib_wu.ecl
+Assume that is created a WU: W20160128-162418.
+
+open the file: /var/lib/HPCCSystems/myeclccserver/W20160128-162418.cpp and set break point in the cpp;
+add "sleep(30);" inside EclAgent::runProcess();
+~/hpcc/test/ecl$ ../../src//git_master2/my_cmake_ln/Debug/bin/ecl run hthor --debug -g  W20160128-162418
+launch eclipse debug when eclagent sleeps.
+
+ecl run thor /home/lexis1604/hpcc/test/ecl/test_moveremotefile.ecl
+
+----Test ECL create resources
+cd ~/hpcc/test/ecl-samples/ecl-samples/visualizations/google_charts
+/home/lexis/hpcc/src/git_master/my_cmake_m2/Debug/bin/ecl publish -t roxie pie.ecl --manifest=files/manifest.xml
+ 
+----pdm
+lexis@ubuntu:~$ ssh -i hpcc_key_pair ubuntu@10.176.32.24
+lexis@ubuntu:~$ ssh -i hpcc_key_pair ubuntu@10.176.32.27
+
+ssh -i hpcc_key_pair -o StrictHostKeyChecking=no -o ConnectTimeout=30000 ubuntu@10.176.32.24 '/home/ubuntu/kevin_test/scppass.sh lexis@10.176.152.178://var/run/HPCCSystems/mythor.pid /home/ubuntu/kevin_test/ lexis'
+
+lexis@ubuntu:~/hpcc/test/esp/deploy_agent$ sudo ../../../src/git_master/my_cmake_m/Debug/bin/dpagent
+
+#define TEST_REMOTE_PACKAGE
+ubuntu@ub-14:~/kevin_test/client/agent$ ./dpagent
+ubuntu@ub-14:~/kevin_test/client/agent$ ./dpagent -c -host localhost -control "deploy:/getpackage"
+
+lexis@ubuntu:~/hpcc/test/esp$ ../../src/git_master/my_cmake_m/Debug/bin/dpagent -c -host localhost -control "deploy:/opt/HPCCSystems/hpccsystems-platform-community_5.3.0-closedown0Debugtrusty_amd64.deb"
+lexis@ubuntu:~/hpcc/test/esp$ ../../src/git_master/my_cmake_m/Debug/bin/dpagent -c -host localhost -control "start:mydali"
+
+dataland_hql
+eclrepository/dboudreau
+
+--nested
+<DFUGetFileMetaDataRequest>
+   <LogicalFileName>.::my_nested_file</LogicalFileName>
+   <ClusterName>hthor__myeclagent</ClusterName>
+
+<LogicalFileName>.::dataset_test</LogicalFileName>
+
+hthor::houses2 -- inline dataset
+
+.::inrecs -- record and dataset in a dataset
+
+regress::multi::seriallibraryds
+
+----Check point usage
+class jlib_decl CInterface : public CSimpleInterface
+{
+public:
+    virtual void beforeDispose();
+
+    inline bool isAlive() const         { return atomic_read(&xxcount) < DEAD_PSEUDO_COUNT; }       //only safe if Link() is called first
+
+    inline bool Release(void) const
+    {
+        if (atomic_dec_and_test(&xxcount))
+
+----download test
+<a href="/esp/iframe?esp_iframe_title=ECL - {$wuid}&amp;inner=/WsFileIO/SaveTableToFile%3fFileName%3dtest.csv%26FileFormat%3dPlain%26ContentFormat%3dCSV" >Test.csv</a>
+                  &nbsp;
+<a href="/esp/iframe?esp_iframe_title=ECL - {$wuid}&amp;inner=/WsFileIO/SaveTableToFile%3fFileName%3dtest.csv%26FileFormat%3dZIP%26ContentFormat%3dCSV" >Test.csv.zip</a>
+                  &nbsp;
+<a href="/esp/iframe?esp_iframe_title=ECL - {$wuid}&amp;inner=/WsFileIO/SaveTableToFile%3fFileName%3dtest.csv%26FileFormat%3dGZIP%26ContentFormat%3dCSV" >Test.csv.gz</a>
+                  &nbsp;
+<a href="/esp/iframe?esp_iframe_title=ECL - {$wuid}&amp;inner=/WsFileIO/SaveTableToFile%3fFileName%3dtest.xml%26FileFormat%3dPlain%26ContentFormat%3dXML" >Test.xml</a>
+                  &nbsp;
+<a href="/esp/iframe?esp_iframe_title=ECL - {$wuid}&amp;inner=/WsFileIO/SaveTableToFile%3fFileName%3dtest.xml%26FileFormat%3dZIP%26ContentFormat%3dXML" >Test.xml.zip</a>
+                  &nbsp;
+<a href="/esp/iframe?esp_iframe_title=ECL - {$wuid}&amp;inner=/WsFileIO/SaveTableToFile%3fFileName%3dtest.xml%26FileFormat%3dGZIP%26ContentFormat%3dXML" >Test.xml.gz</a>
+                  &nbsp;
+                  <a href="/esp/iframe?esp_iframe_title=ECL Workunit XML - {$wuid}&amp;inner=/WsWorkunits/WUFile%3fWuid%3d{$wuid}%26Type%3dXML%26Option%3d0%26SizeLimit%3d5000000" >XML</a>
+                  &nbsp;
+
+----Clean
+sudo rm -rf /var/run/HPCCSystems
+sudo rm -rf /var/lock/HPCCSystems
+sudo rm -rf /var/log/HPCCSystems
+sudo rm -rf /var/lib/HPCCSystems
+sudo rm -rf /opt/HPCCSystems
+sudo rm -rf /etc/HPCCSystems
+
+--Https
+http://cdn.hpccsystems.com/releases/CE-Candidate-5.4.4/docs/Installing_and_RunningTheHPCCPlatform-5.4.4-1.pdf 
+scroll to page 84:
+
+openssl genrsa -des3 -out server.key 1024
+pass phrase: kevin_test
+
+openssl req -new -key server.key -out server.csr
+US Florida BR LN LNR LEXIS
+
+openssl x509 -req -days 365 -in server.csr -signkey server.key -out server.crt
+
+sudo cp server.crt /var/lib/HPCCSystems/myesp/certificate.cer
+sudo cp server.key /var/lib/HPCCSystems/myesp/privatekey.cer
+
+setup https using configmgr
+
+---publish wuid for aaalibrary2 --delete-prev
+
+lexis@lexis-VirtualBox:~/hpcc/test/esp$ sudo ../../src/git60/my_cmake_with_tools/Debug/bin/ecl publish roxie W20160113-090707 --delete-prev --name=aaalibrary2  --username=kwang
+
+roxie/aaalibrary2.2
+lexis@lexis-VirtualBox:~/hpcc/test/esp$ sudo ../../src/git60/my_cmake_with_tools/Debug/bin/ecl publish roxie W20160112-183537 --delete-prev --name=aaalibrary2 --username=regress
+
+roxie/aaalibrary2.3
+
+---Set up HTPASSWD authentication (kevin/ch@ng3m3)
+
+sudo apt-get install apache2-utils
+
+sudo htpasswd -c /etc/HPCC-Platform/htpasswd_file russ
+sudo htpasswd    /etc/HPCC-Platform/htpasswd_file kevin
+sudo htpasswd    /etc/HPCC-Platform/htpasswd_file stuart
+
+start configmgr
+  change default file path: /etc/HPCC-Platform/htpasswd_file
+  change method to htpasswd
+
+---add workflow
+
+        {
+            Owned<IRemoteConnection> conn = querySDS().connect("/WorkUnits/W20151016-203921", myProcessSession(), RTM_LOCK_WRITE, SDS_LOCK_TIMEOUT);
+            if(!conn) return true;
+            IPropertyTree *root = conn->queryRoot();
+            if (root)
+            {
+                Owned<IPropertyTree> workF = createPTree();
+                workF->setProp("@id", "kevin_test");
+                root->addPropTree("Workflow", workF.getClear());
+                conn->commit();
+            }
+        }
+
+---cqlshndra on the vm.
+try: cqlsh 
+
+vi /etc/cassandra/cassandra.yaml
+change rpc_address: rpc_address 10.0.2.15. 
+rpc_address is the address on which Cassandra listens to the client calls.
+listen_address is the address on which Cassandra listens to the other Cassandra nodes.
+restart cassandra: sudo service cassandra restart
+try: cqlsh 10.0.2.15
+//If needed, update IPs in cassandra.yaml in C:\Program Files\DataStax Community\apache-cassandra\conf
+//If needed, backup files in C:\Program Files\DataStax Community\data\commitlog
+//start 3 DataStax apps from service
+
+//cd C:\Program Files\DataStax Community\apache-cassandra\bin
+//cqlsh 10.176.152.193 -u test_user -p ch@ng3m3
+describe keyspaces;
+use cassandra_log_agent;
+
+select * from service_log;
+
+CREATE KEYSPACE IF NOT EXISTS hpcc WITH replication = { 'class': 'SimpleStrategy', 'replication_factor': '1' };
+
+http://cdn.hpccsystems.com/releases/CE-Candidate-6.0.0/docs/HPCCSystemAdministratorsGuide-6.0.0-1.pdf
+
+
+~/hpcc/test/logging$ sudo /opt/HPCCSystems/bin/esp config=esp_cass_s.xml
+~/hpcc/test/logging$ sudo /opt/HPCCSystems/bin/esp config=esp_cass_c.xml
+http://10.176.152.59:8010/WsSMC/RoxieControlCmd?ver_=1.19
+
+
+lexis@lexis-VirtualBox:~/hpcc/test/logging$ ../../src/git_master/my_cmake/Debug/bin/logging_test -i log_test_topology_service.xml
+
+CREATE KEYSPACE IF NOT EXISTS log_eclwatch_ops WITH replication = { 'class': 'SimpleStrategy', 'replication_factor': '1' };
+CREATE KEYSPACE IF NOT EXISTS log_eclwatch_files WITH replication = { 'class': 'SimpleStrategy', 'replication_factor': '1' };
+use log_eclwatch_ops;
+
+CREATE TABLE IF NOT EXISTS service_log (
+transaction_id varchar,
+log_id varchar,
+user_id varchar,
+user_ip_address varchar,
+request_user_id varchar,
+target_url varchar,
+request text,
+actual_response text,
+date_added timestamp,
+PRIMARY KEY (log_id, user_id, date_added));
+
+CREATE TABLE IF NOT EXISTS service_log_1 (
+transaction_id varchar,
+log_id varchar,
+test_default varchar,
+request text,
+actual_response text,
+date_added timestamp,
+PRIMARY KEY (log_id, date_added));
+
+use log_eclwatch_files;
+
+CREATE TABLE IF NOT EXISTS service_log (
+log_id varchar,
+user_id varchar,
+user_ip_address varchar,
+request_user_id varchar,
+target_url varchar,
+request1 text,
+actual_response text,
+date_added timestamp,
+PRIMARY KEY (log_id, user_id, user_ip_address, date_added));
+
+CREATE TABLE IF NOT EXISTS service_log_1 (
+log_id varchar,
+test_default varchar,
+request1 text,
+actual_response text,
+date_added timestamp,
+PRIMARY KEY (log_id, date_added));
+
+TRUNCATE keyspace_name.table_name;\
+
+---Test Cassandra Logging Agent
+
+Start Cassandra DB
+Start local dali
+
+~/hpcc/test/logging$ sudo /opt/HPCCSystems/bin/esp config=esp_cass.xml
+~/hpcc/test/logging$ ../../src/git_master/my_cmake_ln/Debug/bin/logging_test -i log_test_topology_cluster.xml
+
+---Recent
+
+http://10.176.152.197:8010/?legacy
+
+http://10.176.152.197:8010/esp/files/userlogon.html
+
+http://10.176.152.197:8010/WSESPControl/CleanSession?form
+
+
+using patty or ssh –i hpcc_key_pair ubuntu@10.176.32.46
+cd ~/mysql2git/
+
+sudo ip link set mtu 1400 dev eth0
+
+----
+
+http://espdev64.sc.seisint.com:1268/?ver_=1.96 
+mapview_user usemapview
+
+----
+10.239.20.50
+
+rpm -qa | grep hpcc
+sudo rpm -e hpccsystems-platform-5.6.4-1.x86_64
+ls -lart
+sudo rpm -Uvh hpccsystems-platform-internal-with-plugins_5.6.4-rc1.el6.x86_64.rpm
+
+cd mysql2git
+
+./mysql2git -nogit -s 10.176.72.13 -d dataland_hql -u eclrepository -ep eSa/QJWdqpbQpXeOPCZtFg== -r /mnt/disk1/home/wangkx/mysql2git/git_kevin_test/test_new2
+or  ./mysql2git -s 10.194.7.50 -d hqlrepository -u eclrepository -ep 6uVy23X7q/s95rWmnysuLg== -r /mnt/disk1/home/wangkx/mysql2git/git_kevin_test/test_new2
+
+
+./mysql2git -s 10.194.7.50 -d hqlrepository -u eclrepository -ep 6uVy23X7q/s95rWmnysuLg== -r /mnt/disk1/home/wangkx/mysql2git/git_kevin_test/test_before_centos/
+./mysql2git -nogit -s 10.176.72.13 -d datalhql -u eclrepository -ep eSa/QJWdqpbQpXeOPCZtFg== -r /
+
+./mysql2git -s 10.176.72.13 -d dataland_hql -u eclrepository -ep eSa/QJWdqpbQpXeOPCZtFg== -r /home/lexis/hpcc/test/mysql2git/git_kevin_test/test20160802_1/  > ../log/kw_test_git_add_20160804.log
+ ./mysql2git -nogit -s 10.176.72.13 -d dataland_hql -u eclrepository -ep eSa/QJWdqpbQpXeOPCZtFg== -r /home/lexis/hpcc/test/mysql2git/no_git/test/  > ../log/kw_test_nogit_20160804.log
+
+----
+
+c:\seisint\dafilesrv_win_fix\dafilesrv -T0 7100
+
+-----
+
+git clone https://gitlab.ins.risk.regn.net/WangKX/test123.git
+cd test123
+touch README.md
+git add README.md
+git commit -m "add README"
+git push -u origin master
+
+------
+sudo rm /var/lib/apt/lists/* -vf
+sudo apt-get update
+
+if(m_soapbinding != NULL)
+    {
+        StringBuffer serviceQName, methodQName;
+        StringBuffer servName(ctx->queryServiceName(NULL));
+        StringBuffer methodName(rpc_call->get_name());
+        if (!m_soapbinding->qualifyServiceName(*ctx, servName.str(), methodName.str(), serviceQName, &methodQName))
+        {
+            methodName.setLength(methodName.length() - 7);
+            rpc_call->set_name(methodName.str());
+        }
+        m_soapbinding->processRequest(rpc_call, rpc_response);
+    }
+
+CE-Candidate-clienttools-Kevin
+WsTopology/SystemLog?Name=//10.194.132.1/var/log/HPCCSystems/roxie_prd132/roxie.log&Type=tpcomp_log&Zip=1
+WsTopology/SystemLog?Name=              /var/log/HPCCSystems/roxie_prd136/roxie.log&Type=tpcomp_log&Zip=1
+
+------------memcached 
+
+sudo apt-get install memcached -y
+
+sudo /etc/init.d/memcached restart
+
+https://blog.memcachier.com/2014/11/05/ubuntu-libmemcached-and-sasl-support/
+sudo apt-get remove libmemcached-dev
+sudo apt-get autoremove
+sudo apt-get install libsasl2-dev build-essential
+
+sudo apt install sasl2-bin
+
+# A client that supports SASL
+# Create a user for memcached.
+sudo saslpasswd2 -a memcached -c user-233
+
+sudo sasldblistusers2
+
+sudo nano sasl_test.c
+gcc -o sasl_test -O2 sasl_test.c -lmemcached -pthread
+./sasl_test user-233 password-233 lexis1604-virtualbox
+
+
+Running Memcached: In order to enable SASL support in the server you must use the -S flag.
+The -S flag does a few things things: Enable all of the SASL commands. Require binary protocol only. Require authentication to have been successful before commands may be issued on a connection.
+
+---Test session
+HTTP:
+Login/logout on ECLWatch
+  Session/request mix mode
+  RequestOnly mode
+Login/logout on ECLWatch legacy: HTTP Get/Post
+Login/logout on ESP Test Form
+  http://10.176.152.169:8010/WsWorkunits/WUInfo?form  HTTP Get
+    click submit: HTTP Post
+    SOAP test: SOAP Post
+SOAP Get?
+XML Get: http://10.176.152.169:8010/WsWorkunits/WUInfo.xml?WUID=
+XML Post?
+JSON Get: http://10.176.152.169:8010/WsWorkunits/WUInfo.json?WUID=
+JSON Post?
+Test ws_ecl
+Test ws_attributes
+Test using Soapplus, eclplus: SOAP Post
+Test using  IDE: SOAP Post
+Test using SOAPUI: SOAP Post -- use SOAPUI WsWorkunits/WUQuery
+
+HTTPS:
+  same as HTTP
+
+Login/logout on HTTPS:
+  openssl genrsa -des3 -out server.key 1024
+  openssl req -new -key server.key -out server.csr
+  openssl x509 -req -days 365 -in server.csr -signkey server.key -out server.crt 
+  sudo cp server.crt /var/lib/HPCCSystems/myesp/certificate.cer
+  sudo cp server.key /var/lib/HPCCSystems/myesp/privatekey.cer
+    or sudo cp server.crt certificate.cer
+       sudo cp server.key privatekey.cer
+  
+  (http://cdn.hpccsystems.com/releases/CE-Candidate-6.2.0/docs/Installing_and_RunningTheHPCCPlatform-6.2.0-1.pdf
+    "Configuring ESP Server to use HTTPS")
+ 
+  Configure ESP: Select the HTTPS tab; In the passphrase entry control, enter the passphrase you used earlier when you created the private key.
+  Configure ESP Service to use https.
+
+
+ssh -n -o LogLevel=QUIET -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o BatchMode=yes -f -o ConnectTimeout=5 10.239.20.52 "//opt/HPCCSystems/sbin/preflight -p=/var/run/HPCCSystems -n=thorslave_mythor_5,mythor_slave_5 -d=ALL"
+
+HPCC-18039 Enhance Security creds to include ESP Session and signature
+
+----------------------WU billing
+
+nohup sudo /opt/HPCCSystems/bin/esp config=esp.xml &
+
+---------------------Test MYSQL DB options
+ws_attribuutesService.cpp:
+
+                mysql::MySqlOptions mysqlOptions;
+                mysqlOptions.push_back(mysql::OptionItem(MYSQL_OPT_CONNECT_TIMEOUT, 20));
+                mysqlOptions.push_back(mysql::OptionItem(MYSQL_OPT_READ_TIMEOUT, 10));
+                mysqlOptions.push_back(mysql::OptionItem(MYSQL_OPT_WRITE_TIMEOUT, 10));
+                MySQLRepository *mysqlrep = new MySQLRepository(server,ecluser,password,ecldb, cfg->getPropInt("Mysql/@port", DEFAULT_MYSQL_PORT), cfg->getPropBool("UseAttributeTypes",true), m_props, &mysqlOptions);
+
+mysql.cpp:
+
+DBGLOG("****initSetOpts<%d=%d>", it->optID, it->optVal.optValInt);
+
+-------------------
+
+curl -D- -u wangkx:1qaz2wsx -X GET -H "Content-Type: application/json" 'https://track.hpccsystems.com/rest/api/2/search?jql=assignee=wangkx&startAt=0&maxResults=3&fields=id,key'
+
+-------------------
+sudo apt install haproxy
+sudo nano /etc/haproxy/haproxy.cfg:
+
+  frontend localnodes
+    bind *:80
+    mode http
+    default_backend nodes
+
+  backend nodes
+    cookie SRV_ID prefix
+    option httpchk GET / HTTP/1.1\r\nHost:192.168.56.101:8010\r\nUser-Agent:health-check\r\nAuthorization:'Basic a3dhbmc6c2Vpc2ludDE='
+    option httpchk GET / HTTP/1.1\r\nHost:192.168.56.101:8010\r\nAuthorization:'Basic a3dhbmc6c2Vpc2ludDE='
+    server myesp 192.168.56.101:8010 check
+
+
+sudo service haproxy start
+sudo service haproxy stop
+
+----------------------unittests
+
+lexis1604@lexis1604-VirtualBox:~/hpcc/src/git_m4/my_cmake$ Debug/bin/unittests -v CSashaWUiterateTests
+
+
+
+--------------------------------------------
+
+http://10.140.130.11:8010/?legacy&inner=../WsWorkunits/WUInfo%3FWuid%3DW20170109-161954%26IncludeExceptions%3D0%26IncludeGraphs%3D0%26IncludeSourceFiles%3D0%26IncludeResults%3D0%26IncludeVariables%3D0%26IncludeTimers%3D0%26IncludeDebugValues%3D0%26IncludeApplicationValues%3D0%26IncludeWorkflows%3D0%26SuppressResultSchemas%3D1
+
+http://10.173.132.5:8524/
+
+http://10.140.130.15:8030/
+http://10.140.131.15:8030/
+
+http://10.176.152.33:8145/WsAttributes/GetModules?ver_=1.21&soap_builder_
+
+https://github.com/hpcc-systems/HPCC-Platform/pull/10019/commits/a80e6c244745e10123c5659d3613ca658967da75
+https://github.com/hpcc-systems/HPCC-Platform/blob/c995aff8c36e7fd7ba89e8263c053e231825eb6a/esp/src/eclwatch/templates/Login.html
+
+https://github.com/hpcc-systems/HPCC-Platform/pull/9999/commits/ebb68fd5edba73c2d255f21a7cbf360119dc23a9
+https://github.com/hpcc-systems/HPCC-Platform/commit/a80e6c244745e10123c5659d3613ca658967da75
+https://github.com/Michael-Gardner/HPCC-Platform/commit/18ac91892c62dccae31f352afa3249fce1d7e200
+
+
+selectedOS = "/"
+var path = targetRow.machine.Directory.indexOf("\\");
+if (path > 1)
+  selectedOS = "\\";
+else {
+  var path1= targetRow.machine.Directory.indexOf("/");
+  if (path < 0) {
+    var path2 = targetRow.machine.Directory.indexOf(":");
+    if (path == 1)
+      selectedOS = "\\";
+  }
+}
+
+roxie_192_qa::dev192_07_19_17_31179.pkg
+
+HPCC-18145 ESDL bindings and definitions to keep publish info
+
+--------------My ESP session management tasks---------------------
+
+1. H17825: Integrate with ECL IDE: Gordon(IDE code), Kevin(ESP code), Kunal(test) 
+  a. IDE does not send userID/password with HTTP request; b. the first request is HTTP POST (expect HTTP GET) to do session auth. 
+
+2s. Integrate with other securities (HTPASSWD, MySQL security, ...): Russ(other securities), Kevin(ESP code), Kunal(test) 
+  Do not know how to setup. So need a test environment for each security. Russ?
+
+3x. H17660: Session management for password expired
+  Need multiple test accounts. Russ?
+
+4s. Hide logout button if no security. 
+  ?Right now, ws_ecl uses esp_app_tree.html to display Log Out. Should we switch to xsl for checking security and hide the log out?
+
+5x. H17977 Add session ID into the xml tag of ESP session in dali
+
+6. Display some messages for unsuccessful logins: append ?eid=...to redirect loginURL.
+
+7x. H17605 Support userID input for no security (UserName only mode?)
+
+8. Audit: 
+  Log unsuccessful logins
+  Log user sessions: when started, how long, (?)
+
+<!--AuthDomains>
+   <AuthDomain domainName="default" authType="AuthPerRequestOnly" />
+   </AuthDomains-->
+   <AuthDomains>
+   <AuthDomain authType="AuthTypeMixed" 
+               logonURL="/esp/files/eclwatch/templates/Login.html"
+               domainName="default"
+               unrestrictedResources="/favicon.ico,/esp/files/*,/esp/xslt/*"
+               sessionTimeoutMinutes="3"/>
+   </AuthDomains>
+
+----Test jlib sorted files 
+
+In httptest/CMakefile.txt:
+comment out httptest.cpp from src
+comment out securesocket from link
+
+In httptest/httptest.cpp:
+
+int main(int argc, char* argv[])
+{
+	Sleep(30000);
+	Owned<IFile> dir = createIFile(argv[1]);
+	char* mask = argv[2];
+	SortDirectoryMode sortBy = (SortDirectoryMode)atoi(argv[3]);
+	bool sortInc = (bool)atoi(argv[4]);
+	Owned<IDirectoryIterator> dirIterator;
+	if (sortBy > 4)
+		dirIterator.setown(dir->directoryFiles(mask, false, true));
+	else
+		dirIterator.setown(dir->directoryFilesSorted(sortBy, sortInc, mask, false, true));
+	ForEach(*dirIterator)
+	{
+		StringBuffer name, buf;
+		CDateTime dt;
+		dirIterator->getName(name);
+		dirIterator->getModifiedTime(dt);
+		printf("File<%s>: isDir<%d> size<%lld>, time<%s>\n", name.str(), dirIterator->isDir(), dirIterator->getFileSize(), dt.getString(buf).str());
+	}
+
+	return 0;
+}
+
+static unsigned myPageCacheTimeoutMilliSeconds = PAGE_CACHE_TIMEOUT;
+static void setPageCacheTimeoutMilliSeconds(unsigned timeoutSeconds)
+{
+    myPageCacheTimeoutMilliSeconds = 1000 * timeoutSeconds;
+}
+HPCC-18731 Copy session management setting when secmgrPlugin

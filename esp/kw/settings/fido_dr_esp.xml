@@ -1,0 +1,334 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet type="text/xsl" href="/esp/xslt/xmlformatter.xsl"?>
+<Environment>
+    <Software>
+        <EspProcess build="_" componentfilesDir="/home/lexis/runtime/opt/HPCCSystems/componentfiles" controlPort="8902" daliServers="10.173.93.141:7070" description="ESP server" enableSEHMapping="true" formOptionsAccess="false" httpConfigAccess="true" logLevel="1" logRequests="false" logResponses="false" maxBacklogQueueSize="200" maxConcurrentThreads="0" name="esp_2" perfReportDelay="60" portalurl="http://hpccsystems.com/download" computer="dalibkp-esp" directory="/var/lib/HPCCSystems/esp">
+      <Environment>
+        <EclWatch>http://10.173.93.142:8010</EclWatch>
+      </Environment>
+      
+            <ldapSecurity name="ldapserver" ldapProtocol="ldaps" localDomain="localdomain" checkViewPermissions="" authMethod="simple" maxConnections="10" passwordExpirationWarningDays="10" ldapAddress="10.173.0.70|10.173.0.9" adminGroupName="HPCCAdmin" cacheTimeout="10" description="LDAP server process" filesBasedn="ou=files,ou=ecl" groupsBasedn="ou=groups,ou=ecl,dc=internal,dc=sds" ldapPort="389" ldapSecurePort="636" resourcesBasedn="ou=alfa,ou=ecl,dc=internal,dc=sds" sudoersBasedn="ou=SUDOers" systemBasedn="cn=Users,dc=internal,dc=sds" systemCommonName="hpcc_admin" systemPassword="3VwQXXvbhF7o+2zaEdaDug==" systemUser="hpcc_admin" usersBasedn="ou=users,ou=ecl,dc=internal,dc=sds" workunitsBasedn="ou=workunits,ou=prod_ecl_alfa"/>
+      <EspProtocol name="http" type="http_protocol" plugin="esphttp" maxRequestEntityLength="8000000"/>
+            <EspService name="WSESPControl_esp_2" type="WSESPControl" plugin="ws_espcontrol"/>
+            <EspBinding name="WSESPControl_Binding_esp_2" service="WSESPControl_esp_2" protocol="http" type="ws_espcontrolSoapBinding" plugin="ws_espcontrol" netAddress="0.0.0.0" port="8902"/>
+            <EspService name="WsSMC_EclWatch_2_esp_2" type="WsSMC" plugin="libws_smc.so"/>
+            <EspBinding name="WsSMC_espsmc_2_esp_2" service="WsSMC_EclWatch_2_esp_2" protocol="http" type="ws_smcSoapBinding" plugin="libws_smc.so" netAddress="0.0.0.0" port="8011" defaultBinding="true" wsdlServiceAddress="" defaultServiceVersion="">
+        <Authenticate method="LdapSecurity" config="ldapserver" resourcesBasedn="ou=DR_Fido_SMC,ou=EspServices,ou=ecl" workunitsBasedn="ou=workunits,ou=ecl">
+          <Location path="/" resource="SmcAccess" required="Read" description="Root access to SMC service"/>
+          <Feature name="" path="SmcAccess" resource="SmcAccess" required="" description="Access to SMC service"/>
+          <Feature name="" path="ThorQueueAccess" resource="ThorQueueAccess" required="" description="Access to thor queues"/>
+          <Feature name="" path="ConfigAccess" resource="ConfigAccess" required="" description="Access to super computer environment"/>
+          <Feature name="" path="DfuAccess" resource="DfuAccess" required="" description="Access to DFU"/>
+          <Feature name="" path="DfuXrefAccess" resource="DfuXrefAccess" required="" description="Access to DFU XRef"/>
+          <Feature name="" path="LnAccessAccess" resource="LnAccessAccess" required="" description="Access to ln access"/>
+          <Feature name="" path="LnAccountAccess" resource="LnAccountAccess" required="" description="Access to ln account"/>
+          <Feature name="" path="LnRoxieQueryAccess" resource="LnRoxieQueryAccess" required="" description="Access to ln roxie queries"/>
+          <Feature name="" path="MachineInfoAccess" resource="MachineInfoAccess" required="" description="Access to machine information"/>
+          <Feature name="" path="MetricsAccess" resource="MetricsAccess" required="" description="Access to SNMP metrics information"/>
+          <Feature name="" path="ExecuteAccess" resource="ExecuteAccess" required="" description="Access to remote execution"/>
+          <Feature name="" path="DfuWorkunitsAccess" resource="DfuWorkunitsAccess" required="" description="Access to DFU workunits"/>
+          <Feature name="" path="DfuExceptionsAccess" resource="DfuExceptions" required="" description="Access to DFU exceptions"/>
+          <Feature name="" path="FileSprayAccess" resource="FileSprayAccess" required="" description="Access to spraying files"/>
+          <Feature name="" path="FileDesprayAccess" resource="FileDesprayAccess" required="" description="Access to despraying of files"/>
+          <Feature name="" path="FileDkcAccess" resource="FileDkcAccess" required="" description="Access to dkcing of key files"/>
+          <Feature name="" path="FileIOAccess" resource="FileIOAccess" required="" description="Access to files in dropzone"/>
+          <Feature name="" path="FileUploadAccess" resource="FileUploadAccess" required="" description="Access to upload files to LZ"/>
+          <Feature name="" path="WsEclAccess" resource="WsEclAccess" required="" description="Access to WS ECL service"/>
+          <Feature name="" path="RoxieQueryAccess" resource="RoxieQueryAccess" required="" description="Access to Roxie queries and files"/>
+          <Feature name="" path="ClusterTopologyAccess" resource="ClusterTopologyAccess" required="" description="Access to cluster topology"/>
+          <Feature name="" path="OwnWorkunitsAccess" resource="OwnWorkunitsAccess" required="" description="Access to own workunits"/>
+          <Feature name="" path="OthersWorkunitsAccess" resource="OthersWorkunitsAccess" required="" description="Access to others' workunits"/>
+          <Feature name="" path="EclDirectAccess" resource="EclDirectAccess" required="" description="Access to ECL direct service"/>
+        </Authenticate>
+      </EspBinding>
+            <EspService name="WsWorkunits_EclWatch_2_esp_2" type="WsWorkunits" plugin="libws_workunits.so">
+        <ViewTimeout>1000</ViewTimeout>
+        <AWUsCacheMinutes>15</AWUsCacheMinutes>
+        <AllowNewRoxieOnDemandQuery>false</AllowNewRoxieOnDemandQuery>
+        <LayoutProgram>dot/dot -Tsvg -Gordering=out</LayoutProgram>
+        <EclServer/>
+        <EclServerQueue/>
+        <StyleSheets>
+          <xslt name="atts">/esp/xslt/atts.xslt</xslt>
+          <xslt name="dot_update">/esp/xslt/dot_update.xslt</xslt>
+          <xslt name="dot">/esp/xslt/dot.xslt</xslt>
+          <xslt name="graphStats">/esp/xslt/graphStats.xslt</xslt>
+          <xslt name="graphupdate_gvc">/esp/xslt/graphupdate_gvc.xslt</xslt>
+        </StyleSheets>
+      </EspService>
+            <EspBinding name="WsWorkunits_espsmc_2_esp_2" service="WsWorkunits_EclWatch_2_esp_2" protocol="http" type="ws_workunitsSoapBinding" plugin="libws_workunits.so" netAddress="0.0.0.0" port="8011" wsdlServiceAddress="" defaultServiceVersion="">
+        <Authenticate method="LdapSecurity" config="ldapserver" resourcesBasedn="ou=DR_Fido_SMC,ou=EspServices,ou=ecl" workunitsBasedn="ou=workunits,ou=ecl">
+          <Location path="/" resource="SmcAccess" required="Read" description="Root access to SMC service"/>
+          <Feature name="" path="OwnWorkunitsAccess" resource="OwnWorkunitsAccess" required="" description="Access to own workunits"/>
+          <Feature name="" path="OthersWorkunitsAccess" resource="OthersWorkunitsAccess" required="" description="Access to others' workunits"/>
+        </Authenticate>
+      </EspBinding>
+            <EspService name="WsTopology_EclWatch_2_esp_2" type="WsTopology" plugin="libws_topology.so" warnIfCpuLoadOver="95" warnIfFreeMemoryUnder="5" warnIfFreeStorageUnder="5">
+        <AllowNewRoxieOnDemandQuery>false</AllowNewRoxieOnDemandQuery>
+        <SystemUseRewrite>false</SystemUseRewrite>
+      </EspService>
+            <EspBinding name="WsTopology_espsmc_2_esp_2" service="WsTopology_EclWatch_2_esp_2" protocol="http" type="ws_topologySoapBinding" plugin="libws_topology.so" netAddress="0.0.0.0" port="8011" wsdlServiceAddress="" defaultServiceVersion="">
+        <Authenticate method="LdapSecurity" config="ldapserver" resourcesBasedn="ou=DR_Fido_SMC,ou=EspServices,ou=ecl" workunitsBasedn="ou=workunits,ou=ecl">
+          <Location path="/" resource="SmcAccess" required="Read" description="Root access to SMC service"/>
+          <Feature name="" path="ClusterTopologyAccess" resource="ClusterTopologyAccess" required="" description="Access to cluster topology"/>
+          <Feature path="MachineInfoAccess" resource="MachineInfoAccess" required="" description="Access to machine information"/>
+        </Authenticate>
+      </EspBinding>
+            <EspService name="WsDfu_EclWatch_2_esp_2" type="WsDfu" plugin="libws_dfu.so">
+        <DisableUppercaseTranslation>false</DisableUppercaseTranslation>
+        <ViewTimeout>1000</ViewTimeout>
+        <EclServer/>
+        <EclServerQueue/>
+        <StyleSheets>
+          <xslt name="def_file">./smc_xslt/def_file.xslt</xslt>
+        </StyleSheets>
+      </EspService>
+            <EspBinding name="WsDfu_espsmc_2_esp_2" service="WsDfu_EclWatch_2_esp_2" protocol="http" type="ws_dfuSoapBinding" plugin="libws_dfu.so" netAddress="0.0.0.0" port="8011" wsdlServiceAddress="" defaultServiceVersion="">
+        <Authenticate method="LdapSecurity" config="ldapserver" resourcesBasedn="ou=DR_Fido_SMC,ou=EspServices,ou=ecl" workunitsBasedn="ou=workunits,ou=ecl">
+          <Location path="/" resource="SmcAccess" required="Read" description="Root access to SMC service"/>
+          <Feature name="" path="DfuAccess" resource="DfuAccess" required="" description="Access to DFU"/>
+        </Authenticate>
+      </EspBinding>
+            <EspService name="WsDfuXRef_EclWatch_2_esp_2" type="WsDfuXRef" plugin="libws_dfu.so">
+        <ViewTimeout>1000</ViewTimeout>
+        <LayoutProgram>dot/dot -Tsvg -Gordering=out</LayoutProgram>
+        <StyleSheets>
+          <xslt name="def_file">./smc_xslt/def_file.xslt</xslt>
+        </StyleSheets>
+      </EspService>
+            <EspBinding name="WsDfuXRef_espsmc_2_esp_2" service="WsDfuXRef_EclWatch_2_esp_2" protocol="http" type="ws_dfuxrefSoapBinding" plugin="libws_dfu.so" netAddress="0.0.0.0" port="8011" wsdlServiceAddress="" defaultServiceVersion="">
+        <Authenticate method="LdapSecurity" config="ldapserver" resourcesBasedn="ou=DR_Fido_SMC,ou=EspServices,ou=ecl" workunitsBasedn="ou=workunits,ou=ecl">
+          <Location path="/" resource="SmcAccess" required="Read" description="Root access to SMC service"/>
+          <Feature name="" path="DfuXrefAccess" resource="DfuXrefAccess" required="" description="Access to DFU XRef"/>
+        </Authenticate>
+      </EspBinding>
+            <EspService name="FileSpray_Serv_EclWatch_2_esp_2" type="FileSpray_Serv" plugin="libws_fs.so">
+        <QueueLabel>dfuserver_queue</QueueLabel>
+        <MonitorQueueLabel>dfuserver_monitor_queue</MonitorQueueLabel>
+        <RootFolder>/c$/thordata</RootFolder>
+      </EspService>
+            <EspBinding name="FileSpray_Serv_espsmc_2_esp_2" service="FileSpray_Serv_EclWatch_2_esp_2" protocol="http" type="FileSpray_Bind" plugin="libws_fs.so" netAddress="0.0.0.0" port="8011" wsdlServiceAddress="" defaultServiceVersion="">
+        <Authenticate method="LdapSecurity" config="ldapserver" resourcesBasedn="ou=DR_Fido_SMC,ou=EspServices,ou=ecl" workunitsBasedn="ou=workunits,ou=ecl">
+          <Location path="/" resource="SmcAccess" required="Read" description="Root access to SMC service"/>
+          <Feature name="" path="DfuWorkunitsAccess" resource="DfuWorkunitsAccess" required="" description="Access to DFU workunits"/>
+          <Feature name="" path="DfuExceptionsAccess" resource="DfuExceptions" required="" description="Access to DFU exceptions"/>
+          <Feature name="" path="FileSprayAccess" resource="FileSprayAccess" required="" description="Access to spraying files"/>
+          <Feature name="" path="FileDesprayAccess" resource="FileDesprayAccess" required="" description="Access to despraying of files"/>
+          <Feature name="" path="FileDkcAccess" resource="FileDkcAccess" required="" description="Access to dkcing of key files"/>
+          <Feature name="" path="FileUploadAccess" resource="FileUploadAccess" required="" description="Access to upload files to LZ"/>
+        </Authenticate>
+      </EspBinding>
+            <EspService name="WsFileIO_EclWatch_2_esp_2" type="WsFileIO" plugin="libws_fileio.so"/>
+            <EspBinding name="WsFileIO_espsmc_2_esp_2" service="WsFileIO_EclWatch_2_esp_2" protocol="http" type="WsFileIO" plugin="libws_fileio.so" netAddress="0.0.0.0" port="8011" wsdlServiceAddress="" defaultServiceVersion="">
+        <Authenticate method="LdapSecurity" config="ldapserver" resourcesBasedn="ou=DR_Fido_SMC,ou=EspServices,ou=ecl" workunitsBasedn="ou=workunits,ou=ecl">
+          <Location path="/" resource="SmcAccess" required="Read" description="Root access to SMC service"/>
+          <Feature name="" path="FileIOAccess" resource="FileIOAccess" required="" description="Access to files in dropzone"/>
+        </Authenticate>
+      </EspBinding>
+            <EspService name="WsPackageProcess_EclWatch_2_esp_2" type="WsPackageProcess" plugin="libws_packageprocess.so"/>
+            <EspBinding name="WsPackageProcess_espsmc_2_esp_2" service="WsPackageProcess_EclWatch_2_esp_2" protocol="http" type="WsPackageProcessSoapBinding" plugin="libws_packageprocess.so" netAddress="0.0.0.0" port="8011" wsdlServiceAddress="" defaultServiceVersion="">
+        <Authenticate method="LdapSecurity" config="ldapserver" resourcesBasedn="ou=DR_Fido_SMC,ou=EspServices,ou=ecl" workunitsBasedn="ou=workunits,ou=ecl">
+          <Location path="/" resource="SmcAccess" required="Read" description="Root access to SMC service"/>
+        </Authenticate>
+      </EspBinding>
+            <EspService name="ws_machine_EclWatch_2_esp_2" type="ws_machine" plugin="libws_machine.so" excludePartitions="/dev*,/sys*,/proc/*,/run*" monitorDaliFileServer="false">
+        <ProcessFilters>
+               <Platform name="Windows">
+                  <ProcessFilter name="any">
+                     <Process name="dafilesrv"/>
+                  </ProcessFilter>
+                  <ProcessFilter name="AttrServerProcess">
+                     <Process name="attrserver"/>
+                  </ProcessFilter>
+                  <ProcessFilter name="DaliProcess">
+                     <Process name="daserver"/>
+                  </ProcessFilter>
+                  <ProcessFilter multipleInstances="true" name="DfuServerProcess">
+                     <Process name="dfuserver"/>
+                  </ProcessFilter>
+                  <ProcessFilter multipleInstances="true" name="EclCCServerProcess">
+                     <Process name="eclccserver"/>
+                  </ProcessFilter>
+                  <ProcessFilter multipleInstances="true" name="EclServerProcess">
+                     <Process name="eclserver"/>
+                  </ProcessFilter>
+                  <ProcessFilter multipleInstances="true" name="EspProcess">
+                     <Process name="esp"/>
+                     <Process name="dafilesrv" remove="true"/>
+                  </ProcessFilter>
+                  <ProcessFilter name="FTSlaveProcess">
+                     <Process name="ftslave"/>
+                  </ProcessFilter>
+                  <ProcessFilter name="RoxieServerProcess">
+                     <Process name="roxie"/>
+                  </ProcessFilter>
+                  <ProcessFilter name="RoxieSlaveProcess">
+                     <Process name="roxie"/>
+                  </ProcessFilter>
+                  <ProcessFilter name="SchedulerProcess">
+                     <Process name="scheduler"/>
+                  </ProcessFilter>
+                  <ProcessFilter name="ThorMasterProcess">
+                     <Process name="thormaster"/>
+                  </ProcessFilter>
+                  <ProcessFilter name="ThorSlaveProcess">
+                     <Process name="thorslave"/>
+                  </ProcessFilter>
+                  <ProcessFilter name="SashaServerProcess">
+                     <Process name="saserver"/>
+                  </ProcessFilter>
+               </Platform>
+               <Platform name="Linux">
+                  <ProcessFilter name="any">
+                     <Process name="dafilesrv"/>
+                  </ProcessFilter>
+                  <ProcessFilter name="AttrServerProcess">
+                     <Process name="attrserver"/>
+                  </ProcessFilter>
+                  <ProcessFilter name="DaliProcess">
+                     <Process name="daserver"/>
+                  </ProcessFilter>
+                  <ProcessFilter multipleInstances="true" name="DfuServerProcess">
+                     <Process name="dfuserver"/>
+                  </ProcessFilter>
+                  <ProcessFilter multipleInstances="true" name="EclCCServerProcess">
+                     <Process name="eclccserver"/>
+                  </ProcessFilter>
+                  <ProcessFilter multipleInstances="true" name="EclServerProcess">
+                     <Process name="eclserver"/>
+                  </ProcessFilter>
+                  <ProcessFilter multipleInstances="true" name="EspProcess">
+                     <Process name="esp"/>
+                     <Process name="dafilesrv" remove="true"/>
+                  </ProcessFilter>
+                  <ProcessFilter name="FTSlaveProcess">
+                     <Process name="ftslave"/>
+                  </ProcessFilter>
+                  <ProcessFilter name="GenesisServerProcess">
+                     <Process name="mysql"/>
+                     <Process name="httpd"/>
+                     <Process name="atftpd"/>
+                     <Process name="dhcpd"/>
+                  </ProcessFilter>
+                  <ProcessFilter name="RoxieServerProcess">
+                     <Process name="roxie"/>
+                  </ProcessFilter>
+                  <ProcessFilter name="RoxieSlaveProcess">
+                     <Process name="roxie"/>
+                  </ProcessFilter>
+                  <ProcessFilter name="SchedulerProcess">
+                     <Process name="scheduler"/>
+                  </ProcessFilter>
+                  <ProcessFilter name="ThorMasterProcess">
+                     <Process name="thormaster"/>
+                  </ProcessFilter>
+                  <ProcessFilter name="ThorSlaveProcess">
+                     <Process name="thorslave"/>
+                  </ProcessFilter>
+                  <ProcessFilter name="SashaServerProcess">
+                     <Process name="saserver"/>
+                  </ProcessFilter>
+               </Platform>
+            </ProcessFilters>
+        <UseDefaultSSHUserID>false</UseDefaultSSHUserID>
+        <UseDefaultPIDFileName>true</UseDefaultPIDFileName>
+      </EspService>
+            <EspBinding name="ws_machine_espsmc_2_esp_2" service="ws_machine_EclWatch_2_esp_2" protocol="http" type="ws_machineSoapBinding" plugin="libws_machine.so" netAddress="0.0.0.0" port="8011" wsdlServiceAddress="" defaultServiceVersion="">
+        <Authenticate method="LdapSecurity" config="ldapserver" resourcesBasedn="ou=DR_Fido_SMC,ou=EspServices,ou=ecl" workunitsBasedn="ou=workunits,ou=ecl">
+          <Location path="/" resource="SmcAccess" required="Read" description="Root access to SMC service"/>
+          <Feature name="" path="MachineInfoAccess" resource="MachineInfoAccess" required="" description="Access to machine information"/>
+          <Feature name="" path="MetricsAccess" resource="MetricsAccess" required="" description="Access to SNMP metrics information"/>
+          <Feature name="" path="ExecuteAccess" resource="ExecuteAccess" required="" description="Access to remote execution"/>
+        </Authenticate>
+      </EspBinding>
+            <EspService name="ws_account_EclWatch_2_esp_2" type="ws_account" plugin="libws_account.so"/>
+            <EspBinding name="ws_account_espsmc_2_esp_2" service="ws_account_EclWatch_2_esp_2" protocol="http" type="ws_accountSoapBinding" plugin="libws_account.so" netAddress="0.0.0.0" port="8011" wsdlServiceAddress="" defaultServiceVersion="">
+        <Authenticate method="LdapSecurity" config="ldapserver" resourcesBasedn="ou=DR_Fido_SMC,ou=EspServices,ou=ecl" workunitsBasedn="ou=workunits,ou=ecl">
+          <Location path="/" resource="SmcAccess" required="Read" description="Root access to SMC service"/>
+        </Authenticate>
+      </EspBinding>
+            <EspService name="ws_access_EclWatch_2_esp_2" type="ws_access" plugin="libws_access.so">
+        <Modules basedn="ou=alfa,ou=ecl,dc=internal,dc=sds"/>
+        <Files basedn="ou=Files,ou=ecl"/>
+        <Resources>
+          <Binding name="espsmc" service="EclWatch" port="8010" basedn="ou=DR_Fido_SMC,ou=EspServices,ou=ecl" workunitsBasedn="ou=workunits,ou=ecl"/>
+          <Binding name="ws_ecl" service="ws_ecl" port="8002" basedn="ou=DR_Fido_WsEcl,ou=EspServices,ou=ecl" workunitsBasedn="ou=workunits,ou=ecl"/>
+          <Binding name="espsmc_2" service="EclWatch_2" port="8011" basedn="ou=DR_Fido_SMC,ou=EspServices,ou=ecl" workunitsBasedn="ou=workunits,ou=ecl"/>
+          <Binding name="EspBinding" service="dynamicesdl" port="8087" basedn="ou=DR_Fido_EspServices,ou=ecl" workunitsBasedn="ou=workunits,ou=ecl"/>
+          <Binding name="espsmc_2" service="EclWatch_2" port="8012" basedn="ou=DR_Fido_SMC,ou=EspServices,ou=ecl" workunitsBasedn="ou=workunits,ou=ecl"/>
+          <Binding name="EspBinding" service="dynamicesdl" port="8088" basedn="ou=DR_Fido_EspServices,ou=ecl" workunitsBasedn="ou=workunits,ou=ecl"/>
+          <Binding name="espsmc" service="EclWatch" port="18010" basedn="ou=DR_Fido_SMC,ou=EspServices,ou=ecl" workunitsBasedn="ou=workunits,ou=ecl"/>
+          <Binding name="ws_ecl" service="ws_ecl" port="18002" basedn="ou=DR_Fido_WsEcl,ou=EspServices,ou=ecl" workunitsBasedn="ou=workunits,ou=ecl"/>
+          <Binding name="espsmc_2" service="EclWatch_2" port="18011" basedn="ou=DR_Fido_SMC,ou=EspServices,ou=ecl" workunitsBasedn="ou=workunits,ou=ecl"/>
+          <Binding name="EspBinding" service="dynamicesdl" port="18087" basedn="ou=DR_Fido_EspServices,ou=ecl" workunitsBasedn="ou=workunits,ou=ecl"/>
+          <Binding name="espsmc_2" service="EclWatch_2" port="18012" basedn="ou=DR_Fido_SMC,ou=EspServices,ou=ecl" workunitsBasedn="ou=workunits,ou=ecl"/>
+          <Binding name="EspBinding" service="dynamicesdl" port="18088" basedn="ou=DR_Fido_EspServices,ou=ecl" workunitsBasedn="ou=workunits,ou=ecl"/>
+        </Resources>
+      </EspService>
+            <EspBinding name="ws_access_espsmc_2_esp_2" service="ws_access_EclWatch_2_esp_2" protocol="http" type="ws_accessSoapBinding" plugin="libws_access.so" netAddress="0.0.0.0" port="8011" wsdlServiceAddress="" defaultServiceVersion="">
+        <Authenticate method="LdapSecurity" config="ldapserver" resourcesBasedn="ou=DR_Fido_SMC,ou=EspServices,ou=ecl" workunitsBasedn="ou=workunits,ou=ecl">
+          <Location path="/" resource="SmcAccess" required="Read" description="Root access to SMC service"/>
+        </Authenticate>
+      </EspBinding>
+            <EspService name="ws_config_EclWatch_2_esp_2" type="ws_config" plugin="libws_config.so"/>
+            <EspBinding name="ws_config_espsmc_2_esp_2" service="ws_config_EclWatch_2_esp_2" protocol="http" type="ws_configSoapBinding" plugin="libws_config.so" netAddress="0.0.0.0" port="8011" wsdlServiceAddress="" defaultServiceVersion="">
+        <Authenticate method="LdapSecurity" config="ldapserver" resourcesBasedn="ou=DR_Fido_SMC,ou=EspServices,ou=ecl" workunitsBasedn="ou=workunits,ou=ecl">
+          <Location path="/" resource="SmcAccess" required="Read" description="Root access to SMC service"/>
+          <Feature name="" path="ConfigAccess" resource="ConfigAccess" required="" description="Access to super computer environment"/>
+        </Authenticate>
+      </EspBinding>
+            <EspService name="ws_esdlconfig_EclWatch_2_esp_2" type="ws_esdlconfig" plugin="libws_esdlconfig.so"/>
+            <EspBinding name="ws_esdlconfig_espsmc_2_esp_2" service="ws_esdlconfig_EclWatch_2_esp_2" protocol="http" type="ws_esdlconfigSoapBinding" plugin="libws_esdlconfig.so" netAddress="0.0.0.0" port="8011" wsdlServiceAddress="" defaultServiceVersion="">
+        <Authenticate method="LdapSecurity" config="ldapserver" resourcesBasedn="ou=DR_Fido_SMC,ou=EspServices,ou=ecl" workunitsBasedn="ou=workunits,ou=ecl">
+          <Location path="/" resource="SmcAccess" required="Read" description="Root access to SMC service"/>
+        </Authenticate>
+      </EspBinding>
+            <EspService name="ws_elk_EclWatch_2_esp_2" type="ws_elk" plugin="libws_elk.so">
+        <ELKIntegration>
+          <Kibana/>
+          <ElasticSearch/>
+          <LogStash/>
+        </ELKIntegration>
+      </EspService>
+            <EspBinding name="ws_elk_espsmc_2_esp_2" service="ws_elk_EclWatch_2_esp_2" protocol="http" type="ws_elkSoapBinding" plugin="libws_elk.so" netAddress="0.0.0.0" port="8011" wsdlServiceAddress="" defaultServiceVersion="">
+        <Authenticate method="LdapSecurity" config="ldapserver" resourcesBasedn="ou=DR_Fido_SMC,ou=EspServices,ou=ecl" workunitsBasedn="ou=workunits,ou=ecl">
+          <Location path="/" resource="SmcAccess" required="Read" description="Root access to SMC service"/>
+        </Authenticate>
+      </EspBinding>
+            <EspService name="ws_store_EclWatch_2_esp_2" type="ws_store" plugin="libws_store.so">
+        <StoreProvider lib="dalistorelib"/>
+        <Stores>
+          <Store description="Generic KeyVal store for HPCC Applications" name="HPCCApps" default="true"/>
+        </Stores>
+      </EspService>
+            <EspBinding name="ws_store_espsmc_2_esp_2" service="ws_store_EclWatch_2_esp_2" protocol="http" type="ws_storeSoapBinding" plugin="libws_store.so" netAddress="0.0.0.0" port="8011" wsdlServiceAddress="" defaultServiceVersion="">
+        <Authenticate method="LdapSecurity" config="ldapserver" resourcesBasedn="ou=DR_Fido_SMC,ou=EspServices,ou=ecl" workunitsBasedn="ou=workunits,ou=ecl">
+          <Location path="/" resource="SmcAccess" required="Read" description="Root access to SMC service"/>
+        </Authenticate>
+      </EspBinding>
+            <EspService name="dynamicesdl" type="dynamicesdl" plugin="esdl_svc_engine" namespaceBase="urn:hpccsystems:ws"/>
+            <EspBinding name="EspBinding" service="dynamicesdl" protocol="http" type="EsdlBinding" plugin="esdl_svc_engine" netAddress="0.0.0.0" port="8087">
+        <Authenticate method="LdapSecurity" config="ldapserver" resourcesBasedn="ou=DR_Fido_EspServices,ou=ecl" workunitsBasedn="ou=workunits,ou=ecl"/>
+        
+            </EspBinding>
+      
+      
+         <Authentication ldapAuthMethod="simple" ldapConnections="10" ldapServer="ldapserver" method="ldaps" passwordExpirationWarningDays="10"/>
+		 <!--Authentication checkViewPermissions="false" htpasswdFile="/etc/HPCCSystems/.htpasswd" ldapConnections="10" ldapServer="" method="none" passwordExpirationWarningDays="10"/-->
+      
+      
+      </EspProcess>
+        <Directories name="HPCCSystems">
+         <Category dir="/var/log/[NAME]/[INST]" name="log"/>
+         <Category dir="/var/lib/[NAME]/[INST]" name="run"/>
+         <Category dir="/etc/[NAME]/[INST]" name="conf"/>
+         <Category dir="/var/lib/[NAME]/[INST]/temp" name="temp"/>
+         <Category dir="/var/lib/[NAME]/hpcc-data/[COMPONENT]" name="data"/>
+         <Category dir="/var/lib/[NAME]/hpcc-data2/[COMPONENT]" name="data2"/>
+         <Category dir="/var/lib/[NAME]/hpcc-data3/[COMPONENT]" name="data3"/>
+         <Category dir="/var/lib/[NAME]/hpcc-mirror/[COMPONENT]" name="mirror"/>
+         <Category dir="/var/lib/[NAME]/queries/[INST]" name="query"/>
+         <Category dir="/var/lock/[NAME]/[INST]" name="lock"/>
+      </Directories>
+    </Software>
+</Environment>

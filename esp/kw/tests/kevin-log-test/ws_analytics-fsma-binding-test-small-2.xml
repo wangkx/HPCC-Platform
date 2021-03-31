@@ -1,0 +1,29 @@
+<Binding>
+    <Definition>
+        <LogTransforms/>
+        <Methods>
+            <Transforms>
+                <xsdl:CustomRequestTransform name="loggingTest" target="soap:Body/{$query}" xmlns:xsdl="urn:hpcc:esdl:script">
+        <!-- logging debug -->
+        <xsdl:if test="soap:Body/*[local-name()=$query]/*[local-name()=$request]/Row/User/QueryId=&apos;off&apos;">
+            <xsdl:set-log-option name="disable-log-type-accounting_log" select="&apos;true&apos;"/>
+        </xsdl:if>
+
+        <xsdl:if test="soap:Body/*[local-name()=$query]/*[local-name()=$request]/Row/User/QueryId=&apos;control&apos;">
+            <xsdl:set-log-option name="thread-queue-fsma_esp.8064.WsAnalytics-accounting_log" select="&apos;skip&apos;"/>
+        </xsdl:if>
+    </xsdl:CustomRequestTransform>
+
+            
+            </Transforms>
+            
+            <Method name="BusinessCreditReport" path="" url="http://roxiestaging.br.seisint.com:9876" timeout="" mode="ESDL" queryname="BusinessCredit_Services.CreditReportService" status="available" scoutLog="true" maxWaitSecondsAllowed="50" auth_feature="AllowBusinessCreditReport:FULL" traceLevel="10"></Method>
+
+            <Method name="SmallBusinessRisk" path="" url="http://roxiestaging.br.seisint.com:9876" timeout="" mode="ESDL" queryname="LNSmallBusiness.SmallBusiness_Service" status="available" scoutLog="true" traceLevel="10" maxWaitSecondsAllowed="10" XXXauth_feature="AllowBusinessAuthRepSearch:FULL" auth_feature="AllowSmallBusinessRisk:FULL"/>
+
+            <Method name="BusinessAuthRepSearch" path="" url="http://roxiestaging.br.seisint.com:9876" timeout="" mode="ESDL" queryname="BusinessCredit_Services.BusinessAuthRepSearchService" status="available" scoutLog="false" traceLevel="10" XXXauth_feature="AllowSmallBusinessRisk:FULL" auth_feature="AllowBusinessAuthRepSearch:FULL"/>
+
+            <Method name="SmallBusinessBipCombinedReport" path="" url="http://roxiestaging.br.seisint.com:9876" timeout="" mode="ESDL" queryname="LNSmallBusiness.SmallBusiness_BIP_Combined_Service" status="available" scoutLog="true" traceLevel="10" auth_feature="AllowSBFEBipCombinedReport:FULL"></Method>
+        </Methods>
+    </Definition>
+</Binding>

@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/" xmlns:SOAP-ENC="http://schemas.xmlsoap.org/soap/encoding/" xmlns="urn:hpccsystems:ws:wsdali">
+ <soap:Body>
+  <GetValueRequest>
+   <Path>/Environment/EnvSettings/mpTraceLevel</Path>
+  </GetValueRequest>
+ </soap:Body>
+</soap:Envelope>
+
+<soap:Envelope xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/" xmlns:wsse="http://schemas.xmlsoap.org/ws/2002/04/secext">
+ <soap:Body>
+  <GetValueResponse xmlns="urn:hpccsystems:ws:wsdali">
+   <Value>0</Value>
+  </GetValueResponse>
+ </soap:Body>
+</soap:Envelope>
+
+<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/" xmlns:SOAP-ENC="http://schemas.xmlsoap.org/soap/encoding/" xmlns="urn:hpccsystems:ws:wsdali">
+ <soap:Body>
+  <SetValueRequest>
+   <Path>/Environment/EnvSettings/mpTraceLevel</Path>
+   <Value>1</Value>
+  </SetValueRequest>
+ </soap:Body>
+</soap:Envelope>
+
+<soap:Envelope xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/" xmlns:wsse="http://schemas.xmlsoap.org/ws/2002/04/secext">
+ <soap:Body>
+  <SetValueResponse xmlns="urn:hpccsystems:ws:wsdali">
+   <Result>Changed /Environment/EnvSettings/mpTraceLevel from '0' to '1'</Result>
+  </SetValueResponse>
+ </soap:Body>
+</soap:Envelope>
+
+/home/lexis/runtime/opt/HPCCSystems/bin/daliadmin server=localhost user=kwang get /Environment/EnvSettings/mpTraceLevel password=a
+/home/lexis/runtime/opt/HPCCSystems/bin/daliadmin server=localhost user=kwang set 1 /Environment/EnvSettings/mpTraceLevel password=a

@@ -1,0 +1,88 @@
+ECLWatch
+
+1. Home page
+1.1 Activity tab
+1.2 Event Scheduler tab (not for cloud?)
+1.3 Search Results tab
+1.4 Search all function
+1.5 Login function
+1.6 Top level drop down menu
+...
+
+2. ECL section
+2.1 ECL Workunits tab
+2.1.1 ECL Workunit details tab
+...
+2.1.2 Refresh button
+2.1.3 Open button
+2.1.4 Close button
+...
+2.1.? Workunits select check boxes
+2.1.? SortBy ...
+
+2.2 Playground tab
+...
+
+3. Logical Files section
+3.1 Logical Files tab
+3.1.1 Logical File details tab
+...
+3.1.2 Refresh button
+3.1.3 Open button
+3.1.4 Delete button
+...
+3.1.? Logical Files select check boxes
+3.1.? SortBy ...
+
+3.2 Landing Zones tab
+3.2.1 Landing zone details
+...
+3.2.2 Refresh button
+3.2.3 Upload button
+3.2.4 Download button
+...
+
+3.3 DFU Workunits tab
+3.3.1 DFU Workunit details tab
+...
+3.3.2 Refresh button
+3.3.3 Open button
+3.3.4 Close button
+...
+3.3.? Workunits select check boxes
+3.3.? SortBy ...
+...
+
+3.4 XRef tab (not for cloud?)
+...
+
+4. Published Query section
+4.1 Queries tab
+4.1.1 Query details tab
+...
+4.1.2 Refresh button
+4.1.3 Open button
+4.1.4 Delete button
+...
+4.1.? Queries select check boxes
+4.1.? SortBy ...
+4.1.? WU link
+
+4.2 Package Maps tab
+4.2.1 Package Map details tab
+...
+4.2.2 Reload button
+4.2.3 Open button
+4.2.4 Add button
+4.2.5 Delete button
+...
+4.2.? Package Map select check boxes
+4.2.? SortBy ...
+...
+
+5. Operation section
+5.1 Security tab
+...
+5.2 Dynamic ESDL tab
+...
+5.3 Other tabs?  

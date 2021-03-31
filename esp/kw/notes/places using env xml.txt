@@ -1,0 +1,232 @@
+
+extern ENVIRONMENT_API unsigned getAccessibleServiceURLList(const char *serviceType, std::vector<std::string> &list); //find http://ip:port
+C:\Users\wangkx\source\repos\HPCC-Platform\esp\clients\wsdfuaccess\wsdfuaccess.cpp(58):        getAccessibleServiceURLList("WsSMC", dfuServiceUrls);
+
+extern ENVIRONMENT_API void getDFUServerQueueNames(StringArray &ret, const char *process);
+    StringBuffer xpath ("Software/DfuServerProcess");
+    if (!isEmptyString(process))
+        xpath.appendf("[@name=\"%s\"]", process);
+DFU server? C:\Users\wangkx\source\repos\HPCC-Platform\esp\services\ws_fs\ws_fsService.cpp(124):    getDFUServerQueueNames(qlist, nullptr);
+DFU server? C:\Users\wangkx\source\repos\HPCC-Platform\esp\services\ws_fs\ws_fsService.cpp(3469):        getDFUServerQueueNames(qlist, req.getDFUServerName());
+
+extern ENVIRONMENT_API IStringVal &getEclCCServerQueueNames(IStringVal &ret, const char *process);
+	extern IStringVal &getEclCCServerQueueNames(IStringVal &ret, const char *process)
+	{
+		return getProcessQueueNames(ret, process, "EclCCServerProcess", ECLCCSERVER_QUEUE_EXT);
+	}
+	In getProcessQueueNames():
+		StringBuffer queueNames;
+        StringBuffer xpath;
+        xpath.appendf("%s[@process=\"%s\"]", type, process);
+        Owned<IPropertyTreeIterator> targets = root->getElements("Software/Topology/Cluster");
+        ForEach(*targets)
+        {
+            IPropertyTree &target = targets->query();
+            if (target.hasProp(xpath))
+            {
+                if (queueNames.length())
+                    queueNames.append(',');
+                queueNames.append(target.queryProp("@name")).append(suffix);
+            }
+        }
+		
+extern ENVIRONMENT_API IStringVal &getEclServerQueueNames(IStringVal &ret, const char *process);
+extern ENVIRONMENT_API IStringVal &getEclSchedulerQueueNames(IStringVal &ret, const char *process);
+extern ENVIRONMENT_API IStringVal &getAgentQueueNames(IStringVal &ret, const char *process);
+extern ENVIRONMENT_API IStringVal &getRoxieQueueNames(IStringVal &ret, const char *process);
+extern ENVIRONMENT_API IStringVal &getThorQueueNames(IStringVal &ret, const char *process);
+All 6 queueName functions are similar. No call from ESP.
+
+extern ENVIRONMENT_API ClusterType getClusterTypeByClusterName(const char *cluster); //path.set("Software/ThorCluster[@name=\"").append(cluster).append("\"]");
+C:\Users\wangkx\source\repos\HPCC-Platform\esp\services\ws_dfu\ws_dfuService.cpp(6225):        ClusterType clusterType = getClusterTypeByClusterName(clusterName);
+C:\Users\wangkx\source\repos\HPCC-Platform\esp\services\ws_dfu\ws_dfuService.cpp(6321):        ClusterType clusterType = getClusterTypeByClusterName(clusterName);
+C:\Users\wangkx\source\repos\HPCC-Platform\esp\services\ws_dfu\ws_dfuService.cpp(6471):            ClusterType clusterType = getClusterTypeByClusterName(clusterName);
+
+extern ENVIRONMENT_API StringBuffer &getClusterGroupName(StringBuffer &ret, const char *cluster); //similar to getClusterThorGroupName, but for roxie, hthor also
+C:\Users\wangkx\source\repos\HPCC-Platform\esp\services\ws_dfu\ws_dfuService.cpp(111):        getClusterGroupName(cluster, groupName);
+C:\Users\wangkx\source\repos\HPCC-Platform\esp\services\ws_dfu\ws_dfuService.cpp(6115):    getClusterGroupName(groupName, clusterName);
+C:\Users\wangkx\source\repos\HPCC-Platform\esp\services\ws_dfu\ws_dfuService.cpp(6326):        getClusterGroupName(groupName, clusterName);
+C:\Users\wangkx\source\repos\HPCC-Platform\esp\services\ws_fs\ws_fsBinding.cpp(239):            getClusterGroupName(cluster, thorClusterGroupName);
+C:\Users\wangkx\source\repos\HPCC-Platform\esp\services\ws_fs\ws_fsService.cpp(3401):            getClusterGroupName(cluster, thorClusterGroupName);
+C:\Users\wangkx\source\repos\HPCC-Platform\esp\services\ws_machine\ws_machineService.cpp(784):        getClusterGroupName(*cluster, groupName);
+C:\Users\wangkx\source\repos\HPCC-Platform\esp\services\ws_machine\ws_machineService.cpp(3111):        getClusterGroupName(cluster, thorClusterGroupName);
+C:\Users\wangkx\source\repos\HPCC-Platform\esp\smc\SMCLib\LogicFileWrapper.cpp(153):    df->getClusterGroupName(0, nodeGroup);
+C:\Users\wangkx\source\repos\HPCC-Platform\esp\smc\SMCLib\TpWrapper.cpp(1300):        getClusterGroupName(cluster, thorClusterGroupName);
+
+extern ENVIRONMENT_API StringBuffer &getClusterThorGroupName(StringBuffer &ret, const char *cluster); //path.append("Software/ThorCluster[@name=\"").append(cluster).append("\"]");
+C:\Users\wangkx\source\repos\HPCC-Platform\esp\services\ws_workunits\ws_workunitsHelpers.cpp(1109):            getClusterThorGroupName(groupName, processName.str());
+C:\Users\wangkx\source\repos\HPCC-Platform\esp\services\ws_workunits\ws_workunitsHelpers.cpp(1237):                getClusterThorGroupName(groupName, processName.str());
+C:\Users\wangkx\source\repos\HPCC-Platform\esp\services\ws_workunits\ws_workunitsHelpers.cpp(2061):    getClusterThorGroupName(groupName, instanceName);
+C:\Users\wangkx\source\repos\HPCC-Platform\esp\services\ws_workunits\ws_workunitsHelpers.cpp(3595):        getClusterThorGroupName(groupName, processName.str());
+
+extern ENVIRONMENT_API IStringIterator *getTargetClusters(const char *processType, const char *processName);
+done C:\Users\wangkx\source\repos\HPCC-Platform\esp\services\ws_dfu\ws_dfuXRefService.cpp(578):    Owned<IStringIterator> targets = getTargetClusters("RoxieCluster", process);
+not needed C:\Users\wangkx\source\repos\HPCC-Platform\esp\services\ws_ecl\ws_ecl_service.cpp(222):    Owned<IStringIterator> roxieTargets = getTargetClusters("RoxieCluster", NULL);
+done C:\Users\wangkx\source\repos\HPCC-Platform\esp\services\ws_ecl\ws_ecl_service.cpp(399):    Owned<IStringIterator> envTargets = getTargetClusters(NULL, NULL);
+done C:\Users\wangkx\source\repos\HPCC-Platform\esp\services\ws_fs\ws_fsService.cpp(884):        Owned<IStringIterator> targets = getTargetClusters(nullptr, clusterName);
+done C:\Users\wangkx\source\repos\HPCC-Platform\esp\services\ws_machine\ws_machineService.cpp(282):        StringArray& targetClusters = req.getTargetClusters();
+done C:\Users\wangkx\source\repos\HPCC-Platform\esp\services\ws_machine\ws_machineService.cpp(2924):    Owned<IStringIterator> targets = getTargetClusters(nullptr, nullptr);
+C:\Users\wangkx\source\repos\HPCC-Platform\esp\services\ws_machine\ws_machineService.cpp(2936):    StringArray& targetClusters = req.getTargetClusters();
+done C:\Users\wangkx\source\repos\HPCC-Platform\esp\services\ws_sql\ws_sqlService.cpp(69):        Owned<IStringIterator> targets = getTargetClusters(nullptr, nullptr);
+done C:\Users\wangkx\source\repos\HPCC-Platform\esp\services\ws_sql\ws_sqlService.cpp(1976):    Owned<IStringIterator> it = getTargetClusters(nullptr, nullptr);
+done C:\Users\wangkx\source\repos\HPCC-Platform\esp\services\ws_workunits\ws_workunitsQuerySets.cpp(422):    Owned<IStringIterator> targets = getTargetClusters("RoxieCluster", nullptr);
+done C:\Users\wangkx\source\repos\HPCC-Platform\esp\services\ws_workunits\ws_workunitsQuerySets.cpp(1019):    Owned<IStringIterator> targets = getTargetClusters(nullptr, nullptr);
+done C:\Users\wangkx\source\repos\HPCC-Platform\esp\services\ws_workunits\ws_workunitsQuerySets.cpp(1760):        Owned<IStringIterator> targets = getTargetClusters("RoxieCluster", nullptr);
+done C:\Users\wangkx\source\repos\HPCC-Platform\esp\services\ws_workunits\ws_workunitsQuerySets.cpp(1822):        Owned<IStringIterator> targetClusters = getTargetClusters("RoxieCluster", process);
+done C:\Users\wangkx\source\repos\HPCC-Platform\esp\services\ws_workunits\ws_workunitsService.cpp(460):    Owned<IStringIterator> it = getTargetClusters(nullptr, nullptr);
+done C:\Users\wangkx\source\repos\HPCC-Platform\esp\services\ws_workunits\ws_workunitsService.hpp(68):        Owned<IStringIterator> clusters = getTargetClusters("RoxieCluster", nullptr);
+
+extern ENVIRONMENT_API bool validateTargetClusterName(const char *clustname);
+C:\Users\wangkx\source\repos\HPCC-Platform\esp\services\ws_sql\ws_sqlService.cpp(1994):    if (validateTargetClusterName(cluster))
+done C:\Users\wangkx\source\repos\HPCC-Platform\esp\services\ws_workunits\ws_workunitsService.cpp(484):    if (validateTargetClusterName(cluster))
+
+extern ENVIRONMENT_API IConstWUClusterInfo* getTargetClusterInfo(const char *clustname); //Process name and more
+C:\Users\wangkx\source\repos\HPCC-Platform\esp\services\ws_dfu\ws_dfuService.cpp(2640):    Owned<IConstWUClusterInfo> info = getTargetClusterInfo(querySet);
+C:\Users\wangkx\source\repos\HPCC-Platform\esp\services\ws_ecl\ws_ecl_service.cpp(235):        Owned<IConstWUClusterInfo> clusterInfo = getTargetClusterInfo(target.str());
+C:\Users\wangkx\source\repos\HPCC-Platform\esp\services\ws_ecl\ws_ecl_service.cpp(1536):    Owned<IConstWUClusterInfo> clusterInfo = getTargetClusterInfo(wuinfo.qsetname);
+C:\Users\wangkx\source\repos\HPCC-Platform\esp\services\ws_machine\ws_machineService.cpp(2948):        Owned<IConstWUClusterInfo> targetClusterInfo = getTargetClusterInfo(targetClusterName);
+C:\Users\wangkx\source\repos\HPCC-Platform\esp\services\ws_packageprocess\ws_packageprocessService.cpp(122):    Owned<IConstWUClusterInfo> clusterInfo = getTargetClusterInfo(target);
+C:\Users\wangkx\source\repos\HPCC-Platform\esp\services\ws_packageprocess\ws_packageprocessService.cpp(163):    Owned<IConstWUClusterInfo> clusterInfo = getTargetClusterInfo(dstCluster);
+C:\Users\wangkx\source\repos\HPCC-Platform\esp\services\ws_packageprocess\ws_packageprocessService.cpp(277):        clusterInfo.setown(getTargetClusterInfo(target));
+C:\Users\wangkx\source\repos\HPCC-Platform\esp\services\ws_packageprocess\ws_packageprocessService.cpp(1132):            Owned<IConstWUClusterInfo> clusterInfo = getTargetClusterInfo(target);
+C:\Users\wangkx\source\repos\HPCC-Platform\esp\services\ws_packageprocess\ws_packageprocessService.cpp(1351):    Owned<IConstWUClusterInfo> clusterInfo = getTargetClusterInfo(target);
+C:\Users\wangkx\source\repos\HPCC-Platform\esp\services\ws_topology\ws_topologyService.cpp(1387):            Owned<IConstWUClusterInfo> clusterInfo = getTargetClusterInfo(req.getName());
+C:\Users\wangkx\source\repos\HPCC-Platform\esp\services\ws_workunits\ws_workunitsHelpers.cpp(1085):        Owned<IConstWUClusterInfo> clusterInfo = getTargetClusterInfo(clusterName.str());
+done C:\Users\wangkx\source\repos\HPCC-Platform\esp\services\ws_workunits\ws_workunitsHelpers.cpp(1298):        Owned<IConstWUClusterInfo> clusterInfo = getTargetClusterInfo(clusterName.str());
+C:\Users\wangkx\source\repos\HPCC-Platform\esp\services\ws_workunits\ws_workunitsHelpers.cpp(3568):    Owned<IConstWUClusterInfo> clusterInfo = getTargetClusterInfo(clusterName);
+C:\Users\wangkx\source\repos\HPCC-Platform\esp\services\ws_workunits\ws_workunitsQuerySets.cpp(291):    Owned<IConstWUClusterInfo> clusterInfo = getTargetClusterInfo(target);
+C:\Users\wangkx\source\repos\HPCC-Platform\esp\services\ws_workunits\ws_workunitsQuerySets.cpp(480):    Owned <IConstWUClusterInfo> clusterInfo = getTargetClusterInfo(cluster.str());
+C:\Users\wangkx\source\repos\HPCC-Platform\esp\services\ws_workunits\ws_workunitsQuerySets.cpp(533):    Owned <IConstWUClusterInfo> clusterInfo = getTargetClusterInfo(cluster);
+done C:\Users\wangkx\source\repos\HPCC-Platform\esp\services\ws_workunits\ws_workunitsQuerySets.cpp(763):        clusterInfo.setown(getTargetClusterInfo(target));
+done C:\Users\wangkx\source\repos\HPCC-Platform\esp\services\ws_workunits\ws_workunitsQuerySets.cpp(986):    Owned <IConstWUClusterInfo> clusterInfo = getTargetClusterInfo(target.str());
+done C:\Users\wangkx\source\repos\HPCC-Platform\esp\services\ws_workunits\ws_workunitsQuerySets.cpp(1264):    Owned<IConstWUClusterInfo> info = getTargetClusterInfo(target);
+done C:\Users\wangkx\source\repos\HPCC-Platform\esp\services\ws_workunits\ws_workunitsQuerySets.cpp(1460):    Owned<IConstWUClusterInfo> info = getTargetClusterInfo(target);
+done C:\Users\wangkx\source\repos\HPCC-Platform\esp\services\ws_workunits\ws_workunitsQuerySets.cpp(2074):            Owned <IConstWUClusterInfo> clusterInfo = getTargetClusterInfo(target);
+C:\Users\wangkx\source\repos\HPCC-Platform\esp\services\ws_workunits\ws_workunitsQuerySets.cpp(2408):        Owned<IConstWUClusterInfo> info = getTargetClusterInfo(target);
+C:\Users\wangkx\source\repos\HPCC-Platform\esp\services\ws_workunits\ws_workunitsQuerySets.cpp(2995):            Owned <IConstWUClusterInfo> cl = getTargetClusterInfo(target);
+C:\Users\wangkx\source\repos\HPCC-Platform\esp\services\ws_workunits\ws_workunitsQuerySets.cpp(3061):        Owned <IConstWUClusterInfo> clusterInfo = getTargetClusterInfo(target);
+C:\Users\wangkx\source\repos\HPCC-Platform\esp\services\ws_workunits\ws_workunitsQuerySets.cpp(3234):        Owned <IConstWUClusterInfo> clusterInfo = getTargetClusterInfo(target);
+done C:\Users\wangkx\source\repos\HPCC-Platform\esp\services\ws_workunits\ws_workunitsQuerySets.cpp(3390):    Owned<IConstWUClusterInfo> info = getTargetClusterInfo(target);
+done C:\Users\wangkx\source\repos\HPCC-Platform\esp\services\ws_workunits\ws_workunitsQuerySets.cpp(3521):    Owned<IConstWUClusterInfo> info = getTargetClusterInfo(target);
+done C:\Users\wangkx\source\repos\HPCC-Platform\esp\services\ws_workunits\ws_workunitsQuerySets.cpp(3688):        Owned<IConstWUClusterInfo> info = getTargetClusterInfo(target);
+C:\Users\wangkx\source\repos\HPCC-Platform\esp\services\ws_workunits\ws_workunitsService.cpp(4505):                Owned<IConstWUClusterInfo> clusterInfo = getTargetClusterInfo(cluster);
+C:\Users\wangkx\source\repos\HPCC-Platform\esp\services\ws_workunits\ws_workunitsService.hpp(78):            Owned<IConstWUClusterInfo> info = getTargetClusterInfo(target.str());
+C:\Users\wangkx\source\repos\HPCC-Platform\roxie\ccd\ccdcontext.cpp(3618):          
+
+extern ENVIRONMENT_API unsigned getEnvironmentClusterInfo(CConstWUClusterInfoArray &clusters);
+extern ENVIRONMENT_API unsigned getEnvironmentClusterInfo(IPropertyTree* environmentRoot, CConstWUClusterInfoArray &clusters);
+C:\Users\wangkx\source\repos\HPCC-Platform\esp\services\ws_dfu\ws_dfuXRefService.cpp(523):        getEnvironmentClusterInfo(clusters);
+C:\Users\wangkx\source\repos\HPCC-Platform\esp\services\ws_packageprocess\ws_packageprocessService.cpp(373):            getEnvironmentClusterInfo(clusters);
+C:\Users\wangkx\source\repos\HPCC-Platform\esp\services\ws_packageprocess\ws_packageprocessService.cpp(1141):            getEnvironmentClusterInfo(clusters);
+C:\Users\wangkx\source\repos\HPCC-Platform\esp\services\ws_packageprocess\ws_packageprocessService.cpp(1262):            getEnvironmentClusterInfo(root, clusters);
+done C:\Users\wangkx\source\repos\HPCC-Platform\esp\services\ws_smc\ws_smcService.cpp(250):    getEnvironmentClusterInfo(envRoot, clusters);
+done C:\Users\wangkx\source\repos\HPCC-Platform\esp\services\ws_topology\ws_topologyService.cpp(1336):        getEnvironmentClusterInfo(wuClusters);
+
+extern ENVIRONMENT_API void getRoxieProcessServers(const char *process, SocketEndpointArray &servers);
+C:\Users\wangkx\source\repos\HPCC-Platform\esp\services\ws_dfu\ws_dfuXRefService.cpp(674):    getRoxieProcessServers(process, servers);
+C:\Users\wangkx\source\repos\HPCC-Platform\esp\services\ws_machine\ws_machineService.cpp(1056):    getRoxieProcessServers(clusterName, servers);
+done C:\Users\wangkx\source\repos\HPCC-Platform\esp\services\ws_smc\ws_smcService.cpp(2206):    getRoxieProcessServers(process, addrs);
+done C:\Users\wangkx\source\repos\HPCC-Platform\esp\services\ws_workunits\ws_workunitsQuerySets.cpp(3586):            getRoxieProcessServers(clusterName.get(), servers);
+
+extern ENVIRONMENT_API bool isProcessCluster(const char *remoteDali, const char *process);  //xpath("Software/*Cluster[@name=\"%s\"]", process);
+extern ENVIRONMENT_API bool isProcessCluster(const char *process);
+C:\Users\wangkx\source\repos\HPCC-Platform\esp\services\ws_packageprocess\ws_packageprocessService.cpp(322):            if (!isProcessCluster(daliIP, srcCluster))
+C:\Users\wangkx\source\repos\HPCC-Platform\esp\services\ws_workunits\ws_workunitsQuerySets.cpp(932):        if (!isProcessCluster(daliIP, srcCluster))
+C:\Users\wangkx\source\repos\HPCC-Platform\esp\services\ws_workunits\ws_workunitsQuerySets.cpp(2021):                    if (!isProcessCluster(daliIP, srcCluster))
+
+getEnvironmentThorClusterNames:
+done C:\Users\wangkx\source\repos\HPCC-Platform\esp\services\ws_smc\ws_smcService.cpp(1781):        getEnvironmentThorClusterNames(thorNames, groupNames, targetNames, queueNames);
+
+
+
+getEnvironmentFactory(bool update):
+C:\Users\wangkx\source\repos\HPCC-Platform\esp\services\ws_dfu\ws_dfuService.cpp(103):    Owned<IEnvironmentFactory> factory = getEnvironmentFactory(true);
+  readNodeGroup(const char* _groupName): getElements("Software/ThorCluster"); getClusterGroupName(); cluster.getCount("ThorSlaveProcess"), cluster.getPropBool("@replicateOutputs", false));
+
+C:\Users\wangkx\source\repos\HPCC-Platform\esp\services\ws_dfu\ws_dfuService.cpp(185):    factory.setown(getEnvironmentFactory(true));
+
+Not needed C:\Users\wangkx\source\repos\HPCC-Platform\esp\services\ws_ecl\ws_ecl_service.cpp(224):    Owned<IEnvironmentFactory> factory = getEnvironmentFactory(true);
+
+dropZoneInfo C:\Users\wangkx\source\repos\HPCC-Platform\esp\services\ws_fileio\ws_fileioservice.cpp(41):    Owned<IEnvironmentFactory> factory = getEnvironmentFactory(true);
+dropZoneInfo and more C:\Users\wangkx\source\repos\HPCC-Platform\esp\services\ws_fs\ws_fsBinding.cpp(201):    Owned<IEnvironmentFactory> factory = getEnvironmentFactory(true);
+
+?? C:\Users\wangkx\source\repos\HPCC-Platform\esp\services\ws_fs\ws_fsService.cpp(225):    Owned<IEnvironmentFactory> envFactory = getEnvironmentFactory(true);
+
+C:\Users\wangkx\source\repos\HPCC-Platform\esp\services\ws_fs\ws_fsService.cpp(585):    Owned<IEnvironmentFactory> envFactory = getEnvironmentFactory(true);
+  dirxpath("Software/RoxieCluster[@name=\"%s\"]",clusterName); process.queryProp("@slaveConfig"); and more
+
+C:\Users\wangkx\source\repos\HPCC-Platform\esp\services\ws_fs\ws_fsService.cpp(652):        Owned<IEnvironmentFactory> factory = getEnvironmentFactory(true);
+  root->getElements("Software/Topology/Cluster");
+
+C:\Users\wangkx\source\repos\HPCC-Platform\esp\services\ws_fs\ws_fsService.cpp(941):        Owned<IEnvironmentFactory> envFactory = getEnvironmentFactory(true);
+  Find a cluster process
+  
+C:\Users\wangkx\source\repos\HPCC-Platform\esp\services\ws_fs\ws_fsService.cpp(1877):        Owned<IEnvironmentFactory> envFactory = getEnvironmentFactory(true);
+  Valid a DFU queueName
+  
+C:\Users\wangkx\source\repos\HPCC-Platform\esp\services\ws_fs\ws_fsService.cpp(2057):        Owned<IEnvironmentFactory> envFactory = getEnvironmentFactory(true);
+  Valid a DFU queueName
+  
+C:\Users\wangkx\source\repos\HPCC-Platform\esp\services\ws_fs\ws_fsService.cpp(2249):    Owned<IEnvironmentFactory> factory = getEnvironmentFactory(true);
+  Dropzone
+  
+C:\Users\wangkx\source\repos\HPCC-Platform\esp\services\ws_fs\ws_fsService.cpp(2865):    Owned<IEnvironmentFactory> envFactory = getEnvironmentFactory(true);
+  Dropzone
+  
+C:\Users\wangkx\source\repos\HPCC-Platform\esp\services\ws_fs\ws_fsService.cpp(2973):        Owned<IEnvironmentFactory> envFactory = getEnvironmentFactory(true);
+  Dropzone
+  
+C:\Users\wangkx\source\repos\HPCC-Platform\esp\services\ws_fs\ws_fsService.cpp(3197):        Owned<IEnvironmentFactory> envFactory = getEnvironmentFactory(true);
+  Dropzone
+  
+C:\Users\wangkx\source\repos\HPCC-Platform\esp\services\ws_fs\ws_fsService.cpp(3388):        Owned<IEnvironmentFactory> factory = getEnvironmentFactory(true);
+   root->getElements("Software/ThorCluster"); and eclagent; GroupNodes
+   
+C:\Users\wangkx\source\repos\HPCC-Platform\esp\services\ws_packageprocess\ws_packageprocessService.cpp(1256):            Owned<IEnvironmentFactory> factory = getEnvironmentFactory(true);
+	get processes
+	
+done C:\Users\wangkx\source\repos\HPCC-Platform\esp\services\ws_smc\ws_smcService.cpp(246):    Owned<IEnvironmentFactory> factory = getEnvironmentFactory(true);
+
+C:\Users\wangkx\source\repos\HPCC-Platform\esp\services\ws_topology\ws_topologyService.cpp(1184):        Owned<IEnvironmentFactory> factory = getEnvironmentFactory(true);
+  onTpListTargetClusters() targetName @prefix
+  
+C:\Users\wangkx\source\repos\HPCC-Platform\esp\services\ws_topology\ws_topologyService.cpp(1655):            Owned<IEnvironmentFactory> factory = getEnvironmentFactory(true);
+  onTpGetComponentFile() (log and xml) Not needed
+  
+C:\Users\wangkx\source\repos\HPCC-Platform\esp\services\ws_workunits\ws_workunitsHelpers.cpp(207):    Owned<IEnvironmentFactory> factory = getEnvironmentFactory(true);
+  getSashaNode(): get sasha IP from env xml
+  
+C:\Users\wangkx\source\repos\HPCC-Platform\esp\services\ws_workunits\ws_workunitsHelpers.cpp(1202):        Owned<IEnvironmentFactory> envFactory = getEnvironmentFactory(true);
+  logTree->getProp("EnvSettings/log", logDir); (for legacy WU) Not needed
+  
+C:\Users\wangkx\source\repos\HPCC-Platform\esp\services\ws_workunits\ws_workunitsHelpers.cpp(1294):        Owned<IEnvironmentFactory> envFactory = getEnvironmentFactory(true);
+C:\Users\wangkx\source\repos\HPCC-Platform\esp\services\ws_workunits\ws_workunitsQuerySets.cpp(55):    Owned<IEnvironmentFactory> factory = getEnvironmentFactory(true);
+C:\Users\wangkx\source\repos\HPCC-Platform\esp\services\ws_workunits\ws_workunitsQuerySets.cpp(2248):        Owned<IEnvironmentFactory> factory = getEnvironmentFactory(true);
+C:\Users\wangkx\source\repos\HPCC-Platform\esp\services\ws_workunits\ws_workunitsService.cpp(3755):        Owned<IEnvironmentFactory> factory = getEnvironmentFactory(true);
+C:\Users\wangkx\source\repos\HPCC-Platform\esp\services\ws_workunits\ws_workunitsService.cpp(4467):            Owned<IEnvironmentFactory> factory = getEnvironmentFactory(true);
+C:\Users\wangkx\source\repos\HPCC-Platform\esp\smc\SMCLib\TpWrapper.cpp(38):    Owned<IEnvironmentFactory> envFactory = getEnvironmentFactory(true);
+C:\Users\wangkx\source\repos\HPCC-Platform\esp\smc\SMCLib\TpWrapper.cpp(56):    Owned<IEnvironmentFactory> envFactory = getEnvironmentFactory(true);
+C:\Users\wangkx\source\repos\HPCC-Platform\esp\smc\SMCLib\TpWrapper.cpp(731):    Owned<IEnvironmentFactory> envFactory = getEnvironmentFactory(true);
+C:\Users\wangkx\source\repos\HPCC-Platform\esp\smc\SMCLib\TpWrapper.cpp(859):        Owned<IEnvironmentFactory> envFactory = getEnvironmentFactory(true);
+C:\Users\wangkx\source\repos\HPCC-Platform\esp\smc\SMCLib\TpWrapper.cpp(994):        Owned<IEnvironmentFactory> envFactory = getEnvironmentFactory(true);
+C:\Users\wangkx\source\repos\HPCC-Platform\esp\smc\SMCLib\TpWrapper.cpp(1154):        Owned<IEnvironmentFactory> envFactory = getEnvironmentFactory(true);
+C:\Users\wangkx\source\repos\HPCC-Platform\esp\smc\SMCLib\TpWrapper.cpp(1291):    Owned<IEnvironmentFactory> factory = getEnvironmentFactory(true);
+C:\Users\wangkx\source\repos\HPCC-Platform\esp\smc\SMCLib\TpWrapper.cpp(1367):    Owned<IEnvironmentFactory> envFactory = getEnvironmentFactory(true);
+C:\Users\wangkx\source\repos\HPCC-Platform\esp\smc\SMCLib\TpWrapper.cpp(1429):    Owned<IEnvironmentFactory> envFactory = getEnvironmentFactory(true);
+C:\Users\wangkx\source\repos\HPCC-Platform\esp\smc\SMCLib\TpWrapper.cpp(1509):        Owned<IEnvironmentFactory> envFactory = getEnvironmentFactory(true);
+C:\Users\wangkx\source\repos\HPCC-Platform\esp\smc\SMCLib\TpWrapper.cpp(1530):    Owned<IEnvironmentFactory> envFactory = getEnvironmentFactory(true);
+C:\Users\wangkx\source\repos\HPCC-Platform\esp\smc\SMCLib\TpWrapper.cpp(1569):        Owned<IEnvironmentFactory> envFactory = getEnvironmentFactory(true);
+C:\Users\wangkx\source\repos\HPCC-Platform\esp\smc\SMCLib\TpWrapper.cpp(1677):    Owned<IEnvironmentFactory> envFactory = getEnvironmentFactory(true);
+C:\Users\wangkx\source\repos\HPCC-Platform\esp\smc\SMCLib\TpWrapper.cpp(1755):    Owned<IEnvironmentFactory> envFactory = getEnvironmentFactory(true);
+C:\Users\wangkx\source\repos\HPCC-Platform\esp\smc\SMCLib\TpWrapper.cpp(1886):        Owned<IEnvironmentFactory> factory = getEnvironmentFactory(true);
+C:\Users\wangkx\source\repos\HPCC-Platform\esp\services\ws_machine\ws_machineService.cpp(173):    Owned<IEnvironmentFactory> envFactory = getEnvironmentFactory(true);
+C:\Users\wangkx\source\repos\HPCC-Platform\esp\services\ws_machine\ws_machineService.cpp(325):        Owned<IEnvironmentFactory> envFactory = getEnvironmentFactory(true);
+C:\Users\wangkx\source\repos\HPCC-Platform\esp\services\ws_machine\ws_machineService.cpp(2281):    Owned<IEnvironmentFactory> envFactory = getEnvironmentFactory(true);
+C:\Users\wangkx\source\repos\HPCC-Platform\esp\services\ws_machine\ws_machineService.cpp(2881):        Owned<IEnvironmentFactory> envFactory = getEnvironmentFactory(true);
+C:\Users\wangkx\source\repos\HPCC-Platform\esp\services\ws_machine\ws_machineService.cpp(3015):        Owned<IEnvironmentFactory> envFactory = getEnvironmentFactory(true);
+C:\Users\wangkx\source\repos\HPCC-Platform\esp\services\ws_machine\ws_machineService.cpp(3215):        Owned<IEnvironmentFactory> envFactory = getEnvironmentFactory(true);
+C:\Users\wangkx\source\repos\HPCC-Platform\esp\services\ws_machine\ws_machineService.cpp(3336):    Owned<IEnvironmentFactory> envFactory = getEnvironmentFactory(true);
+C:\Users\wangkx\source\repos\HPCC-Platform\esp\services\ws_machine\ws_machineServiceMetrics.cpp(326):    Owned<IEnvironmentFactory> factory = getEnvironmentFactory();
+
+
+

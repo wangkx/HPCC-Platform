@@ -1,0 +1,70 @@
+
+-----------Test Get Agent settings
+1. correct group name and agent name
+group: loggingmanager
+agent name: wslogserviceespagent
+2. correct group name, but, wrong agent name
+group: loggingmanager
+3. wrong group names
+4. all groups
+
+-----------Test Pause
+
+00000529 USR 2020-06-22 11:11:17.884 21907 21917 "CLogRequestReader: finished the loop for reading log requests."
+00000534 USR 2020-06-22 11:11:17.922 21907 21919 "CLogRequestReader: finished the loop for reading log requests."
+
+-----------Test resume
+
+00000529 USR 2020-06-22 11:11:17.884 21907 21917 "CLogRequestReader: finished the loop for reading log requests."
+0000052A PRG 2020-06-22 11:11:17.921 21907 21919 "#### CLogRequestReader: the loop for reading log requests begins."
+...
+00000533 PRG 2020-06-22 11:11:17.922 21907 21919 "#### Leave readLogRequest()"
+00000534 USR 2020-06-22 11:11:17.922 21907 21919 "CLogRequestReader: finished the loop for reading log requests."
+
+-----------Test Archive
+ls /home/lexis/tests/esp/Tran/TankFiles
+
+scapps.8043.WsGovRiskloggingmanager_sending_0531425148.2020_05_05_15_12_45.log
+scapps.8043.WsGovRiskloggingmanager_sending_1836097388.2019_03_29_14_31_53.log
+scapps.8043.WsGovRiskloggingmanager_sending_1558335222.2019_04_03_15_04_05.log
+scapps.8043.WsGovRiskloggingmanager_sending_1717566844.2019_04_03_14_47_29.log
+scapps.8043.WsGovRiskloggingmanager_sending_0531425148.2020_05_05_15_11_45.log
+scapps.8043.WsGovRiskloggingmanager_sending_0531425148.2020_05_05_15_10_45.log
+
+ls -lart /var/lib/HPCCSystems/esp/wstransactionlog/esploggingagent/
+
+sudo vi /var/lib/HPCCSystems/esp/wstransactionlog/esploggingagent/AckedFiles
+
+scapps.8043.WsGovRiskloggingmanager_sending_0531425148.2020_05_05_15_12_45.log
+scapps.8043.WsGovRiskloggingmanager_sending_1836097388.2019_03_29_14_31_53.log
+scapps.8043.WsGovRiskloggingmanager_sending_1558335222.2019_04_03_15_04_05.log
+scapps.8043.WsGovRiskloggingmanager_sending_1717566844.2019_04_03_14_47_29.log
+scapps.8043.WsGovRiskloggingmanager_sending_0531425148.2020_05_05_15_11_45.log
+scapps.8043.WsGovRiskloggingmanager_sending_0531425148.2020_05_05_15_10_45.log
+
+sudo vi /var/lib/HPCCSystems/esp/wstransactionlog/esploggingagent1/AckedFiles
+
+scapps.8043.WsGovRiskloggingmanager_sending_1836097388.2019_03_29_14_31_53.log
+scapps.8043.WsGovRiskloggingmanager_sending_1558335222.2019_04_03_15_04_05.log
+scapps.8043.WsGovRiskloggingmanager_sending_1717566844.2019_04_03_14_47_29.log
+scapps.8043.WsGovRiskloggingmanager_sending_0531425148.2020_05_05_15_11_45.log
+scapps.8043.WsGovRiskloggingmanager_sending_0531425148.2020_05_05_15_10_45.log
+
+sudo vi /var/lib/HPCCSystems/esp/wstransactionlog/esploggingagent/AckedLogRequests
+1994451437.2020_01_15_15_12_44
+
+sudo vi /var/lib/HPCCSystems/esp/wstransactionlog/esploggingagent1/AckedLogRequests
+<empty>
+
+/home/lexis/src/git2/cmake_ln/Debug/bin/tankfile action=archive server=http://10.0.2.15:8012/WSDecoupledLog user=kwang password=<password> dir=test2 group=a
+
+/home/lexis/src/git2/cmake_ln/Debug/bin/tankfile action=archive server=http://10.0.2.15:8012/WSDecoupledLog user=kwang password=<password> dir=test2 group=wstransactionlog
+
+/home/lexis/src/git2/cmake_ln/Debug/bin/tankfile action=archive server=http://10.0.2.15:8012/WSDecoupledLog user=kwang password=<password> dir=test2
+
+ls test2
+scapps.8043.WsGovRiskloggingmanager_sending_0531425148.2020_05_05_15_10_45.log
+scapps.8043.WsGovRiskloggingmanager_sending_0531425148.2020_05_05_15_11_45.log
+scapps.8043.WsGovRiskloggingmanager_sending_1558335222.2019_04_03_15_04_05.log
+scapps.8043.WsGovRiskloggingmanager_sending_1717566844.2019_04_03_14_47_29.log
+scapps.8043.WsGovRiskloggingmanager_sending_1836097388.2019_03_29_14_31_53.log

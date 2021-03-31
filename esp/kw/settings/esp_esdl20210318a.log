@@ -1,0 +1,293 @@
+00000000 PRG 2021-03-18 14:44:05.729     1     1 "####legacy(<Environment>
+ <Software>
+  <Directories name="HPCCSystems">
+   <Category dir="/var/lib/[NAME]/[INST]" name="run"/>
+   <Category dir="/etc/[NAME]/[INST]" name="conf"/>
+   <Category dir="/var/lib/[NAME]/[INST]/temp" name="temp"/>
+   <Category dir="/var/lib/[NAME]/hpcc-data/[COMPONENT]" name="data"/>
+   <Category dir="/var/lib/[NAME]/hpcc-data2/[COMPONENT]" name="data2"/>
+   <Category dir="/var/lib/[NAME]/hpcc-data3/[COMPONENT]" name="data3"/>
+   <Category dir="/var/lib/[NAME]/hpcc-mirror/[COMPONENT]" name="mirror"/>
+   <Category dir="/var/lib/[NAME]/queries/[INST]" name="query"/>
+   <Category dir="/var/lock/[NAME]/[INST]" name="lock"/>
+  </Directories>
+  <EspProcess application="esdl"
+              auth="none"
+              bindings="/var/lib/HPCCSystems/hpcc-data/esp/records/twoexample"
+              componentfilesDir="/opt/HPCCSystems/componentfiles"
+              config="/etc/config/esdl.yaml"
+              daliServers="mydali"
+              description="ESDL integration"
+              directory="/var/lib/HPCCSystems/esdl"
+              enableSEHMapping="true"
+              httpConfigAccess="true"
+              instance="esdl"
+              loadDaliBindings="false"
+              logDir="-"
+              logLevel="1"
+              maxBacklogQueueSize="200"
+              name="esdl"
+              port="8880"
+              public="true"
+              replicas="1"
+              servicePort="8898"
+              tls="false">
+   <EspProtocol maxRequestEntityLength="60000000"
+                name="http"
+                plugin="esphttp"
+                type="http_protocol"/>
+   <EspService name="esdl_service" plugin="esdl_svc_engine" type="esdl"/>
+   <EspBinding defaultBinding="true"
+               name="esdl_binding"
+               netAddress="."
+               plugin="esdl_svc_engine"
+               port="8880"
+               protocol="http"
+               service="esdl_service"
+               type="esdl_http"/>
+  </EspProcess>
+ </Software>
+</Environment>
+)"
+00000001 PRG 2021-03-18 14:44:05.729     1     1 "Using ESP configuration section [Software/EspProcess[1]]"
+00000002 PRG 2021-03-18 14:44:05.729     1     1 "Esp starting community_7.13.0-trunk0Debug[tags/community_7.12.26-rc1-0-gcafdc4-dirty]"
+00000003 PRG 2021-03-18 14:44:05.729     1     1 "componentfiles are under /opt/HPCCSystems/componentfiles/"
+00000004 PRG 2021-03-18 14:44:05.744     1     1 "ESP process name [esdl]"
+00000005 PRG 2021-03-18 14:44:05.744     1     1 "Could not load DALI Attach state file [/var/lib/HPCCSystems/esdl/esdl-AttachState.xml] for ESP process [esdl]"
+00000006 PRG 2021-03-18 14:44:05.744     1     1 "ESP Process [esdl] State to be stored: '<ESPAttachState StateSaveTimems='73940028' attached='1' subscribed='1'/>'"
+00000007 PRG 2021-03-18 14:44:05.744     1     1 "Could not load DALI Attach state file [/var/lib/HPCCSystems/esdl/esdl-AttachState.xml] for ESP process [esdl]"
+00000008 PRG 2021-03-18 14:44:05.744     1     1 "Initializing DALI client [servers = mydali]"
+00000009 OPR 2021-03-18 14:44:10.746     1     1 "ERROR: Failed to connect to Dali Server 10.96.241.87:7070."
+0000000A USR 2021-03-18 14:44:10.747     1     1 "10.96.241.87:7070 Retrying..."
+0000000B OPR 2021-03-18 14:44:20.748     1     1 "ERROR: Failed to connect to Dali Server 10.96.241.87:7070."
+0000000C OPR 2021-03-18 14:44:30.750     1     1 "ERROR: Failed to connect to Dali Server 10.96.241.87:7070."
+0000000D USR 2021-03-18 14:44:35.797     1    34 "CSessionCleaner Thread started."
+0000000E USR 2021-03-18 14:44:35.798     1     1 "Configuring Esp Platform..."
+0000000F PRG 2021-03-18 14:44:35.799     1     1 "loadServices"
+00000010 PRG 2021-03-18 14:44:35.808     1     1 "Unable to connect to ESDL Service binding information in dali /ESDL/Bindings/Binding[@espprocess='esdl'][@espbinding='esdl_binding'][1]"
+00000011 PRG 2021-03-18 14:44:35.808     1     1 "ESDL Binding: Could not fetch ESDL binding esdl_binding for ESP Process esdl"
+00000012 OPR 2021-03-18 14:44:35.808     1     1 "Load binding esdl_binding (type: esdl_http, process: esdl) succeeded"
+00000013 PRG 2021-03-18 14:44:35.823     1     1 "Plugin esdl_svc_engine loaded."
+00000014 PRG 2021-03-18 14:44:35.823     1     1 "Procedure startEsdlMonitor loaded, now calling it..."
+00000015 PRG 2021-03-18 14:44:35.824     1     1 "EsdlMonitor started."
+00000016 USR 2021-03-18 14:44:35.833     1     1 "Creating new binding twoexample"
+00000017 PRG 2021-03-18 14:44:35.833     1     1 "Using the following config tree to create the binding and service:
+<Environment>
+ <Software>
+  <EspProcess application="esdl"
+              auth="none"
+              bindings="/var/lib/HPCCSystems/hpcc-data/esp/records/twoexample"
+              componentfilesDir="/opt/HPCCSystems/componentfiles"
+              config="/etc/config/esdl.yaml"
+              daliServers="mydali"
+              description="ESDL integration"
+              directory="/var/lib/HPCCSystems/esdl"
+              enableSEHMapping="true"
+              httpConfigAccess="true"
+              instance="esdl"
+              loadDaliBindings="false"
+              logDir="-"
+              logLevel="1"
+              maxBacklogQueueSize="200"
+              name="esdl"
+              port="8880"
+              public="true"
+              replicas="1"
+              servicePort="8898"
+              tls="false">
+   <EspProtocol maxRequestEntityLength="60000000"
+                name="http"
+                plugin="esphttp"
+                type="http_protocol"/>
+   <EspService name="twoexample" plugin="esdl_svc_engine" type="DynamicESDL"/>
+   <EspBinding defaultBinding="true"
+               name="esdl_binding"
+               netAddress="."
+               plugin="esdl_svc_engine"
+               port="8880"
+               protocol="http"
+               service="twoexample"
+               type="esdl_http"/>
+  </EspProcess>
+ </Software>
+</Environment>
+
+"
+00000018 PRG 2021-03-18 14:44:35.834     1     1 "ESDL binding configuration:
+<Binding espbinding="static_binding"
+         espprocess="desdl_esp"
+         id="desdl_esp.TwoExample"
+         port="8899">
+ <Definition esdlservice="TwoExample" id="TwoExample.1" name="TwoExample">
+  <LoggingManager name="twoexample_logman">
+   <Filters/>
+   <FailSafeLogsDir>/var/log/HPCCSystems/FailSafeLogs</FailSafeLogsDir>
+   <FailSafe>true</FailSafe>
+   <LogAgent name="esploggingagent"
+             plugin="espserverloggingagent"
+             services="UpdateLog"
+             type="LogAgent"
+             xmlns:set="http://exslt.org/sets">
+    <MaxLogQueueLength>500000</MaxLogQueueLength>
+    <Filters>
+     <Filter type="ESPContext" value="UserName"/>
+     <Filter type="ESPContext" value=""/>
+     <Filter type="UserContext" value=""/>
+     <Filter type="UserRequest" value=""/>
+     <Filter type="UserResponse" value=""/>
+     <Filter type="BackEndResponse" value=""/>
+    </Filters>
+    <MaxTriesRS>3</MaxTriesRS>
+    <ESPServer password="" url="http://loggingservice:8146" user=""/>
+    <LogSourceMap/>
+    <MaxTriesGTS>3</MaxTriesGTS>
+    <QueueSizeSignal>10000</QueueSizeSignal>
+    <FailSafe>true</FailSafe>
+   </LogAgent>
+  </LoggingManager>
+  <LogTransforms/>
+  <Methods>
+   <xsdl:CustomRequestTransform>
+    <xsdl:choose>
+     <xsdl:when test="$clientversion=1.9">
+      <xsdl:SetValue target="Row/Name/First" value="&apos;service&apos;"/>
+     </xsdl:when>
+     <xsdl:otherwise>
+      <xsdl:SetValue target="Row/Name/Last" value="&apos;zz&apos;"/>
+     </xsdl:otherwise>
+    </xsdl:choose>
+   </xsdl:CustomRequestTransform>
+   <Method javamethod="TwoExample.TwoExampleService.JavaEchoPersonInfo" name="JavaEchoPersonInfo" querytype="java"/>
+   <Method method="onTwoExampleCppEchoPersonInfo"
+           name="CppEchoPersonInfo"
+           plugin="libTwoExampleService.so"
+           querytype="cpp"/>
+   <Method name="RoxieEchoPersonInfo"
+           queryname="RoxieEchoPersonInfo"
+           querytype="roxie"
+           url="http://localhost:9876/roxie">
+    <xsdl:CustomRequestTransform target="soap:Body/{$query}">
+     <xsdl:choose>
+      <xsdl:when test="$clientversion=1.9">
+       <xsdl:SetValue target="vertest" value="&apos;v1.9&apos;"/>
+       <xsdl:SetValue target="RoxieEchoPersonInfoRequest/Row/Name/First" value="&apos;v1.9&apos;"/>
+      </xsdl:when>
+      <xsdl:otherwise>
+       <xsdl:SetValue target="vertest" value="concat(&apos;v&apos;, $clientversion)"/>
+       <xsdl:SetValue target="RoxieEchoPersonInfoRequest/Row/Name/Last" value="concat(&apos;v&apos;, $clientversion)"/>
+      </xsdl:otherwise>
+     </xsdl:choose>
+    </xsdl:CustomRequestTransform>
+   </Method>
+  </Methods>
+ </Definition>
+</Binding>
+"
+00000019 PRG 2021-03-18 14:44:35.834     1     1 "ESDL binding desdl_esp.TwoExample properly registered"
+0000001A PRG 2021-03-18 14:44:35.834     1     1 "ESDL Binding: Adding service 'DynamicESDL' on  port 8880 on esdl_binding binding."
+0000001B USR 2021-03-18 14:44:35.834     1     1 "Loading esdl definition for ID 'TwoExample.1'"
+0000001C USR 2021-03-18 14:44:35.834     1     1 "Esdl definition TwoExample.1 not found in shared cache, loading it from archive"
+0000001D PRG 2021-03-18 14:44:35.834     1     1 "
+ESDL Definition to be loaded:
+
+    <esxdl name="TwoExample">
+      <EsdlStruct name="NameInfo">
+        <EsdlElement default="Joe" name="First" type="string"/>
+        <EsdlElement default="Doe" name="Last" type="string"/>
+        <EsdlArray item_tag="Alias" name="Aliases" type="string"/>
+      </EsdlStruct>
+      <EsdlStruct name="AddressInfo">
+        <EsdlElement name="Line1" type="string"/>
+        <EsdlElement name="Line2" type="string"/>
+        <EsdlElement name="City" type="string"/>
+        <EsdlElement name="State" type="string"/>
+        <EsdlElement default="33487" name="Zip" type="int"/>
+        <EsdlEnum default="Home" enum_type="AddressType" name="type"/>
+      </EsdlStruct>
+      <EsdlResponse name="CppEchoPersonInfoResponse">
+        <EsdlElement default="0" name="count" type="int"/>
+        <EsdlElement complex_type="NameInfo" name="Name"/>
+        <EsdlArray item_tag="Address" name="Addresses" type="AddressInfo"/>
+      </EsdlResponse>
+      <EsdlResponse name="JavaEchoPersonInfoResponse">
+        <EsdlElement default="0" name="count" type="int"/>
+        <EsdlElement complex_type="NameInfo" name="Name"/>
+        <EsdlArray item_tag="Address" name="Addresses" type="AddressInfo"/>
+      </EsdlResponse>
+      <EsdlResponse name="TwoExamplePingResponse"/>
+      <EsdlResponse name="RoxieEchoPersonInfoResponse">
+        <EsdlElement default="0" name="count" type="int"/>
+        <EsdlElement complex_type="NameInfo" name="Name"/>
+        <EsdlArray item_tag="Address" name="Addresses" type="AddressInfo"/>
+      </EsdlResponse>
+      <EsdlEnumType base_type="string" name="AddressType">
+        <EsdlEnumItem enum="Home" name="HOME"/>
+        <EsdlEnumItem enum="Work" name="WORK"/>
+        <EsdlEnumItem enum="Hotel" name="HOTEL"/>
+      </EsdlEnumType>
+      <EsdlService name="TwoExample" version="0.01">
+        <EsdlMethod name="CppEchoPersonInfo" request_type="CppEchoPersonInfoRequest" response_type="CppEchoPersonInfoResponse"/>
+        <EsdlMethod name="JavaEchoPersonInfo" request_type="JavaEchoPersonInfoRequest" response_type="JavaEchoPersonInfoResponse"/>
+        <EsdlMethod auth_feature="none" name="Ping" request_type="TwoExamplePingRequest" response_type="TwoExamplePingResponse"/>
+        <EsdlMethod name="RoxieEchoPersonInfo" request_type="RoxieEchoPersonInfoRequest" response_type="RoxieEchoPersonInfoResponse"/>
+      </EsdlService>
+      <EsdlRequest name="CppEchoPersonInfoRequest">
+        <EsdlElement complex_type="NameInfo" name="Name"/>
+        <EsdlArray item_tag="Address" name="Addresses" type="AddressInfo"/>
+      </EsdlRequest>
+      <EsdlRequest name="JavaEchoPersonInfoRequest">
+        <EsdlElement complex_type="NameInfo" name="Name"/>
+        <EsdlArray item_tag="Address" name="Addresses" type="AddressInfo"/>
+      </EsdlRequest>
+      <EsdlRequest name="TwoExamplePingRequest"/>
+      <EsdlRequest name="RoxieEchoPersonInfoRequest">
+        <EsdlElement complex_type="NameInfo" name="Name"/>
+        <EsdlArray item_tag="Address" name="Addresses" type="AddressInfo"/>
+      </EsdlRequest>
+    </esxdl>
+"
+0000001E PRG 2021-03-18 14:44:35.834     1     1 "Loading XML ESDL definition: TwoExample.1"
+0000001F PRG 2021-03-18 14:44:35.834     1     1 "Time taken for adding XML ESDL definition: 2515696 cycles (2M) = 0 msec"
+00000020 PRG 2021-03-18 14:44:35.835     1     1 "ESDL Binding: ESP service DynamicESDL now based off of ESDL Service def: TwoExample"
+00000021 PRG 2021-03-18 14:44:35.835     1     1 "Adding esdl definition TwoExample.1 to shared cache"
+00000022 PRG 2021-03-18 14:44:35.835     1     1 "ESP Service DynamicESDL has been assigned to ESDL service definition TwoExample"
+00000023 PRG 2021-03-18 14:44:35.835     1     1 "ESDL Binding: configuring method targets for esdl service TwoExample"
+00000024 PRG 2021-03-18 14:44:35.835     1     1 "Compiling ESDL Transform: ''"
+00000025 USR 2021-03-18 14:44:35.835     1     1 "User Info [EsdlDefMethod]: Preparing access map for TwoExample/JavaEchoPersonInfo"
+00000026 USR 2021-03-18 14:44:35.835     1     1 "WARNING: User Warning [EsdlDefMethod]: TwoExample/JavaEchoPersonInfo is using the default security specification"
+00000027 USR 2021-03-18 14:44:35.835     1     1 "User Info [EsdlDefMethod]: Applying TwoExampleAccess:SecAccess_Full"
+00000028 PRG 2021-03-18 14:44:35.874     1     1 "javaembed: exception: java.lang.ClassNotFoundException: TwoExample.TwoExampleService"
+00000029 PRG 2021-03-18 14:44:35.874     1     1 "javaembed: exception: stack: java.base/jdk.internal.loader.BuiltinClassLoader.loadClass(BuiltinClassLoader.java:581)"
+0000002A PRG 2021-03-18 14:44:35.874     1     1 "javaembed: exception: stack: java.base/jdk.internal.loader.ClassLoaders$AppClassLoader.loadClass(ClassLoaders.java:178)"
+0000002B PRG 2021-03-18 14:44:35.874     1     1 "javaembed: exception: stack: java.base/java.lang.ClassLoader.loadClass(ClassLoader.java:522)"
+0000002C PRG 2021-03-18 14:44:35.874     1     1 "0: DynamicESDL-JavaMethod: : javaembed: java.lang.ClassNotFoundException: TwoExample.TwoExampleService"
+0000002D PRG 2021-03-18 14:44:35.874     1     1 "Method JavaEchoPersonInfo configured"
+0000002E USR 2021-03-18 14:44:35.874     1     1 "User Info [EsdlDefMethod]: Preparing access map for TwoExample/CppEchoPersonInfo"
+0000002F USR 2021-03-18 14:44:35.874     1     1 "WARNING: User Warning [EsdlDefMethod]: TwoExample/CppEchoPersonInfo is using the default security specification"
+00000030 USR 2021-03-18 14:44:35.874     1     1 "User Info [EsdlDefMethod]: Applying TwoExampleAccess:SecAccess_Full"
+00000031 PRG 2021-03-18 14:44:35.874     1     1 "Loading plugin libTwoExampleService.so"
+00000032 OPR 2021-03-18 14:44:35.875     1     1 "WARNING: Warning: Could not load libTwoExampleService.so: libTwoExampleService.so: cannot open shared object file: No such file or directory"
+00000033 OPR 2021-03-18 14:44:35.875     1     1 "ERROR: Failed to load shared object (libTwoExampleService.so)"
+00000034 PRG 2021-03-18 14:44:35.875     1     1 "C++ plugin libTwoExampleService.so could not be loaded for esdl method CppEchoPersonInfo"
+00000035 PRG 2021-03-18 14:44:35.875     1     1 "Method CppEchoPersonInfo configured"
+00000036 USR 2021-03-18 14:44:35.875     1     1 "User Info [EsdlDefMethod]: Preparing access map for TwoExample/RoxieEchoPersonInfo"
+00000037 USR 2021-03-18 14:44:35.875     1     1 "WARNING: User Warning [EsdlDefMethod]: TwoExample/RoxieEchoPersonInfo is using the default security specification"
+00000038 USR 2021-03-18 14:44:35.875     1     1 "User Info [EsdlDefMethod]: Applying TwoExampleAccess:SecAccess_Full"
+00000039 PRG 2021-03-18 14:44:35.875     1     1 "Compiling ESDL Transform: ''"
+0000003A USR 2021-03-18 14:44:35.875     1     1 "CSmartSocketFactory::CSmartSocketFactory(localhost:9876)"
+0000003B PRG 2021-03-18 14:44:35.876     1     1 "Method RoxieEchoPersonInfo configured"
+0000003C PRG 2021-03-18 14:44:35.881     1     1 "Tank file /var/log/HPCCSystems/FailSafeLogs/twoexampletwoexample_logman_sending_0974088757.2021_03_18_14_44_35.log successfully created"
+0000003D PRG 2021-03-18 14:44:35.881     1     1 "Tank file /var/log/HPCCSystems/FailSafeLogs/twoexampletwoexample_logman_acked_0974088757.2021_03_18_14_44_35.log successfully created"
+0000003E PRG 2021-03-18 14:44:35.882     1     1 "Tank file ./FailSafeLogs/twoexampleesploggingagent_sending_2605217370.2021_03_18_14_44_35.log successfully created"
+0000003F PRG 2021-03-18 14:44:35.882     1     1 "Tank file ./FailSafeLogs/twoexampleesploggingagent_acked_2605217370.2021_03_18_14_44_35.log successfully created"
+00000040 USR 2021-03-18 14:44:35.882     1     1 "FailSafe ensured for esploggingagent"
+00000041 USR 2021-03-18 14:44:35.882     1     1 "esploggingagent CLogThread started."
+00000042 USR 2021-03-18 14:44:35.882     1     1 "binding twoexample, on 0.0.0.0:8880"
+00000043 USR 2021-03-18 14:44:35.883     1     1 "  created server socket(17)"
+00000044 USR 2021-03-18 14:44:35.883     1     1 "  Socket(17) listening."
+00000045 USR 2021-03-18 14:44:35.883     1     1 "Successfully instantiated new DESDL binding twoexample and service"
+00000046 PRG 2021-03-18 14:44:35.884     1     1 "ESDL Binding: Adding service 'esdl' on 0.0.0.0 port 8880 on esdl_binding binding."
+00000047 PRG 2021-03-18 14:44:35.884     1     1 "ESDL Binding: Error adding service 'esdl': ESDL binding configuration not available"
+00000048 USR 2021-03-18 14:44:35.884     1     1 "binding esdl_binding, on 0.0.0.0:8880"
+00000049 PRG 2021-03-18 14:44:35.884     1     1 "Creating sentinel file /tmp/esdl.sentinel for rerun from script"
+0000004A PRG 2021-03-18 14:44:35.884     1     1 "ESP server started."

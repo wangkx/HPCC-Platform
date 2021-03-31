@@ -1,0 +1,102 @@
+IMPORT STD;
+
+IP := '10.0.2.15';
+dir := '/var/lib/HPCCSystems/mydropzone/tests/test_file_ecl/temp';
+f1 := '/var/lib/HPCCSystems/mydropzone/tests/test_file_ecl/temp/f1';
+f11 := '/var/lib/HPCCSystems/mydropzone/tests/test_file_ecl/temp1/f1';
+
+STD.File.MoveExternalFile( IP, f1, f11 );
+
+OUTPUT(STD.File.RemoteDirectory( IP, dir ));
+
+STD.File.MoveExternalFile( IP, f11, f1 );
+
+OUTPUT(STD.File.RemoteDirectory( IP, dir ));
+
+STD.File.MoveExternalFile( IP, f1, f11 );
+
+OUTPUT(STD.File.RemoteDirectory( IP, dir ));
+
+STD.File.MoveExternalFile( IP, f11, f1 );
+
+OUTPUT(STD.File.RemoteDirectory( IP, dir ));
+
+STD.File.MoveExternalFile( IP, f1, f11 );
+
+OUTPUT(STD.File.RemoteDirectory( IP, dir ));
+
+STD.File.MoveExternalFile( IP, f11, f1 );
+
+OUTPUT(STD.File.RemoteDirectory( IP, dir ));
+
+STD.File.MoveExternalFile( IP, f1, f11 );
+
+OUTPUT(STD.File.RemoteDirectory( IP, dir ));
+
+STD.File.MoveExternalFile( IP, f11, f1 );
+
+OUTPUT(STD.File.RemoteDirectory( IP, dir ));
+
+STD.File.MoveExternalFile( IP, f1, f11 );
+
+OUTPUT(STD.File.RemoteDirectory( IP, dir ));
+
+STD.File.MoveExternalFile( IP, f11, f1 );
+
+OUTPUT(STD.File.RemoteDirectory( IP, dir ));
+
+STD.File.MoveExternalFile( IP, f1, f11 );
+
+OUTPUT(STD.File.RemoteDirectory( IP, dir ));
+
+STD.File.MoveExternalFile( IP, f11, f1 );
+
+OUTPUT(STD.File.RemoteDirectory( IP, dir ));
+
+STD.File.MoveExternalFile( IP, f1, f11 );
+
+OUTPUT(STD.File.RemoteDirectory( IP, dir ));
+
+STD.File.MoveExternalFile( IP, f11, f1 );
+
+OUTPUT(STD.File.RemoteDirectory( IP, dir ));
+
+STD.File.MoveExternalFile( IP, f1, f11 );
+
+OUTPUT(STD.File.RemoteDirectory( IP, dir ));
+
+STD.File.MoveExternalFile( IP, f11, f1 );
+
+OUTPUT(STD.File.RemoteDirectory( IP, dir ));
+
+STD.File.MoveExternalFile( IP, f1, f11 );
+
+OUTPUT(STD.File.RemoteDirectory( IP, dir ));
+
+STD.File.MoveExternalFile( IP, f11, f1 );
+
+OUTPUT(STD.File.RemoteDirectory( IP, dir ));
+
+STD.File.MoveExternalFile( IP, f1, f11 );
+
+OUTPUT(STD.File.RemoteDirectory( IP, dir ));
+
+STD.File.MoveExternalFile( IP, f11, f1 );
+
+OUTPUT(STD.File.RemoteDirectory( IP, dir ));
+
+STD.File.MoveExternalFile( IP, f1, f11 );
+
+OUTPUT(STD.File.RemoteDirectory( IP, dir ));
+
+STD.File.MoveExternalFile( IP, f11, f1 );
+
+OUTPUT(STD.File.RemoteDirectory( IP, dir ));
+
+STD.File.MoveExternalFile( IP, f1, f11 );
+
+OUTPUT(STD.File.RemoteDirectory( IP, dir ));
+
+STD.File.MoveExternalFile( IP, f11, f1 );
+
+OUTPUT(STD.File.RemoteDirectory( IP, dir ));

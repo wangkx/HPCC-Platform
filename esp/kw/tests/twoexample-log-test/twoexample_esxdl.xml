@@ -1,0 +1,57 @@
+  <Definitions>
+    <esxdl name="TwoExample">
+      <EsdlStruct name="NameInfo">
+        <EsdlElement default="Joe" name="First" type="string"/>
+        <EsdlElement default="Doe" name="Last" type="string"/>
+        <EsdlArray item_tag="Alias" name="Aliases" type="string"/>
+      </EsdlStruct>
+      <EsdlStruct name="AddressInfo">
+        <EsdlElement name="Line1" type="string"/>
+        <EsdlElement name="Line2" type="string"/>
+        <EsdlElement name="City" type="string"/>
+        <EsdlElement name="State" type="string"/>
+        <EsdlElement default="33487" name="Zip" type="int"/>
+        <EsdlEnum default="Home" enum_type="AddressType" name="type"/>
+      </EsdlStruct>
+      <EsdlResponse name="CppEchoPersonInfoResponse">
+        <EsdlElement default="0" name="count" type="int"/>
+        <EsdlElement complex_type="NameInfo" name="Name"/>
+        <EsdlArray item_tag="Address" name="Addresses" type="AddressInfo"/>
+      </EsdlResponse>
+      <EsdlResponse name="JavaEchoPersonInfoResponse">
+        <EsdlElement default="0" name="count" type="int"/>
+        <EsdlElement complex_type="NameInfo" name="Name"/>
+        <EsdlArray item_tag="Address" name="Addresses" type="AddressInfo"/>
+      </EsdlResponse>
+      <EsdlResponse name="TwoExamplePingResponse"/>
+      <EsdlResponse name="RoxieEchoPersonInfoResponse">
+        <EsdlElement default="0" name="count" type="int"/>
+        <EsdlElement complex_type="NameInfo" name="Name"/>
+        <EsdlArray item_tag="Address" name="Addresses" type="AddressInfo"/>
+      </EsdlResponse>
+      <EsdlEnumType base_type="string" name="AddressType">
+        <EsdlEnumItem enum="Home" name="HOME"/>
+        <EsdlEnumItem enum="Work" name="WORK"/>
+        <EsdlEnumItem enum="Hotel" name="HOTEL"/>
+      </EsdlEnumType>
+      <EsdlService name="TwoExample" version="0.01">
+        <EsdlMethod name="CppEchoPersonInfo" request_type="CppEchoPersonInfoRequest" response_type="CppEchoPersonInfoResponse"/>
+        <EsdlMethod name="JavaEchoPersonInfo" request_type="JavaEchoPersonInfoRequest" response_type="JavaEchoPersonInfoResponse"/>
+        <EsdlMethod auth_feature="none" name="Ping" request_type="TwoExamplePingRequest" response_type="TwoExamplePingResponse"/>
+        <EsdlMethod name="RoxieEchoPersonInfo" request_type="RoxieEchoPersonInfoRequest" response_type="RoxieEchoPersonInfoResponse"/>
+      </EsdlService>
+      <EsdlRequest name="CppEchoPersonInfoRequest">
+        <EsdlElement complex_type="NameInfo" name="Name"/>
+        <EsdlArray item_tag="Address" name="Addresses" type="AddressInfo"/>
+      </EsdlRequest>
+      <EsdlRequest name="JavaEchoPersonInfoRequest">
+        <EsdlElement complex_type="NameInfo" name="Name"/>
+        <EsdlArray item_tag="Address" name="Addresses" type="AddressInfo"/>
+      </EsdlRequest>
+      <EsdlRequest name="TwoExamplePingRequest"/>
+      <EsdlRequest name="RoxieEchoPersonInfoRequest">
+        <EsdlElement complex_type="NameInfo" name="Name"/>
+        <EsdlArray item_tag="Address" name="Addresses" type="AddressInfo"/>
+      </EsdlRequest>
+    </esxdl>
+  </Definitions>

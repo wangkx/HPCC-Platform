@@ -1,0 +1,82 @@
+http://localhost:8010/WsTopology/TpDropZoneQuery?ver_=1.31&soap_builder_
+
+<?xml version="1.0" encoding="UTF-8"?>
+<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/" xmlns:SOAP-ENC="http://schemas.xmlsoap.org/soap/encoding/" xmlns="urn:hpccsystems:ws:wstopology">
+ <soap:Body>
+  <TpDropZoneQueryRequest>
+   <Name/>
+   <ECLWatchVisibleOnly>0</ECLWatchVisibleOnly>
+  </TpDropZoneQueryRequest>
+ </soap:Body>
+</soap:Envelope>
+
+<?xml version="1.0" encoding="utf-8"?>
+<soap:Envelope xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/" xmlns:wsse="http://schemas.xmlsoap.org/ws/2002/04/secext">
+ <soap:Body>
+  <TpDropZoneQueryResponse xmlns="urn:hpccsystems:ws:wstopology">
+   <TpDropZones>
+    <TpDropZone>
+     <Name>data</Name>
+     <Description/>
+     <Build/>
+     <Path>/var/lib/HPCCSystems/hpcc-data</Path>
+     <ECLWatchVisible>1</ECLWatchVisible>
+     <UMask/>
+     <TpMachines>
+      <TpMachine>
+       <Name/>
+       <Netaddress>127.0.0.1</Netaddress>
+       <ConfigNetaddress>localhost</ConfigNetaddress>
+       <Domain/>
+       <Directory>/var/lib/HPCCSystems/hpcc-data</Directory>
+       <Type/>
+       <Available/>
+       <OS>2</OS>
+       <Path/>
+       <Port>0</Port>
+       <ProcessNumber>0</ProcessNumber>
+       <Channels>0</Channels>
+      </TpMachine>
+     </TpMachines>
+    </TpDropZone>
+   </TpDropZones>
+  </TpDropZoneQueryResponse>
+ </soap:Body>
+</soap:Envelope>
+
+http://localhost:8010/FileSpray/Despray?ver_=1.2&soap_builder_
+
+<?xml version="1.0" encoding="UTF-8"?>
+<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/" xmlns:SOAP-ENC="http://schemas.xmlsoap.org/soap/encoding/" xmlns="urn:hpccsystems:ws:filespray">
+ <soap:Body>
+  <Despray>
+   <destGroup>data</destGroup>
+   <sourceLogicalName>hello023::out</sourceLogicalName>
+   <destIP>127.0.0.1</destIP>
+   <destPath>lza/desprayed3</destPath>
+   <dstxml/>
+   <overwrite>0</overwrite>
+   <maxConnections>0</maxConnections>
+   <throttle>0</throttle>
+   <transferBufferSize>0</transferBufferSize>
+   <splitprefix/>
+   <norecover>0</norecover>
+   <wrap>0</wrap>
+   <multiCopy>0</multiCopy>
+   <SingleConnection>0</SingleConnection>
+   <DFUServerQueue/>
+   <compress>0</compress>
+   <encrypt/>
+   <decrypt/>
+  </Despray>
+ </soap:Body>
+</soap:Envelope>
+
+<?xml version="1.0" encoding="utf-8"?>
+<soap:Envelope xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/" xmlns:wsse="http://schemas.xmlsoap.org/ws/2002/04/secext">
+ <soap:Body>
+  <DesprayResponse xmlns="urn:hpccsystems:ws:filespray">
+   <wuid>D20210330-145333</wuid>
+  </DesprayResponse>
+ </soap:Body>
+</soap:Envelope>

@@ -1,0 +1,488 @@
+done 30+ (calls or call groups)
+
+not done 70+ (20+ may not needed, Cluster attrs 7 (RKC, Tony, Jake, Gavin?), Process 12, dropZone 7 (Gavin?), 
+Redesign (getClusterGroupName() and other spark function related, DFUServer, PackageMap, Sasha, XRef, Machine)? 30+):
+
+DFU					Redesign?
+ HPCC-25172: @nodeGroup+ Jake?
+   Break ESP Service: CWsDfuEx::onDFUFileCreateV2() and CWsDfuEx::onDFUFilePublish()  Jake?
+    getClusterTypeByClusterName(): use cluster process name to find out target type
+    getClusterGroupName(): use cluster process name to find out group name
+   
+   related: call the getEnvironmentFactory(true) in the CTpWrapper::getClusterProcessList() at TpWrapper.cpp(994)
+     for each cluster process, find @name, @queueName, @nodeGroup, @build, @dataBuild and more. But, most of callers only need process names.
+	Break ESP Service: 
+     CWsDfuEx::onDFUSearch(): cannot list the Group Name filter.
+	 CWsDfuEx::onDFUInfo: cannot return the FromRoxieCluster flag. (no FromRoxieCluster -> can despray, etc).
+	   Check whether file's cluster name is in the group names of roxie clusters. 
+	 CWsDfuEx::getAPageOfSortedLogicalFile(): used by legacy dali
+	 CWsTopologyEx::onTpClusterQuery(): not needed?
+	
+ HPCC-25217 @replicateOutputs+ Jake?
+	Break ESP Service: 
+	 FileSpray.GetSprayTargets: return nothing
+	  Call getEnvironmentFactory(true) to read ThorCluster/@replicateOutputs, group names for thor cluster processes and hthor processes. 
+	 WsDFU.DFUInfo: Cannot set the canReplicate flag.
+	  call the getEnvironmentFactory(true) to read ThorCluster/@replicateOutputs and getCount("ThorSlaveProcess") for a given thor group name. 
+	 WsTopology.TpGroupQuery: crush
+	  for a given group kind, ask dali for the names of the matched groups. Also call the getEnvironmentFactory(true) to read ThorCluster/@replicateOutputs for thor cluster groups
+
+ HPCC-25218 Report roxie process name, RoxieCluster/@numDataCopies, @slaveConfig, @channelsPernode, @cyclicOffset for given target name. Tony or RKC?
+  Break ESP Service: 
+   WsWorkunits.WUCopyQuerySet:
+   WsWorkunits.WUQuerysetImport:
+   FileSpray.Copy.
+   
+ HPCC-25279 use group name to find out target name
+  Break ESP Service: no DFU WU to test
+   FileSpray.GetDFUWorkunit: for a given group name (DFU WU's clusterName @cluster?), loop through every target. If the cluster process name matches with target's process, return the target name.
+   FileSpray.CreateDFUWorkunit: same as the previous item. Return WU information after creating the WU.
+   FileSpray.GetDFUWorkunits: same as the previous item.
+   FileSpray.DFUWUSearch: list all of target names as legacy DFUWU search filters. Not needed?
+
+
+Log					Rodrigo?
+Drop zone			Redesign?
+Package Map			Redesign?
+Xref				?
+Sasha				?
+Topology/machine	Remove?
+
+
+--------Details
+1? -> 0
+
+2? 2
+ 1. call the getEnvironmentFactory(true) in WsWorkunits.WUQueryDetails() at ws_workunitsQuerySets.cpp(2248)
+	Function: build URLs (IP address and port) for all ESPs which have ws_ecl service.
+	Break ESP Service: WsWorkunits.WUQueryDetails
+	Details: 
+		find out the WsEclAddresses from environment xml. Redesign?
+		Find service names for each services = root->getElements("Software/EspService[Properties/@type='ws_ecl']").
+		Build WsEcl url using IP ("Software/EspProcess" instance) and port ("EspBinding" port).
+	tag: HPCC-25229
+ 2. call the getAccessibleServiceURLList() in the ensureAccessibleDfuServiceURLList() at wsdfuaccess.cpp(58)
+	Function: Similar to the previous one but for WsSMC service.
+	Break ESP Service: multiple places in wsdfuaccess.cpp
+    Details: 
+        getAccessibleServiceURLList("WsSMC", dfuServiceUrls); Redesign?
+        From environment.xml, for each EspProcess, each EspBinding, each EspService with given service type,
+        and each instance, get the @computer. Find the @netAddress for computer. 
+	    Build URLs using the IP and binding port.
+	tag: HPCC-25229
+	 
+2? Process 12+
+ Why we still use process names?
+   a. a user likes to use process name than group or target, so we take it and translate to group or target
+   b. use process name to check whether it is a roxie or not and also as the group name of the copied file: CWsWorkunitsEx::onWUCopyLogicalFiles()
+   c. process name which is used for creating package set
+   d. use process name to get more information about the process: @name, @queueName, @nodeGroup, @build, @dataBuild and more. Not sure who uses that.
+ 1. call the getTargetClusterInfo(wuinfo.qsetname) at ws_ecl_service.cpp(1536)
+    Function: for a given query set name (target name), check if it is a roxie and set "includeRoxieOptions".
+    Break ESP Service: CWsEclBinding::getGenForm()
+    Details:  
+	tag:
+ 2. call the getEnvironmentFactory(true) in the DeepAssign() at ws_fsService.cpp(225)
+    Function: for a given cluster process name (DFU WU's clusterName @cluster?), loop through every target. If the cluster process name matches with target's process, return the target name. 
+	  This could be a bug for bare metal because DFU WU's @cluster is a group name, may not be the same as process name. 
+	  In bare metal env, the fix could be from the group name to find out the process name, then find out the target name.
+	  In cloud env, DFU WU's @cluster will be plan name. Not need to find out a target. ??
+    Break ESP Service: FileSpray.GetDFUWorkunit, FileSpray.CreateDFUWorkunit (DFU WU Details)
+    Details: process name for DFUWorkunit
+		DeepAssign(): Cluster Process name = target name -> return matched target names
+	tag: HPCC-25279 process name for DFUWorkunit
+ 3. call the getEnvironmentFactory(true) in the CFileSprayEx::onGetDFUWorkunits() at ws_fsService.cpp(941)
+    Function: Find target name and cluster process. Similar to the previous item. 
+    Break ESP Service: FileSpray.GetDFUWorkunits
+    tag: HPCC-25279 process name for DFUWorkunit
+ 4. call the getEnvironmentFactory(true) in the CFileSprayEx::onDFUWUSearch() at ws_fsService.cpp(652)
+    Function: list all of targets as DFUWU search filters. 
+	  In cloud env, should we return the list of storage plans ??
+    Break ESP Service: FileSpray.DFUWUSearch
+    tag: HPCC-25279 process name for DFUWorkunit
+ 5. call the getTargetClusterInfo(querySet) in the CWsDfuEx::getQueryFile() at ws_dfuService.cpp(2640)
+	Function: for a given query set name (target name), check if it is a roxie. If yes, find out its roxie process name which is used for creating package set, etc.
+    Break ESP Service: WsDfu.DFUInfo
+    tag: process name for package
+ 6. call the getTargetClusterInfo(target) in the QueryFilesInUse::loadTarget() at ws_workunitsQuerySets.cpp(291)
+    Function: for a given target name, check if it is a roxie. If yes, find out its roxie process name which is used for creating package set, etc.
+    Break ESP Service: QueryFilesInUse
+    tag: process name for package
+ 7. call the getTargetClusterInfo(target) in the CWsWorkunitsEx::getQueryFiles() at ws_workunitsQuerySets.cpp(2408)
+    Function: for a given target name, check if it is a roxie. If yes, find out its roxie process name which is used for creating package set, etc.
+    Break ESP Service: WsWorkunits.WUQueryDetails and WsWorkunits.WUQueryDetailsLightWeight
+    tag: process name for package
+ 8. call the getTargetClusterInfo(cluster.str()) in CWsWorkunitsEx::onWUCopyLogicalFiles() at ws_workunitsQuerySets.cpp(480)
+    Function: for a given target name, find out its thor processes and its roxie process. Use those process names when copying files.
+	  Use a process name as a group name to check if the file exists. If yes, no need to copy. If not, copy the file using the process name as a group name.
+    Break ESP Service: WsWorkunits.WUCopyLogicalFiles
+    Details: 
+		getThorProcesses(); getRoxieProcess(process);
+	tag: process name for copying files
+ 9. call the getEnvironmentFactory(true) in the isRoxieProcess() at ws_workunitsQuerySets.cpp(55)
+    Function: fora given process name, check if it belongs to a roxie
+    Break ESP Service: WsWorkunits.WUCopyLogicalFiles
+    Details: 
+      isRoxieProcess(): process name  -> target name -> isRoxieProcess
+	tag: process name for copying files
+ 10. call the getTargetClusterInfo(target) in the CWsWorkunitsEx::onWUCopyQuerySet at ws_workunitsQuerySets.cpp(3061)
+    call the getTargetClusterInfo(target) in the CWsWorkunitsEx::onWUQuerysetImport() at ws_workunitsQuerySets.cpp(3234)
+    Function: for a given target name, check if it is a roxie. If yes, find out its roxie process name which is used for enableFileCloning() [creating package set].
+    Break ESP Service: WsWorkunits.WUCopyQuerySet, WsWorkunits.WUQuerysetImport
+    tag: process name for FileCloning
+ 11. call the getEnvironmentFactory(true) in the getHthorClusterList() at TpWrapper.cpp(1154)
+    Function: for every hthor process, return process information, including name, @build, @description, "run" dir from Software/Directories, machine os, etc.
+    Break ESP Service: WsDfu.DFUSearch
+    Details: 
+     <- getHthorClusterList()   <- CWsDfuEx::onDFUSearch(): process name <- target name for each cluster process
+	tag: DFUSearch
+ 12. call the getEnvironmentFactory(true) in the CTpWrapper::getClusterProcessList() at TpWrapper.cpp(994)
+    Function: for each cluster process, find @name, @queueName, @nodeGroup, @build, @dataBuild and more. But, most of callers only need process names.
+    Break ESP Service: WsTopology.TpClusterQuery() (not needed?), DFUSearch, DFUInfo, ?
+    Details: 
+     <- getClusterProcessList() <- CWsTopologyEx::onTpClusterQuery(): not needed?
+                                <- CWsDfuEx::onDFUSearch(): process name <- target name for each cluster process
+								<- CWsDfuEx::doGetFileDetails(): process name <- target name for each cluster process
+								<- CWsDfuEx::getAPageOfSortedLogicalFile(): process name <- target name for each cluster process
+	tag: nodeGroup? HPCC-25172
+
+2? Cluster attrs 7
+    RoxieCluster/@name, @numDataCopies, @slaveConfig, @channelsPernode, @cyclicOffset, @ldapUser, @ldapPassword
+    ThorCluster/@name, @nodeGroup, @replicateOutputs, Count("ThorSlaveProcess")
+    EclAgentProcess/@name, Instance/@netAddress
+ 1. call the getTargetClusterInfo(target.str()) in the QueryFilesInUse.updateUsers() at ws_workunitsService.hpp(78)
+    Function: Report RoxieCluster/@ldapUser, @ldapPassword 
+    Break ESP Service: QueryFilesInUse
+    tag: QueryFilesInUse
+ 2. C:\Users\wangkx\source\repos\HPCC-Platform\esp\services\ws_workunits\ws_workunitsService.hpp(68):        Owned<IStringIterator> clusters = getTargetClusters("RoxieCluster", nullptr);
+	A simple fix. Fix the issue in ws_workunitsService.hpp(78) before fixing this.
+ 3. call the getTargetClusterInfo(target) in the QueryCloner.cloneFiles() at ws_workunitsQuerySets.cpp(2995).
+      Check the similar for Caller: FileSpray.Copy. setRoxieClusterPartDiskMapping() in ws_fsService.cpp(585)
+    Function: Report roxie process name, RoxieCluster/@numDataCopies, @slaveConfig, @channelsPernode, @cyclicOffset for given target name
+    Break ESP Service: WsWorkunits.WUCopyQuerySet, WsWorkunits.WUQuerysetImport
+    tag: HPCC-25218
+ 4. call the getEnvironmentFactory(true) in the setRoxieClusterPartDiskMapping() at ws_fsService.cpp(585)
+    Function: RoxieCluster/@numDataCopies, @slaveConfig, @channelsPernode,  @cyclicOffset for given roxie cluster process
+    Break ESP Service: FileSpray.Copy 
+    Details: 
+		("Software/RoxieCluster[@name=\"%s\"]",clusterName))
+		process.queryProp("@slaveConfig"); "@numDataCopies", "@channelsPernode", "@cyclicOffset"
+	tag: HPCC-25218
+ 5. call the getEnvironmentFactory(true) in the readNodeGroup() at ws_dfuService.cpp(103)
+    Function: ThorCluster/@replicateOutputs and getCount("ThorSlaveProcess") for a given thor group name. To set the canReplicate flag.
+    Break ESP Service: WsDFU.DFUInfo (getFilePartsOnClusters())
+    Details: 
+	    getElements("Software/ThorCluster"); getClusterGroupName(); 
+		cluster.getCount("ThorSlaveProcess"), cluster.getPropBool("@replicateOutputs", false));
+	tag: HPCC-25217
+ 6. call the getEnvironmentFactory(true) in the CFileSprayEx::onGetSprayTargets() at ws_fsService.cpp(3388)
+    Function: read ThorCluster/@replicateOutputs, group names for thor cluster processes and hthor processes. 
+    Break ESP Service: FileSpray.GetSprayTargets
+    Details: 
+	   getElements("Software/ThorCluster"); 
+	   getClusterGroupName(); cluster.getPropBool("@replicateOutputs", false);
+	   getElements("Software/EclAgentProcess")); cluster.queryProp("@name");                    
+	   cluster.getElements("Instance"); 
+	   if "@netAddress" is valid, gname("hthor__%s", name);
+	tag: HPCC-25217
+ 7. call the getEnvironmentFactory(true) in the checkGroupReplicateOutputs() at TpWrapper.cpp(1291)
+    Function: read ThorCluster/@replicateOutputs for thor cluster groups
+    Break ESP Service: WsTopology.TpGroupQuery
+    Details: 
+		getElements("Software/ThorCluster"); 
+		getClusterGroupName() + cluster.getPropBool("@replicateOutputs", false);
+		CTpWrapper::checkGroupReplicateOutputs(): <- CTpWrapper::getGroupList() <- onTpGroupQuery()
+	tag: HPCC-25217
+  
+3? dropZone 7: DZ: isECLWatchVisible, netAddr, @name, @directory, @umask, netAddrs.
+    tag: dropZone related
+ 1. C:\Users\wangkx\source\repos\HPCC-Platform\esp\services\ws_fileio\ws_fileioservice.cpp(41):    Owned<IEnvironmentFactory> factory = getEnvironmentFactory(true);
+   For a given targetDZNameOrAddress, find: isECLWatchVisible, netAddr, @directory
+ 2. C:\Users\wangkx\source\repos\HPCC-Platform\esp\services\ws_fs\ws_fsService.cpp(2249):    Owned<IEnvironmentFactory> factory = getEnvironmentFactory(true);
+   CFileSprayEx::getDropZoneInfoByIP(): for a given IP, find: @directory, @umask
+ 3. C:\Users\wangkx\source\repos\HPCC-Platform\esp\services\ws_fs\ws_fsService.cpp(2865):    Owned<IEnvironmentFactory> envFactory = getEnvironmentFactory(true);
+   CFileSprayEx::checkDropZoneIPAndPath(): for a given IP, check @name and @directory
+ 4. C:\Users\wangkx\source\repos\HPCC-Platform\esp\services\ws_fs\ws_fsService.cpp(2973):        Owned<IEnvironmentFactory> envFactory = getEnvironmentFactory(true);
+   CFileSprayEx::onDropZoneFileSearch(): for a given DZ name, find isECLWatchVisible, netAddr, @directory
+ 5. C:\Users\wangkx\source\repos\HPCC-Platform\esp\services\ws_fs\ws_fsService.cpp(3197):        Owned<IEnvironmentFactory> envFactory = getEnvironmentFactory(true);
+   CFileSprayEx::onDropZoneFiles(): for all DZs, find isECLWatchVisible, netAddr, @name, @directory
+ 6. C:\Users\wangkx\source\repos\HPCC-Platform\esp\smc\SMCLib\TpWrapper.cpp(1677):    Owned<IEnvironmentFactory> envFactory = getEnvironmentFactory(true);
+ <- getTpDropZones()
+ 7. 3? dropZoneInfo and more C:\Users\wangkx\source\repos\HPCC-Platform\esp\services\ws_fs\ws_fsBinding.cpp(201):    Owned<IEnvironmentFactory> factory = getEnvironmentFactory(true);
+
+3? calls to getClusterGroupName() and/or calls to getClusterTypeByClusterName()   
+    tag: HPCC-25172
+     Also KeyPair and daFileSrvInfo Info (port and secure)
+ Add new getContainerClusterTypeByClusterName(): Cluster Process Name -> Target Name (Queue Name) -> type
+C:\Users\wangkx\source\repos\HPCC-Platform\esp\services\ws_dfu\ws_dfuService.cpp(6225):        ClusterType clusterType = getClusterTypeByClusterName(clusterName);
+C:\Users\wangkx\source\repos\HPCC-Platform\esp\services\ws_dfu\ws_dfuService.cpp(6321):        ClusterType clusterType = getClusterTypeByClusterName(clusterName);
+C:\Users\wangkx\source\repos\HPCC-Platform\esp\services\ws_dfu\ws_dfuService.cpp(6471):            ClusterType clusterType = getClusterTypeByClusterName(clusterName);
+
+  //similar to getClusterThorGroupName, but for roxie, hthor also
+extern ENVIRONMENT_API StringBuffer &getClusterGroupName(StringBuffer &ret, const char *cluster); //similar to getClusterThorGroupName, but for roxie, hthor also
+C:\Users\wangkx\source\repos\HPCC-Platform\esp\services\ws_dfu\ws_dfuService.cpp(111):        getClusterGroupName(cluster, groupName);
+C:\Users\wangkx\source\repos\HPCC-Platform\esp\services\ws_dfu\ws_dfuService.cpp(6115):    getClusterGroupName(groupName, clusterName);
+C:\Users\wangkx\source\repos\HPCC-Platform\esp\services\ws_dfu\ws_dfuService.cpp(6326):        getClusterGroupName(groupName, clusterName);
+C:\Users\wangkx\source\repos\HPCC-Platform\esp\services\ws_fs\ws_fsBinding.cpp(239):            getClusterGroupName(cluster, thorClusterGroupName);
+C:\Users\wangkx\source\repos\HPCC-Platform\esp\services\ws_fs\ws_fsService.cpp(3401):            getClusterGroupName(cluster, thorClusterGroupName);
+C:\Users\wangkx\source\repos\HPCC-Platform\esp\services\ws_machine\ws_machineService.cpp(784):        getClusterGroupName(*cluster, groupName);
+C:\Users\wangkx\source\repos\HPCC-Platform\esp\services\ws_machine\ws_machineService.cpp(3111):        getClusterGroupName(cluster, thorClusterGroupName);
+C:\Users\wangkx\source\repos\HPCC-Platform\esp\smc\SMCLib\LogicFileWrapper.cpp(153):    df->getClusterGroupName(0, nodeGroup);
+C:\Users\wangkx\source\repos\HPCC-Platform\esp\smc\SMCLib\TpWrapper.cpp(1300):        getClusterGroupName(cluster, thorClusterGroupName);
+
+C:\Users\wangkx\source\repos\HPCC-Platform\esp\services\ws_dfu\ws_dfuService.cpp(185):    factory.setown(getEnvironmentFactory(true));
+ ws_dfuService.cpp:5911:21: In member function ‘void CWsDfuEx::getFileDafilesrvConfiguration(StringBuffer&, unsigned int&, bool&, const char*)’:
+     keyPairName.set(env->getClusterGroupKeyPairName(group));
+	 "Software/Directories" and "EnvSettings/Keys/KeyPair"
+ ws_dfuService.cpp:6026:47:  In member function ‘void CWsDfuEx::dFUFileAccessCommon(IEspContext&, const CDfsLogicalFileName&, SessionId, const char*, unsigned int, bool, unsigned int, IEspDFUFileAccessResponse&)’:
+   encodeDFUFileMeta(metaInfoBlob, metaInfo, env);
+     "EnvSettings/Keys/KeyPair"        ^~~
+
+3? for wu log
+ calls to getClusterThorGroupName():
+   extern ENVIRONMENT_API StringBuffer &getClusterThorGroupName(StringBuffer &ret, const char *cluster); //path.append("Software/ThorCluster[@name=\"").append(cluster).append("\"]");
+   Add new getContainerClusterGroupName(): Cluster Process Name -> Target Name (Queue Name) ->     
+                for hthor, add 'hthor__' to Queue Name as the groupName; other, return Queue Name as the groupName:
+    const char *name = cluster.queryProp("@name"); //Process Name -> Target Name (Queue Name)
+    const char *nodeGroupName = cluster.queryProp("@nodeGroup"); //Old thor, never used in cloud?
+    if (nodeGroupName && *nodeGroupName)
+        name = nodeGroupName;
+    groupName.append(name);
+    return groupName.trim().toLowerCase();
+	
+	//for hthor
+	return ret.setf("hthor__%s", cluster);
+	
+C:\Users\wangkx\source\repos\HPCC-Platform\esp\services\ws_workunits\ws_workunitsHelpers.cpp(1109):            getClusterThorGroupName(groupName, processName.str());
+C:\Users\wangkx\source\repos\HPCC-Platform\esp\services\ws_workunits\ws_workunitsHelpers.cpp(1237):                getClusterThorGroupName(groupName, processName.str());
+C:\Users\wangkx\source\repos\HPCC-Platform\esp\services\ws_workunits\ws_workunitsHelpers.cpp(2061):    getClusterThorGroupName(groupName, instanceName);
+C:\Users\wangkx\source\repos\HPCC-Platform\esp\services\ws_workunits\ws_workunitsHelpers.cpp(3595):        getClusterThorGroupName(groupName, processName.str());
+
+5? Sasha 2
+5? DFUServer 2
+5? Process + DFU server? 1
+5? Package 1
+5? Package map or xref 1
+5? Package map or remoteDali 1
+
+5? machine 7+: Not needed? Redesign?
+  tag: machine related
+ 1. C:\Users\wangkx\source\repos\HPCC-Platform\esp\smc\SMCLib\TpWrapper.cpp(1367):    Owned<IEnvironmentFactory> envFactory = getEnvironmentFactory(true);
+   CTpWrapper::getMachineInfo() <- many callers
+ 2. C:\Users\wangkx\source\repos\HPCC-Platform\esp\smc\SMCLib\TpWrapper.cpp(1429):    Owned<IEnvironmentFactory> envFactory = getEnvironmentFactory(true);
+ <- checkMultiSlavesFlag() <- getClusterMachineList() <- onTpMachineQuery() and many
+ 3. C:\Users\wangkx\source\repos\HPCC-Platform\esp\smc\SMCLib\TpWrapper.cpp(1509):        Owned<IEnvironmentFactory> envFactory = getEnvironmentFactory(true);
+ <- getThorSpareMachineList() 
+ 4. C:\Users\wangkx\source\repos\HPCC-Platform\esp\smc\SMCLib\TpWrapper.cpp(1530):    Owned<IEnvironmentFactory> envFactory = getEnvironmentFactory(true);
+ <- getThorMachineList()
+ 5. C:\Users\wangkx\source\repos\HPCC-Platform\esp\smc\SMCLib\TpWrapper.cpp(1569):        Owned<IEnvironmentFactory> envFactory = getEnvironmentFactory(true);
+ <- getMachineList()
+ 6. C:\Users\wangkx\source\repos\HPCC-Platform\esp\smc\SMCLib\TpWrapper.cpp(1886):        Owned<IEnvironmentFactory> factory = getEnvironmentFactory(true);
+ setMachineInfo()
+ 7. esp\services\ws_machine: Not needed?
+C:\Users\wangkx\source\repos\HPCC-Platform\esp\services\ws_machine\ws_machineService.cpp(1056):    getRoxieProcessServers(clusterName, servers);
+C:\Users\wangkx\source\repos\HPCC-Platform\esp\services\ws_machine\ws_machineService.cpp(173):    Owned<IEnvironmentFactory> envFactory = getEnvironmentFactory(true);
+C:\Users\wangkx\source\repos\HPCC-Platform\esp\services\ws_machine\ws_machineService.cpp(325):        Owned<IEnvironmentFactory> envFactory = getEnvironmentFactory(true);
+C:\Users\wangkx\source\repos\HPCC-Platform\esp\services\ws_machine\ws_machineService.cpp(2281):    Owned<IEnvironmentFactory> envFactory = getEnvironmentFactory(true);
+C:\Users\wangkx\source\repos\HPCC-Platform\esp\services\ws_machine\ws_machineService.cpp(2881):        Owned<IEnvironmentFactory> envFactory = getEnvironmentFactory(true);
+C:\Users\wangkx\source\repos\HPCC-Platform\esp\services\ws_machine\ws_machineService.cpp(3015):        Owned<IEnvironmentFactory> envFactory = getEnvironmentFactory(true);
+C:\Users\wangkx\source\repos\HPCC-Platform\esp\services\ws_machine\ws_machineService.cpp(3215):        Owned<IEnvironmentFactory> envFactory = getEnvironmentFactory(true);
+C:\Users\wangkx\source\repos\HPCC-Platform\esp\services\ws_machine\ws_machineService.cpp(3336):    Owned<IEnvironmentFactory> envFactory = getEnvironmentFactory(true);
+C:\Users\wangkx\source\repos\HPCC-Platform\esp\services\ws_machine\ws_machineServiceMetrics.cpp(326):    Owned<IEnvironmentFactory> factory = getEnvironmentFactory();
+ 
+6? not used? 2
+6? for legacy ECLWatch? 1
+6? Not needed? 18
+6? No call from ESP 1
+
+
+breaking service methods:
+WsWorkunits.WUQueryDetails()
+WsWorkunits.WUQueryDetails
+WsWorkunits.WUQueryDetailsLightWeight
+WsWorkunits.WUCopyLogicalFiles
+WsWorkunits.WUCopyQuerySet
+WsWorkunits.WUQuerysetImport
+QueryFilesInUse
+
+FileSpray.GetDFUWorkunit, 
+FileSpray.CreateDFUWorkunit
+FileSpray.GetDFUWorkunits
+FileSpray.DFUWUSearch
+FileSpray.Copy 
+FileSpray.GetSprayTargets
+
+WsDfu.DFUSearch
+WsDfu.DFUInfo
+
+WsTopology.TpClusterQuery()
+WsTopology.TpGroupQuery
+  
+CWsEclBinding::getGenForm()
+Break ESP Service: multiple places in wsdfuaccess.cpp
+
+3? dropZone 7: DZ: isECLWatchVisible, netAddr, @name, @directory, @umask, netAddrs.
+    tag: dropZone related
+ 1. C:\Users\wangkx\source\repos\HPCC-Platform\esp\services\ws_fileio\ws_fileioservice.cpp(41):    Owned<IEnvironmentFactory> factory = getEnvironmentFactory(true);
+   For a given targetDZNameOrAddress, find: isECLWatchVisible, netAddr, @directory
+ 2. C:\Users\wangkx\source\repos\HPCC-Platform\esp\services\ws_fs\ws_fsService.cpp(2249):    Owned<IEnvironmentFactory> factory = getEnvironmentFactory(true);
+   CFileSprayEx::getDropZoneInfoByIP(): for a given IP, find: @directory, @umask
+ 3. C:\Users\wangkx\source\repos\HPCC-Platform\esp\services\ws_fs\ws_fsService.cpp(2865):    Owned<IEnvironmentFactory> envFactory = getEnvironmentFactory(true);
+   CFileSprayEx::checkDropZoneIPAndPath(): for a given IP, check @name and @directory
+ 4. C:\Users\wangkx\source\repos\HPCC-Platform\esp\services\ws_fs\ws_fsService.cpp(2973):        Owned<IEnvironmentFactory> envFactory = getEnvironmentFactory(true);
+   CFileSprayEx::onDropZoneFileSearch(): for a given DZ name, find isECLWatchVisible, netAddr, @directory
+ 5. C:\Users\wangkx\source\repos\HPCC-Platform\esp\services\ws_fs\ws_fsService.cpp(3197):        Owned<IEnvironmentFactory> envFactory = getEnvironmentFactory(true);
+   CFileSprayEx::onDropZoneFiles(): for all DZs, find isECLWatchVisible, netAddr, @name, @directory
+ 6. C:\Users\wangkx\source\repos\HPCC-Platform\esp\smc\SMCLib\TpWrapper.cpp(1677):    Owned<IEnvironmentFactory> envFactory = getEnvironmentFactory(true);
+ <- getTpDropZones()
+ 7. 3? dropZoneInfo and more C:\Users\wangkx\source\repos\HPCC-Platform\esp\services\ws_fs\ws_fsBinding.cpp(201):    Owned<IEnvironmentFactory> factory = getEnvironmentFactory(true);
+
+3? calls to getClusterGroupName() and/or calls to getClusterTypeByClusterName()   
+    tag: HPCC-25172
+     Also KeyPair and daFileSrvInfo Info (port and secure)
+ Add new getContainerClusterTypeByClusterName(): Cluster Process Name -> Target Name (Queue Name) -> type
+C:\Users\wangkx\source\repos\HPCC-Platform\esp\services\ws_dfu\ws_dfuService.cpp(6225):        ClusterType clusterType = getClusterTypeByClusterName(clusterName);
+C:\Users\wangkx\source\repos\HPCC-Platform\esp\services\ws_dfu\ws_dfuService.cpp(6321):        ClusterType clusterType = getClusterTypeByClusterName(clusterName);
+C:\Users\wangkx\source\repos\HPCC-Platform\esp\services\ws_dfu\ws_dfuService.cpp(6471):            ClusterType clusterType = getClusterTypeByClusterName(clusterName);
+
+  //similar to getClusterThorGroupName, but for roxie, hthor also
+extern ENVIRONMENT_API StringBuffer &getClusterGroupName(StringBuffer &ret, const char *cluster); //similar to getClusterThorGroupName, but for roxie, hthor also
+C:\Users\wangkx\source\repos\HPCC-Platform\esp\services\ws_dfu\ws_dfuService.cpp(111):        getClusterGroupName(cluster, groupName);
+C:\Users\wangkx\source\repos\HPCC-Platform\esp\services\ws_dfu\ws_dfuService.cpp(6115):    getClusterGroupName(groupName, clusterName);
+C:\Users\wangkx\source\repos\HPCC-Platform\esp\services\ws_dfu\ws_dfuService.cpp(6326):        getClusterGroupName(groupName, clusterName);
+C:\Users\wangkx\source\repos\HPCC-Platform\esp\services\ws_fs\ws_fsBinding.cpp(239):            getClusterGroupName(cluster, thorClusterGroupName);
+C:\Users\wangkx\source\repos\HPCC-Platform\esp\services\ws_fs\ws_fsService.cpp(3401):            getClusterGroupName(cluster, thorClusterGroupName);
+C:\Users\wangkx\source\repos\HPCC-Platform\esp\services\ws_machine\ws_machineService.cpp(784):        getClusterGroupName(*cluster, groupName);
+C:\Users\wangkx\source\repos\HPCC-Platform\esp\services\ws_machine\ws_machineService.cpp(3111):        getClusterGroupName(cluster, thorClusterGroupName);
+C:\Users\wangkx\source\repos\HPCC-Platform\esp\smc\SMCLib\LogicFileWrapper.cpp(153):    df->getClusterGroupName(0, nodeGroup);
+C:\Users\wangkx\source\repos\HPCC-Platform\esp\smc\SMCLib\TpWrapper.cpp(1300):        getClusterGroupName(cluster, thorClusterGroupName);
+
+C:\Users\wangkx\source\repos\HPCC-Platform\esp\services\ws_dfu\ws_dfuService.cpp(185):    factory.setown(getEnvironmentFactory(true));
+ ws_dfuService.cpp:5911:21: In member function ‘void CWsDfuEx::getFileDafilesrvConfiguration(StringBuffer&, unsigned int&, bool&, const char*)’:
+     keyPairName.set(env->getClusterGroupKeyPairName(group));
+	 "Software/Directories" and "EnvSettings/Keys/KeyPair"
+ ws_dfuService.cpp:6026:47:  In member function ‘void CWsDfuEx::dFUFileAccessCommon(IEspContext&, const CDfsLogicalFileName&, SessionId, const char*, unsigned int, bool, unsigned int, IEspDFUFileAccessResponse&)’:
+   encodeDFUFileMeta(metaInfoBlob, metaInfo, env);
+     "EnvSettings/Keys/KeyPair"        ^~~
+
+3? for wu log
+ calls to getClusterThorGroupName():
+   extern ENVIRONMENT_API StringBuffer &getClusterThorGroupName(StringBuffer &ret, const char *cluster); //path.append("Software/ThorCluster[@name=\"").append(cluster).append("\"]");
+   Add new getContainerClusterGroupName(): Cluster Process Name -> Target Name (Queue Name) ->     
+                for hthor, add 'hthor__' to Queue Name as the groupName; other, return Queue Name as the groupName:
+    const char *name = cluster.queryProp("@name"); //Process Name -> Target Name (Queue Name)
+    const char *nodeGroupName = cluster.queryProp("@nodeGroup"); //Old thor, never used in cloud?
+    if (nodeGroupName && *nodeGroupName)
+        name = nodeGroupName;
+    groupName.append(name);
+    return groupName.trim().toLowerCase();
+	
+	//for hthor
+	return ret.setf("hthor__%s", cluster);
+	
+C:\Users\wangkx\source\repos\HPCC-Platform\esp\services\ws_workunits\ws_workunitsHelpers.cpp(1109):            getClusterThorGroupName(groupName, processName.str());
+C:\Users\wangkx\source\repos\HPCC-Platform\esp\services\ws_workunits\ws_workunitsHelpers.cpp(1237):                getClusterThorGroupName(groupName, processName.str());
+C:\Users\wangkx\source\repos\HPCC-Platform\esp\services\ws_workunits\ws_workunitsHelpers.cpp(2061):    getClusterThorGroupName(groupName, instanceName);
+C:\Users\wangkx\source\repos\HPCC-Platform\esp\services\ws_workunits\ws_workunitsHelpers.cpp(3595):        getClusterThorGroupName(groupName, processName.str());
+
+
+5? machine 7+: Not needed? Redesign?
+  tag: machine related
+ 1. C:\Users\wangkx\source\repos\HPCC-Platform\esp\smc\SMCLib\TpWrapper.cpp(1367):    Owned<IEnvironmentFactory> envFactory = getEnvironmentFactory(true);
+   CTpWrapper::getMachineInfo() <- many callers
+ 2. C:\Users\wangkx\source\repos\HPCC-Platform\esp\smc\SMCLib\TpWrapper.cpp(1429):    Owned<IEnvironmentFactory> envFactory = getEnvironmentFactory(true);
+ <- checkMultiSlavesFlag() <- getClusterMachineList() <- onTpMachineQuery() and many
+ 3. C:\Users\wangkx\source\repos\HPCC-Platform\esp\smc\SMCLib\TpWrapper.cpp(1509):        Owned<IEnvironmentFactory> envFactory = getEnvironmentFactory(true);
+ <- getThorSpareMachineList() 
+ 4. C:\Users\wangkx\source\repos\HPCC-Platform\esp\smc\SMCLib\TpWrapper.cpp(1530):    Owned<IEnvironmentFactory> envFactory = getEnvironmentFactory(true);
+ <- getThorMachineList()
+ 5. C:\Users\wangkx\source\repos\HPCC-Platform\esp\smc\SMCLib\TpWrapper.cpp(1569):        Owned<IEnvironmentFactory> envFactory = getEnvironmentFactory(true);
+ <- getMachineList()
+ 6. C:\Users\wangkx\source\repos\HPCC-Platform\esp\smc\SMCLib\TpWrapper.cpp(1886):        Owned<IEnvironmentFactory> factory = getEnvironmentFactory(true);
+ setMachineInfo()
+ 7. esp\services\ws_machine: Not needed?
+C:\Users\wangkx\source\repos\HPCC-Platform\esp\services\ws_machine\ws_machineService.cpp(1056):    getRoxieProcessServers(clusterName, servers);
+C:\Users\wangkx\source\repos\HPCC-Platform\esp\services\ws_machine\ws_machineService.cpp(173):    Owned<IEnvironmentFactory> envFactory = getEnvironmentFactory(true);
+C:\Users\wangkx\source\repos\HPCC-Platform\esp\services\ws_machine\ws_machineService.cpp(325):        Owned<IEnvironmentFactory> envFactory = getEnvironmentFactory(true);
+C:\Users\wangkx\source\repos\HPCC-Platform\esp\services\ws_machine\ws_machineService.cpp(2281):    Owned<IEnvironmentFactory> envFactory = getEnvironmentFactory(true);
+C:\Users\wangkx\source\repos\HPCC-Platform\esp\services\ws_machine\ws_machineService.cpp(2881):        Owned<IEnvironmentFactory> envFactory = getEnvironmentFactory(true);
+C:\Users\wangkx\source\repos\HPCC-Platform\esp\services\ws_machine\ws_machineService.cpp(3015):        Owned<IEnvironmentFactory> envFactory = getEnvironmentFactory(true);
+C:\Users\wangkx\source\repos\HPCC-Platform\esp\services\ws_machine\ws_machineService.cpp(3215):        Owned<IEnvironmentFactory> envFactory = getEnvironmentFactory(true);
+C:\Users\wangkx\source\repos\HPCC-Platform\esp\services\ws_machine\ws_machineService.cpp(3336):    Owned<IEnvironmentFactory> envFactory = getEnvironmentFactory(true);
+C:\Users\wangkx\source\repos\HPCC-Platform\esp\services\ws_machine\ws_machineServiceMetrics.cpp(326):    Owned<IEnvironmentFactory> factory = getEnvironmentFactory();
+ 
+ECLWatch:
+
+1. Home page
+1.1 Activity tab
+a. Usage section (Should be hidden)
+b. Activity 
+1.2 Event tab
+1.3 Search tab
+
+2. ECL page
+2.1 Workunits tab
+No problem is found for the ECL workunit list.
+a. Buttens
+?
+b. Links
+b1. Click a WUID link. The WU Details page shows. No problem is found for the page.
+b11. items inside the WU Details page?
+b12. Variables tab: looks fine.
+b13. Outputs tab: looks fine.
+b131. Click the link for a result. The result is shown.
+b1311. items inside the result page?
+b132. Other items in Outputs tab?
+b13. Other tabs inside the WU Details page?
+b2. other links inside Workunits tab?
+?
+2.2 Playground tab
+?
+
+3. Files page
+3.1 Logical Files tab
+No problem is found for the Logical File list.
+a. Buttens
+?
+b. Links
+b1. Click a Logical File link. The Logical File Details page shows. No problem is found for the page.
+b2. other links inside Logical Files tab?
+?
+3.2 Landing Zones tab (Skip for cloud environment)
+?
+3.3 Workunits tab (Not work for cloud environment)
+3.4 XRef tab
+
+4. Published Queries page
+4.1 Queries tab
+No problem is found for the Queries list.
+a. Buttens
+?
+b. Links
+b1. Click a Queries link. The Queries Details page shows. An error is shown for the page: 
+Error title: WsWorkunits.WUQueryDetails
+Error details: Cluster roxie-workunit not found
+...
+4.2 Package Maps tab (Skip for cloud environment)
+
+5. Operations page (Skip for cloud environment)
+5.1 Topology tab
+5.2 Disk Usage tab
+5.3 Target Clusters tab
+5.4 Cluster Porcesses tab
+5.5 System Servers tab
+5.6 Security tab
+5.8 Monitoring tab
+5.9 Dynamic ESDL tab
+5.10 Log Visualization tab
+
+6. Advanced dropdown
+6.1 Error/Warning(s)
+6.2 Set Banner
+6.3 Set Toolbar
+...
+
+7. Others
+7.1 Search box
+7.2 Logged In links
+...

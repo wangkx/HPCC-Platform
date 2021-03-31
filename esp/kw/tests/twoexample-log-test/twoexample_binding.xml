@@ -1,0 +1,55 @@
+  <Binding espbinding="static_binding" espprocess="desdl_esp" id="desdl_esp.TwoExample" port="8899">
+    <Definition esdlservice="TwoExample" id="TwoExample.1" name="TwoExample">
+	  <LoggingManager name="twoexample_logman">
+          <FailSafe>true</FailSafe>
+          <FailSafeLogsDir>/var/log/HPCCSystems/FailSafeLogs</FailSafeLogsDir>
+          <Filters/>
+          <LogAgent xmlns:set="http://exslt.org/sets" name="esploggingagent" type="LogAgent" services="UpdateLog" plugin="espserverloggingagent">
+            <ESPServer url="http://loggingservice:8146" user="" password=""/>
+            <FailSafe>true</FailSafe>
+            <MaxLogQueueLength>500000</MaxLogQueueLength>
+            <MaxTriesGTS>3</MaxTriesGTS>
+            <MaxTriesRS>3</MaxTriesRS>
+            <QueueSizeSignal>10000</QueueSizeSignal>
+            <LogSourceMap/>
+            <Filters>
+              <Filter value="UserName" type="ESPContext"/>
+              <Filter value="" type="ESPContext"/>
+              <Filter value="" type="UserContext"/>
+              <Filter value="" type="UserRequest"/>
+              <Filter value="" type="UserResponse"/>
+              <Filter value="" type="BackEndResponse"/>
+            </Filters>
+          </LogAgent>
+      </LoggingManager>
+      <LogTransforms/>
+      <Methods>
+        <Method javamethod="TwoExample.TwoExampleService.JavaEchoPersonInfo" name="JavaEchoPersonInfo" querytype="java"/>
+        <Method method="onTwoExampleCppEchoPersonInfo" name="CppEchoPersonInfo" plugin="libTwoExampleService.so" querytype="cpp"/>
+        <Method name="RoxieEchoPersonInfo" queryname="RoxieEchoPersonInfo" querytype="roxie" url="http://localhost:9876/roxie">
+          <xsdl:CustomRequestTransform target="soap:Body/{$query}">
+            <xsdl:choose>
+              <xsdl:otherwise>
+                <xsdl:SetValue target="vertest" value="concat(&apos;v&apos;, $clientversion)"/>
+                <xsdl:SetValue target="RoxieEchoPersonInfoRequest/Row/Name/Last" value="concat(&apos;v&apos;, $clientversion)"/>
+              </xsdl:otherwise>
+              <xsdl:when test="$clientversion=1.9">
+                <xsdl:SetValue target="vertest" value="&apos;v1.9&apos;"/>
+                <xsdl:SetValue target="RoxieEchoPersonInfoRequest/Row/Name/First" value="&apos;v1.9&apos;"/>
+              </xsdl:when>
+            </xsdl:choose>
+          </xsdl:CustomRequestTransform>
+        </Method>
+        <xsdl:CustomRequestTransform>
+          <xsdl:choose>
+            <xsdl:otherwise>
+              <xsdl:SetValue target="Row/Name/Last" value="&apos;zz&apos;"/>
+            </xsdl:otherwise>
+            <xsdl:when test="$clientversion=1.9">
+              <xsdl:SetValue target="Row/Name/First" value="&apos;service&apos;"/>
+            </xsdl:when>
+          </xsdl:choose>
+        </xsdl:CustomRequestTransform>
+      </Methods>
+    </Definition>
+  </Binding>

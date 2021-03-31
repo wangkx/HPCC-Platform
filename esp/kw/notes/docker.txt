@@ -1,0 +1,38 @@
+
+               Docker Desktop on windows
+
+0. System Requirements
+https://docs.docker.com/docker-for-windows/install/
+
+Windows 10 64-bit: Pro, Enterprise, or Education (Build 16299 or later).
+For Windows 10 Home, see Install Docker Desktop on Windows Home.
+
+Hyper-V and Containers Windows features must be enabled.
+
+The following hardware prerequisites are required to successfully run Client Hyper-V on Windows 10:
+
+64 bit processor with Second Level Address Translation (SLAT)
+4GB system RAM
+BIOS-level hardware virtualization support must be enabled in the BIOS settings. For more information, see Virtualization.
+
+1. Enable the Hyper-V role through Settings
+https://docs.microsoft.com/en-us/virtualization/hyper-v-on-windows/quick-start/enable-hyper-v
+
+Right click on the Windows button and select ‘Apps and Features’.
+Select Programs and Features on the right under related settings.
+Select Turn Windows Features on or off.
+Select Hyper-V and click OK.
+
+2. Before you install the Docker Desktop WSL 2 backend, you must complete the following steps:
+https://docs.docker.com/docker-for-windows/wsl/
+
+Install Windows 10, version 2004 or higher.
+Enable WSL 2 feature on Windows.
+Download and install the Linux kernel update package.
+
+3. Enable the WSL 2 feature on Windows
+Similar to enable Hyper-V role through Settings
+
+https://docs.docker.com/docker-for-windows/wsl/
+https://docs.docker.com/docker-for-windows/install/
+https://www.docker.com/blog/docker-desktop-wsl-2-best-practices/

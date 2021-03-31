@@ -1,0 +1,41 @@
+ <File directory="/home/lexis/runtime/var/lib/HPCCSystems/hpcc-data/thor"
+       group="mythor"
+       modified="2021-02-09T01:03:07"
+       numclusters="1"
+       numparts="1"
+       partmask="test_log._$P$_of_$N$"
+       replicated="1">
+  <OrigName>.::test_log</OrigName>
+  <Attr fileCrc="-691161882"
+        job="test_log"
+        kind="flat"
+        maxSkew="0"
+        maxSkewPart="0"
+        minSkew="0"
+        minSkewPart="0"
+        owner=""
+        recordCount="484363"
+        recordSize="1"
+        size="484363"
+        workunit="D20210208-200307">
+   <History>
+    <Origin ip="172.18.60.201"
+            name="thorslave.1.2020_11_13.log"
+            operation="DFUimport"
+            path="/home/lexis/runtime/var/lib/HPCCSystems/mydropzone/"
+            timestamp="2021-02-09T01:03:08"/>
+   </History>
+  </Attr>
+  <Cluster defaultBaseDir="/home/lexis/runtime/var/lib/HPCCSystems/hpcc-data/thor"
+           defaultReplicateDir="/home/lexis/runtime/var/lib/HPCCSystems/hpcc-mirror/thor"
+           mapFlags="48"
+           name="mythor">
+   <Group>172.18.60.201</Group>
+  </Cluster>
+  <Part fileCrc="-691161882"
+        modified="2021-02-09T01:03:08"
+        name="test_log._1_of_1"
+        node="172.18.60.201"
+        num="1"
+        size="484363"/>
+ </File>

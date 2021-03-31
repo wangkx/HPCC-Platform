@@ -1,0 +1,9 @@
+To test with this setup:
+
+1. Deploy your platform
+2. Copy this environment.xml file to /etc/HPCCSystems
+3. Start the platform
+4. From inside this directory run the script config-desdl.sh. It will setup a service on port 8064.
+5. Go to http://localhost:8064?ver_=3, Click the method 'SmallBusinessBipCombinedReport'
+6. Click the 'SOAP Test' button.
+7. Copy & paste one of the requests into the web form and submit

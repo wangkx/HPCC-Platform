@@ -1,0 +1,380 @@
+c:
+cd Users\wangkx\source\repos\HPCC-Platform
+
+wsl
+sudo apt-key adv --keyserver keyserver.ubuntu.com --recv-key C99B11DEB97541F0
+sudo apt-add-repository https://cli.github.com/packages
+sudo apt update
+sudo apt install gh
+
+gh pr status
+
+ sudo /home/lexis/runtime/opt/HPCCSystems/bin/esp config=/home/lexis/tests/esps/esp090204.xml 
+HPCC-24860 Build modular log agent plugin with ADL logging support
+
+
+-------------------------------------
+git clone https://github.com/wangkx/HPCC-Platform.git
+cd HPCC-Platform/
+git remote add upstream https://github.com/hpcc-systems/HPCC-Platform.git
+git fetch upstream
+git merge --ff-only upstream/master
+git submodule update --init --recursive
+
+cd cmake
+sudo rm -rf *
+cmake -DDESTDIR=$HOME/runtime -DRUNTIME_USER=$USER -DCMAKE_BUILD_TYPE=Debug -DUSE_OPTIONAL=ON -DINCLUDE_PLUGINS=OFF -DUSE_CBLAS=OFF -DUSE_MEMCACHED=OFF -DUSE_TBBMALLOC=OFF -DUSE_TBB=OFF -DUSE_LIBXSLT=ON ../HPCC-Platform
+make -j4
+make install
+make configure
+/home/lexis/runtime/etc/init.d/hpcc-init start
+
+sudo /opt/HPCCSystems/sbin/configmgr
+
+http://192.168.30.75:8010/esp/files/index.html
+
+sudo /opt/HPCCSystems/bin/esp --port=8888 --application=eclwatch --daliServers=. --ldapAddress=ldap --tls_config.certificate=/home/lexis/certificates/server.crt --tls_config.privatekey=/home/lexis/certificates/server.key --tls_config.passphrase=JHjdi6DDptMwYmJNTZsqjg==
+
+sudo /opt/HPCCSystems/bin/esp --application=eclqueries  --config=myesp_tls_off.yaml &> log_queries
+
+```
+quoted
+```
+
+vi ~/.bashrc
+
+vim
+:set list
+:set listchars=eol:$,nbsp:_,tab:>-,trail:~,extends:>,precedes:<
+
+smbpasswd -U wangkx -r 198.187.133.52
+
+---------------Use kibana
+Add clusterHealthCheckParams: "local=true" to the elasticsearch: section of the values.yaml
+kubectl port-forward service/myhpcc-kibana 5601:5601
+http://localhost:5601/
+Stack management -> index pattern -> give a name 'file..'
+Add @timestamp
+Discover -> add kubernetes.container.name -> find eclwatch -> click the '+' icon
+         -> add message
+Inside the Search box, type in a filter and click the 'Refresh' button
+
+---------------Use MySQL logging
+Check mysql client IP: ifconfig
+Add allow IP: MySQL workbench -> addmin UI -> test_user -> ...
+
+//mysql logging test web: http://172.18.19.45:8064/
+
+Install python 3.8 on Windows (192.168.30.65)
+Install mysql community on Windows
+Create 'test_user'@'192.168.30.72' using MySQL command line client:
+ mysql> CREATE USER 'test_user'@'192.168.30.72' IDENTIFIED BY 'test_user';
+  Query OK, 0 rows affected (0.01 sec)
+ mysql> GRANT ALL PRIVILEGES ON * . * TO  'test_user'@'192.168.30.72';
+  Query OK, 0 rows affected (0.01 sec)
+ mysql> FLUSH PRIVILEGES;
+  Query OK, 0 rows affected (0.01 sec)
+
+Find our client URL in pods's esp log.
+In MySQL bench UI: 
+mysql> GRANT ALL PRIVILEGES ON * . * TO  'test_user'@'URL';
+mysql> FLUSH PRIVILEGES;
+Check DB rights (all options except GRANT OPTION
+
+Install mysql client on Ubuntu (192.168.30.72)
+ sudo apt-get install mysql-client 
+Connect from ubuntu to mysql server
+ mysql -h 192.168.30.65 -u test_user world -p 
+ mysql> use world;
+ mysql> select * from city limit 0,5;
+Use mysql workbench to create log_db and run the script to create tables.
+
+Do a LN build with mysql enabled.
+Update the environment xml env_logging_tested with mysql server ip, user name and password.
+Copy the xml to /home/lexis/runtime/etc/HPCC.../environment.xml
+Start hpcc
+
+-------------------------------------
+sudo eclipse/eclipse
+
+cmake -G "Eclipse CDT4 - Unix Makefiles" -DCMAKE_BUILD_TYPE=Debug -DUSE_OPTIONAL=ON -DINCLUDE_PLUGINS=OFF -DUSE_CBLAS=OFF -DUSE_MEMCACHED=OFF -DUSE_TBBMALLOC=OFF -DUSE_TBB=OFF -DUSE_LIBXSLT=ON ../HPCC-Platform
+
+---------------------------
+
+For Virtaul box:
+download/install Virtaul box: VirtualBox-5.0.6-103037-Win.exe
+download/install ubuntu image: ubuntu-14.04-desktop-amd64.iso
+
+network: bridge or NAT + Host-only...
+
+install guest edition: Device > Insert ...
+enable copy/paste: Settings->General->Advanced->Shared Clipboard (Bidirectional)
+enable ssh access: sudo apt-get install openssh-server
+-------------------download/install cmake, etc:
+
+  sudo apt-get install cmake bison flex build-essential binutils-dev libldap2-dev libcppunit-dev libicu-dev libxslt1-dev zlib1g-dev libboost-regex-dev libarchive-dev python-dev libv8-dev default-jdk libapr1-dev libaprutil1-dev libiberty-dev libhiredis-dev libtbb-dev libxalan-c-dev libnuma-dev nodejs libevent-dev libatlas-base-dev libblas-dev python3-dev default-libmysqlclient-dev libsqlite3-dev r-base-dev r-cran-rcpp r-cran-rinside r-cran-inline libmemcached-dev libcurl4-openssl-dev pkg-config libtool autotools-dev automake libssl-dev  
+  sudo apt-get install cmake
+  (http://www.cmake.org/cmake/resources/software.html)
+
+wget https://github.com/Kitware/CMake/releases/download/v3.16.4/cmake-3.16.4.tar.gz
+tar xzf cmake-3.16.4.tar.gz
+
+cd cmake-3.16.4
+./bootstrap
+make -j2
+sudo make install
+
+-------------------download/install eclipse:
+#update-java-alternatives --list
+#sudo apt install openjdk-8-jdk   //needed by eclipse
+#sudo update-alternatives --config java  //0 or 2
+
+https://www.eclipse.org/downloads/packages/release/kepler/sr2/eclipse-ide-cc-developers
+select the latest eclipse-ide-cc
+download and unzip the eclipse
+run: eclipse/eclipse
+
+# or
+
+#install eclipse and eclipse C++ by searching software center
+#sudo wget http://archive.ubuntu.com/ubuntu/pool/universe/e/eclipse/libequinox-osgi-java_3.8.1-8_all.deb
+
+-------------------
+sudo apt-get update -y
+sudo apt-get install -y xterm
+
+download/install git
+  (https://help.github.com/articles/set-up-git#platform-linux)
+  sudo apt-get install git
+
+sudo apt-get install gitk
+
+Set Up Git
+  git config --global user.name "wangkx"
+  git config --global user.email "kevin.wang@lexisnexis.com"
+  git config --global credential.helper 'cache --timeout=3600'
+
+get code from git
+  git clone https://github.com/wangkx/HPCC-Platform.git
+  git clone https://github.com/wangkx/LN.git
+
+cd HPCC-Platform/
+git remote add upstream https://github.com/hpcc-systems/HPCC-Platform.git
+git fetch upstream
+git merge --ff-only upstream/master
+git submodule update --init --recursive
+
+(https://github.com/hpcc-systems/HPCC-Platform/wiki/Git-step-by-step)
+
+#Build HPCC dependencies: use the apt-get command in: https://github.com/hpcc-systems/HPCC-Platform/wiki/Building-HPCC
+#sudo apt-get install libmemcached-dev
+
+#sudo apt-get install libsvm3
+#sudo apt-get -f install
+
+--Install node.js
+sudo apt-get update
+sudo apt-get install curl
+curl -sL https://deb.nodesource.com/setup | sudo bash -
+sudo apt-get install -y nodejs
+
+sudo apt install libssl1.0-dev
+sudo apt install nodejs-dev
+sudo apt install node-gyp
+sudo apt install npm
+
+sudo npm install -g npm
+
+sudo apt-get install libcurl4-openssl-dev
+sudo apt-get install libssl-dev
+
+sudo apt-get update -y
+sudo apt-get install -y expect
+
+sudo apt install net-tools
+
+cmake -G "Eclipse CDT4 - Unix Makefiles" -DCMAKE_BUILD_TYPE=Debug -DUSE_OPTIONAL=ON -DINCLUDE_PLUGINS=OFF -DUSE_CBLAS=OFF -DUSE_MEMCACHED=OFF -DUSE_TBBMALLOC=OFF -DUSE_TBB=OFF -DUSE_LIBXSLT=ON -DUSE_AWS=OFF ../HPCC-Platform
+
+cmake -G "Eclipse CDT4 - Unix Makefiles" -DCMAKE_BUILD_TYPE=Debug -DUSE_OPTIONAL=ON -DINCLUDE_PLUGINS=OFF -DUSE_CBLAS=OFF -DUSE_MEMCACHED=OFF -DUSE_TBBMALLOC=OFF -DUSE_TBB=OFF -DUSE_LIBXSLT=ON -DUSE_MYSQL=ON -DUSE_AWS=OFF -DBUILD_LEVEL=INTERNAL ../LN
+
+-DSUPPRESS_REMBED=ON -DECLWATCH_BUILD_STRATEGY=SOURCES
+
+//For unit test
+
+-DUSE_CPPUNIT=ON
+
+
+Import existing project
+  Select File > Import
+  expand C/C++ and select Existing Code as Makefile project. > Next
+  In the Project name field, type a name for the project: hpcc_e
+  Location: /home/lexis/hpcc/src/git1/my_cmake_e
+  Choose: Linux GCC
+
+Config debug
+  Select Run > Debug Configuration
+  Right Click C/C++ Attach to Application > new
+  C/C++ Application: /home/lexis/hpcc/src/git1/my_cmake_for_e
+  Project: hpcc_e
+
+Error copying directory from "/home/lexis/src/git3/HPCC-Platform/esp/src/." to "/home/lexis/src/git3/cmake/esp/src/tmp".
+1). cd /home/lexis/src/git3/HPCC-Platform
+2). rm -rf ./esp/src/node_modules ./esp/src/lib ./esp/src/build
+3). git checkout -- .
+4). git submodule update --init --recursive
+5). cd /home/lexis/src/git3/cmake
+6). sudo rm -rf *
+7). cmake ..... ../HPCC-Platform
+8). make 
+
+map: \\10.240.32.242\data3
+netshare/hpcc
+
+----------------------new: apt-get install eclipse-cdt not work
+download eclipse-inst-linux64.tar.gz
+tar -zxf eclipse-inst-linux64.tar.gz
+./eclipse-installer/eclipse-inst
+
+---------------------------------
+sudo apt-get install eclipse eclipse-cdt g++
+install eclipse and eclipse C++ by searching software center
+
+sudo apt-get install eclipse-cdt
+
+  (https://www.eclipse.org/downloads/download.php?file=/technology/epp/downloads/release/kepler/SR2/eclipse-cpp-kepler-SR2-linux-gtk-x86_64.tar.gz
+
+  sudo /usr/bin/eclipse
+
+---------------
+~/tests/logs$ ./esplogreader  skip_reqs=/esp/* summary=1 short_list=1 remote_ip=10.173.160.101 esp_log=/var/log/HPCCSystems/myesp/esp.log out=esp160_test_kw_002.out
+
+/home/lexis/src/git3/cmake/Debug/bin/esplogreader skip_reqs=/esp/* summary=1 short_list=1 remote_ip=10.173.160.101 esp_log=/var/log/HPCCSystems/myesp/esp.log out=esp160_test_kw_002.out
+
+---------------
+/opt/HPCCSystems/bin/daliadmin server=10.173.160.102 user=kwang export /QuerySets roxie_queries password=
+/opt/HPCCSystems/bin/daliadmin server=10.194.112.105 user=kwang export /DFU/WorkUnits/D20200702-193917 D20200702-193917 password=
+/opt/HPCCSystems/bin/daliadmin server=10.0.2.15 user=kwang add /DFU/WorkUnits/D20200624-094704/Progress password=Eightteen0009
+/opt/HPCCSystems/bin/daliadmin server=10.0.2.15 user=kwang delv /DFU/WorkUnits/D20200624-094704 password=Eightteen0009
+/opt/HPCCSystems/bin/daliadmin server=10.0.2.15 user=kwang  password=Eightteen0010 set /WorkUnits/W20200728-090910/@submitID kwang1
+'    1d 16:25:33.561'
+totalThorTime='   10d 21:13:45.819'
+
+Course Name: RELX Information Security Refresher
+
+2024  /opt/HPCCSystems/bin/daliadmin server=10.0.2.15 user=kwang add /ESDL/Bindings/Binding/Definition[@id=\"wsanalytics.1\"]/LogTransforms/LogTransform
+2025  /opt/HPCCSystems/bin/daliadmin server=10.0.2.15 user=kwang set /ESDL/Bindings/Binding/Definition[@id=\"wsanalytics.1\"]/LogTransforms/LogTransform/@name ForwardLog
+2031  /opt/HPCCSystems/bin/daliadmin server=10.0.2.15 user=kwang set /ESDL/Bindings/Binding/Definition[@id=\"wsanalytics.1\"]/LogTransforms/LogTransform[@name=\"ForwardLog\"] "&lt;xsl:stylesheet version=&quot;1.0&quot; xmlns:xsl=&quot;http://www.w3.org/1999/XSL/Transform&quot;&gt;&lt;xsl:output method=&quot;text&quot;/&gt;&lt;xsl:template match=&quot;/&quot;&gt;true&lt;/xsl:template&gt;&lt;/xsl:stylesheet&gt;"
+
+Owned<IRemoteConnection> conn = querySDS().connect("/ESDL/Bindings/Binding", myProcessSession(), RTM_LOCK_WRITE|RTM_CREATE_QUERY , WU_SDS_LOCK_TIMEOUT);
+    if (!conn)
+        throw MakeStringException(-1, "Cannot access");
+
+    IPropertyTree * esdlbindingtree = conn->queryRoot();
+    IPropertyTree * p = esdlbindingtree->queryPropTree("Definition[@id='wsanalytics.1']/LogTransforms");
+    if (p)
+    {
+        Owned<IPropertyTreeIterator> it = p->getElements("*");
+        ForEach(*it)
+        {
+            p->removeTree(&it->query());
+            break;
+        }
+    }
+---------------
+sudo /opt/HPCCSystems/bin/soapplus -c -url http://10.0.2.15:8010/WsWorkunits -i wulistqueries_all -o out -w
+
+----------------------
+sudo valgrind --tool=memcheck --leak-check=yes --show-reachable=yes --num-callers=20 --track-fds=yes /opt/HPCCSystems/bin/esp config=/var/lib/HPCCSystems/myesp/esp.xml &> dfuinfo2.txt
+
+----------------------HTTPS
+
+Create Keys:
+2001  openssl genrsa -des3 -out server.key 1024
+ 2002  openssl req -new -key server.key -out server.csr 
+ 2003  openssl x509 -req -days 365 -in server.csr -signkey server.key -out server.crt 
+ 2004  sudo cp server.crt /var/lib/HPCCSystems/myesp/server.crt
+ 2005  sudo chown hpcc:hpcc /var/lib/HPCCSystems/myesp/server.crt
+ 2006  sudo chmod 644 /var/lib/HPCCSystems/myesp/server.crt 
+ 2009?  sudo cp server.key /var/lib/HPCCSystems/myesp/private.key
+ 2010?  sudo chown hpcc:hpcc /var/lib/HPCCSystems/myesp/private.key
+ 2011?  sudo chmod 600 /var/lib/HPCCSystems/myesp/private.key
+ 2012?  sudo cp server.key /var/lib/HPCCSystems/myesp/server.key
+ 2013?  sudo chmod 600 /var/lib/HPCCSystems/myesp/server.key
+ 2014?  sudo chown hpcc:hpcc /var/lib/HPCCSystems/myesp/server.key
+
+ConfigMgr:
+1. Setup HTTPS section using information when creating keys
+2. Change http to https for ESP service bindings
+3. https://ip:18010
+
+----------------------Query with Superfile
+10.173.147.1:7070
+alfrescoreportbyuserandsite.9
+
+
+HPCC-24184 Check possible memory leaks in CLdapSecManager 
+
+
+2020-03-12:
+kevin@kevin-VirtualBox:~/src/git1/HPCC-Platform$ history
+    1  ifconfig
+    2  ipconfig
+    3  sudo apt-get install openssh-server
+    4  ssh
+    5  sudo apt-get install cmake
+    6  cmake
+    7  sudo apt-get install git
+    8  mkdir src
+    9  cd src/
+   10  mkdir git1
+   11  cd git1
+   12  git clone https://github.com/wangkx/HPCC-Platform.git
+   13  cd HPCC-Platform/
+   14  git remote add upstream https://github.com/hpcc-systems/HPCC-Platform.git
+   15  git fetch upstream
+   16  git merge --ff-only upstream/master
+   17  git submodule update --init --recursive
+   18  sudo apt update
+   19  sudo apt-get install gitk
+   20  gitk
+
+-----debug preflight for remote dali at 10.239.190.102
+
+on 10.239.190.102:
+mkdir /mnt/disk1/home/wangkx/temp/
+sudo su -
+sudo cp -r /Users/hpcc/.ssh /mnt/disk1/home/wangkx/temp/
+
+chown -R wangkx:wangkx /mnt/disk1/home/wangkx/temp/.ssh
+
+on local:
+
+sudo su -
+
+cd .ssh
+
+ls
+
+scp wangkx@10.239.190.102://mnt/disk1/home/wangkx/temp/.ssh/* ./
+
+cd ..
+
+sudo chown -R hpcc.hpcc .ssh
+
+cd .ssh
+
+chmod 600 authorized_keys
+chmod 600 id_rsa
+
+------------------------
+HPCC-Platform/testing/regress$ ./ecl-test setup --target=roxie --loglevel debug --excludeclass=3rdparty,embedded,spray --pq=4
+[Failure] 1. Error (6000): HPCC System is not installed! :'/bin/sh: 1: ecl: not found'
+
+------------------------
+
+  <ldapSecurity name="ldapserver" ldapProtocol="ldap" localDomain="localdomain" checkViewPermissions="false" authMethod="kerberos" maxConnections="1" 
+passwordExpirationWarningDays="10" ldapAddress="10.173.0.9|10.173.0.70" adminGroupName="Administrators" cacheTimeout="60" description="LDAP server process" 
+filesBasedn="ou=files,ou=dataland_ecl" groupsBasedn="ou=groups,ou=ecl" ldapPort="389" ldapSecurePort="636" ldapTimeoutSecs="60" resourcesBasedn="ou=modules,ou=ecl" 
+serverType="ActiveDirectory" sharedCache="true" sudoersBasedn="ou=SUDOers" systemBasedn="cn=Users,dc=internal,dc=sds" systemCommonName="hpcc_admin" 
+systemPassword="3VwQXXvbhF7o+2zaEdaDug==" systemUser="hpcc_admin" usersBasedn="ou=users,ou=ecl" viewsBasedn="ou=views,ou=ecl" 
+workunitsBasedn="ou=workunits,ou=ecl"/>

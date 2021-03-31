@@ -1,0 +1,16 @@
+<PackageMaps id="roxie::kwtest" multipart="1">
+ <Part id="test">
+  <Package id="icecream" queries="icecream_query.*">
+   <SuperFile id="thor::icecream::key::icecream_superkeyfile">
+    <SubFile value="thor::icecream::key::icecream_name_password_2"/>
+   </SuperFile>
+  </Package>
+ </Part>
+ <Part id="test2">
+  <Package id="icecream" preload="1" queries="icecream_query.*">
+   <SuperFile id="thor::icecream::key::icecream_superkeyfile">
+    <SubFile value="thor::icecream::key::icecream_name_password_2"/>
+   </SuperFile>
+  </Package>
+ </Part>
+</PackageMaps>

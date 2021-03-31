@@ -1,0 +1,137 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "esp Launch",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "/home/tony/runtime/opt/HPCCSystems/bin/esp",
+            "args": [],
+            "stopAtEntry": true,
+            "cwd": "/home/tony/runtime/var/lib/HPCCSystems/myesp",
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ]
+        },
+        {
+            "name": "tony ESP Attach",
+            "type": "cppdbg",
+            "request": "attach",
+            "program": "/home/tony/runtime/opt/HPCCSystems/bin/esp",
+            "processId": "${command:pickProcess}",
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ]
+        },
+        {
+            "name": "Unittest Launch",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "/home/tony/bld/HPCC-Platform/Debug/bin/unittests",
+            "args": ["ESDLTests"],
+            "stopAtEntry": true,
+            "cwd": "/home/tony/bld/HPCC-Platform",
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ]
+        },
+        {
+            "name": "eclcmd",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "/home/tony/runtime//opt/HPCCSystems/bin/ecl",
+            "args": ["--port 9999", "run", "hthor", "abc.ecl"],
+            "stopAtEntry": true,
+            "cwd": "${workspaceFolder}",
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ]
+        },
+        {
+            "name": "esdl-integration",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "/home/tony/runtime/opt/HPCCSystems/bin/esp",
+            "args": ["--application=esdl", "--tls=off", "--auth=none", "--daliServers=.", "--port=7788", "--bindings=/home/tony/src/esdl-integration/records/api-cert"],
+            "stopAtEntry": true,
+            "cwd": "/home/tony/runtime/var/lib/HPCCSystems/myesp",
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ]
+        },
+        {
+            "name": "legacy-desdl",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "/home/tony/runtime/opt/HPCCSystems/bin/esp",
+            "args": [],
+            "stopAtEntry": true,
+            "cwd": "/var/lib/HPCCSystems/desdl_esp",
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ]
+        },
+        {
+            "name": "hthor launch",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "/home/tony/runtime/opt/HPCCSystems/bin/hthor",
+            "args": ["--workunit=W20200825-200308", "--resetWorkflow", "--daliServers=."],
+            "stopAtEntry": true,
+            "cwd": "/home/tony/runtime/var/lib/HPCCSystems/myeclagent",
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ]
+        }
+    ]
+}

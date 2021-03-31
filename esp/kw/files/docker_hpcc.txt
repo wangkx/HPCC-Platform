@@ -1,0 +1,370 @@
+cd /home/lexis/src/HPCC-Platform/dockerfiles
+./incr.sh -u wangkx -b Debug
+./incr.sh -f -u wangkx -b Debug  //first time or if failed. Need to push origin before building.
+
+helm dependency update /home/lexis/src/HPCC-Platform/helm/hpcc
+
+Restart myhpcc
+helm delete myhpcc
+~/src/HPCC-Platform/dockerfiles$ ./startall.sh
+//docker images
+helm delete myhpcc
+helm install myhpcc /home/lexis/tests/helm/hpcc --set global.image.version=c8d0f7fba-Debug --set global.privileged=true -f /home/lexis/tests/hpcc/permission.yaml
+helm install myhpcc /home/lexis/src/HPCC-Platform/helm/hpcc --set global.image.version=a1863f8e1-Debug --set global.privileged=true -f /home/lexis/tests/hpcc/permission.yaml
+helm install myhpcc /home/lexis/src/HPCC-Platform/helm/hpcc --set global.image.version=a1863f8e1-Debug --set global.privileged=true -f /home/lexis/src/HPCC-Platform/helm/examples/local/values-localfile.yaml
+--set global.image.name=platform-build-ln
+
+helm install myhpcc /home/lexis/src/HPCC-Platform/helm/hpcc --set global.image.version=daily -f ~/volumes/values-nfs.yaml --set elasticsearch.enabled=true --set kibana.enabled=true --set elasticsearch.volumeClaimTemplate.resources.requests.storage=5Gi --set elasticsearch.volumeClaimTemplate.storageClassName=""
+--set elasticsearch.enabled=false and --set kibana.enabled=false
+--set elasticsearch.volumeClaimTemplate.storageClassName="nfs-dynamic"
+
+helm install myhpcc hpcc/hpcc --set global.image.version=cd6ae6381-Debug --set global.privileged=true -f /home/lexis/tests/hpcc/permission.yaml
+helm install myhpcc hpcc/hpcc --set global.image.version=cd6ae6381-Debug --set global.privileged=true -f /home/lexis/src/HPCC-Platform/helm/examples/local/values-localfile.yaml
+
+helm install --debug --dry-run myhpcc ./hpcc --set global.image.version=cd6ae6381-Debug
+docker run -it --rm --entrypoint /bin/bash hpccsystems/platform-core
+
+helm install localfile /home/lexis/src/HPCC-Platform/helm/examples/local/hpcc-localfile --set common.hostpath=/run/desktop/mnt/host/c/hpccdata
+
+HPCC-25484 Move daliadmin helper functions for ESP WsDali
+
+-----LN build
+
+Create a branch: test_pr_25500_25548. 
+Coding or cherry-pick some code: cherry-pick the code from Tony's PR and your PR.
+Commit the changes and push to origin.
+export INPUT_GITHUB_TOKEN=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
+export INPUT_BUILD_USER=wangkx
+export BUILD_LABEL=master-2021-03-24
+export INPUT_BUILD_VER=test_pr_25500_25548
+./buildall.sh
+
+lexis@BCTWANGKX-WX:~/src4/LN/dockerfiles$ docker run -it --rm hpccsystems/platform-core-ln:8.0.1-closedown0 /bin/bash
+hpcc@855f18f7309b:/var/lib/HPCCSystems$ ls -lt /opt/HPCCSystems/lib/libmy*
+
+helm install myhpcc /home/lexis/src4/HPCC-Platform/helm/hpcc --set global.image.version=7.13.0-trunk0 --set global.image.name=platform-core-ln --set global.privileged=true -f /home/lexis/src4/HPCC-Platform/helm/examples/local/values-localfile.yaml
+
+export INPUT_BUILD_VER=be0f820b35c828758d89b095af501ffdab32196b
+export INPUT_USERNAME=wangkx
+export INPUT_PASSWORD=
+lexis@BCTWANGKX-WX:~/src4/LN/dockerfiles$ ./buildall.sh
+
+How to create a git token:  create a repoistory token in github in your LN repo
+https://docs.github.com/en/github/authenticating-to-github/creating-a-personal-access-token
+
+---------------
+cmake -DDESTDIR=$HOME/runtime -DRUNTIME_USER=$USER -DCMAKE_BUILD_TYPE=Debug -DUSE_OPTIONAL=ON -DINCLUDE_PLUGINS=OFF -DUSE_CBLAS=OFF -DUSE_MEMCACHED=OFF -DUSE_TBBMALLOC=OFF -DUSE_TBB=OFF -DUSE_LIBXSLT=ON ../HPCC-Platform
+make -j4
+make install
+make configure
+/home/lexis/runtime/etc/init.d/hpcc-init start
+
+sudo /opt/HPCCSystems/sbin/configmgr
+---------------
+
+Edit launch.json:
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "esp Launch",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "/home/lexis/runtime/opt/HPCCSystems/bin/esp",
+            "args": [],
+            "stopAtEntry": true,
+            "cwd": "/home/lexis/runtime/var/lib/HPCCSystems/myesp",
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ]
+        },
+        {
+            "name": "Attach ESP",
+            "type": "cppdbg",
+            "request": "attach",
+            "program": "/opt/HPCCSystems/bin/esp",
+            "processId":"${command:pickProcess}"
+        },
+	{
+            "name": "Launch and debug esp",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "/opt/HPCCSystems/bin/esp",
+            "args": ["config=/home/lexis/tests/esps/esp160.xml"],
+            "stopAtEntry": false,
+            "cwd": "/var/lib/HPCCSystems/myesp",
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ]
+        }
+    ]
+}
+
+
+kubectl delete pod NAME --grace-period=0 --force
+
+-----------------------------------------
+Use local yaml files:
+cd /home/lexis/src/HPCC-Platform/helm
+helm install myhpcc ./hpcc --set global.image.version=846aebbc1-Debug-dirty-8f3fa0d96078a5cd38e7f2bdeee294c7 --set global.privileged=true -f /home/lexis/src/HPCC-Platform/helm/examples/local/values-localfile.yaml
+
+To debug an ESP container:
+Click Docker icon. In Containers section, right click a container .
+Select Attach to Visual Studio Code. Select the eclwatch container (not POD).
+New VS code page launches.
+
+For new container:
+//Do not accept install C++ extension.
+Install C++ extension in new VS code page
+Show Exploer -> Open folder -> /hpcc-dev
+Run -> Start Deugging. launch.json shows. Change it.
+
+Run -> Start Deugging: can debug now...
+    open a cpp file, add breakpoint, try some UI actions and the breakpoint should work now. ...
+
+source code
+/hpcc-dev/HPCC-Platform
+
+-----------------To Switch previous project
+
+File -> Open recent
+
+-----------------tag
+docker images
+docker tag 7ad5903df0b1 localhost:5000/localhpcc
+docker push localhost:5000/localhpcc
+docker pull localhost:5000/localhpcc
+docker images
+
+helm delete mycluster
+helm install mycluster hpcc/hpcc --set global.image.version=60ce6b2cd-Debug-dirty-50e2077d8f93202f4a7ba0ef1744ed03 --set global.privileged=true  -f /home/lexis/src/HPCC-Platform/helm/examples/local/values-localfile.yaml
+
+helm list
+kubectl get pods
+To check IP port: kubectl get svc
+
+-----------------Delete image
+docker rmi -f f0b5ee16928d
+wsl --shutdown
+
+----
+
+docker system df
+docker system prune
+
+"For Windows 10 Home (alternative Optimize-VHD cmdlet):
+
+wsl --shutdown
+diskpart
+# open window Diskpart
+select vdisk file="C:\Users\kanghua2\AppData\Local\Packages\CanonicalGroupLimited.Ubuntu20.04onWindows_79rhkp1fndgsc\LocalState\ext4.vhdx"
+//select vdisk file="C:\Users\kanghua2\AppData\Local\Docker\wsl\data\ext4.vhdx"
+attach vdisk readonly
+compact vdisk
+detach vdisk
+exit
+
+---------Enable Hyper-V and Containers:
+ Right click on the Windows button and select ‘Apps and Features’.
+ Select Programs and Features on the right under related settings.
+ Select Turn Windows Features on or off.
+ Select Hyper-V and click OK.
+ Select Containers and click OK.
+
+---------GDB
+sudo apt install gdb 
+
+---------Install Docker and Kubernete
+
+Install Docker Desktop
+Run Docker Desktop
+Enable Kubernetes:
+  click or  right-click Docker icon from running Notifications area (or System tray)
+  select Settings -> Kubernetes -> Enable Kubernetes (take some time)
+Install Helm:
+  sudo curl https://baltocdn.com/helm/signing.asc | sudo apt-key add -
+  sudo apt-get install apt-transport-https --yes
+  echo "deb https://baltocdn.com/helm/stable/debian/ all main" | sudo tee /etc/apt/sources.list.d/helm-stable-debian.list
+  sudo apt-get update
+  sudo apt-get install helm
+Add Helm repo:
+  helm repo add hpcc https://hpcc-systems.github.io/helm-chart
+Create a permission.yaml as:
+storage:
+  dllStorage:
+    forcePermissions: true
+
+  daliStorage:
+    forcePermissions: true
+
+  dataStorage:
+    forcePermissions: true
+
+/mnt/c/Users/kanghua2$
+helm install myhpcc hpcc/hpcc --version=7.12.0 --set global.image.version=latest -f permission.yaml
+helm install myhpcc hpcc/ --set global.image.version=latest -f examples/local/values-localfile.yaml
+helm install myhpcc hpcc/ --set global.image.version=latest -f /home/lexis/src/HPCC-Platform/helm/examples/local/values-localfile.yaml
+
+------------------Build local image
+cd /home/lexis/src/HPCC-Platform/dockerfiles
+./incr.sh -f -u wangkx -b Debug  //first time or if failed
+./incr.sh -u wangkx -b Debug
+
+------------------Push image to local container registry
+docker images
+? docker run -d -p 5000:5000 --name registry registry:latest
+docker run -d -p 5000:5000 --restart=always --name registry registry:2
+//docker container stop registry
+docker tag 97e581e2d066 localhost:5000/localhpcc
+docker push localhost:5000/localhpcc
+
+docker login localhost:5000
+  lexis/lexis
+docker pull localhost:5000/localhpcc
+
+//View local iamges
+curl -X GET http://localhost:5000/v2/_catalog
+
+---------------Restart local container registry
+docker run -d -p 5000:5000 --restart=always registry:2
+docker login localhost:5000
+  lexis/lexis
+docker tag 97e581e2d066 localhost:5000/localhpcc
+docker push localhost:5000/localhpcc
+curl -X GET http://localhost:5000/v2/_catalog
+  {"repositories":["localhpcc"]}
+helm install myhpcc hpcc/hpcc --set global.image.version=60ce6b2cd-Debug-dirty-58f48d4930abce9b8fb7fc750d432f2a -f permission.yaml
+//helm install myhpcc hpcc/hpcc --set global.image.version=97e581e2d066 -f permission.yaml
+
+------------------Install local image
+helm install debughpcc hpcc/hpcc --set global.image.version=60ce6b2cd-Debug-dirty-58f48d4930abce9b8fb7fc750d432f2a /
+ --set global.privileged=true   -f /home/lexis/src/HPCC-Platform/helm/examples/local/values-localfile.yaml
+
+------------------Install local image with Persistent Storage: Not working for me
+  mkdir hpcc-data/thor (hpcc-data/dali?)
+   git clone https://github.com/hpcc-systems/helm-chart
+ ? git checkout -b tags/7.12.0
+  cd /mnt/c/Users/kanghua2/helm-chart/helm
+helm install localfile /home/lexis/src/HPCC-Platform/helm/examples/local/hpcc-localfile \
+ --set common.storage=/mnt/c/hpcc-data
+helm install debughpcc hpcc/hpcc --set global.image.version=60ce6b2cd-Debug-dirty-58f48d4930abce9b8fb7fc750d432f2a \
+  --set global.privileged=true -f /home/lexis/src/HPCC-Platform/helm/examples/local/values-localfile.yaml
+
+//Use a Persistent Volume Claim
+cd /home/lexis/src/HPCC-Platform/helm/
+With a host directory of c:\hpcc-data
+  helm install localfile examples/local/hpcc-localfile --set common.hostpath=/run/desktop/mnt/host/c/hpcc-data
+  helm install mycluster hpcc/ --set global.image.version=latest -f examples/local/values-localfile.yaml
+
+  helm install localfile examples/local/hpcc-localfile --set common.hostpath=/run/desktop/mnt/host/c/hpcc-data
+  helm install mycluster hpcc/ --set global.image.version=60ce6b2cd-Debug-dirty-58f48d4930abce9b8fb7fc750d432f2a --set global.privileged=true  -f examples/local/values-localfile.yaml
+
+----------------------Debug using Attach VS Code for
+To install the Kubernetes extension, open the Extensions view (Ctrl+Shift+X) and search for "kubernetes". Select the Microsoft Kubernetes extension.
+
+* Click Docker icon. In Containers section, right click a container .
+* Select Attach to Visual Studio Code. Select the eclwatch container (not POD).
+* New VS code page launches.
+
+Install C++ extention.
+Clone HPCC repo.
+Run -> Start Deugging
+Edit launch.json:
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Attach ESP",
+            "type": "cppdbg",
+            "request": "attach",
+            "program": "/opt/HPCCSystems/bin/esp",
+            "processId":"${command:pickProcess}"
+        }
+    ]
+}
+
+* Run -> Start Deugging: can debug now...
+    open a cpp file, add breakpoint, try some UI actions and the breakpoint should work now. ...
+
+-------------Read data into HPCC
+
+mkdir /mnt/c/hpcc-data/data/import
+cp example.csv /mnt/c/hpcc-data/data/import
+Run ECL:
+
+nameRec := RECORD
+    STRING  firstname;
+    STRING  lastname;
+    STRING  dob;
+END;
+
+allPeople := DATASET('~file::localhost::var::lib::^H^P^C^C^Systems::hpcc-data::import::example.csv', nameRec, csv);
+
+output(allPeople);
+
+helm install localfile examples/local/hpcc-localfile --set common.hostpath=/run/desktop/mnt/host/c/hpcc-data
+
+-----There are a few commands that can help you debug.
+
+helm lint is your go-to tool for verifying that your chart follows best practices
+helm install --dry-run --debug or helm template --debug: We've seen this trick already. It's a great way to have the server render your templates, then return the resulting manifest file.
+helm get manifest: This is a good way to see what templates are installed on the server.
+When your YAML is failing to parse, but you want to see what is generated, one easy way to retrieve the YAML is to comment out the problem section in the template, and then re-run helm install --dry-run --debug:
+
+-----
+
+rtl := SERVICE
+    unsigned4 sleep(unsigned4 dxelay) : eclrtl,library='eclrtl',entrypoint='rtlSleep';
+END;
+
+numRecs := 60;
+
+rec := RECORD
+ unsigned id;
+ unsigned id2;
+ string10 str;
+END;
+
+ds := DATASET(numRecs, TRANSFORM(rec, SELF.id := COUNTER; SELF.str := (string)SELF.id; SELF.id2 := rtl.sleep(1000)), DISTRIBUTED);
+
+SEQUENTIAL(
+ OUTPUT(ds, , '~hello::out', OVERWRITE);
+);
+
+------------Check ins
+
+rtl := SERVICE
+    unsigned4 sleep(unsigned4 dxelay) : eclrtl,library='eclrtl',entrypoint='rtlSleep';
+END;
+
+numRecs := 60;
+
+rec := RECORD
+ unsigned id;
+ unsigned id2;
+ string10 str;
+END;
+
+ds := DATASET(numRecs, TRANSFORM(rec, SELF.id := COUNTER; SELF.str := (string)SELF.id; SELF.id2 := rtl.sleep(3000)), DISTRIBUTED);
+
+SEQUENTIAL(
+ OUTPUT(ds, , '~hello023::out', OVERWRITE);
+);
+
+
+-------
+~/tests/ecl$ ecl run --cluster=thor sample.ecl

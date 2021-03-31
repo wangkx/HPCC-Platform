@@ -1,0 +1,45 @@
+copy file import_abc to /mnt/c/hpccdata
+change dropzonefile.xslt
+cp  /home/lexis/runtime/opt/HPCCSystems/componentfiles/smc_xslt/dropzonefile.xslt ./
+Reload legacy ECLWatch -> Upload/download file
+
+Testing: export, importadd, import, delete, get, set, bget, wget, add, count, delv
+ cd ../../tests/daliadmin
+ 1653  vi import_abc
+
+ 1658  /home/lexis/runtime/opt/HPCCSystems/bin/daliadmin server=localhost user=kwang export /Environment env_before_import password=a
+ 1659  vi env_before_import
+
+/home/lexis/runtime/opt/HPCCSystems/bin/daliadmin server=localhost user=kwang importadd /Environment/Hardware1 import_abc password=a
+/home/lexis/runtime/opt/HPCCSystems/bin/daliadmin server=localhost user=kwang export /Environment env_after_importadd password=a
+vi env_after_importadd
+
+Delete /Environment/Hardware1/c using soaptest
+/home/lexis/runtime/opt/HPCCSystems/bin/daliadmin server=localhost user=kwang export /Environment env_after_importadd_delete password=a
+vi env_after_importadd_delete
+
+/home/lexis/runtime/opt/HPCCSystems/bin/daliadmin server=localhost user=kwang import /Environment/Hardware1 import_abc password=a
+/home/lexis/runtime/opt/HPCCSystems/bin/daliadmin server=localhost user=kwang export /Environment env_after_import password=a
+vi env_after_import
+
+Delete /Environment/Hardware1 using soaptest
+/home/lexis/runtime/opt/HPCCSystems/bin/daliadmin server=localhost user=kwang export /Environment env_after_import_delete password=a
+vi env_after_import_delete
+
+2130  /home/lexis/runtime/opt/HPCCSystems/bin/daliadmin server=localhost user=kwang importadd /Environment/Hardware1 import_abc password=a
+ 2131  /home/lexis/runtime/opt/HPCCSystems/bin/daliadmin server=localhost user=kwang export /Environment env_after_import2 password=a
+ 2132  vi env_after_import2
+ 2134  /home/lexis/runtime/opt/HPCCSystems/bin/daliadmin server=localhost user=kwang get /Environment/Hardware1/c/c3 password=a
+ 2135  /home/lexis/runtime/opt/HPCCSystems/bin/daliadmin server=localhost user=kwang get /Environment/Hardware1/c/c3/@n password=a
+ 2136  /home/lexis/runtime/opt/HPCCSystems/bin/daliadmin server=localhost user=kwang set /Environment/Hardware1/c/c3/@n C30 password=a
+ 2137  /home/lexis/runtime/opt/HPCCSystems/bin/daliadmin server=localhost user=kwang get /Environment/Hardware1/c/c3/@n password=a
+ 2138  /home/lexis/runtime/opt/HPCCSystems/bin/daliadmin server=localhost user=kwang add /Environment/Hardware1/c/c3/@n1 C31 password=a
+ 2139  /home/lexis/runtime/opt/HPCCSystems/bin/daliadmin server=localhost user=kwang add /Environment/Hardware1/c/c4 C4 password=a
+ 2140  /home/lexis/runtime/opt/HPCCSystems/bin/daliadmin server=localhost user=kwang get /Environment/Hardware1/c/c4 password=a
+ 2141  /home/lexis/runtime/opt/HPCCSystems/bin/daliadmin server=localhost user=kwang count /Environment/Hardware1/c/c4 password=a
+ 2142  /home/lexis/runtime/opt/HPCCSystems/bin/daliadmin server=localhost user=kwang delv /Environment/Hardware1/c/c4 password=a
+ 2143  /home/lexis/runtime/opt/HPCCSystems/bin/daliadmin server=localhost user=kwang count /Environment/Hardware1/c/c4 password=a
+ 2144  /home/lexis/runtime/opt/HPCCSystems/bin/daliadmin server=localhost user=kwang wget /Environment/Hardware1/c/c* password=a
+ 2150  /home/lexis/runtime/opt/HPCCSystems/bin/daliadmin server=localhost user=kwang bget /Environment/Hardware1/c/c3 test_bget password=a
+ 2151  vi test_bget
+ 
