@@ -1451,6 +1451,9 @@ bool CWsTopologyEx::onTpServiceQuery(IEspContext &context, IEspTpServiceQueryReq
         {
             IEspTpServices& ServiceList = resp.updateServiceList();
 
+#ifdef _CONTAINERIZED
+            m_TpWrapper.getTpDropZones(version, nullptr, true, ServiceList.getTpDropZones() );
+#else
             m_TpWrapper.getTpDaliServers( version, ServiceList.getTpDalis() );
             m_TpWrapper.getTpEclServers( ServiceList.getTpEclServers() );
             m_TpWrapper.getTpEclCCServers( ServiceList.getTpEclCCServers() );
@@ -1463,6 +1466,7 @@ bool CWsTopologyEx::onTpServiceQuery(IEspContext &context, IEspTpServiceQueryReq
             m_TpWrapper.getTpDropZones(version, nullptr, true, ServiceList.getTpDropZones() );
             m_TpWrapper.getTpFTSlaves( ServiceList.getTpFTSlaves() );
             m_TpWrapper.getTpDkcSlaves( ServiceList.getTpDkcSlaves() );
+#endif
 
             if (version > 1.15)
             {       
