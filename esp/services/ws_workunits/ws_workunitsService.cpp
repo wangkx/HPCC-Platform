@@ -4807,7 +4807,8 @@ bool CWsWorkunitsEx::onWUDeployWorkunit(IEspContext &context, IEspWUDeployWorkun
     const char *type = skipCompressedTypeQualifier(req.getObjType());
     try
     {
-        context.ensureFeatureAccess(deployWorkunitsAccess, SecAccess_Full, ECLWATCH_ECL_WU_ACCESS_DENIED, "WsWorkunits::WUDeployWorkunit: Permission denied.");
+        VStringBuffer excMsg("WsWorkunits::WUDeployWorkunit: Permission %s denied.", deployWorkunitsAccess);
+        context.ensureFeatureAccess(deployWorkunitsAccess, SecAccess_Full, ECLWATCH_ECL_WU_ACCESS_DENIED, excMsg);
 
         if (!isEmptyString(req.getCluster()))
             validateTargetName(req.getCluster());

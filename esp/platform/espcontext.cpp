@@ -457,6 +457,24 @@ public:
         }
     }
 
+    /*virtual void ensureFeatureAccess(const char* caller, const char* pszFeatureUrl, unsigned required, unsigned excCode)
+    {
+        if (!validateFeatureAccess(pszFeatureUrl, required, false))
+        {
+            setAuthStatus(AUTH_STATUS_NOACCESS);
+            StringBuffer excMsg("%s: Permission %s denied.", caller, pszFeatureUrl);
+            throw makeStringException(excCode, excMsg);
+        }
+    }*/
+    /*virtual void ensureFeatureAccess(const char* pszFeatureUrl, unsigned required, unsigned excCode, const char* excMsg)
+    {
+        if (!validateFeatureAccess(pszFeatureUrl, required, false))
+        {
+            setAuthStatus(AUTH_STATUS_NOACCESS);
+            throw MakeStringException(excCode, excMsgFormat, );
+        }
+    }*/
+
     virtual void ensureSuperUser(unsigned excCode, const char* excMsg)
     {
         CLdapSecManager* secmgr = dynamic_cast<CLdapSecManager*>(m_secmgr.get());

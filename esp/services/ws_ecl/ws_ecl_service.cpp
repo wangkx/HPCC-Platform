@@ -14,7 +14,7 @@
 #define SDS_LOCK_TIMEOUT (5*60*1000) // 5mins, 30s a bit short
 
 #define     WSECL_ACCESS      "WsEclAccess"
-static const char* WSECL_ACCESS_DENIED = "WsEcl access permission denied.";
+static const char* WSECL_ACCESS_DENIED = "WsEcl access permission WsEclAccess denied.";
 
 const char *wsEclXsdTypes[] = {
     "xsd:string",
