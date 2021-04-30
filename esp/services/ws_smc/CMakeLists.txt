@@ -82,7 +82,6 @@ target_link_libraries ( ws_smc
          hrpc 
          remote 
          dalibase 
-         environment 
          ws_machine 
          dalift 
          dllserver 
@@ -103,6 +102,9 @@ target_link_libraries ( ws_smc
          schedulectrl 
          ws_workunits 
     )
+if (NOT CONTAINERIZED)
+    target_link_libraries ( ws_smc environment )
+endif()
 IF (USE_OPENSSL)
     target_link_libraries ( ws_smc
     	securesocket

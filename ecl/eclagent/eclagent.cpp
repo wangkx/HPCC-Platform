@@ -3054,7 +3054,7 @@ char * EclAgent::getGroupName()
 #ifdef _CONTAINERIZED
     // in a containerized setup, the group is moving..
     return strdup("unknown");
-#endif
+#else
     StringBuffer groupName;
     if (!isStandAloneExe)
     {
@@ -3098,6 +3098,7 @@ char * EclAgent::getGroupName()
         }
     }
     return groupName.detach();
+#endif
 }
 
 char * EclAgent::queryIndexMetaData(char const * lfn, char const * xpath)
@@ -3658,8 +3659,10 @@ extern int HTHOR_API eclagent_main(int argc, const char *argv[], StringBuffer * 
             if (getConfigurationDirectory(agentTopology->queryPropTree("Directories"),"mirror","eclagent",agentTopology->queryProp("@name"),baseDir.clear()))
                 setBaseDirectory(baseDir.str(), true);
 
+#ifndef _CONTAINERIZED
             if (agentTopology->getPropBool("@useNASTranslation", true))
                 envInstallNASHooks();
+#endif
 
             if (standAloneWorkUnit)
             {

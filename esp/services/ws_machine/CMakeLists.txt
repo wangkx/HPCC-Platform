@@ -73,10 +73,13 @@ target_link_libraries ( ws_machine
          hrpc 
          remote 
          dalibase 
-         environment 
          workunit
          SMCLib
     )
+
+if (NOT CONTAINERIZED)
+    target_link_libraries ( ws_machine environment )
+endif()
 
 IF (USE_OPENSSL)
     target_link_libraries ( ws_machine

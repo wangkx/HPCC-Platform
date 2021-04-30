@@ -62,10 +62,11 @@ target_link_libraries ( ws_config
          hrpc 
          remote 
          dalibase 
-         environment 
          ${XALAN_LIBRARIES} ${XERCES_LIBRARIES}
          xmllib 
          esphttp 
     )
 
-
+if (NOT CONTAINERIZED)
+    target_link_libraries ( ws_config environment )
+endif()

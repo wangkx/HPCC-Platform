@@ -61,10 +61,13 @@ HPCC_ADD_LIBRARY( deploy SHARED ${SRCS} )
 install ( TARGETS deploy RUNTIME DESTINATION ${EXEC_DIR} LIBRARY DESTINATION ${LIB_DIR} )
 target_link_libraries ( deploy 
          jlib 
-         environment 
          xmllib 
          configutils
     )
+
+if (NOT CONTAINERIZED)
+    target_link_libraries ( deploy environment )
+endif()
 
 IF (USE_OPENSSL)
     target_link_libraries ( deploy 

@@ -727,6 +727,7 @@ int main( int argc, const char *argv[]  )
             globals->setProp("@nodeGroup", thorname);
         }
 
+#ifndef _CONTAINERIZED
         if (globals->getPropBool("@useNASTranslation", true))
         {
             Owned<IPropertyTree> nasConfig = envGetNASConfiguration();
@@ -734,6 +735,7 @@ int main( int argc, const char *argv[]  )
                 globals->setPropTree("NAS", nasConfig.getLink()); // for use by slaves
             Owned<IPropertyTree> masterNasFilters = envGetInstallNASHooks(nasConfig, &thorEp);
         }
+#endif
         
         HardwareInfo hdwInfo;
         getHardwareInfo(hdwInfo);
@@ -894,12 +896,15 @@ int main( int argc, const char *argv[]  )
         e->Release();
         return -1;
     }
+
     StringBuffer queueName;
+#ifndef _CONTAINERIZED
     SCMStringBuffer _queueNames;
     const char *thorName = globals->queryProp("@name");
     if (!thorName) thorName = "thor";
     getThorQueueNames(_queueNames, thorName);
     queueName.set(_queueNames.str());
+#endif
 
     Owned<IException> exception;
     StringBuffer cloudJobName;

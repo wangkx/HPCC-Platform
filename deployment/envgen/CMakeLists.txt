@@ -48,8 +48,11 @@ target_link_libraries ( envgen
         deploy
         deployutils 
         jlib 
-        environment 
         )
+
+if (NOT CONTAINERIZED)
+    target_link_libraries ( envgen environment )
+endif()
 
 IF (USE_OPENSSL)
     target_link_libraries ( envgen 

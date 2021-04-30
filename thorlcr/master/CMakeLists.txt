@@ -72,7 +72,6 @@ target_link_libraries (  thormaster_lcr
          jhtree 
          dafsclient 
          dalibase 
-         environment 
          dllserver 
          nbcd 
          eclrtl 
@@ -90,5 +89,6 @@ target_link_libraries (  thormaster_lcr
          swapnodelib
     )
 
-
-
+if (NOT CONTAINERIZED)
+    target_link_libraries ( thormaster_lcr environment )
+endif()

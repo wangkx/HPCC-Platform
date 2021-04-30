@@ -49,27 +49,6 @@ IPropertyTree* CTpWrapper::getEnvironment(const char* xpath)
     return NULL;
 }
 
-bool CTpWrapper::getClusterLCR(const char* clusterType, const char* clusterName)
-{
-    bool bLCR = false;
-    if (!clusterType || !*clusterType || !clusterName || !*clusterName)
-        return bLCR;
-
-    Owned<IEnvironmentFactory> envFactory = getEnvironmentFactory(true);
-    Owned<IConstEnvironment> constEnv = envFactory->openEnvironment();
-    Owned<IPropertyTree> root = &constEnv->getPTree();
-
-    StringBuffer xpath;
-    xpath.appendf("Software/%s[@name='%s']", clusterType, clusterName);
-    IPropertyTree* pCluster = root->queryPropTree( xpath.str() );
-    if (!pCluster)
-        throw MakeStringException(ECLWATCH_CLUSTER_NOT_IN_ENV_INFO, "'%s %s' is not defined.", clusterType, clusterName);
-
-    bLCR = !pCluster->getPropBool("@Legacy");
-
-    return bLCR;
-}
-
 void CTpWrapper::getClusterMachineList(double clientVersion,
                                        const char* ClusterType,
                                        const char* ClusterPath,
@@ -1393,64 +1372,6 @@ bool CTpWrapper::checkGroupReplicateOutputs(const char* groupName, const char* k
     return false;
 }
 
-void CTpWrapper::resolveGroupInfo(const char* groupName,StringBuffer& Cluster, StringBuffer& ClusterPrefix)
-{
-    if(*groupName == 0)
-    {
-        DBGLOG("NULL PARAMETER groupName");
-        return;
-    }
-    //There is a big estimate here.... namely that one group can only be associated with one cluster.......
-    // if this changes then this code may be invalidated....
-    try
-    {
-        Owned<IPropertyTree> pTopology = getEnvironment("Software/Topology");
-        if (!pTopology)
-            throw MakeStringExceptionDirect(ECLWATCH_CANNOT_GET_ENV_INFO, MSG_FAILED_GET_ENVIRONMENT_INFO);
-
-        Owned<IPropertyTreeIterator> nodes=  pTopology->getElements("//Cluster");
-        if (nodes->first()) 
-        {
-            do 
-            {
-
-                IPropertyTree &node = nodes->query();
-                if (ContainsProcessDefinition(node,groupName)==true)
-                {
-                    //the prefix info is contained within the parent
-                    ClusterPrefix.append(node.queryProp("@prefix"));
-                    Cluster.append(node.queryProp("@name"));
-                    break;
-                }
-            } while (nodes->next());
-        }
-    }
-    catch(IException* e){   
-      StringBuffer msg;
-      e->errorMessage(msg);
-        IWARNLOG("%s", msg.str());
-        e->Release();
-    }
-    catch(...){
-        IWARNLOG("Unknown Exception caught within CTpWrapper::resolveGroupInfo");
-    }
-}
-
-bool CTpWrapper::ContainsProcessDefinition(IPropertyTree& clusterNode,const char* clusterName)
-{
-    Owned<IPropertyTreeIterator> processNodes = clusterNode.getElements("*");
-    if (processNodes->first()) {
-        do {
-            IPropertyTree &node = processNodes->query();
-            const char* processName = node.queryProp("@process");
-            if (*processName > 0 && (strcmp(processName,clusterName) == 0))
-                return true;
-        } while (processNodes->next());
-        }
-    return false;
-}
-
-
 void CTpWrapper::getMachineInfo(double clientVersion, const char* name, const char* netAddress, IEspTpMachine& machineInfo)
 {
     Owned<IEnvironmentFactory> envFactory = getEnvironmentFactory(true);
@@ -2108,74 +2029,6 @@ void CTpWrapper::getServices(double version, const char* serviceType, const char
     }
 }
 
-extern TPWRAPPER_API ISashaCommand* archiveOrRestoreWorkunits(StringArray& wuids, IProperties* params, bool archive, bool dfu)
-{
-    StringBuffer sashaAddress;
-    if (params && params->hasProp("sashaServerIP"))
-    {
-        sashaAddress.set(params->queryProp("sashaServerIP"));
-        sashaAddress.append(':').append(params->getPropInt("sashaServerPort", DEFAULT_SASHA_PORT));
-    }
-    else
-        getSashaService(sashaAddress, "sasha-wu-archiver", true);
-
-    SocketEndpoint ep(sashaAddress);
-    Owned<INode> node = createINode(ep);
-    Owned<ISashaCommand> cmd = createSashaCommand();
-    cmd->setAction(archive ? SCA_ARCHIVE : SCA_RESTORE);
-    if (dfu)
-        cmd->setDFU(true);
-
-    ForEachItemIn(i, wuids)
-        cmd->addId(wuids.item(i));
-
-    if (!cmd->send(node, 1*60*1000))
-        throw MakeStringException(ECLWATCH_CANNOT_CONNECT_ARCHIVE_SERVER,
-            "Sasha (%s) took too long to respond for Archive/restore workunit.",
-            sashaAddress.str());
-    return cmd.getClear();
-}
-
-extern TPWRAPPER_API IStringIterator* getContainerTargetClusters(const char* processType, const char* processName)
-{
-    Owned<CStringArrayIterator> ret = new CStringArrayIterator;
-    Owned<IPropertyTreeIterator> queues = queryComponentConfig().getElements("queues");
-    ForEach(*queues)
-    {
-        IPropertyTree& queue = queues->query();
-        if (!isEmptyString(processType))
-        {
-            const char* type = queue.queryProp("@type");
-            if (isEmptyString(type) || !strieq(type, processType))
-                continue;
-        }
-        const char* qName = queue.queryProp("@name");
-        if (isEmptyString(qName))
-            continue;
-
-        if (!isEmptyString(processName) && !strieq(qName, processName))
-            continue;
-
-        ret->append_unique(qName);
-    }
-    if (!isEmptyString(processType) && !strieq("roxie", processType))
-        return ret.getClear();
-
-    Owned<IPropertyTreeIterator> services = queryComponentConfig().getElements("services[@type='roxie']");
-    ForEach(*services)
-    {
-        IPropertyTree& service = services->query();
-        const char* targetName = service.queryProp("@target");
-        if (isEmptyString(targetName))
-            continue;
-
-        if (!isEmptyString(processName) && !strieq(targetName, processName))
-            continue;
-
-        ret->append_unique(targetName);
-    }
-    return ret.getClear();
-}
 
 class CContainerWUClusterInfo : public CSimpleInterfaceOf<IConstWUClusterInfo>
 {

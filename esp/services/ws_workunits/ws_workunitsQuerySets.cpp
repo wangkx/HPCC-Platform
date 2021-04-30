@@ -49,6 +49,10 @@ static const char *QuerySetAliasActionTypes[] = { "Deactivate", NULL };
 
 bool isRoxieProcess(const char *process)
 {
+#ifdef _CONTAINERIZED
+    IERRLOG("CONTAINERIZED(isRoxieProcess) not fully implemented");
+    return false;
+#else
     if (!process)
         return false;
 
@@ -57,6 +61,7 @@ bool isRoxieProcess(const char *process)
     Owned<IPropertyTree> root = &env->getPTree();
     VStringBuffer xpath("Software/RoxieCluster[@name=\"%s\"]", process);
     return root->hasProp(xpath.str());
+#endif
 }
 
 void checkUseEspOrDaliIP(SocketEndpoint &ep, const char *ip, const char *esp)
@@ -890,8 +895,12 @@ bool CWsWorkunitsEx::onWUPublishWorkunit(IEspContext &context, IEspWUPublishWork
 
     if (srcCluster.length())
     {
+#ifdef _CONTAINERIZED
+        IERRLOG("CONTAINERIZED(CWsWorkunitsEx::onWUPublishWorkunit) not fully implemented");
+#else
         if (!isProcessCluster(daliIP, srcCluster))
             throw MakeStringException(ECLWATCH_INVALID_CLUSTER_NAME, "Process cluster %s not found on %s DALI", srcCluster.str(), daliIP.length() ? daliIP.str() : "local");
+#endif
     }
     unsigned updateFlags = 0;
     if (req.getUpdateDfs())
@@ -1975,8 +1984,12 @@ bool CWsWorkunitsEx::onWURecreateQuery(IEspContext &context, IEspWURecreateQuery
 
                 if (srcCluster.length())
                 {
+#ifdef _CONTAINERIZED
+                    IERRLOG("CONTAINERIZED(CWsWorkunitsEx::onWURecreateQuery) not fully implemented");
+#else
                     if (!isProcessCluster(daliIP, srcCluster))
                         throw MakeStringException(ECLWATCH_INVALID_CLUSTER_NAME, "Process cluster %s not found on %s DALI", srcCluster.str(), daliIP.length() ? daliIP.str() : "local");
+#endif
                 }
                 unsigned updateFlags = 0;
                 if (req.getUpdateDfs())
@@ -2202,6 +2215,9 @@ void CWsWorkunitsEx::getWUQueryDetails(IEspContext &context, CWUQueryDetailsReq 
 
     if (req.getIncludeWsEclAddresses())
     {
+#ifdef _CONTAINERIZED
+        UNIMPLEMENTED_X("CONTAINERIZED(CWsWorkunitsEx::onWURecreateQuery)");
+#else
         StringArray wseclAddresses;
         Owned<IEnvironmentFactory> factory = getEnvironmentFactory(true);
         Owned<IConstEnvironment> env = factory->openEnvironment();
@@ -2251,6 +2267,7 @@ void CWsWorkunitsEx::getWUQueryDetails(IEspContext &context, CWUQueryDetailsReq 
             }
         }
         resp.setWsEclAddresses(wseclAddresses);
+#endif
     }
 }
 

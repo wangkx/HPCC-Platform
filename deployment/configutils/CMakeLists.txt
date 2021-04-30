@@ -46,5 +46,8 @@ HPCC_ADD_LIBRARY( configutils SHARED ${SRCS} )
 install ( TARGETS configutils RUNTIME DESTINATION ${EXEC_DIR} LIBRARY DESTINATION ${LIB_DIR} )
 target_link_libraries ( configutils
          jlib
-         environment
     )
+
+if (NOT CONTAINERIZED)
+    target_link_libraries ( configutils environment )
+endif()

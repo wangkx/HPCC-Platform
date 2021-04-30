@@ -2444,6 +2444,9 @@ static CriticalSection envConfCrit;
 
 jlib_decl const IProperties &queryEnvironmentConf()
 {
+#if defined(_CONTAINERIZED) && defined(_DEBUG)
+    throwUnexpectedX("queryEnvironmentConf() callled from container system");
+#endif
     CriticalBlock b(envConfCrit);
     if (!envConfFile)
         envConfFile.setown(createProperties(CONFIG_DIR PATHSEPSTR ENV_CONF_FILE, true));

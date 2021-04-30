@@ -330,6 +330,7 @@ void CJobManager::fatal(IException *e)
 
 void CJobManager::updateWorkUnitLog(IWorkUnit &workunit)
 {
+#ifndef _CONTAINERIZED
     StringBuffer log, logUrl, slaveLogPattern;
     logHandler->getLogName(log);
     createUNCFilename(log, logUrl, false);
@@ -340,8 +341,8 @@ void CJobManager::updateWorkUnitLog(IWorkUnit &workunit)
     Owned<IConstWUClusterInfo> clusterInfo = getTargetClusterInfo(workunit.queryClusterName());
     unsigned numberOfSlaves = clusterInfo->getNumberOfSlaveLogs();
     workunit.addProcess("Thor", globals->queryProp("@name"), 0, numberOfSlaves, slaveLogPattern, false, logUrl.str());
+#endif
 }
-
 
 
 
@@ -483,11 +484,13 @@ void CJobManager::run()
 #endif
     querySoCache.init(soPath.str(), DEFAULT_QUERYSO_LIMIT, soPattern);
 
+#ifndef _CONTAINERIZED
     SCMStringBuffer _queueNames;
     const char *thorName = globals->queryProp("@name");
     if (!thorName) thorName = "thor";
     getThorQueueNames(_queueNames, thorName);
     queueName.set(_queueNames.str());
+#endif
 
     jobq.setown(createJobQueue(queueName.get()));
     struct cdynprio: public IDynamicPriority

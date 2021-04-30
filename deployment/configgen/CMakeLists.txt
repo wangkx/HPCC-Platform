@@ -45,8 +45,11 @@ install ( TARGETS configgen DESTINATION sbin )
 target_link_libraries ( configgen 
         deploy 
         jlib 
-        environment 
         )
+
+if (NOT CONTAINERIZED)
+    target_link_libraries ( configgen environment )
+endif()
 
 IF (USE_OPENSSL)
     target_link_libraries ( configgen

@@ -171,6 +171,9 @@ void Cws_machineEx::init(IPropertyTree *cfg, const char *process, const char *se
         m_machineInfoFile.append("preflight");
 
     //Read settings from environment.xml
+#ifdef _CONTAINERIZED
+    IERRLOG("CONTAINERIZED(Cws_machineEx::onGetComponentUsage)");
+#else
     Owned<IEnvironmentFactory> envFactory = getEnvironmentFactory(true);
     Owned<IConstEnvironment> constEnv = envFactory->openEnvironment();
     Owned<IPropertyTree> pEnvironmentRoot = &constEnv->getPTree();
@@ -185,6 +188,7 @@ void Cws_machineEx::init(IPropertyTree *cfg, const char *process, const char *se
         pEnvSettings->getProp("pid", environmentConfData.m_pidPath.clear());
         pEnvSettings->getProp("user", environmentConfData.m_user.clear());
     }
+#endif
 
     m_threadPoolSize = pServiceNode->getPropInt("ThreadPoolSize", THREAD_POOL_SIZE);
     m_threadPoolStackSize = pServiceNode->getPropInt("ThreadPoolStackSize", THREAD_POOL_STACK_SIZE);
@@ -323,10 +327,14 @@ void Cws_machineEx::addChannels(CGetMachineInfoData& machineInfoData, IPropertyT
     }
     else
     {
+#ifdef _CONTAINERIZED
+        IERRLOG("CONTAINERIZED(Cws_machineEx::onGetComponentUsage)");
+#else
         Owned<IEnvironmentFactory> envFactory = getEnvironmentFactory(true);
         Owned<IConstEnvironment> constEnv = envFactory->openEnvironment();
         Owned<IPropertyTree> root = &constEnv->getPTree();
         component.setown(root->getPropTree(path));
+#endif
     }
     if (!component)
         throw MakeStringException(ECLWATCH_INVALID_IP_OR_COMPONENT, "%s not found.", componentName);
@@ -526,13 +534,15 @@ void Cws_machineEx::addProcessRequestToMachineInfoData(CGetMachineInfoData& mach
     }
 
     char pathSep;
-    EnvMachineOS os;
+    EnvMachineOS os = MachineOsUnknown;
+#ifdef _CONTAINERIZED
+    IERRLOG("CONTAINERIZED(Cws_machineEx::addProcessRequestToMachineInfoData)");
+#else
     Owned<IConstEnvironment> constEnv = getConstEnvironment();
     Owned<IConstMachineInfo> pMachineInfo = constEnv->getMachineByAddress(address1);
     if (pMachineInfo.get())
         os = pMachineInfo->getOS();
-    else
-        os = MachineOsUnknown;
+#endif
     if (os == MachineOsW2K)
         pathSep = '\\';
     else
@@ -637,6 +647,9 @@ void Cws_machineEx::readSettingsForTargetClusters(IEspContext& context, StringAr
     if (ordinality < 1)
         return;
 
+#ifdef _CONTAINERIZED
+    UNIMPLEMENTED_X("CONTAINERIZED(Cws_machineEx::readSettingsForTargetClusters)");
+#else
     Owned<IConstEnvironment> constEnv = getConstEnvironment();
     Owned<IPropertyTree> pEnvironmentRoot = &constEnv->getPTree();
     if (!pEnvironmentRoot)
@@ -703,6 +716,7 @@ void Cws_machineEx::readSettingsForTargetClusters(IEspContext& context, StringAr
         if (eclSchedulerProcesses->first())
             readTargetClusterProcesses(context, eclSchedulerProcesses->query(), eqEclScheduler, uniqueProcesses, machineInfoData, targetClusterOut);
     }
+#endif
 }
 
 //Collect settings for one group of target cluster processes
@@ -713,6 +727,9 @@ void Cws_machineEx::readTargetClusterProcesses(IEspContext& context, IPropertyTr
     if (!process || !*process)
         throw MakeStringException(ECLWATCH_INTERNAL_ERROR, "Process attribute not set for ECLCCServer in environment setting.");
 
+#ifdef _CONTAINERIZED
+    UNIMPLEMENTED_X("CONTAINERIZED(Cws_machineEx::readTargetClusterProcesses)");
+#else
     Owned<IConstEnvironment> constEnv = getConstEnvironment();
     Owned<IPropertyTree> pEnvironmentRoot = &constEnv->getPTree();
     if (!pEnvironmentRoot)
@@ -770,6 +787,7 @@ void Cws_machineEx::readTargetClusterProcesses(IEspContext& context, IPropertyTr
         if (version >= 1.16)
            addChannels(machineInfoData, pEnvironmentRoot, eqRoxieServerProcess, process);
     }
+#endif
 }
 
 void Cws_machineEx::getThorProcesses(IConstEnvironment* constEnv, IPropertyTree* cluster, const char* processName,
@@ -1054,9 +1072,13 @@ void Cws_machineEx::getRoxieStateInfo(CRoxieStateInfoThreadParam* param)
         throw MakeStringException(ECLWATCH_MISSING_PARAMS, "Roxie cluster not specified.");
 
     SocketEndpointArray servers;
+#ifdef _CONTAINERIZED
+    UNIMPLEMENTED_X("CONTAINERIZED(Cws_machineEx::getRoxieStateInfo)");
+#else
     getRoxieProcessServers(clusterName, servers);
     if (!servers.length())
         throw MakeStringException(ECLWATCH_CANNOT_GET_ENV_INFO, "Roxie Process server not found.");
+#endif
 
     Owned<IRoxieCommunicationClient> roxieClient = createRoxieCommunicationClient(servers.item(0), ROXIECONTROLSTATETIMEOUT);
     Owned<IPropertyTree> controlResp = roxieClient->sendRoxieControlAllNodes("<control:state/>", true);
@@ -2269,6 +2291,7 @@ const char* Cws_machineEx::getProcessTypeFromMachineType(const char* machineType
     return processType;
 }
 
+#ifndef _CONTAINERIZED
 IConstEnvironment* Cws_machineEx::getConstEnvironment()
 {
     Owned<IEnvironmentFactory> envFactory = getEnvironmentFactory(true);
@@ -2277,20 +2300,29 @@ IConstEnvironment* Cws_machineEx::getConstEnvironment()
         throw MakeStringException(ECLWATCH_CANNOT_GET_ENV_INFO, "Failed to get environment information.");
     return constEnv.getLink();
 }
+#endif
 
 //Used in Rexec
 IPropertyTree* Cws_machineEx::getComponent(const char* compType, const char* compName)
 {
+#ifdef _CONTAINERIZED
+    IERRLOG("CONTAINERIZED(Cws_machineEx::readTargetClusterProcesses)");
+    return nullptr;
+#else
     StringBuffer xpath;
     xpath.append("Software/").append(compType).append("[@name='").append(compName).append("']");
 
     Owned<IConstEnvironment> constEnv = getConstEnvironment();
     Owned<IPropertyTree> pEnvRoot = &constEnv->getPTree();
     return pEnvRoot->getPropTree( xpath.str() );
+#endif
 }
 
 void Cws_machineEx::getAccountAndPlatformInfo(const char* address, StringBuffer& userId, StringBuffer& password, bool& bLinux)
 {
+#ifdef _CONTAINERIZED
+    UNIMPLEMENTED_X("CONTAINERIZED(Cws_machineEx::getAccountAndPlatformInfo)");
+#else
     Owned<IConstEnvironment> constEnv = getConstEnvironment();
     Owned<IConstMachineInfo> machine = constEnv->getMachineByAddress(address);
     if (!machine && strieq(address, "."))
@@ -2322,6 +2354,7 @@ void Cws_machineEx::getAccountAndPlatformInfo(const char* address, StringBuffer&
     }
 
     bLinux = machine->getOS() == MachineOsLinux;
+#endif
 }
 
 IPropertyTree* Cws_machineEx::createDiskUsageReq(IPropertyTree* envDirectories, const char* pathName,
@@ -2840,10 +2873,14 @@ bool Cws_machineEx::onGetComponentUsage(IEspContext& context, IEspGetComponentUs
     {
         context.ensureFeatureAccess(FEATURE_URL, SecAccess_Read, ECLWATCH_MACHINE_INFO_ACCESS_DENIED, "Failed to Get Machine Information. Permission denied.");
 
+        IArrayOf<IEspComponentUsage> componentUsages;
+
+#ifdef _CONTAINERIZED
+        IERRLOG("CONTAINERIZED(Cws_machineEx::onGetComponentUsage)");
+#else
         double version = context.getClientVersion();
 
         StringBuffer timeStr;
-        IArrayOf<IEspComponentUsage> componentUsages;
         Owned<IEnvironmentFactory> envFactory = getEnvironmentFactory(true);
         Owned<IConstEnvironment> constEnv = envFactory->openEnvironment();
         Owned<IPropertyTree> usageReq = getComponentUsageReq(req, constEnv);
@@ -2871,6 +2908,7 @@ bool Cws_machineEx::onGetComponentUsage(IEspContext& context, IEspGetComponentUs
         readComponentUsageResult(context, usageReq, uniqueUsages, componentUsages);
         if (version >= 1.17)
             resp.setUsageTime(setUsageTimeStr(usage, timeStr));
+#endif
 
         resp.setComponentUsages(componentUsages);
     }
@@ -2899,6 +2937,9 @@ StringArray& Cws_machineEx::listTargetClusterNames(IConstEnvironment* constEnv, 
 
 IPropertyTree* Cws_machineEx::getTargetClusterUsageReq(IEspGetTargetClusterUsageRequest& req, IConstEnvironment* constEnv)
 {
+#ifdef _CONTAINERIZED
+    UNIMPLEMENTED_X("CONTAINERIZED(Cws_machineEx::getTargetClusterUsageReq)"); // never called
+#else
     StringArray& targetClusters = req.getTargetClusters();
     if (targetClusters.empty())
         listTargetClusterNames(constEnv, targetClusters);
@@ -2945,6 +2986,7 @@ IPropertyTree* Cws_machineEx::getTargetClusterUsageReq(IEspGetTargetClusterUsage
         usageReq->addPropTree(targetClusterTree->queryName(), LINK(targetClusterTree));
     }
     return usageReq.getClear();
+#endif
 }
 
 void Cws_machineEx::readTargetClusterUsageResult(IEspContext& context, IPropertyTree* usageReq,
@@ -2978,6 +3020,9 @@ bool Cws_machineEx::onGetTargetClusterUsage(IEspContext& context, IEspGetTargetC
         StringBuffer timeStr;
         IArrayOf<IEspTargetClusterUsage> targetClusterUsages;
 
+#ifdef _CONTAINERIZED
+        IERRLOG("CONTAINERIZED(Cws_machineEx::onGetNodeGroupUsage)");
+#else
         Owned<IEnvironmentFactory> envFactory = getEnvironmentFactory(true);
         Owned<IConstEnvironment> constEnv = envFactory->openEnvironment();
         Owned<IPropertyTree> usageReq = getTargetClusterUsageReq(req, constEnv);
@@ -3009,6 +3054,7 @@ bool Cws_machineEx::onGetTargetClusterUsage(IEspContext& context, IEspGetTargetC
         readTargetClusterUsageResult(context, usageReq, uniqueUsages, targetClusterUsages);
         if (version >= 1.17)
             resp.setUsageTime(setUsageTimeStr(usage, timeStr));
+#endif
 
         resp.setTargetClusterUsages(targetClusterUsages);
     }
@@ -3178,6 +3224,9 @@ bool Cws_machineEx::onGetNodeGroupUsage(IEspContext& context, IEspGetNodeGroupUs
         StringBuffer timeStr;
         IArrayOf<IEspNodeGroupUsage> nodeGroupUsages;
 
+#ifdef _CONTAINERIZED
+        IERRLOG("CONTAINERIZED(Cws_machineEx::onGetNodeGroupUsage)");
+#else
         Owned<IEnvironmentFactory> envFactory = getEnvironmentFactory(true);
         Owned<IConstEnvironment> constEnv = envFactory->openEnvironment();
         Owned<IPropertyTree> usageReq = getNodeGroupUsageReq(req, constEnv);
@@ -3210,6 +3259,8 @@ bool Cws_machineEx::onGetNodeGroupUsage(IEspContext& context, IEspGetNodeGroupUs
         readNodeGroupUsageResult(context, usageReq, uniqueUsages, nodeGroupUsages);
         if (version >= 1.17)
             resp.setUsageTime(setUsageTimeStr(usage, timeStr));
+#endif
+
         resp.setNodeGroupUsages(nodeGroupUsages);
     }
     catch(IException* e)
@@ -3298,6 +3349,14 @@ CInfoCache* CUsageCacheReader::read()
 
 IPropertyTree* CUsageCacheReader::getUsageReqAllMachines()
 {
+    //Create a PTree which will be used to store the usages of all HPCC machines.
+    Owned<IPropertyTree> uniqueUsages = createPTree("Usage");
+
+#ifdef _CONTAINERIZED
+    IERRLOG("CONTAINERIZED(CUsageCacheReader::getUsageReqAllMachines)");
+#else
+
+    //Store the network addresses and HPCC folders into the PTree.
     //Collect network addresses and HPCC folders for all HPCC machines.
     Owned<IEnvironmentFactory> envFactory = getEnvironmentFactory(true);
     Owned<IConstEnvironment> constEnv = envFactory->openEnvironment();
@@ -3305,10 +3364,6 @@ IPropertyTree* CUsageCacheReader::getUsageReqAllMachines()
     IArrayOf<IConstComponent> componentList;
     servicePtr->listComponentsForCheckingUsage(constEnv, componentList);
 
-    //Create a PTree which will be used to store the usages of all HPCC machines.
-    Owned<IPropertyTree> uniqueUsages = createPTree("Usage");
-
-    //Store the network addresses and HPCC folders into the PTree.
     //Their usages may be added by calling servicePtr->getMachineUsages().
     ForEachItemIn(i, componentList)
     {
@@ -3326,6 +3381,7 @@ IPropertyTree* CUsageCacheReader::getUsageReqAllMachines()
         else
             addOtherComponentUsageReq(constEnv, component.getName(), type, uniqueUsages);
     }
+#endif
 
     return uniqueUsages.getClear();
 }

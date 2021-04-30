@@ -58,10 +58,12 @@ HPCC_ADD_LIBRARY( deployutils SHARED ${SRCS} )
 install ( TARGETS deployutils RUNTIME DESTINATION ${EXEC_DIR} LIBRARY DESTINATION ${LIB_DIR} )
 target_link_libraries ( deployutils
          jlib 
-         environment 
          xmllib
          deploy
          configutils
     )
 
+if (NOT CONTAINERIZED)
+    target_link_libraries ( deployutils environment )
+endif()
 

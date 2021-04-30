@@ -789,7 +789,9 @@ public:
         usageCacheReader->setActive(false);
         return true;
     }
+#ifndef _CONTAINERIZED
     IConstEnvironment* getConstEnvironment();
+#endif
 
     //Used in StartStop/Rexec
     void getAccountAndPlatformInfo(const char* address, StringBuffer& userId, StringBuffer& password, bool& bLinux);
