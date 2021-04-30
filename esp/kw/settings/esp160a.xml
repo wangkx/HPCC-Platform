@@ -55,7 +55,6 @@
           <Feature name="" path="EclDirectAccess" resource="EclDirectAccess" required="" description="Access to ECL direct service"/>
           <Feature name="" path="WsStoreAccess" resource="WsStoreAccess" required="" description="Access to ws store service"/>
           <Feature name="" path="WsELKAccess" resource="WsELKAccess" required="" description="Access to ELK integration service"/>
-          <Feature name="" path="NewAccessFromESPXML" resource="NewAccessFromESPXML" required="" description="Access auto added from esp xml"/>
 		  <Feature name="" path="DeployWorkunitsAccess" resource="DeployWorkunitsAccess" required="" description="Access to deploy workunits"/>
         </Authenticate>
       </EspBinding>
