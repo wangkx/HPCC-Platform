@@ -14,6 +14,10 @@ helm install myhpcc /home/lexis/src/HPCC-Platform/helm/hpcc --set global.image.v
 helm install myhpcc /home/lexis/src/HPCC-Platform/helm/hpcc --set global.image.version=a1863f8e1-Debug --set global.privileged=true -f /home/lexis/src/HPCC-Platform/helm/examples/local/values-localfile.yaml
 --set global.image.name=platform-build-ln
 
+test dropzone:
+helm install localfile /home/lexis/tests/helm/examples/test_dropzone/hpcc-localfile --set common.hostpath=/run/desktop/mnt/host/c/hpccdata
+helm install myhpcc /home/lexis/src/HPCC-Platform/helm/hpcc --set global.image.version=f2e38b2980-Debug --set global.privileged=true -f /home/lexis/tests/helm/examples/test_dropzone/values-localfile.yaml
+
 helm install myhpcc /home/lexis/src/HPCC-Platform/helm/hpcc --set global.image.version=daily -f ~/volumes/values-nfs.yaml --set elasticsearch.enabled=true --set kibana.enabled=true --set elasticsearch.volumeClaimTemplate.resources.requests.storage=5Gi --set elasticsearch.volumeClaimTemplate.storageClassName=""
 --set elasticsearch.enabled=false and --set kibana.enabled=false
 --set elasticsearch.volumeClaimTemplate.storageClassName="nfs-dynamic"
@@ -33,7 +37,7 @@ HPCC-25484 Move daliadmin helper functions for ESP WsDali
 Create a branch: test_pr_25500_25548. 
 Coding or cherry-pick some code: cherry-pick the code from Tony's PR and your PR.
 Commit the changes and push to origin.
-export INPUT_GITHUB_TOKEN=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
+export INPUT_GITHUB_TOKEN=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
 export INPUT_BUILD_USER=wangkx
 export BUILD_LABEL=master-2021-03-24
 export INPUT_BUILD_VER=test_pr_25500_25548
@@ -178,12 +182,16 @@ compact vdisk
 detach vdisk
 exit
 
+===Start a new:
 ---------Enable Hyper-V and Containers:
  Right click on the Windows button and select ‘Apps and Features’.
  Select Programs and Features on the right under related settings.
  Select Turn Windows Features on or off.
  Select Hyper-V and click OK.
  Select Containers and click OK.
+
+---------Install WSL2 after enabling Hyper-V and Containers:
+Follow the web
 
 ---------GDB
 sudo apt install gdb 
@@ -227,6 +235,30 @@ kubectl get pods -n ingress-nginx -l app.kubernetes.io/name=ingress-nginx --watc
 kubectl get services -n ingress-nginx
 kubectl exec ingress-nginx-controller-6f5454cbfb-zffmx -it -n ingress-nginx -- /nginx-ingress-controller --version
 
+kubectl apply -f ../../tests/test_ingress_nginx/values.yaml
+
+--add nginx for echo
+kubectl apply -f echo1.yaml
+kubectl apply -f echo2.yaml
+kubectl apply -f echo_ingress.yaml
+
+--add nginx for eclwatch/eclqueries
+
+k apply -f ../../tests/test_ingress_nginx/values_mine.yaml
+
+--Change DNS lookup
+
+sudo nano /etc/hosts
+127.0.0.1 echo1.example.com
+127.0.0.1 eclwatch.example.com
+
+--Test nginx
+
+curl echo1.example.com
+
+curl eclwatch.example.com/esp/files/eclwatch/ecl/default.ecl
+curl eclqueries.example.com/esp/nav?rawxml_
+curl eclqueries.example.com/esp/navdata?root=true
 
 ------------------Build local image
 cd /home/lexis/src/HPCC-Platform/dockerfiles

@@ -1,3 +1,5 @@
+Email Rodrigo if ESP interface changes
+
 - NULL
 - MakeStringException
   https://github.com/hpcc-systems/HPCC-Platform/pull/14491#discussion_r565166491
@@ -10,6 +12,20 @@
 - BoolHash validTargets; ->
 std::set<std::string> validTargets;
 - io.clear() or io->Release() before removing a file
+
+inline bool strsame(const char* s, const char* t) { return (s == t) || (s && t && strcmp(s,t)==0); }  // also allow nulls
+inline bool strisame(const char* s, const char* t) { return (s == t) || (s && t && stricmp(s,t)==0); }  // also allow nulls
+inline bool hasPrefix(const char * text, const char * prefix, bool caseSensitive) //Is the text started with the prefix?
+
+----------Async calls
+auto func = [lfn, fileDesc](unsigned partNum)
+{
+ // collect and set
+};
+
+CAsyncForFunc<decltype(func)> async(func);
+async.For(fileDesc->numParts(), 100);
+--------------------
 
 Using #ifndef _CONTAINERIZED for bare metal only code
 

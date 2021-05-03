@@ -1,3 +1,71 @@
+git clone https://github.com/wangkx/HPCC-Platform.git
+cd HPCC-Platform/
+git remote add upstream https://github.com/hpcc-systems/HPCC-Platform.git
+git fetch upstream
+git merge --ff-only upstream/master
+git submodule update --init --recursive
+
+/home/lexis/runtime/etc/init.d/hpcc-init start
+
+Firefox debug: CTRL + SHIFE + E
+
+gh pr status
+
+<AllowList enabled="false" />
+
+sudo mount -t vboxsf src ~/shared
+---------------new notes
+Turn off Windows feature Hyper-V
+Install VirtualBox and add the linux: https://itsfoss.com/install-linux-in-virtualbox/
+ (download/install, start VirtualBox -> New button to add a virtual box)
+Download ubuntu-20.04-desktop-amd64.iso
+Load the ubuntu iso: https://askubuntu.com/questions/413594/what-does-no-bootable-medium-found-mean-in-virtualbox
+ (For the new virtual box, settings -> Storage -> In Control IDE, add a media: point to ubuntu iso? 
+Add the Guest edition: Device > Insert ...
+enable copy/paste: Settings->General->Advanced->Shared Clipboard (Bidirectional)
+Ubuntu settings -> network -> 1st: NAT, 2nd: Host-only (bridge cannot ping 160)
+Ubuntu settings -> display -> Select VBoxSVGA -> uncheck Enable 3D ... -> OK
+Start using Detach ...
+
+enable ssh access: sudo apt-get install openssh-server
+
+Install VS Code
+sudo snap install --classic code # or code-insiders
+
+sudo apt-get install git
+
+sudo apt-get install gitk
+
+sudo snap install gh
+
+Get HPCC from Github 
+
+Follows the Build wiki for HPCC
+
+sudo apt-get update -y
+sudo apt-get install -y xterm
+sudo apt-get install expect
+
+cd cmake
+cmake -DDESTDIR=$HOME/runtime -DRUNTIME_USER=$USER -DCMAKE_BUILD_TYPE=Debug -DUSE_OPTIONAL=ON -DINCLUDE_PLUGINS=OFF -DUSE_CBLAS=OFF -DUSE_MEMCACHED=OFF -DUSE_TBBMALLOC=OFF -DUSE_TBB=OFF -DUSE_LIBXSLT=ON ../HPCC-Platform
+make -j3 package
+
+Install HPCC package first to set ssh keys 
+
+Working folder: ~/Desktop/src/HPCC-Platform
+make install
+make configure
+
+lexis@lexis-VirtualBox:~/Desktop/src/HPCC-Platform$ sudo /opt/HPCCSystems/bin/esp config=../../src0/HPCC-Platform/esp/kw/tests/esp160a.xml
+
+---------------------------End new notes
+
+Install Eclipse: https://linoxide.com/install-eclipse-on-ubuntu-20-04/
+
+sudo /root/eclipse/cpp-2020-062/eclipse/eclipse
+
+---------------------------
+
 c:
 cd Users\wangkx\source\repos\HPCC-Platform
 
@@ -14,12 +82,6 @@ HPCC-24860 Build modular log agent plugin with ADL logging support
 
 
 -------------------------------------
-git clone https://github.com/wangkx/HPCC-Platform.git
-cd HPCC-Platform/
-git remote add upstream https://github.com/hpcc-systems/HPCC-Platform.git
-git fetch upstream
-git merge --ff-only upstream/master
-git submodule update --init --recursive
 
 cd cmake
 sudo rm -rf *

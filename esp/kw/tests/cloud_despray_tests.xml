@@ -80,3 +80,45 @@ http://localhost:8010/FileSpray/Despray?ver_=1.2&soap_builder_
   </DesprayResponse>
  </soap:Body>
 </soap:Envelope>
+
+<?xml version="1.0" encoding="UTF-8"?>
+<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/" xmlns:SOAP-ENC="http://schemas.xmlsoap.org/soap/encoding/" xmlns="urn:hpccsystems:ws:filespray">
+ <soap:Body>
+  <DropZoneFilesRequest>
+   <DropZoneName></DropZoneName>
+   <NetAddress/>
+   <Path>/var/lib/HPCCSystems/dropzone</Path>
+   <OS/>
+   <Subfolder/>
+   <ECLWatchVisibleOnly>0</ECLWatchVisibleOnly>
+   <DirectoryOnly>0</DirectoryOnly>
+  </DropZoneFilesRequest>
+ </soap:Body>
+</soap:Envelope>
+
+<?xml version="1.0" encoding="UTF-8"?>
+<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/" xmlns:SOAP-ENC="http://schemas.xmlsoap.org/soap/encoding/" xmlns="urn:hpccsystems:ws:filespray">
+ <soap:Body>
+  <DropZoneFileSearchRequest>
+   <DropZoneName>lz</DropZoneName>
+   <Server/>
+   <ECLWatchVisibleOnly>0</ECLWatchVisibleOnly>
+   <NameFilter>*packagemap*</NameFilter>
+  </DropZoneFileSearchRequest>
+ </soap:Body>
+</soap:Envelope>
+
+<?xml version="1.0" encoding="UTF-8"?>
+<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/" xmlns:SOAP-ENC="http://schemas.xmlsoap.org/soap/encoding/" xmlns="urn:hpccsystems:ws:filespray">
+ <soap:Body>
+  <DeleteDropZoneFilesRequest>
+   <DropZoneName>lz</DropZoneName>
+   <NetAddress>localhost</NetAddress>
+   <Path>/var/lib/HPCCSystems/dropzone</Path>
+   <OS/>
+   <Names>
+    <Item>packagemap8010rc1b.txt</Item>
+   </Names>
+  </DeleteDropZoneFilesRequest>
+ </soap:Body>
+</soap:Envelope>

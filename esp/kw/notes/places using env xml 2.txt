@@ -1,13 +1,103 @@
-done 30+ (calls or call groups)
+Future jobs:
+* Spark - ESP files
+* WU logs for ZAP
+* Report more information about cloud HPCC
+  * DFU Server queues
+  * Storage planes
+  * Pods?
+* ESP cost analysis
+* ESP in regression tests
+* ESP log analysis
 
-not done 70+ (20+ may not needed, Cluster attrs 7 (RKC, Tony, Jake, Gavin?), Process 12, dropZone 7 (Gavin?), 
-Redesign (getClusterGroupName() and other spark function related, DFUServer, PackageMap, Sasha, XRef, Machine)? 30+):
+1. RoxieCluster/@numDataCopies, @slaveConfig, @channelsPernode,  @cyclicOffset  HPCC-25218
+Q: no replication for roxie, thor?
+
+2. @nodeGroup
+   CWsDfuEx::onDFUFileCreateV2() and CWsDfuEx::onDFUFilePublish()  HPCC-25172
+   
+   DFUInfo() getFilePartsOnClusters() -> CThorNodeGroupCache::lookup() -> readNodeGroup() HPCC-25217
+      t CanReplicate flag. Not needed?
+  
+3. Access Sasha setting from plugin (workunitservice
+
+4. isRoxieProcess()
+   WsWorkunits WUCopyLogicalFiles() -> copyWULogicalFiles() -> 
+Q: Check data planes?
+
+5. isProcessCluster() 
+   onWUPublishWorkunit()
+   onWURecreateQuery()
+
+Access security token
+
+WsWorkunits ECL WU log
+
+DFUXref
+  FUXRefList															Not needed for cloud.
+  DFUXRefUnusedFiles                                                    send commands to roxie
+WsFS onGetDFUServerQueues() -> getDFUServerQueueNames()
+WsWorkunits onWUCopyLogicalFiles() -> copyWULogicalFiles() -> isRoxieProcess()
+ 
+WsWorkunits
+ onWUPublishWorkunit() -> isProcessCluster()                Tony?
+ onWURecreateQuery() -> isProcessCluster()                  Tony?
+ onWUQueryDetails() -> getWUQueryDetails()                  HPCC-25229
+ CWsWorkunitsSoapBindingEx::onGetForm() -> WUQuery          legacy UI only. Not needed for cloud. Tony?
+ QueryFilesInUse::updateUsers()                             Token later?
+ Many log related calls:                                    Not needed?
+ 
+WsPackageProcess
+ onAddPackage() -> setDerivedDfsLocation() -> isProcessCluster()       If a request contains a cluster process, the code verifies it. Tony?
+ onCopyPackageMap() -> setDerivedDfsLocation() -> isProcessCluster()
+ 
+WsFS
+ CFileSpraySoapBindingEx::onGetInstantQuery() -> createPTreeForXslt()  legacy UI only. Not needed for cloud. Tony?
+
+ onDFUWUSearch()                                                       legacy UI only. Not needed for cloud. Tony?
+ onGetDFUWorkunits()                                                   the code does not do anything?
+ onCopy() -> setRoxieClusterPartDiskMapping()                          HPCC-25218
+   RoxieCluster/@numDataCopies, @slaveConfig, @channelsPernode,  @cyclicOffset for given roxie cluster process
+ onDropZoneFiles() -> getDropZoneFiles() -> checkDropZoneIPAndPath()   ??
+ onDeleteDropZoneFiles() -> checkDropZoneIPAndPath()
+ onDropZoneFileSearch()
+
+WsDFU
+ DFUInfo() getFilePartsOnClusters() -> CThorNodeGroupCache::lookup() -> readNodeGroup() HPCC-25217
+  set CanReplicate flag. Not needed?
+ -> getClusterGroupName()                                              HPCC-25217
+ onDFUFileCreate(), etc                                                HPCC-25172
+
+wsdfuaccess.cpp
+ ensureAccessibleDfuServiceURLList                                     HPCC-25172
+
+WsFileIO                                                               
+ CreateFile() -> CheckServerAccess(): create a file inside drozone
+ ReadFileData() -> CheckServerAccess(): read from a dropzone file
+ WriteFileData() -> CheckServerAccess(): write to a dropzone file
+
+WsTopology: total methods: 19
+  For cloud: 7
+	CWsTopologyEx::onTpLogicalClusterQuery(): getComponentConfigSP()->getElements("queues");
+	CWsTopologyEx::onTpGroupQuery(): queryGlobalConfig().getElements("storage/planes[labels='data']");
+	CWsTopologyEx::onTpClusterInfo(): querySDS().connect("/Status/Servers/", myProcessSession(),RTM_SUB,SDS_LOCK_TIMEOUT);
+	CWsTopologyEx::onTpThorStatus(): querySDS().connect(StringBuffer("/Status/Servers/Server[@thorname=\"")....
+	CWsTopologyEx::onTpServiceQuery():
+	  getTpDfuServers(): queryComponentConfig().getElements("dfuQueues");
+	  getTpDropZones():  getDropZonePlanesIterator(name);
+	CWsTopologyEx::onTpDropZoneQuery(): getDropZonePlanesIterator(name);
+	CWsTopologyEx::onTpGetServicePlugins(): read from esp xml. To be tested.
+
+WsMachine: many places
+
+------------------------------
 
 DFU					Redesign?
  HPCC-25172: @nodeGroup+ Jake?
    Break ESP Service: CWsDfuEx::onDFUFileCreateV2() and CWsDfuEx::onDFUFilePublish()  Jake?
     getClusterTypeByClusterName(): use cluster process name to find out target type
     getClusterGroupName(): use cluster process name to find out group name
+	getDFUFileIGroup()
+	exportRecordDefinitionBinaryType()
    
    related: call the getEnvironmentFactory(true) in the CTpWrapper::getClusterProcessList() at TpWrapper.cpp(994)
      for each cluster process, find @name, @queueName, @nodeGroup, @build, @dataBuild and more. But, most of callers only need process names.

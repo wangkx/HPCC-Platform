@@ -46,6 +46,8 @@ vi env_after_import_delete
  Testing: dfsls, dfsfile, dfsmap, dfsgroup, clusternodes, dfsparents, dfsunlink, setprotect, listprotect, unprotect, checksubfile, checksuperfile
  /home/lexis/runtime/opt/HPCCSystems/bin/daliadmin server=localhost user=kwang password=a dfsls
  /home/lexis/runtime/opt/HPCCSystems/bin/daliadmin server=localhost user=kwang password=a dfsls .
+ /home/lexis/runtime/opt/HPCCSystems/bin/daliadmin server=localhost user=kwang password=a dfscsv '*'
+ /home/lexis/runtime/opt/HPCCSystems/bin/daliadmin server=localhost user=kwang password=a dfscsv *cmakelists*
  /home/lexis/runtime/opt/HPCCSystems/bin/daliadmin server=localhost user=kwang password=a dfsfile .::test_log
  /home/lexis/runtime/opt/HPCCSystems/bin/daliadmin server=localhost user=kwang password=a dfsgroup mythor
  /home/lexis/runtime/opt/HPCCSystems/bin/daliadmin server=localhost user=kwang password=a clusternodes mythor
@@ -72,8 +74,29 @@ vi env_after_import_delete
 clusterlist: the original code does nothing?
 /home/lexis/runtime/opt/HPCCSystems/bin/daliadmin server=localhost user=kwang password=a auditlog 2021-03-09 2021-03-10 "*" Not sure how filter works
 
- 
-I got a response from Tim. He said that he talked with Jiafu yesterday. Jiafu said it looked OK from what he saw. Tim also said that he never intended for Jiafu to considered an official reviewer. So, I guess you may merge the PR now.
+Files:
+/home/lexis/runtime/opt/HPCCSystems/bin/daliadmin server=localhost user=kwang password=a dfsfile  .::cmakelists20210421a.txt
+
+/home/lexis/runtime/opt/HPCCSystems/bin/daliadmin server=localhost user=kwang password=a dfspart  .::cmakelists20210421a.txt 0
+
+/home/lexis/runtime/opt/HPCCSystems/bin/daliadmin server=localhost user=kwang password=a setdfspartattr .::cmakelists20210421a.txt 1 node1 10.0.0.74
+/home/lexis/runtime/opt/HPCCSystems/bin/daliadmin server=localhost user=kwang password=a setdfspartattr .::cmakelists20210421a.txt 1 node1
+
+/home/lexis/runtime/opt/HPCCSystems/bin/daliadmin server=localhost user=kwang password=a dfsls thor lrs
+
+/home/lexis/runtime/opt/HPCCSystems/bin/daliadmin server=localhost user=kwang password=a dfsparents thor::dessert::key::dessert_name_password
+
+/home/lexis/runtime/opt/HPCCSystems/bin/daliadmin server=localhost user=kwang password=a dfsmap  .::cmakelists20210421a.txt
+
+/home/lexis/runtime/opt/HPCCSystems/bin/daliadmin server=localhost user=kwang password=a dfscsv  \*
+
+//Check duplicate for now. May add other check?
+/home/lexis/runtime/opt/HPCCSystems/bin/daliadmin server=localhost user=kwang password=a dfscheck
+
+//No output!!
+/home/lexis/runtime/opt/HPCCSystems/bin/daliadmin server=localhost user=kwang password=a dfsexists thor::dessert::dessert_name_password
+
+
  
  
  
