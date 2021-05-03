@@ -227,6 +227,35 @@ kubectl get pods -n ingress-nginx -l app.kubernetes.io/name=ingress-nginx --watc
 kubectl get services -n ingress-nginx
 kubectl exec ingress-nginx-controller-6f5454cbfb-zffmx -it -n ingress-nginx -- /nginx-ingress-controller --version
 
+kubectl apply -f ../../tests/test_ingress_nginx/values.yaml
+
+--add nginx for echo
+kubectl apply -f echo1.yaml
+kubectl apply -f echo2.yaml
+kubectl apply -f echo_ingress.yaml
+tests:
+-Change DNS lookup (see below)
+curl echo1.example.com
+curl echo2.example.com
+
+--add nginx for eclwatch/eclqueries
+
+helm install myhpcc /home/lexis/tests/test_ingress_nginx/nginx_hpcc --set global.image.version=662888d0b-Debug --set global.privileged=true -f /home/lexis/src/HPCC-Platform/helm/examples/local/values-localfile.yaml
+k apply -f ../../tests/test_ingress_nginx/values_nginx_hpcc.yaml
+tests:
+-Change DNS lookup (see below)
+curl eclwatch2.example.com/WsWorkunits/WUQuery
+curl eclwatch2.example.com/esp/files/eclwatch/ecl/default.ecl
+curl eclwatch2.example.com/WsWorkunits/WUInfo?Wuid=W20210428-202242
+curl eclqueries.example.com/esp/nav?rawxml_
+curl eclqueries.example.com/esp/navdata?root=true
+
+--Change DNS lookup
+
+sudo nano /etc/hosts
+127.0.0.1 echo1.example.com
+127.0.0.1 eclqueries.example.com
+127.0.0.1 eclwatch2.example.com
 
 ------------------Build local image
 cd /home/lexis/src/HPCC-Platform/dockerfiles
