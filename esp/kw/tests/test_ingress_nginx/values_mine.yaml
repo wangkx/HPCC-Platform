@@ -1,0 +1,21 @@
+apiVersion: networking.k8s.io/v1beta1
+kind: Ingress
+metadata:
+  name: mine-ingress
+  annotations:
+    # use the shared ingress-nginx
+    kubernetes.io/ingress.class: "nginx"
+spec:
+  rules:
+  - host: eclqueries.example.com
+    http:
+      paths:
+      - backend:
+          serviceName: eclqueries
+          servicePort: 8002
+  - host: eclwatch.example.com
+    http:
+      paths:
+      - backend:
+          serviceName: eclwatch
+          servicePort: 8010
