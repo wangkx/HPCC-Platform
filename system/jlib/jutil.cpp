@@ -2421,6 +2421,14 @@ StringBuffer & fillConfigurationDirectoryEntry(const char *dir,const char *name,
 
 IPropertyTree *getHPCCEnvironment()
 {
+#ifdef _CONTAINERIZED
+#ifdef _DEBUG
+    throwUnexpectedX("getHPCCEnvironment() called from container system");
+#else
+    IERRWARN("getHPCCEnvironment() called from container system");
+#endif
+#endif
+
     StringBuffer envfile;
     if (queryEnvironmentConf().getProp("environment",envfile) && envfile.length())
     {
