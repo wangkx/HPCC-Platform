@@ -53,6 +53,7 @@ Persists changed?
 #include "workunitservices.hpp"
 #include "workunitservices.ipp"
 #include "environment.hpp"
+#include "TpWrapper.hpp"
 #include "seclib.hpp"
 
 #define WORKUNITSERVICES_VERSION "WORKUNITSERVICES 1.0.2"
@@ -151,7 +152,7 @@ static const char * EclDefinition =
 "END;";
 
 #define WAIT_SECONDS 30
-#define SDS_LOCK_TIMEOUT (1000*60*5)
+//#define SDS_LOCK_TIMEOUT (1000*60*5)
 #define SASHA_TIMEOUT (1000*60*10)
 
 WORKUNITSERVICES_API bool getECLPluginDefinition(ECLPluginDefinitionBlock *pb) 
@@ -180,7 +181,7 @@ IPluginContext * parentCtx = NULL;
 
 static void getSashaNodes(SocketEndpointArray &epa)
 {
-    Owned<IEnvironmentFactory> factory = getEnvironmentFactory(true);
+/*    Owned<IEnvironmentFactory> factory = getEnvironmentFactory(true);
     Owned<IConstEnvironment> env = factory->openEnvironment();
     Owned<IPropertyTree> root = &env->getPTree();
     StringBuffer tmp;
@@ -190,7 +191,10 @@ static void getSashaNodes(SocketEndpointArray &epa)
             SocketEndpoint sashaep(tmp.str(),siter->query().getPropInt("@port",DEFAULT_SASHA_PORT));
             epa.append(sashaep);
         }
-    }
+    }*/
+    SocketEndpoint sashaep;
+    getSashaServiceEP(sashaep, "sasha-wu-archiver", true);
+    epa.append(sashaep);
 }
 
 static IWorkUnitFactory * getWorkunitFactory(ICodeContext * ctx)
