@@ -1501,9 +1501,9 @@ bool getWsWuInfoFromSasha(IEspContext &context, SocketEndpoint &ep, const char* 
 void getArchivedWUInfo(IEspContext &context, const char* sashaServerIP, unsigned sashaServerPort, const char *wuid, IEspWUInfoResponse &resp)
 {
     SocketEndpoint ep;
-    if (sashaServerIP && *sashaServerIP)
-        ep.set(sashaServerIP, sashaServerPort);
-    else
+    //if (sashaServerIP && *sashaServerIP)
+    //    ep.set(sashaServerIP, sashaServerPort);
+    //else
         getSashaServiceEP(ep, "sasha-wu-archiver", true);
 
     if (getWsWuInfoFromSasha(context, ep, wuid, &resp.updateWorkunit()))

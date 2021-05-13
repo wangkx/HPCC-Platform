@@ -2476,6 +2476,7 @@ bool getSashaService(StringBuffer &serviceAddress, const char *serviceName, bool
 
 bool getSashaServiceEP(SocketEndpoint &serviceEndpoint, const char *service, bool failIfNotFound)
 {
+	DBGLOG("####In Get Sasha");
     StringBuffer serviceAddress;
     if (!getSashaService(serviceAddress, service, failIfNotFound))
         return false;
