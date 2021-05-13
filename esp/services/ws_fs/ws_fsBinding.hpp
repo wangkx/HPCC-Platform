@@ -57,7 +57,9 @@ public:
             path.appendf("&EEPortal=%s", m_portalURL.str());
 
         IPropertyTree *folder0 = ensureNavFolder(data, "DFU Workunits", NULL, NULL, false, 5);
+#ifndef _CONTAINERIZED
         ensureNavLink(*folder0, "Search", "/FileSpray/DFUWUSearch", "Search for DFU workunits ", NULL, NULL, 1);
+#endif
         ensureNavLink(*folder0, "Browse", "/FileSpray/GetDFUWorkunits", "Browse a list of DFU workunits", NULL, NULL, 2);
         IPropertyTree *folder = ensureNavFolder(data, "DFU Files", NULL, NULL, false, 6);
         ensureNavLink(*folder, "Upload/download File", "/FileSpray/DropZoneFiles", "Upload or download File from a Drop Zone in the environment", NULL, NULL, 1);

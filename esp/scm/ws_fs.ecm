@@ -118,6 +118,7 @@ ESPStruct [nil_remove] DFUActionResult
     string Result;
 };
 
+#ifndef _CONTAINERIZED
 ESPrequest
 [
 ]
@@ -133,7 +134,7 @@ DFUWUSearchResponse
 {
     ESParray<string, ClusterName> ClusterNames;
 };
-
+#endif
 
 ESPrequest GetDFUWorkunits
 {
@@ -687,6 +688,40 @@ ESPresponse [exceptions_inline, nil_remove] GetDFUServerQueuesResponse
     ESParray<string> Names;
 };
 
+#ifdef _CONTAINERIZED
+ESPservice [                                                                                                                                                                                                                                                                       auth_feature("DEFERRED"),
+    version("1.21"),
+    exceptions_inline("./smc_xslt/exceptions.xslt")] FileSpray
+{                                                                                                                                                                                                                                                                                  ESPmethod EchoDateTime(EchoDateTime, EchoDateTimeResponse);
+    ESPmethod [resp_xsl_default("/esp/xslt/showresult.xslt")] ShowResult(ShowResultRequest, ShowResultResponse);
+    ESPmethod [resp_xsl_default("/esp/xslt/dfu_workunits.xslt")] GetDFUWorkunits(GetDFUWorkunits, GetDFUWorkunitsResponse);
+    ESPmethod [resp_xsl_default("/esp/xslt/dfu_wuid.xslt")] GetDFUWorkunit(GetDFUWorkunit, GetDFUWorkunitResponse);
+    ESPmethod [resp_xsl_default("/esp/xslt/dfu_progress.xslt")] GetDFUProgress(ProgressRequest, ProgressResponse);
+                                                                                                                                                                                                                                                                                   ESPmethod [resp_xsl_default("/esp/xslt/dfu_wuid.xslt")] CreateDFUWorkunit(CreateDFUWorkunit, CreateDFUWorkunitResponse);
+    ESPmethod [resp_xsl_default("/esp/xslt/dfu_wuid.xslt")] UpdateDFUWorkunit(UpdateDFUWorkunit, UpdateDFUWorkunitResponse);
+    ESPmethod DeleteDFUWorkunit(DeleteDFUWorkunit, DeleteDFUWorkunitResponse);
+    ESPmethod DeleteDFUWorkunits(DeleteDFUWorkunits, DeleteDFUWorkunitsResponse);
+    ESPmethod [resp_xsl_default("/esp/xslt/dfuwuaction_results.xslt")] DFUWorkunitsAction(DFUWorkunitsActionRequest, DFUWorkunitsActionResponse);
+    ESPmethod [resp_xsl_default("/esp/xslt/dfu_wuid.xslt")] SubmitDFUWorkunit(SubmitDFUWorkunit, SubmitDFUWorkunitResponse);
+    ESPmethod [resp_xsl_default("/esp/xslt/dfu_wuid.xslt")] AbortDFUWorkunit(AbortDFUWorkunit, AbortDFUWorkunitResponse);
+    ESPmethod GetDFUExceptions(GetDFUExceptions, GetDFUExceptionsResponse);
+                                                                                                                                                                                                                                                                                   ESPmethod SprayFixed(SprayFixed, SprayFixedResponse);
+    ESPmethod SprayVariable(SprayVariable, SprayResponse);
+    ESPmethod Despray(Despray, DesprayResponse);
+    ESPmethod Copy(Copy, CopyResponse);
+    ESPmethod Rename(Rename, RenameResponse);
+    ESPmethod Replicate(Replicate, ReplicateResponse);
+    ESPmethod DFUWUFile(DFUWUFileRequest, DFUWUFileResponse);
+    ESPmethod DfuMonitor(DfuMonitorRequest, DfuMonitorResponse);
+    ESPmethod [resp_xsl_default("/esp/xslt/dfu_filelist.xslt")] FileList(FileListRequest, FileListResponse);
+    ESPmethod [resp_xsl_default("/esp/xslt/opensave.xslt")] OpenSave(OpenSaveRequest, OpenSaveResponse);
+    ESPmethod [resp_xsl_default("/esp/xslt/dropzonefile.xslt")] DropZoneFiles(DropZoneFilesRequest, DropZoneFilesResponse);
+    ESPmethod [resp_xsl_default("/esp/xslt/dfuwuaction_results.xslt")] DeleteDropZoneFiles(DeleteDropZoneFilesRequest, DFUWorkunitsActionResponse);
+    ESPmethod [min_ver("1.13")] DropZoneFileSearch(DropZoneFileSearchRequest, DropZoneFileSearchResponse);
+    ESPmethod GetSprayTargets(GetSprayTargetsRequest, GetSprayTargetsResponse);
+    ESPmethod [min_ver("1.14")] GetDFUServerQueues(GetDFUServerQueuesRequest, GetDFUServerQueuesResponse);
+};
+#else
 ESPservice [
     auth_feature("DEFERRED"),
     version("1.21"),
@@ -724,6 +759,7 @@ ESPservice [
     ESPmethod GetSprayTargets(GetSprayTargetsRequest, GetSprayTargetsResponse);
     ESPmethod [min_ver("1.14")] GetDFUServerQueues(GetDFUServerQueuesRequest, GetDFUServerQueuesResponse);
 };
+#endif
 
 SCMexportdef(FileSpray);
 

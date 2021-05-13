@@ -678,6 +678,7 @@ StringBuffer& constructFileMask(const char* filename, StringBuffer& filemask)
     return filemask;
 }
 
+#ifndef _CONTAINERIZED
 bool CFileSprayEx::onDFUWUSearch(IEspContext &context, IEspDFUWUSearchRequest & req, IEspDFUWUSearchResponse & resp)
 {
     try
@@ -710,6 +711,7 @@ bool CFileSprayEx::onDFUWUSearch(IEspContext &context, IEspDFUWUSearchRequest & 
     }
     return true;
 }
+#endif
 
 int readFromCommaSeparatedString(const char *commaSeparatedString, StringBuffer* output)
 {
