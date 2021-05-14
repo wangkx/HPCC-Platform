@@ -2438,9 +2438,13 @@ extern TPWRAPPER_API void validateTargetName(const char* target)
 
 bool getSashaService(StringBuffer &serviceAddress, const char *serviceName, bool failIfNotFound)
 {
+StringBuffer s;
     if (!isEmptyString(serviceName))
     {
 #ifdef _CONTAINERIZED
+IPropertyTree& t = queryComponentConfig();
+toXML(&t,s);
+//DBGLOG("####getSashaService:(%s)", s.str());
         VStringBuffer serviceQualifier("services[@type='sasha'][@name='%s']", serviceName);
         IPropertyTree *serviceTree = queryComponentConfig().queryPropTree(serviceQualifier);
         if (serviceTree)
@@ -2470,7 +2474,7 @@ bool getSashaService(StringBuffer &serviceAddress, const char *serviceName, bool
 #endif
     }
     if (failIfNotFound)
-        throw makeStringExceptionV(ECLWATCH_ARCHIVE_SERVER_NOT_FOUND, "Sasha '%s' server not found", serviceName);
+        throw makeStringExceptionV(ECLWATCH_ARCHIVE_SERVER_NOT_FOUND, "Sasha '%s' server not found. queryComponentConfig():(%s)", serviceName, s.str());
     return false;
 }
 

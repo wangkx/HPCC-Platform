@@ -14288,7 +14288,10 @@ void runK8sJob(const char *componentName, const char *wuid, const char *job, con
 {
     KeepK8sJobs keepJob = translateKeepJobs(queryComponentConfig().queryProp("@keepJobs"));
     unsigned pendingTimeoutSecs = queryComponentConfig().getPropInt("@pendingTimeoutSecs", defaultPendingTimeSecs);
-
+IPropertyTree& t = queryComponentConfig();
+StringBuffer s;
+toXML(&t, s);
+DBGLOG("####runK8sJob in %s queryComponentConfig():(%s)", componentName, s.str());
     bool removeNetwork = applyK8sYaml(componentName, wuid, job, "networkspec", extraParams, true);
     applyK8sYaml(componentName, wuid, job, "jobspec", extraParams, false);
     Owned<IException> exception;
