@@ -153,6 +153,9 @@ bool CWsTopologyEx::onTpSwapNode(IEspContext &context,IEspTpSwapNodeRequest  &re
     {
         context.ensureFeatureAccess(FEATURE_URL, SecAccess_Full, ECLWATCH_TOPOLOGY_ACCESS_DENIED, "WsTopology::TpSwapNode: Permission denied.");
 
+#ifdef _CONTAINERIZED
+        UNIMPLEMENTED_X("CONTAINERIZED(CWsTopologyEx::onTpSwapNode)");
+#else
         bool res = swapNode(req.getCluster(),req.getOldIP(),req.getNewIP());
 
         resp.setTpSwapNodeResult(res);
@@ -168,6 +171,7 @@ bool CWsTopologyEx::onTpSwapNode(IEspContext &context,IEspTpSwapNodeRequest  &re
         path.append(req.getCluster()).append("&Path=").append(encodedXpath);
        
         resp.setRedirectUrl(path.str());
+#endif
     }
     catch(IException* e)
     {   
@@ -176,6 +180,7 @@ bool CWsTopologyEx::onTpSwapNode(IEspContext &context,IEspTpSwapNodeRequest  &re
     return true;
 }
 
+//TODO: this method did nothing. Remove?
 bool CWsTopologyEx::onTpSetMachineStatus(IEspContext &context,IEspTpSetMachineStatusRequest  &req, IEspTpSetMachineStatusResponse &resp)
 {
     try
@@ -204,6 +209,9 @@ bool CWsTopologyEx::onTpLogFile(IEspContext &context,IEspTpLogFileRequest  &req,
     {
         context.ensureFeatureAccess(FEATURE_URL, SecAccess_Read, ECLWATCH_TOPOLOGY_ACCESS_DENIED, "WsTopology::TpLogFile: Permission denied.");
 
+#ifdef _CONTAINERIZED
+        UNIMPLEMENTED_X("CONTAINERIZED(CWsTopologyEx::onTpLogFile)"); //May retrieve some log later as needed.
+#else
         const char* name = req.getName();
         const char* type = req.getType();
         if (!name || !*name)
@@ -228,6 +236,7 @@ bool CWsTopologyEx::onTpLogFile(IEspContext &context,IEspTpLogFileRequest  &req,
             redirect.appendf("?Name=%s", req.getName());
             resp.setRedirectUrl(redirect.str());
         }
+#endif
     }
     catch(IException* e)
     {   
@@ -242,6 +251,9 @@ bool CWsTopologyEx::onSystemLog(IEspContext &context,IEspSystemLogRequest  &req,
     {
         context.ensureFeatureAccess(FEATURE_URL, SecAccess_Read, ECLWATCH_TOPOLOGY_ACCESS_DENIED, "WsTopology::SystemLog: Permission denied.");
 
+#ifdef _CONTAINERIZED
+        UNIMPLEMENTED_X("CONTAINERIZED(CWsTopologyEx::onSystemLog)"); //May retrieve some log later as needed.
+#else
         const char* name = req.getName();
         if (!name || !*name)
             throw MakeStringException(ECLWATCH_INVALID_FILE_NAME,"File name not specified.");
@@ -377,6 +389,7 @@ bool CWsTopologyEx::onSystemLog(IEspContext &context,IEspSystemLogRequest  &req,
                 free(outd);
 #endif
         }
+#endif
     }
     catch(IException* e)
     {   
@@ -391,6 +404,9 @@ bool CWsTopologyEx::onTpXMLFile(IEspContext &context,IEspTpXMLFileRequest  &req,
     {
         context.ensureFeatureAccess(FEATURE_URL, SecAccess_Read, ECLWATCH_TOPOLOGY_ACCESS_DENIED, "WsTopology::TpXMLFile: Permission denied.");
 
+#ifdef _CONTAINERIZED
+        UNIMPLEMENTED_X("CONTAINERIZED(CWsTopologyEx::onTpXMLFile)");
+#else
         StringBuffer strBuff, xmlBuff;
         strBuff.append("<?xml version=\"1.0\" encoding=\"ISO-8859-1\"?><?xml-stylesheet href=\"../esp/xslt/xmlformatter.xsl\" type=\"text/xsl\"?>");
         getThorXml(req.getName(),xmlBuff);
@@ -401,6 +417,7 @@ bool CWsTopologyEx::onTpXMLFile(IEspContext &context,IEspTpXMLFileRequest  &req,
 
         resp.setThefile_mimetype(HTTP_TYPE_APPLICATION_XML);
         resp.setThefile(membuff);
+#endif
     }
     catch(IException* e)
     {   
@@ -1143,6 +1160,9 @@ bool CWsTopologyEx::onTpClusterQuery(IEspContext &context, IEspTpClusterQueryReq
     {
         context.ensureFeatureAccess(FEATURE_URL, SecAccess_Read, ECLWATCH_TOPOLOGY_ACCESS_DENIED, "WsTopology::TpClusterQuery: Permission denied.");
 
+#ifdef _CONTAINERIZED
+        UNIMPLEMENTED_X("CONTAINERIZED(CWsTopologyEx::onTpClusterQuery)");
+#else
         IArrayOf<IEspTpCluster> clusters;
         const char* type = req.getType();
         if (!type || !*type || (strcmp(eqRootNode,type) == 0) || (strcmp(eqAllClusters,type) == 0))
@@ -1167,6 +1187,7 @@ bool CWsTopologyEx::onTpClusterQuery(IEspContext &context, IEspTpClusterQueryReq
         }
 
         resp.setTpClusters(clusters);
+#endif
     }
     catch(IException* e)
     {   
@@ -1181,6 +1202,9 @@ bool CWsTopologyEx::onTpListTargetClusters(IEspContext &context, IEspTpListTarge
     {
         context.ensureFeatureAccess(FEATURE_URL, SecAccess_Read, ECLWATCH_TOPOLOGY_ACCESS_DENIED, "WsTopology::TpListTargetClusters: Permission denied.");
 
+#ifdef _CONTAINERIZED
+        UNIMPLEMENTED_X("CONTAINERIZED(CWsTopologyEx::onTpListTargetClusters)");
+#else
         Owned<IEnvironmentFactory> factory = getEnvironmentFactory(true);
         Owned<IConstEnvironment> env = factory->openEnvironment();
         Owned<IPropertyTree> root = &env->getPTree();
@@ -1256,6 +1280,7 @@ bool CWsTopologyEx::onTpListTargetClusters(IEspContext &context, IEspTpListTarge
             }
         }
         resp.setTargetClusters(clusters);
+#endif
     }
     catch(IException* e)
     {
@@ -1270,6 +1295,9 @@ bool CWsTopologyEx::onTpTargetClusterQuery(IEspContext &context, IEspTpTargetClu
     {
         context.ensureFeatureAccess(FEATURE_URL, SecAccess_Read, ECLWATCH_TOPOLOGY_ACCESS_DENIED, "WsTopology::TpTargetClusterQuery: Permission denied.");
 
+#ifdef _CONTAINERIZED
+        UNIMPLEMENTED_X("CONTAINERIZED(CWsTopologyEx::onTpTargetClusterQuery)");
+#else
         double version = context.getClientVersion();
 
         IArrayOf<IEspTpTargetCluster> clusters;
@@ -1306,6 +1334,7 @@ bool CWsTopologyEx::onTpTargetClusterQuery(IEspContext &context, IEspTpTargetClu
             StringBuffer acceptLanguage;
             resp.setAcceptLanguage(getAcceptLanguage(context, acceptLanguage).str());
         }
+#endif
     }
     catch(IException* e)
     {   
@@ -1512,6 +1541,9 @@ bool CWsTopologyEx::onTpMachineQuery(IEspContext &context, IEspTpMachineQueryReq
     {
         context.ensureFeatureAccess(FEATURE_URL, SecAccess_Read, ECLWATCH_TOPOLOGY_ACCESS_DENIED, "WsTopology::TpMachineQuery: Permission denied.");
 
+#ifdef _CONTAINERIZED
+        UNIMPLEMENTED_X("CONTAINERIZED(CWsTopologyEx::onTpMachineQuery)");
+#else
         double version = context.getClientVersion();
 
         IArrayOf<IEspTpMachine> MachineList;
@@ -1565,6 +1597,7 @@ bool CWsTopologyEx::onTpMachineQuery(IEspContext &context, IEspTpMachineQueryReq
             StringBuffer acceptLanguage;
             resp.setAcceptLanguage(getAcceptLanguage(context, acceptLanguage).str());
         }
+#endif
     }
     catch(IException* e)
     {   
@@ -1579,7 +1612,11 @@ bool CWsTopologyEx::onTpMachineInfo(IEspContext &context, IEspTpMachineInfoReque
     {
         context.ensureFeatureAccess(FEATURE_URL, SecAccess_Read, ECLWATCH_TOPOLOGY_ACCESS_DENIED, "WsTopology::TpMachineInfo: Permission denied.");
 
+#ifdef _CONTAINERIZED
+        UNIMPLEMENTED_X("CONTAINERIZED(CWsTopologyEx::onTpMachineInfo)");
+#else
         m_TpWrapper.getMachineInfo(context.getClientVersion(), req.getName(), req.getNetAddress(), resp.updateMachineInfo());
+#endif
     }
     catch(IException* e)
     {
@@ -1595,6 +1632,9 @@ bool CWsTopologyEx::onTpGetComponentFile(IEspContext &context, IEspTpGetComponen
     {
         context.ensureFeatureAccess(FEATURE_URL, SecAccess_Full, ECLWATCH_TOPOLOGY_ACCESS_DENIED, "WsTopology::TpGetComponentFile: Permission denied.");
 
+#ifdef _CONTAINERIZED
+        UNIMPLEMENTED_X("CONTAINERIZED(CWsTopologyEx::onTpGetComponentFile)"); //May retrieve some yaml file later as needed.
+#else
         const char* fileType = req.getFileType();
         if (!fileType || (0!=stricmp(fileType, "cfg") && 0!=stricmp(fileType, "log")))
             throw MakeStringException(ECLWATCH_INVALID_FILE_TYPE, "A valid file type requested.  Only configuration and log files are supported!");
@@ -1853,6 +1893,7 @@ bool CWsTopologyEx::onTpGetComponentFile(IEspContext &context, IEspTpGetComponen
                 }
             }
         }
+#endif
     }
     catch(IException* e)
     {   
