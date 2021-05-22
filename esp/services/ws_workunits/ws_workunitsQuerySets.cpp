@@ -47,6 +47,7 @@ static const char *QuerySetQueryActionTypes[] = { "Suspend", "Unsuspend", "Toggl
 static unsigned NumOfQuerySetAliasActionTypes = 1;
 static const char *QuerySetAliasActionTypes[] = { "Deactivate", NULL };
 
+#ifndef _CONTAINERIZED
 bool isRoxieProcess(const char *process)
 {
     if (!process)
@@ -58,6 +59,7 @@ bool isRoxieProcess(const char *process)
     VStringBuffer xpath("Software/RoxieCluster[@name=\"%s\"]", process);
     return root->hasProp(xpath.str());
 }
+#endif
 
 void checkUseEspOrDaliIP(SocketEndpoint &ep, const char *ip, const char *esp)
 {
@@ -194,7 +196,11 @@ bool copyWULogicalFiles(IEspContext &context, IConstWorkUnit &cw, const char *cl
         fs->addServiceUrl(url.str());
     }
 
+#ifdef _CONTAINERIZED
+    bool isRoxie = false; //Not set
+#else
     bool isRoxie = isRoxieProcess(cluster);
+#endif
 
     Owned<IConstWUGraphIterator> graphs = &cw.getGraphs(GraphTypeActivities);
     ForEach(*graphs)
@@ -900,7 +906,7 @@ bool CWsWorkunitsEx::onWUPublishWorkunit(IEspContext &context, IEspWUPublishWork
 
     if (srcCluster.length())
     {
-        if (!isProcessCluster(daliIP, srcCluster))
+        if (!validateDataPlaneName(daliIP, srcCluster))
             throw MakeStringException(ECLWATCH_INVALID_CLUSTER_NAME, "Process cluster %s not found on %s DALI", srcCluster.str(), daliIP.length() ? daliIP.str() : "local");
     }
     unsigned updateFlags = 0;
@@ -1985,7 +1991,7 @@ bool CWsWorkunitsEx::onWURecreateQuery(IEspContext &context, IEspWURecreateQuery
 
                 if (srcCluster.length())
                 {
-                    if (!isProcessCluster(daliIP, srcCluster))
+                    if (!validateDataPlaneName(daliIP, srcCluster))
                         throw MakeStringException(ECLWATCH_INVALID_CLUSTER_NAME, "Process cluster %s not found on %s DALI", srcCluster.str(), daliIP.length() ? daliIP.str() : "local");
                 }
                 unsigned updateFlags = 0;
@@ -2210,6 +2216,7 @@ void CWsWorkunitsEx::getWUQueryDetails(IEspContext &context, CWUQueryDetailsReq 
         }
     }
 
+#ifndef _CONTAINERIZED
     if (req.getIncludeWsEclAddresses())
     {
         StringArray wseclAddresses;
@@ -2262,6 +2269,7 @@ void CWsWorkunitsEx::getWUQueryDetails(IEspContext &context, CWUQueryDetailsReq 
         }
         resp.setWsEclAddresses(wseclAddresses);
     }
+#endif
 }
 
 bool CWsWorkunitsEx::onWUQueryDetailsLightWeight(IEspContext &context, IEspWUQueryDetailsLightWeightRequest & req, IEspWUQueryDetailsResponse & resp)
