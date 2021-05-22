@@ -47,6 +47,7 @@ static const char *QuerySetQueryActionTypes[] = { "Suspend", "Unsuspend", "Toggl
 static unsigned NumOfQuerySetAliasActionTypes = 1;
 static const char *QuerySetAliasActionTypes[] = { "Deactivate", NULL };
 
+#ifndef _CONTAINERIZED
 bool isRoxieProcess(const char *process)
 {
     if (!process)
@@ -58,6 +59,7 @@ bool isRoxieProcess(const char *process)
     VStringBuffer xpath("Software/RoxieCluster[@name=\"%s\"]", process);
     return root->hasProp(xpath.str());
 }
+#endif
 
 void checkUseEspOrDaliIP(SocketEndpoint &ep, const char *ip, const char *esp)
 {
@@ -194,7 +196,11 @@ bool copyWULogicalFiles(IEspContext &context, IConstWorkUnit &cw, const char *cl
         fs->addServiceUrl(url.str());
     }
 
+#ifdef _CONTAINERIZED
+    bool isRoxie = true; //Set to true for now.
+#else
     bool isRoxie = isRoxieProcess(cluster);
+#endif
 
     Owned<IConstWUGraphIterator> graphs = &cw.getGraphs(GraphTypeActivities);
     ForEach(*graphs)
@@ -900,7 +906,7 @@ bool CWsWorkunitsEx::onWUPublishWorkunit(IEspContext &context, IEspWUPublishWork
 
     if (srcCluster.length())
     {
-        if (!isProcessCluster(daliIP, srcCluster))
+        if (!validateDataPlaneName(daliIP, srcCluster))
             throw MakeStringException(ECLWATCH_INVALID_CLUSTER_NAME, "Process cluster %s not found on %s DALI", srcCluster.str(), daliIP.length() ? daliIP.str() : "local");
     }
     unsigned updateFlags = 0;
@@ -1985,7 +1991,7 @@ bool CWsWorkunitsEx::onWURecreateQuery(IEspContext &context, IEspWURecreateQuery
 
                 if (srcCluster.length())
                 {
-                    if (!isProcessCluster(daliIP, srcCluster))
+                    if (!validateDataPlaneName(daliIP, srcCluster))
                         throw MakeStringException(ECLWATCH_INVALID_CLUSTER_NAME, "Process cluster %s not found on %s DALI", srcCluster.str(), daliIP.length() ? daliIP.str() : "local");
                 }
                 unsigned updateFlags = 0;
@@ -2213,6 +2219,7 @@ void CWsWorkunitsEx::getWUQueryDetails(IEspContext &context, CWUQueryDetailsReq 
     if (req.getIncludeWsEclAddresses())
     {
         StringArray wseclAddresses;
+#ifndef _CONTAINERIZED
         Owned<IEnvironmentFactory> factory = getEnvironmentFactory(true);
         Owned<IConstEnvironment> env = factory->openEnvironment();
         Owned<IPropertyTree> root = &env->getPTree();
@@ -2260,6 +2267,17 @@ void CWsWorkunitsEx::getWUQueryDetails(IEspContext &context, CWUQueryDetailsReq 
                 }
             }
         }
+#else
+        IArrayOf<IConstHPCCService> eclservices;
+        CTpWrapper tpWrapper;
+        tpWrapper.getServices(version, "eclqueries", nullptr, eclservices);
+        ForEachItemIn(i, eclservices)
+        {
+            IConstHPCCService& eclservice = eclservices.item(i);
+            VStringBuffer wseclAddr("%s:%u", eclservice.getName(), eclservice.getPort());
+            wseclAddresses.append(wseclAddr);
+        }
+#endif
         resp.setWsEclAddresses(wseclAddresses);
     }
 }

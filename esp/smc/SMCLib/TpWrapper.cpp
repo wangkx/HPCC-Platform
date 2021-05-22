@@ -2511,3 +2511,48 @@ StringBuffer & getRoxieDefaultPlane(StringBuffer & plane, const char * roxieName
     return plane;
 #endif
 }
+
+static std::set<std::string> validDataPlaneNames;
+static bool dataPlaneNameDirty = true;
+
+static void addUniqueDataPlaneName(const char * dataPlaneName)
+{
+    if (isEmptyString(dataPlaneName))
+        return;
+
+    if (validDataPlaneNames.find(dataPlaneName) == validDataPlaneNames.end())
+    {
+        validDataPlaneNames.insert(dataPlaneName);
+        PROGLOG("adding valid data plane name: %s", dataPlaneName);
+    }
+}
+
+static void refreshValidDataPlaneNames()
+{
+    validDataPlaneNames.clear();
+    Owned<IPropertyTreeIterator> queues = getComponentConfigSP()->getElements("queues");
+    ForEach(*queues)
+        addUniqueDataPlaneName(queues->query().queryProp("@storagePlane"));
+
+    Owned<IPropertyTreeIterator> dataPlanes = getGlobalConfigSP()->getElements("storage/planes[labels='data']");
+    ForEach(*dataPlanes)
+        addUniqueDataPlaneName(dataPlanes->query().queryProp("@name"));
+}
+
+extern TPWRAPPER_API bool validateDataPlaneName(const char * remoteDali, const char * name)
+{
+#ifdef _CONTAINERIZED
+    if (isEmptyString(name))
+        throw makeStringException(ECLWATCH_INVALID_CLUSTER_NAME, "Empty data plane name.");
+
+    if (dataPlaneNameDirty)
+    {
+        refreshValidDataPlaneNames();
+        dataPlaneNameDirty = false;
+    }
+
+    return validDataPlaneNames.find(name) != validDataPlaneNames.end();
+#else
+    return isProcessCluster(remoteDali, name);
+#endif
+}
