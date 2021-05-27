@@ -1,0 +1,1263 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema#",
+  "additionalProperties": false,
+  "properties": {
+    "global": {
+      "$ref": "#/definitions/global"
+    },
+    "security" : {
+      "$ref": "#/definitions/security"
+    },
+    "placements": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "pods": {
+            "type": "array",
+            "items": { "type": "string" }
+           },
+          "placement": {
+            "$ref": "#/definitions/placement"
+          }
+        }
+      }
+    },
+    "storage": {
+      "type": "object",
+      "properties": {
+        "dllStorage": {
+          "$ref": "#/definitions/storageType"
+        },
+        "dataStorage": {
+          "$ref": "#/definitions/storageType"
+        },
+        "daliStorage": {
+          "$ref": "#/definitions/storageType"
+        },
+        "spillStorage": {
+          "oneOf": [
+            {
+              "$ref": "#/definitions/storageType"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "hostGroups": {
+          "$ref": "#/definitions/hostGroups"
+        },
+        "planes": {
+          "$ref": "#/definitions/storagePlanes"
+        }
+      },
+      "additionalProperties": false
+    },
+    "certificates": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "issuers": {
+          "type": "object",
+          "properties": {
+            "local": {
+              "$ref": "#/definitions/issuer"
+            },
+            "public": {
+              "$ref": "#/definitions/issuer"
+            }
+          }
+        }
+      }
+    },
+    "secrets": {
+      "description": "configuration for secrets accessed by the components",
+      "type": "object",
+      "properties": {
+        "timeout": {
+          "type": "integer"
+        },
+        "storage": {
+          "$ref": "#/definitions/secrets"
+        },
+        "ecl": {
+          "$ref": "#/definitions/secrets"
+        },
+        "codeSign": {
+          "$ref": "#/definitions/secrets"
+        },
+        "codeVerify": {
+          "$ref": "#/definitions/secrets"
+        },
+        "system": {
+          "$ref": "#/definitions/secrets"
+        }
+      },
+      "additionalProperties": false
+    },
+    "vaults": {
+      "description": "configuration for vaults accessed by the components",
+      "type": "object",
+      "properties": {
+        "timeout": {
+          "type": "integer"
+        },
+        "storage": {
+          "$ref": "#/definitions/vaultCategory"
+        },
+        "esp": {
+          "$ref": "#/definitions/vaultCategory"
+        },
+        "ecl": {
+          "$ref": "#/definitions/vaultCategory"
+        },
+        "ecl-user": {
+          "$ref": "#/definitions/vaultCategory"
+        },
+        "codeSign": {
+          "$ref": "#/definitions/vaultCategory"
+        },
+        "codeVerify": {
+          "$ref": "#/definitions/vaultCategory"
+        }
+      },
+      "additionalProperties": false
+    },
+    "bundles": {
+      "description": "bundles",
+      "type": "array",
+      "items": { "$ref": "#/definitions/bundle" }
+    },
+    "dali": {
+      "description": "dali process",
+      "type": "array",
+      "items": { "$ref": "#/definitions/dali" }
+    },
+    "eclccserver": {
+      "description": "eclccserver process",
+      "type": "array",
+      "items": { "$ref": "#/definitions/eclccserver" }
+    },
+    "eclscheduler": {
+      "description": "eclscheduler process",
+      "type": "array",
+      "items": { "$ref": "#/definitions/eclscheduler" }
+    },
+    "esp": {
+      "description": "esp process",
+      "type": "array",
+      "items": { "$ref": "#/definitions/esp" }
+    },
+    "eclagent": {
+      "description": "eclagent process",
+      "type": "array",
+      "items": {
+        "allOf": [
+          { "$ref": "#/definitions/eclagent" },
+          {
+            "name": {
+              "type": "string",
+              "description": "The name of the eclagent process"
+            },
+            "prefix": {
+              "type": "string",
+              "description": "The (optional) file prefix to add to relative filenames"
+            },
+            "storagePlane": {
+              "description": "The default storage plane to write data files to",
+              "type": "string"
+            },
+            "spillPlane": {
+              "description": "The storage plane to write spill files to",
+              "type": "string"
+            },
+            "required": [ "name" ]
+          }
+        ]
+      }
+    },
+    "dfuserver": {
+      "description": "dfuserver process",
+      "type": "array",
+      "items": {
+        "allOf": [
+          {
+            "name": {
+              "type": "string",
+              "description": "The name of the dfuserver process"
+            },
+            "disabled": {
+              "type": "boolean"
+            },
+            "maxJobs": {
+              "type": "integer"
+            },
+            "required": [ "name" ]
+          }
+        ]
+      }
+    },
+    "roxie": {
+      "description": "eclagent process",
+      "type": "array",
+      "items": { "$ref": "#/definitions/roxie" }
+    },
+    "thor": {
+      "description": "thor process",
+      "type": "array",
+      "items": { "$ref": "#/definitions/thor" }
+    },
+    "sasha": {
+      "description": "sasha services",
+      "type": "object",
+      "$ref": "#/definitions/sashaservice"
+    }
+  },
+  "required": [
+    "dali"
+  ],
+  "title": "Values",
+  "type": "object",
+  "definitions": {
+    "global": {
+      "type": "object",
+      "properties": {
+        "privileged": {
+          "type": "boolean"
+        },
+        "image": {
+          "$ref": "#/definitions/image"
+        },
+        "logging": {
+          "$ref": "#/definitions/logging"
+        },
+        "egress": {
+          "$ref": "#/definitions/egress"
+        },
+        "defaultEsp": {
+          "type": "string"
+        },
+        "defaultDataPath": {
+          "type": "string"
+        },
+        "defaultMirrorPath": {
+          "type": "string"
+        },
+        "cost": {
+          "description": "resource cost",
+          "type": "object",
+          "properties": {
+            "perCpu": {
+              "description": "cost of a single cpu",
+              "type": "number"
+            }
+          }
+        },
+        "misc": {
+          "description": "Miscellaneous settings",
+          "oneOf": [
+            {
+              "type": "object",
+              "properties": {
+                "postJobCommand": {
+                  "description": "Execute this command when a K8s Job launched by a deployment ends, either gracefully or when terminated externally causing a preStop event",
+                  "type": "string"
+                },
+                "postJobCommandViaSidecar": {
+                  "description": "Causes shareProcessNamespace to be enabled, and the postJobCommand to execute via a sidecar",
+                  "type": "boolean"
+                }
+              }
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "metrics": {
+          "type" : "object",
+          "description" : "Global metrics configuration",
+          "properties" : {
+            "sinks" : {
+              "$ref" : "#/definitions/sinks"
+            }
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "security": {
+      "type": "object",
+      "properties": {
+        "eclSecurity": {
+          "$ref": "#/definitions/eclSecurity"
+        }
+      }
+    },
+    "eclSecurity": {
+      "type": "object",
+      "properties": {
+        "embedded": {
+          "$ref": "#/definitions/eclSecurityValues"
+        },
+        "pipe": {
+          "$ref": "#/definitions/eclSecurityValues"
+        },
+        "extern": {
+          "$ref": "#/definitions/eclSecurityValues"
+        },
+        "datafile": {
+          "$ref": "#/definitions/eclSecurityValues"
+        }
+      }
+    },
+    "eclSecurityValues": {
+      "type": "string",
+      "enum": ["deny", "allow", "allowSigned"]
+    },
+    "image": {
+      "type": "object",
+      "properties": {
+        "version": {
+          "type": "string"
+        },
+        "root": {
+          "type": "string",
+          "default": "hpccsystems"
+        },
+        "name": {
+          "type": "string",
+          "default": "platform-core"
+        },
+        "pullPolicy": {
+          "type": "string",
+          "enum": ["IfNotPresent", "Always", "Never"]
+        }
+      },
+      "additionalProperties": false
+    },
+    "storageType": {
+      "type": "object",
+      "properties": {
+        "storageSize": {
+          "type": "string"
+        },
+        "storageClass": {
+          "type": "string"
+        },
+        "plane": {
+          "type": "string"
+        },
+        "existingClaim": {
+          "type": "string"
+        },
+        "forcePermissions": {
+          "type": "boolean"
+        }
+      },
+      "anyOf": [
+        {
+          "required": [ "storageSize" ]
+        },
+        {
+          "required": [ "plane" ]
+        }
+      ],
+      "additionalProperties": false
+    },
+    "storagePlanes": {
+      "description": "storage plane definitions",
+      "oneOf": [
+        {
+          "type": "array",
+          "items": { "$ref": "#/definitions/storagePlane" }
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "storagePlane": {
+      "description": "information about an individual storage plane",
+      "type": "object",
+      "properties": {
+        "name": {
+          "description": "the name of the storage plane",
+          "type": "string"
+        },
+        "prefix": {
+          "description": "either the path for a local mount, or the url prefix",
+          "type": "string"
+        },
+        "secret": {
+          "description": "optional name of any secret required to access this storage plane",
+          "type": "string"
+        },
+        "pvc": {
+          "description": "optional name of the persistent volume claim for this plane",
+          "type": "string"
+        },
+        "hostGroup": {
+          "description": "optional name of the host group (for bare metal storage)",
+          "type": "string"
+        },
+        "hosts": {
+          "description": "a list of host names",
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "numDevices": {
+          "description": "optional number of devices in the storage plane (default 1)",
+          "type": "integer"
+        },
+        "includeDeviceInPath": {
+          "description": "is a directory based on the part number appended to the path.  May not be needed",
+          "type": "boolean"
+        },
+        "replication": {
+          "description": "which planes (if any) the data is replicated onto (primarily bare metal)",
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "labels": {
+          "description": "a list of labels associated with this plane, e.g. lz, data. NB: if blank/unset, treated as if 'data'",
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "umask" : {
+          "description": "file creation mask (used by despray)",
+          "type" : "string"
+        },
+        "defaultSprayParts" : {
+          "description": "Number of parts sprayed by default",
+          "type" : "integer"
+        },
+        "cost" : {
+          "description": "Costs associated with the storage and use of the plane",
+          "type" : "object",
+          "properties": {
+            "storageAtRest" : {
+              "description": "Storage cost (GiB/month)",
+              "type": "number"
+            }
+          }
+        }
+
+      },
+      "required": [ "name", "prefix" ],
+      "additionalProperties": false
+    },
+    "resources": {
+      "type": "object"
+    },
+    "secrets": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": { "type": "string" }
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "vaultCategory": {
+      "description": "set of vaults under a given category",
+      "oneOf": [
+        {
+            "type": "array",
+            "items": { "$ref": "#/definitions/vault" }
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "vault": {
+      "description": "information about an individual vault",
+      "type": "object",
+      "properties": {
+        "name": {
+          "description": "the name of the vault",
+          "type": "string"
+        },
+        "url": {
+          "description": "the url used to access the vault",
+          "type": "string"
+        },
+        "kind": {
+          "type": "string",
+          "enum": ["kv-v2", "kv-v1"]
+        },
+        "client-secret": {
+          "description": "optional name of kubernetes secret that will provide the vault client token",
+          "type": "string"
+        }
+      },
+      "required": [ "name", "url" ],
+      "additionalProperties": false
+    },
+    "hostGroups": {
+      "oneOf": [
+        {
+          "type": "array",
+          "items": { "$ref": "#/definitions/hostGroup" }
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "hostGroup": {
+      "type": "object",
+      "oneOf": [
+        {
+          "required": [ "name", "hosts" ]
+        },
+        {
+          "required": [ "name", "hostGroup" ]
+        }
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "The name of the host group process"
+        },
+        "hosts": {
+          "description": "a list of host names",
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "hostGroup": {
+          "description": "Name of the hostgroup to create a subset of",
+          "type": "string"
+        },
+        "count": {
+          "description": "Number of hosts in the subset",
+          "type": "integer"
+        },
+        "offset": {
+          "description": "Offset of the first host within the group",
+          "type": "integer"
+        },
+        "delta": {
+          "type": "integer",
+          "description": "Cycle offset to apply to the hosts"
+        }
+      }
+    },
+    "logging": {
+      "type": "object",
+      "properties": {
+        "audiences": {
+          "type": "string",
+          "description": "List of target audiences to include in logging output. Comprised of 3 letter codes delimited by + or -"
+        },
+        "classes": {
+          "type": "string",
+          "description": "List of target logging classes to include in output. Comprised of 3 letter codes delimited by + or -"
+        },
+        "detail": {
+          "type": "integer",
+          "description": "Log output verbosity"
+        }
+      },
+      "additionalProperties": { "type": ["integer", "string", "boolean"] }
+    },
+    "egress": {
+      "type": "object",
+      "properties": {
+        "restricted": {
+          "description": "Are any egress controls applied",
+          "type": "boolean"
+        },
+        "kubeApiCidr": {
+          "description": "IP range for kubectl API service",
+          "type": "string"
+        },
+        "kubeApiPort": {
+          "description": "Port used for connections to kubectl API",
+          "type": "integer"
+        },
+        "kubeSystemLabel": {
+          "type": "string",
+          "description": "Label that has been applied to the kube-system namespace, used to restrict DNS service calls on port 53 to pods in the kube-system namespace"
+        }
+      },
+      "additionalProperties": false
+    },
+    "dali": {
+      "type": "object",
+      "required": [ "name" ],
+      "additionalProperties": { "type": ["integer", "string", "boolean"] },
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "The name of the dali process"
+        },
+        "image": {
+          "$ref": "#/definitions/image"
+        },
+        "logging": {
+          "$ref": "#/definitions/logging"
+        },
+        "resources": {
+          "$ref": "#/definitions/resources"
+        },
+        "services": {
+          "description": "sasha services",
+          "type": "object",
+          "$ref": "#/definitions/sashaservice"
+        }
+      }
+    },
+    "eclccserver": {
+      "type": "object",
+      "required": [ "name" ],
+      "additionalProperties": { "type": ["integer", "string", "boolean"] },
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "The name of the eclccserver process"
+        },
+        "replicas": {
+          "type": "integer"
+        },
+        "listen": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "useChildProcesses": {
+          "type": "boolean",
+          "description": "Launch each workunit compile as a child process rather than in its own container"
+        },
+        "image": {
+          "$ref": "#/definitions/image"
+        },
+        "logging": {
+          "$ref": "#/definitions/logging"
+        },
+        "resources": {
+          "$ref": "#/definitions/resources"
+        }
+      }
+    },
+    "eclscheduler": {
+      "type": "object",
+      "required": [ "name" ],
+      "additionalProperties": { "type": ["integer", "string", "boolean"] },
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "The name of the eclccserver process"
+        },
+        "image": {
+          "$ref": "#/definitions/image"
+        },
+        "logging": {
+          "$ref": "#/definitions/logging"
+        },
+        "resources": {
+          "$ref": "#/definitions/resources"
+        }
+      }
+    },
+    "esp": {
+      "type": "object",
+      "required": [ "name" ],
+      "additionalProperties": { "type": ["integer", "string", "boolean"] },
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "The name of the esp process"
+        },
+        "replicas": {
+          "type": "integer"
+        },
+        "image": {
+          "$ref": "#/definitions/image"
+        },
+        "logging": {
+          "$ref": "#/definitions/logging"
+        },
+        "resources": {
+          "$ref": "#/definitions/resources"
+        }
+      }
+    },
+    "eclagent": {
+      "type": "object",
+      "additionalProperties": { "type": ["integer", "string", "boolean"] },
+      "properties": {
+        "replicas": {
+          "type": "integer"
+        },
+        "maxActive": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Maximum number of workunits that can be active simultaneously",
+          "default": 100
+        },
+        "useChildProcesses": {
+          "type": "boolean",
+          "description": "Launch each workunit as a child process rather than in its own container"
+        },
+        "type": {
+          "type": "string",
+          "enum": ["hthor", "roxie"],
+          "description": "Use the hthor or roxie execution engine for eclagent queries"
+        },
+        "image": {
+          "$ref": "#/definitions/image"
+        },
+        "logging": {
+          "$ref": "#/definitions/logging"
+        },
+        "storagePlane": {
+          "description": "The default storage plane to write data files to",
+          "type": "string"
+        },
+        "resources": {
+          "$ref": "#/definitions/resources"
+        }
+      }
+    },
+    "roxie": {
+      "type": "object",
+      "required": [ "name" ],
+      "additionalProperties": { "type": ["integer", "string", "boolean"] },
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "The name of the roxie process"
+        },
+        "prefix": {
+          "type": "string",
+          "description": "The (optional) file prefix to add to relative filenames"
+        },
+        "image": {
+          "$ref": "#/definitions/image"
+        },
+        "topoServer": {
+          "$ref": "#/definitions/toposerver"
+        },
+        "logging": {
+          "$ref": "#/definitions/logging"
+        },
+        "preload": {
+          "description": "Preloaded plugins",
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "services": {
+          "description": "Roxie query services",
+          "type": "array",
+          "items": { "$ref": "#/definitions/roxieservice" }
+        },
+        "storagePlane": {
+          "description": "The default storage plane to write data files to",
+          "type": "string"
+        },
+        "spillPlane": {
+          "description": "The storage plane to write spill files to",
+          "type": "string"
+        },
+        "serverResources": {
+          "$ref": "#/definitions/resources"
+        },
+        "channelResources": {
+          "$ref": "#/definitions/resources"
+        }
+      }
+    },
+    "toposerver": {
+      "type": "object",
+      "properties": {
+        "port": {
+          "type": "integer"
+        },
+        "traceLevel": {
+          "type": "integer"
+        },
+        "replicas": {
+          "type": "integer"
+        },
+        "logging": {
+          "$ref": "#/definitions/logging"
+        }
+      }
+    },
+    "roxieservice": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "port": {
+          "type": "integer"
+        },
+        "numThreads": {
+          "type": "integer"
+        },
+        "listenQueue": {
+          "type": "integer"
+        },
+        "external": {
+          "type": "boolean"
+        }
+      },
+      "required": [ "name", "port" ],
+      "additionalProperties": false
+    },
+    "bundle": {
+      "type": "object",
+      "required": [ "name" ],
+      "additionalProperties": { "type": ["integer", "string", "boolean"] },
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "The name of the bundle process"
+        }
+      }
+    },
+    "thor": {
+      "type": "object",
+      "required": [ "name", "maxJobs", "maxGraphs" ],
+      "additionalProperties": { "type": ["integer", "string", "boolean"] },
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "The name of the thor process"
+        },
+        "prefix": {
+          "type": "string",
+          "description": "The (optional) file prefix to add to relative filenames"
+        },
+        "numWorkers": {
+          "type": "integer",
+          "description": "The number of worker pods",
+          "minimum": 1
+        },
+        "maxJobs": {
+          "type": "integer",
+          "description": "The maximum number of jobs that can be run concurrenly",
+          "minimum": 1
+        },
+        "maxGraphs": {
+          "type": "integer",
+          "description": "The maximum number of Thor graphs that be run concurrently",
+          "minimum": 1
+        },
+        "eclAgentUseChildProcesses": {
+          "type": "boolean",
+          "description": "Use processes instead of pods per job (eclagent)"
+        },
+        "eclAgentReplicas": {
+          "type": "integer",
+          "description": "Number of eclagent replicas",
+          "minimum": 1
+        },
+        "thorAgentReplicas": {
+          "type": "integer",
+          "description": "Number of thoragent replicas",
+          "minimum": 1
+        },
+        "eclAgentType": {
+          "enum": [ "hthor", "roxie" ],
+          "description": "eclagent engine type"
+        },
+        "keepJobs": {
+          "enum": [ "none", "podfailures", "all" ],
+          "description": "For debugging purposes. Choose whether to keep jobs after execution"
+        },
+        "lingerPeriod": {
+          "type": "integer",
+          "description": "[Optional] Seconds to keep Thor instance running, waiting for more graphs to execute",
+          "minimum": 1
+        },
+        "multiJobLinger": {
+          "type": "boolean",
+          "description": "[Optional] If lingerPeriod set, allows Thor to process more graphs from any job"
+        },
+        "image": {
+          "$ref": "#/definitions/image"
+        },
+        "logging": {
+          "$ref": "#/definitions/logging"
+        },
+        "storagePlane": {
+          "description": "The default storage plane to write data files to",
+          "type": "string"
+        },
+        "spillPlane": {
+          "description": "The storage plane to write spill files to",
+          "type": "string"
+        },
+        "managerResources": {
+          "$ref": "#/definitions/resources"
+        },
+        "workerResources": {
+          "$ref": "#/definitions/resources"
+        },
+        "eclAgentResources": {
+          "$ref": "#/definitions/resources"
+        }
+      }
+    },
+    "sashacommon": {
+      "type": "object",
+      "properties": {
+        "disabled": {
+          "type": "boolean"
+        },
+        "interval": {
+          "type": "integer",
+          "default": 1
+        },
+        "servicePort": {
+          "type": "integer"
+        },
+        "port": {
+          "type": "integer"
+        },
+        "at" : {
+          "type": "string",
+          "default": "* * * * *"
+        },
+        "throttle": {
+          "type": "integer",
+          "description": "throttle ratio percentage (0-99, 0 no throttling, 50 is half speed)"
+        },
+        "storage": {
+          "$ref": "#/definitions/storageType"
+        },
+        "resources": {
+          "$ref": "#/definitions/resources"
+        }
+      }
+    },
+    "sasha-limitcutoff": {
+      "type": "object",
+      "properties": {
+        "limit": {
+          "type": "integer",
+          "description": "threshold before removal starts (0 disables)",
+          "default": "20"
+        },
+        "cutoff": {
+          "type": "integer",
+          "description": "minimum age (days)",
+          "default": "4"
+        }
+      }
+    },
+    "sasha-coalescer": {
+      "oneOf": [
+        {
+          "type": "object",
+          "allOf": [
+            { "$ref": "#/definitions/sashacommon" },
+            {
+              "properties": {
+                "minDeltaSize": {
+                  "type": "integer",
+                  "description": "Coalescing will only begin, if the delta size is above this threashold (K)"
+                },
+                "disabled": {},
+                "interval": {},
+                "servicePort": {},
+                "port": {},
+                "at" : {},
+                "throttle": {},
+                "storage": {},
+                "resources": {}    
+              },
+              "additionalProperties": false
+            }
+          ]
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "sasha-wu-archiver": {
+      "oneOf": [
+        {
+          "type": "object",
+          "allOf": [
+            { "$ref": "#/definitions/sashacommon" },
+            { "$ref": "#/definitions/sasha-limitcutoff" },
+            {
+              "properties": 
+              {
+                "backup": {
+                  "type": "integer",
+                  "description": "minimum workunit age to backup (days, 0 disables)",
+                  "default": "0"
+                },
+                "duration": {
+                  "type": "integer",
+                  "description": "Maximum duration to run WorkUnit archiving session (hours, 0 unlimited)",
+                  "default": "0"
+                },
+                "keepResultFiles": {
+                  "type": "boolean",
+                  "description": "option to keep result files owned by workunits after workunit is archived",
+                  "default": "false"
+                },
+                "retryinterval": {
+                  "type": "integer",
+                  "description": "minimal time before retrying archive of failed WorkUnits (days)",
+                  "default": "7"
+                },
+                "disabled": {},
+                "interval": {},
+                "servicePort": {},
+                "port": {},
+                "at" : {},
+                "throttle": {},
+                "storage": {},
+                "resources": {},
+                "limit": {},
+                "cutoff": {}    
+              },
+              "additionalProperties": false
+            }
+          ]
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "sasha-dfuwu-archiver": {
+      "oneOf": [
+        {
+          "type": "object",
+          "allOf": [ 
+            { "$ref": "#/definitions/sashacommon" },
+            { "$ref": "#/definitions/sasha-limitcutoff" },
+            {
+              "properties": 
+              {
+                "disabled": {},
+                "interval": {},
+                "servicePort": {},
+                "port": {},
+                "at" : {},
+                "throttle": {},
+                "storage": {},
+                "resources": {},
+                "limit": {},
+                "cutoff": {}
+              },
+              "additionalProperties": false
+            }
+          ]
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "sasha-dfurecovery-archiver": {
+      "oneOf": [
+        {
+          "type": "object",
+          "allOf": [
+            { "$ref": "#/definitions/sashacommon" },
+            { "$ref": "#/definitions/sasha-limitcutoff" },
+            {
+              "properties": {
+                "disabled": {},
+                "interval": {},
+                "servicePort": {},
+                "port": {},
+                "at" : {},
+                "throttle": {},
+                "storage": {},
+                "resources": {},
+                "limit": {},
+                "cutoff": {}    
+              },
+              "additionalProperties": false
+            }
+          ]
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "sasha-file-expiry": {
+      "oneOf": [
+        {
+          "type": "object",
+          "allOf": [{ "$ref": "#/definitions/sashacommon" }],
+          "properties": {
+            "persistExpiryDefault": {
+              "type": "integer",
+              "description": "Default number of days to delete unused persist files",
+              "default": "7"
+            },
+            "expiryDefault": {
+              "type": "integer",
+              "description": "Default number of days to delete unused standard files that are flagged with EXPIRY",
+              "default": "14"
+            },
+            "user": {
+              "type": "string",
+              "description": "A username authorized to access and remove expired files"
+            },
+            "disabled": {},
+            "interval": {},
+            "servicePort": {},
+            "port": {},
+            "at" : {},
+            "throttle": {},
+            "storage": {},
+            "resources": {}
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "sashaservice": {
+      "oneOf": [
+        {
+          "description": "sasha services",
+          "type": "object",
+          "properties": {
+            "coalescer": {
+              "$ref": "#/definitions/sasha-coalescer"
+            },
+            "wu-archiver": {
+              "$ref": "#/definitions/sasha-wu-archiver"
+            },
+            "dfuwu-archiver": {
+              "$ref": "#/definitions/sasha-dfuwu-archiver"
+            },
+            "dfurecovery-archiver": {
+              "$ref": "#/definitions/sasha-dfurecovery-archiver"
+            },
+            "file-expiry": {
+              "$ref": "#/definitions/sasha-file-expiry"
+            },
+            "disabled": {
+              "type": "boolean"
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "placement": {
+      "type": "object",
+      "properties": {
+        "nodeSelector": {
+          "$ref": "#/definitions/nodeSelector"
+        },
+        "tolerations": {
+          "$ref": "#/definitions/tolerations"
+        },
+        "affinity": {
+          "type": "object"
+        },
+        "schedulerName": {
+          "type": "string"
+        }
+      }
+    },
+    "nodeSelector": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "string"
+      }
+    },
+    "tolerations": {
+      "type": "array",
+      "items": { "$ref": "#/definitions/toleration" }
+    },
+    "toleration": {
+      "type": "object",
+      "properties": {
+        "key": {
+          "type": "string"
+        },
+        "operator": {
+          "type": "string"
+        },
+        "value": {
+          "type": "string"
+        },
+        "effect": {
+          "type": "string"
+        },
+        "tolerationSeconds": {
+          "type": "integer"
+        }
+      }
+    },
+    "issuer": {
+      "type": "object",
+      "required": [ "name" ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "The name of the issuer which will be referenced in certificate objects"
+        },
+        "kind": {
+          "type": "string",
+          "enum": [
+              "Issuer",
+              "ClusterIssuer"
+          ]
+        },
+        "spec": {
+          "description": "The cert-manager spec for the issuer. Should match issuer spec(s) defined by https://cert-manager.io/docs/configuration/",
+          "type": "object"
+        }
+      }
+    },
+    "sinks": {
+      "type": "array",
+      "items" : {
+        "$ref" : "#/definitions/sink"
+      }
+    },
+    "sink": {
+      "type" : "object",
+      "description" : "Definition of a metric sink",
+      "properties" : {
+        "type": {
+          "type" : "string",
+          "description" : "The defined metric sink type"
+        },
+        "name" : {
+          "type" : "string",
+          "description" : "Name for the sink, must be unique for the component"
+        },
+        "settings": {
+          "type" : "object",
+          "description" : "Settings specific to the sink"
+        }
+      },
+      "required" : [
+        "type",
+        "name"
+      ]
+    }
+  }
+}

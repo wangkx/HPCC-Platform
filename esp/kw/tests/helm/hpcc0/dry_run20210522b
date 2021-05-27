@@ -1,0 +1,4372 @@
+NAME: myhpcc
+LAST DEPLOYED: Sat May 22 21:07:43 2021
+NAMESPACE: default
+STATUS: pending-install
+REVISION: 1
+TEST SUITE: None
+USER-SUPPLIED VALUES:
+global:
+  image:
+    version: 941147cf4-Debug-dirty-0cb63cc194ca4b442bf01bd33ac0e4a1
+  privileged: true
+sasha:
+  dfuwu-archiver:
+    storage:
+      plane: sasha
+  wu-archiver:
+    storage:
+      plane: sasha
+storage:
+  daliStorage:
+    plane: dali
+  dataStorage:
+    plane: data
+  dllStorage:
+    plane: dll
+  planes:
+  - labels:
+    - dali
+    name: dali
+    prefix: /var/lib/HPCCSystems/dalistorage
+    pvc: dali-localfile-hpcc-localfile-pvc
+  - labels:
+    - dll
+    name: dll
+    prefix: /var/lib/HPCCSystems/queries
+    pvc: dll-localfile-hpcc-localfile-pvc
+  - labels:
+    - sasha
+    name: sasha
+    prefix: /var/lib/HPCCSystems/sasha
+    pvc: sasha-localfile-hpcc-localfile-pvc
+  - labels:
+    - data
+    name: data
+    prefix: /var/lib/HPCCSystems/hpcc-data
+    pvc: data-localfile-hpcc-localfile-pvc
+
+COMPUTED VALUES:
+bundles: []
+certificates:
+  enabled: false
+  issuers:
+    local:
+      kind: Issuer
+      name: hpcc-local-issuer
+      spec:
+        ca:
+          secretName: hpcc-local-issuer-key-pair
+    public:
+      kind: Issuer
+      name: hpcc-public-issuer
+      spec:
+        selfSigned: {}
+dali:
+- name: mydali
+  services:
+    coalescer: null
+dfuserver:
+- maxJobs: 1
+  name: dfuserver
+eclagent:
+- maxActive: 4
+  name: hthor
+  prefix: hthor
+  replicas: 1
+  type: hthor
+  useChildProcesses: false
+- maxActive: 20
+  name: roxie-workunit
+  prefix: roxie_workunit
+  replicas: 1
+  type: roxie
+  useChildProcesses: true
+eclccserver:
+- listen: []
+  maxActive: 4
+  name: myeclccserver
+  replicas: 1
+  useChildProcesses: false
+eclscheduler:
+- name: eclscheduler
+esp:
+- application: eclwatch
+  auth: none
+  name: eclwatch
+  port: 8888
+  public: true
+  replicas: 1
+  servicePort: 8010
+- application: eclservices
+  auth: none
+  name: eclservices
+  public: false
+  replicas: 1
+  servicePort: 8010
+- application: eclqueries
+  auth: none
+  name: eclqueries
+  public: true
+  replicas: 1
+  servicePort: 8002
+- application: esdl-sandbox
+  auth: none
+  name: esdl-sandbox
+  public: true
+  replicas: 1
+  servicePort: 8899
+- application: sql2ecl
+  auth: none
+  name: sql2ecl
+  public: true
+  replicas: 1
+  servicePort: 8510
+global:
+  cost:
+    moneyLocale: en_US.UTF-8
+    perCpu: 0.126
+  egress:
+    restricted: true
+  image:
+    pullPolicy: IfNotPresent
+    root: hpccsystems
+    version: 941147cf4-Debug-dirty-0cb63cc194ca4b442bf01bd33ac0e4a1
+  logging:
+    detail: 100
+  metrics:
+    sinks:
+    - name: logging
+      settings:
+        period: 60
+      type: log
+  privileged: true
+roxie:
+- disabled: false
+  localAgent: false
+  name: roxie
+  numChannels: 2
+  prefix: roxie
+  replicas: 2
+  serverReplicas: 0
+  services:
+  - external: true
+    listenQueue: 200
+    name: roxie
+    numThreads: 30
+    port: 9876
+  topoServer:
+    name: roxie-toposerver
+    replicas: 1
+  useAeron: false
+sasha:
+  dfurecovery-archiver: null
+  dfuwu-archiver:
+    servicePort: 8877
+    storage:
+      plane: sasha
+      storageClass: ""
+      storageSize: 1Gi
+  file-expiry: null
+  wu-archiver:
+    servicePort: 8877
+    storage:
+      plane: sasha
+      storageClass: ""
+      storageSize: 1Gi
+secrets:
+  codeSign: {}
+  codeVerify: {}
+  ecl: {}
+  storage: {}
+  system: {}
+security:
+  eclSecurity:
+    datafile: allow
+    embedded: allow
+    extern: allow
+    pipe: allow
+storage:
+  daliStorage:
+    plane: dali
+    storageClass: ""
+    storageSize: 1Gi
+  dataStorage:
+    plane: data
+    storageClass: ""
+    storageSize: 1Gi
+  dllStorage:
+    plane: dll
+    storageClass: ""
+    storageSize: 3Gi
+  planes:
+  - labels:
+    - dali
+    name: dali
+    prefix: /var/lib/HPCCSystems/dalistorage
+    pvc: dali-localfile-hpcc-localfile-pvc
+  - labels:
+    - dll
+    name: dll
+    prefix: /var/lib/HPCCSystems/queries
+    pvc: dll-localfile-hpcc-localfile-pvc
+  - labels:
+    - sasha
+    name: sasha
+    prefix: /var/lib/HPCCSystems/sasha
+    pvc: sasha-localfile-hpcc-localfile-pvc
+  - labels:
+    - data
+    name: data
+    prefix: /var/lib/HPCCSystems/hpcc-data
+    pvc: data-localfile-hpcc-localfile-pvc
+thor:
+- maxGraphs: 2
+  maxJobs: 4
+  name: thor
+  numWorkers: 2
+  prefix: thor
+vaults:
+  codeSign: null
+  codeVerify: null
+  ecl: null
+  ecl-user: null
+  esp: null
+  storage: null
+
+HOOKS:
+MANIFEST:
+---
+# Source: hpcc/templates/network.yaml
+##
+## Default to no ingress, and egress only to dns servers
+## 
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-all-but-dns
+spec:
+  podSelector: {}
+  policyTypes:
+  - Ingress
+  - Egress
+  egress:
+  - to:
+    ports:
+    - protocol: TCP
+      port: 53
+    - protocol: UDP
+      port: 53
+---
+# Source: hpcc/templates/network.yaml
+##
+## Pods that launch k8s jobs need access to k8s API server
+## 
+kind: NetworkPolicy
+apiVersion: networking.k8s.io/v1 
+metadata:
+  name: allow-apiserver
+spec:
+  policyTypes:
+  - Egress
+  podSelector: {}
+  egress:
+  - to:
+    ports:
+    - protocol: TCP
+---
+# Source: hpcc/templates/network.yaml
+##
+## Many pods need access to dali
+## 
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: dali-server
+spec:
+  podSelector:
+    matchLabels:
+      app: dali
+  ingress:
+  - from:
+    - podSelector:
+        matchLabels:
+          accessDali: "yes"
+  egress:
+  - to:
+    - podSelector:
+        matchLabels:
+          accessDali: "yes"
+---
+# Source: hpcc/templates/network.yaml
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: dali-client
+spec:
+  podSelector:
+    matchLabels:
+      accessDali: "yes"
+  ingress:
+  - from:
+    - podSelector:
+        matchLabels:
+          app: dali
+  egress:
+  - to:
+    - podSelector:
+        matchLabels:
+          app: dali
+---
+# Source: hpcc/templates/network.yaml
+##
+## Pods that run workunits, or which need to do DFU lookups, are allowed to access espservices
+## 
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: esp-server
+spec:
+  podSelector:
+    matchLabels:
+      app: eclservices
+  ingress:
+  - from:
+    - podSelector:
+        matchLabels:
+          accessEsp: "yes"
+  egress:
+  - to:
+    - podSelector:
+        matchLabels:
+          accessEsp: "yes"
+---
+# Source: hpcc/templates/network.yaml
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: esp-client
+spec:
+  podSelector:
+    matchLabels:
+      accessEsp: "yes"
+  ingress:
+  - from:
+    - podSelector:
+        matchLabels:
+          app: eclservices
+  egress:
+  - to:
+    - podSelector:
+        matchLabels:
+          app: eclservices
+---
+# Source: hpcc/templates/roxie.yaml
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: "roxie"
+spec:
+  podSelector:
+    matchLabels:
+      roxie-cluster: "roxie"
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  - from:
+    - podSelector:
+        matchLabels:
+          roxie-cluster: "roxie"
+  egress:
+  - to:
+    - podSelector:
+        matchLabels:
+          roxie-cluster: "roxie"
+---
+# Source: hpcc/templates/service-account.yaml
+# The hpcc-default service account is used by ay component that doesn't need API access to launch child jobs
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: hpcc-default
+---
+# Source: hpcc/templates/service-account.yaml
+# The hpcc-agent service account is used by any component that DOES need API access to launch child jobs
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: hpcc-agent
+---
+# Source: hpcc/templates/service-account.yaml
+# The hpcc-thoragent service account is used by thor agent, which needs not only to launch child jobs but also to set new NetworkPolicies
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: hpcc-thoragent
+---
+# Source: hpcc/templates/dali.yaml
+kind: ConfigMap 
+apiVersion: v1 
+metadata:
+  name: mydali-configmap 
+data:
+  mydali.yaml: |
+    version: 1.0
+    dali:
+      name: mydali
+      dataPath: /var/lib/HPCCSystems/dalistorage      
+      logging:
+        detail: 100
+      vaults:
+    global:
+      mtls: false
+      imageVersion: 941147cf4-Debug-dirty-0cb63cc194ca4b442bf01bd33ac0e4a1
+      singleNode: false
+      esp:
+      - application: eclwatch
+        auth: none
+        name: eclwatch
+        port: 8888
+        public: true
+        replicas: 1
+        servicePort: 8010
+      - application: eclservices
+        auth: none
+        name: eclservices
+        public: false
+        replicas: 1
+        servicePort: 8010
+      - application: eclqueries
+        auth: none
+        name: eclqueries
+        public: true
+        replicas: 1
+        servicePort: 8002
+      - application: esdl-sandbox
+        auth: none
+        name: esdl-sandbox
+        public: true
+        replicas: 1
+        servicePort: 8899
+      - application: sql2ecl
+        auth: none
+        name: sql2ecl
+        public: true
+        replicas: 1
+        servicePort: 8510
+      secretTimeout: 300
+      storage:
+        daliPlane: dali
+        dllsPlane: dll
+        dataPlane: data
+        spillPlane: hpcc-spill-plane
+        planes:
+        - name: "data"
+          labels:
+          - data
+          prefix: /var/lib/HPCCSystems/hpcc-data
+        - name: hpcc-spill-plane
+          prefix: "/var/lib/HPCCSystems/hpcc-spill"
+      cost:
+        moneyLocale: en_US.UTF-8
+        perCpu: 0.126
+---
+# Source: hpcc/templates/dali.yaml
+kind: ConfigMap
+apiVersion: v1
+data:
+  sasha-coalescer.yaml: |-
+    global:
+      cost:
+        moneyLocale: en_US.UTF-8
+        perCpu: 0.126
+      esp:
+      - application: eclwatch
+        auth: none
+        name: eclwatch
+        port: 8888
+        public: true
+        replicas: 1
+        servicePort: 8010
+      - application: eclservices
+        auth: none
+        name: eclservices
+        public: false
+        replicas: 1
+        servicePort: 8010
+      - application: eclqueries
+        auth: none
+        name: eclqueries
+        public: true
+        replicas: 1
+        servicePort: 8002
+      - application: esdl-sandbox
+        auth: none
+        name: esdl-sandbox
+        public: true
+        replicas: 1
+        servicePort: 8899
+      - application: sql2ecl
+        auth: none
+        name: sql2ecl
+        public: true
+        replicas: 1
+        servicePort: 8510
+      imageVersion: 941147cf4-Debug-dirty-0cb63cc194ca4b442bf01bd33ac0e4a1
+      mtls: false
+      secretTimeout: 300
+      singleNode: false
+      storage:
+        daliPlane: dali
+        dataPlane: data
+        dllsPlane: dll
+        planes:
+        - labels:
+          - data
+          name: data
+          prefix: /var/lib/HPCCSystems/hpcc-data
+        - name: hpcc-spill-plane
+          prefix: /var/lib/HPCCSystems/hpcc-spill
+        spillPlane: hpcc-spill-plane
+    sasha:
+      access:
+      - dalidata
+      inDaliPod: true
+      logging:
+        detail: 100
+      name: coalescer
+      vaults:
+        storage: null
+    version: 1
+metadata:
+  name: sasha-coalescer-configmap
+---
+# Source: hpcc/templates/dfuserver.yaml
+kind: ConfigMap
+
+apiVersion: v1
+data:
+  dfuserver.yaml: |-
+    dfuserver:
+      logging:
+        detail: 100
+      maxJobs: 1
+      name: dfuserver
+    global:
+      cost:
+        moneyLocale: en_US.UTF-8
+        perCpu: 0.126
+      esp:
+      - application: eclwatch
+        auth: none
+        name: eclwatch
+        port: 8888
+        public: true
+        replicas: 1
+        servicePort: 8010
+      - application: eclservices
+        auth: none
+        name: eclservices
+        public: false
+        replicas: 1
+        servicePort: 8010
+      - application: eclqueries
+        auth: none
+        name: eclqueries
+        public: true
+        replicas: 1
+        servicePort: 8002
+      - application: esdl-sandbox
+        auth: none
+        name: esdl-sandbox
+        public: true
+        replicas: 1
+        servicePort: 8899
+      - application: sql2ecl
+        auth: none
+        name: sql2ecl
+        public: true
+        replicas: 1
+        servicePort: 8510
+      imageVersion: 941147cf4-Debug-dirty-0cb63cc194ca4b442bf01bd33ac0e4a1
+      mtls: false
+      secretTimeout: 300
+      singleNode: false
+      storage:
+        daliPlane: dali
+        dataPlane: data
+        dllsPlane: dll
+        planes:
+        - labels:
+          - data
+          name: data
+          prefix: /var/lib/HPCCSystems/hpcc-data
+        - name: hpcc-spill-plane
+          prefix: /var/lib/HPCCSystems/hpcc-spill
+        spillPlane: hpcc-spill-plane
+    version: 1
+metadata:
+  name: dfuserver-configmap
+---
+# Source: hpcc/templates/eclagent.yaml
+kind: ConfigMap 
+
+apiVersion: v1
+data:
+  hthor-jobspec.yaml: |-
+    apiVersion: batch/v1
+    kind: Job
+    metadata:
+      name: hthor-_HPCC_JOBNAME_
+    spec:
+      backoffLimit: 0
+      template:
+        metadata:
+          labels:
+            accessDali: "yes"
+            accessEsp: "yes"
+        spec:
+          containers:
+          - args:
+            - -c
+            - hthor "--config=/etc/config/hthor.yaml" "--daliServers=mydali" _HPCC_ARGS_
+            command:
+            - /bin/bash
+            image: hpccsystems/platform-core:941147cf4-Debug-dirty-0cb63cc194ca4b442bf01bd33ac0e4a1
+            imagePullPolicy: IfNotPresent
+            name: hthor-_HPCC_JOBNAME_
+            securityContext:
+              capabilities:
+                add:
+                - SYS_PTRACE
+              privileged: true
+              readOnlyRootFilesystem: false
+              runAsGroup: 10001
+              runAsNonRoot: true
+              runAsUser: 10000
+            volumeMounts:
+            - mountPath: /tmp
+              name: hthor-temp-volume
+            - mountPath: /var/lib/HPCCSystems
+              name: hthor-hpcctmp-volume
+            - mountPath: /etc/config
+              name: hthor-configmap-volume
+            - mountPath: /var/lib/HPCCSystems/hpcc-data
+              name: data-pv
+            - mountPath: /var/lib/HPCCSystems/queries
+              name: dll
+            workingDir: /var/lib/HPCCSystems
+          restartPolicy: Never
+          serviceAccountName: hpcc-default
+          volumes:
+          - emptyDir: {}
+            name: hthor-temp-volume
+          - emptyDir: {}
+            name: hthor-hpcctmp-volume
+          - configMap:
+              name: hthor-configmap
+            name: hthor-configmap-volume
+          - name: data-pv
+            persistentVolumeClaim:
+              claimName: data-localfile-hpcc-localfile-pvc
+          - name: dll
+            persistentVolumeClaim:
+              claimName: dll-localfile-hpcc-localfile-pvc
+      ttlSecondsAfterFinished: 100
+  hthor.yaml: |-
+    eclagent:
+      logging:
+        detail: 100
+      maxActive: 4
+      name: hthor
+      prefix: hthor
+      replicas: 1
+      type: hthor
+      useChildProcesses: false
+    global:
+      cost:
+        moneyLocale: en_US.UTF-8
+        perCpu: 0.126
+      esp:
+      - application: eclwatch
+        auth: none
+        name: eclwatch
+        port: 8888
+        public: true
+        replicas: 1
+        servicePort: 8010
+      - application: eclservices
+        auth: none
+        name: eclservices
+        public: false
+        replicas: 1
+        servicePort: 8010
+      - application: eclqueries
+        auth: none
+        name: eclqueries
+        public: true
+        replicas: 1
+        servicePort: 8002
+      - application: esdl-sandbox
+        auth: none
+        name: esdl-sandbox
+        public: true
+        replicas: 1
+        servicePort: 8899
+      - application: sql2ecl
+        auth: none
+        name: sql2ecl
+        public: true
+        replicas: 1
+        servicePort: 8510
+      imageVersion: 941147cf4-Debug-dirty-0cb63cc194ca4b442bf01bd33ac0e4a1
+      mtls: false
+      secretTimeout: 300
+      singleNode: false
+      storage:
+        daliPlane: dali
+        dataPlane: data
+        dllsPlane: dll
+        planes:
+        - labels:
+          - data
+          name: data
+          prefix: /var/lib/HPCCSystems/hpcc-data
+        - name: hpcc-spill-plane
+          prefix: /var/lib/HPCCSystems/hpcc-spill
+        spillPlane: hpcc-spill-plane
+    hthor:
+      logging:
+        detail: 100
+      maxActive: 4
+      name: hthor
+      prefix: hthor
+      replicas: 1
+      type: hthor
+      useChildProcesses: false
+      vaults:
+        ecl: null
+        ecl-user: null
+        storage: null
+    version: 1
+metadata:
+  name: hthor-configmap
+---
+# Source: hpcc/templates/eclagent.yaml
+kind: ConfigMap 
+
+apiVersion: v1
+data:
+  roxie-workunit.yaml: |-
+    eclagent:
+      logging:
+        detail: 100
+      maxActive: 20
+      name: roxie-workunit
+      prefix: roxie_workunit
+      replicas: 1
+      type: roxie
+      useChildProcesses: true
+    global:
+      cost:
+        moneyLocale: en_US.UTF-8
+        perCpu: 0.126
+      esp:
+      - application: eclwatch
+        auth: none
+        name: eclwatch
+        port: 8888
+        public: true
+        replicas: 1
+        servicePort: 8010
+      - application: eclservices
+        auth: none
+        name: eclservices
+        public: false
+        replicas: 1
+        servicePort: 8010
+      - application: eclqueries
+        auth: none
+        name: eclqueries
+        public: true
+        replicas: 1
+        servicePort: 8002
+      - application: esdl-sandbox
+        auth: none
+        name: esdl-sandbox
+        public: true
+        replicas: 1
+        servicePort: 8899
+      - application: sql2ecl
+        auth: none
+        name: sql2ecl
+        public: true
+        replicas: 1
+        servicePort: 8510
+      imageVersion: 941147cf4-Debug-dirty-0cb63cc194ca4b442bf01bd33ac0e4a1
+      mtls: false
+      secretTimeout: 300
+      singleNode: false
+      storage:
+        daliPlane: dali
+        dataPlane: data
+        dllsPlane: dll
+        planes:
+        - labels:
+          - data
+          name: data
+          prefix: /var/lib/HPCCSystems/hpcc-data
+        - name: hpcc-spill-plane
+          prefix: /var/lib/HPCCSystems/hpcc-spill
+        spillPlane: hpcc-spill-plane
+    roxie:
+      logging:
+        detail: 100
+      maxActive: 20
+      name: roxie-workunit
+      prefix: roxie_workunit
+      replicas: 1
+      type: roxie
+      useChildProcesses: true
+      vaults:
+        ecl: null
+        ecl-user: null
+        storage: null
+    version: 1
+metadata:
+  name: roxie-workunit-configmap
+---
+# Source: hpcc/templates/eclccserver.yaml
+kind: ConfigMap 
+
+apiVersion: v1
+data:
+  compile-jobspec.yaml: |-
+    apiVersion: batch/v1
+    kind: Job
+    metadata:
+      name: compile-_HPCC_JOBNAME_
+    spec:
+      backoffLimit: 0
+      template:
+        metadata:
+          labels:
+            accessDali: "yes"
+            accessEsp: "yes"
+        spec:
+          containers:
+          - args:
+            - -c
+            - eclccserver "--config=/etc/config/myeclccserver.yaml" "--daliServers=mydali"
+              _HPCC_ARGS_
+            command:
+            - /bin/bash
+            image: hpccsystems/platform-core:941147cf4-Debug-dirty-0cb63cc194ca4b442bf01bd33ac0e4a1
+            imagePullPolicy: IfNotPresent
+            name: compile-_HPCC_JOBNAME_
+            securityContext:
+              capabilities:
+                add:
+                - SYS_PTRACE
+              privileged: true
+              readOnlyRootFilesystem: false
+              runAsGroup: 10001
+              runAsNonRoot: true
+              runAsUser: 10000
+            volumeMounts:
+            - mountPath: /tmp
+              name: myeclccserver-temp-volume
+            - mountPath: /var/lib/HPCCSystems
+              name: myeclccserver-hpcctmp-volume
+            - mountPath: /etc/config
+              name: myeclccserver-configmap-volume
+            - mountPath: /var/lib/HPCCSystems/hpcc-data
+              name: data-pv
+            - mountPath: /var/lib/HPCCSystems/queries
+              name: dll
+            workingDir: /tmp
+          restartPolicy: Never
+          serviceAccountName: hpcc-default
+          volumes:
+          - emptyDir: {}
+            name: myeclccserver-temp-volume
+          - emptyDir: {}
+            name: myeclccserver-hpcctmp-volume
+          - configMap:
+              name: myeclccserver-configmap
+            name: myeclccserver-configmap-volume
+          - name: data-pv
+            persistentVolumeClaim:
+              claimName: data-localfile-hpcc-localfile-pvc
+          - name: dll
+            persistentVolumeClaim:
+              claimName: dll-localfile-hpcc-localfile-pvc
+      ttlSecondsAfterFinished: 100
+  myeclccserver.yaml: |-
+    eclccserver:
+      eclSecurity:
+        datafile: allow
+        embedded: allow
+        extern: allow
+        pipe: allow
+      listen: []
+      logging:
+        detail: 100
+      maxActive: 4
+      name: myeclccserver
+      queues:
+      - name: hthor
+        prefix: hthor
+        type: hthor
+      - name: roxie-workunit
+        prefix: roxie_workunit
+        type: roxie
+      - name: roxie
+        prefix: roxie
+        queriesOnly: true
+        type: roxie
+      - name: thor
+        prefix: thor
+        type: thor
+        width: 2
+      replicas: 1
+      useChildProcesses: false
+      vaults:
+        codeVerify: null
+    global:
+      cost:
+        moneyLocale: en_US.UTF-8
+        perCpu: 0.126
+      esp:
+      - application: eclwatch
+        auth: none
+        name: eclwatch
+        port: 8888
+        public: true
+        replicas: 1
+        servicePort: 8010
+      - application: eclservices
+        auth: none
+        name: eclservices
+        public: false
+        replicas: 1
+        servicePort: 8010
+      - application: eclqueries
+        auth: none
+        name: eclqueries
+        public: true
+        replicas: 1
+        servicePort: 8002
+      - application: esdl-sandbox
+        auth: none
+        name: esdl-sandbox
+        public: true
+        replicas: 1
+        servicePort: 8899
+      - application: sql2ecl
+        auth: none
+        name: sql2ecl
+        public: true
+        replicas: 1
+        servicePort: 8510
+      imageVersion: 941147cf4-Debug-dirty-0cb63cc194ca4b442bf01bd33ac0e4a1
+      mtls: false
+      secretTimeout: 300
+      singleNode: false
+      storage:
+        daliPlane: dali
+        dataPlane: data
+        dllsPlane: dll
+        planes:
+        - labels:
+          - data
+          name: data
+          prefix: /var/lib/HPCCSystems/hpcc-data
+        - name: hpcc-spill-plane
+          prefix: /var/lib/HPCCSystems/hpcc-spill
+        spillPlane: hpcc-spill-plane
+    version: 1
+metadata:
+  name: myeclccserver-configmap
+---
+# Source: hpcc/templates/eclscheduler.yaml
+kind: ConfigMap
+
+apiVersion: v1
+data:
+  eclscheduler.yaml: |-
+    eclscheduler:
+      logging:
+        detail: 100
+      name: eclscheduler
+      queues:
+      - name: hthor
+        prefix: hthor
+        type: hthor
+      - name: roxie-workunit
+        prefix: roxie_workunit
+        type: roxie
+      - name: roxie
+        prefix: roxie
+        queriesOnly: true
+        type: roxie
+      - name: thor
+        prefix: thor
+        type: thor
+        width: 2
+      vaults: null
+    global:
+      cost:
+        moneyLocale: en_US.UTF-8
+        perCpu: 0.126
+      esp:
+      - application: eclwatch
+        auth: none
+        name: eclwatch
+        port: 8888
+        public: true
+        replicas: 1
+        servicePort: 8010
+      - application: eclservices
+        auth: none
+        name: eclservices
+        public: false
+        replicas: 1
+        servicePort: 8010
+      - application: eclqueries
+        auth: none
+        name: eclqueries
+        public: true
+        replicas: 1
+        servicePort: 8002
+      - application: esdl-sandbox
+        auth: none
+        name: esdl-sandbox
+        public: true
+        replicas: 1
+        servicePort: 8899
+      - application: sql2ecl
+        auth: none
+        name: sql2ecl
+        public: true
+        replicas: 1
+        servicePort: 8510
+      imageVersion: 941147cf4-Debug-dirty-0cb63cc194ca4b442bf01bd33ac0e4a1
+      mtls: false
+      secretTimeout: 300
+      singleNode: false
+      storage:
+        daliPlane: dali
+        dataPlane: data
+        dllsPlane: dll
+        planes:
+        - labels:
+          - data
+          name: data
+          prefix: /var/lib/HPCCSystems/hpcc-data
+        - name: hpcc-spill-plane
+          prefix: /var/lib/HPCCSystems/hpcc-spill
+        spillPlane: hpcc-spill-plane
+    version: 1
+metadata:
+  name: eclscheduler-configmap
+---
+# Source: hpcc/templates/esp.yaml
+kind: ConfigMap
+
+apiVersion: v1
+data:
+  eclwatch.yaml: |-
+    esp:
+      application: eclwatch
+      auth: none
+      dfuQueues:
+      - name: dfuserver
+      logging:
+        detail: 100
+      metrics:
+        sinks:
+        - name: logging
+          settings:
+            period: 60
+          type: log
+      name: eclwatch
+      port: 8888
+      public: true
+      queues:
+      - name: hthor
+        prefix: hthor
+        type: hthor
+      - name: roxie-workunit
+        prefix: roxie_workunit
+        type: roxie
+      - name: roxie
+        prefix: roxie
+        queriesOnly: true
+        type: roxie
+      - name: thor
+        prefix: thor
+        type: thor
+        width: 2
+      replicas: 1
+      servicePort: 8010
+      services:
+      - name: roxie
+        port: 9876
+        public: true
+        target: roxie
+        type: roxie
+      - name: eclwatch
+        port: 8010
+        public: true
+        tls: false
+        type: eclwatch
+      - name: eclservices
+        port: 8010
+        public: false
+        tls: false
+        type: eclservices
+      - name: eclqueries
+        port: 8002
+        public: true
+        tls: false
+        type: eclqueries
+      - name: esdl-sandbox
+        port: 8899
+        public: true
+        tls: false
+        type: esdl-sandbox
+      - name: sql2ecl
+        port: 8510
+        public: true
+        tls: false
+        type: sql2ecl
+      - name: sasha-dfuwu-archiver
+        port: 8877
+        type: sasha
+      - name: sasha-wu-archiver
+        port: 8877
+        type: sasha
+      tls: false
+      vaults:
+        codeSign: null
+        codeVerify: null
+        esp: null
+        storage: null
+    global:
+      cost:
+        moneyLocale: en_US.UTF-8
+        perCpu: 0.126
+      esp:
+      - application: eclwatch
+        auth: none
+        name: eclwatch
+        port: 8888
+        public: true
+        replicas: 1
+        servicePort: 8010
+      - application: eclservices
+        auth: none
+        name: eclservices
+        public: false
+        replicas: 1
+        servicePort: 8010
+      - application: eclqueries
+        auth: none
+        name: eclqueries
+        public: true
+        replicas: 1
+        servicePort: 8002
+      - application: esdl-sandbox
+        auth: none
+        name: esdl-sandbox
+        public: true
+        replicas: 1
+        servicePort: 8899
+      - application: sql2ecl
+        auth: none
+        name: sql2ecl
+        public: true
+        replicas: 1
+        servicePort: 8510
+      imageVersion: 941147cf4-Debug-dirty-0cb63cc194ca4b442bf01bd33ac0e4a1
+      mtls: false
+      secretTimeout: 300
+      singleNode: false
+      storage:
+        daliPlane: dali
+        dataPlane: data
+        dllsPlane: dll
+        planes:
+        - labels:
+          - data
+          name: data
+          prefix: /var/lib/HPCCSystems/hpcc-data
+        - name: hpcc-spill-plane
+          prefix: /var/lib/HPCCSystems/hpcc-spill
+        spillPlane: hpcc-spill-plane
+    version: 1
+metadata:
+  name: eclwatch-configmap
+---
+# Source: hpcc/templates/esp.yaml
+kind: ConfigMap
+
+apiVersion: v1
+data:
+  eclservices.yaml: |-
+    esp:
+      application: eclservices
+      auth: none
+      dfuQueues:
+      - name: dfuserver
+      logging:
+        detail: 100
+      metrics:
+        sinks:
+        - name: logging
+          settings:
+            period: 60
+          type: log
+      name: eclservices
+      public: false
+      queues:
+      - name: hthor
+        prefix: hthor
+        type: hthor
+      - name: roxie-workunit
+        prefix: roxie_workunit
+        type: roxie
+      - name: roxie
+        prefix: roxie
+        queriesOnly: true
+        type: roxie
+      - name: thor
+        prefix: thor
+        type: thor
+        width: 2
+      replicas: 1
+      servicePort: 8010
+      services:
+      - name: roxie
+        port: 9876
+        public: true
+        target: roxie
+        type: roxie
+      - name: eclwatch
+        port: 8010
+        public: true
+        tls: false
+        type: eclwatch
+      - name: eclservices
+        port: 8010
+        public: false
+        tls: false
+        type: eclservices
+      - name: eclqueries
+        port: 8002
+        public: true
+        tls: false
+        type: eclqueries
+      - name: esdl-sandbox
+        port: 8899
+        public: true
+        tls: false
+        type: esdl-sandbox
+      - name: sql2ecl
+        port: 8510
+        public: true
+        tls: false
+        type: sql2ecl
+      - name: sasha-dfuwu-archiver
+        port: 8877
+        type: sasha
+      - name: sasha-wu-archiver
+        port: 8877
+        type: sasha
+      tls: false
+      vaults:
+        esp: null
+        storage: null
+    global:
+      cost:
+        moneyLocale: en_US.UTF-8
+        perCpu: 0.126
+      esp:
+      - application: eclwatch
+        auth: none
+        name: eclwatch
+        port: 8888
+        public: true
+        replicas: 1
+        servicePort: 8010
+      - application: eclservices
+        auth: none
+        name: eclservices
+        public: false
+        replicas: 1
+        servicePort: 8010
+      - application: eclqueries
+        auth: none
+        name: eclqueries
+        public: true
+        replicas: 1
+        servicePort: 8002
+      - application: esdl-sandbox
+        auth: none
+        name: esdl-sandbox
+        public: true
+        replicas: 1
+        servicePort: 8899
+      - application: sql2ecl
+        auth: none
+        name: sql2ecl
+        public: true
+        replicas: 1
+        servicePort: 8510
+      imageVersion: 941147cf4-Debug-dirty-0cb63cc194ca4b442bf01bd33ac0e4a1
+      mtls: false
+      secretTimeout: 300
+      singleNode: false
+      storage:
+        daliPlane: dali
+        dataPlane: data
+        dllsPlane: dll
+        planes:
+        - labels:
+          - data
+          name: data
+          prefix: /var/lib/HPCCSystems/hpcc-data
+        - name: hpcc-spill-plane
+          prefix: /var/lib/HPCCSystems/hpcc-spill
+        spillPlane: hpcc-spill-plane
+    version: 1
+metadata:
+  name: eclservices-configmap
+---
+# Source: hpcc/templates/esp.yaml
+kind: ConfigMap
+
+apiVersion: v1
+data:
+  eclqueries.yaml: |-
+    esp:
+      application: eclqueries
+      auth: none
+      dfuQueues:
+      - name: dfuserver
+      logging:
+        detail: 100
+      metrics:
+        sinks:
+        - name: logging
+          settings:
+            period: 60
+          type: log
+      name: eclqueries
+      public: true
+      queues:
+      - name: hthor
+        prefix: hthor
+        type: hthor
+      - name: roxie-workunit
+        prefix: roxie_workunit
+        type: roxie
+      - name: roxie
+        prefix: roxie
+        queriesOnly: true
+        type: roxie
+      - name: thor
+        prefix: thor
+        type: thor
+        width: 2
+      replicas: 1
+      servicePort: 8002
+      services:
+      - name: roxie
+        port: 9876
+        public: true
+        target: roxie
+        type: roxie
+      - name: eclwatch
+        port: 8010
+        public: true
+        tls: false
+        type: eclwatch
+      - name: eclservices
+        port: 8010
+        public: false
+        tls: false
+        type: eclservices
+      - name: eclqueries
+        port: 8002
+        public: true
+        tls: false
+        type: eclqueries
+      - name: esdl-sandbox
+        port: 8899
+        public: true
+        tls: false
+        type: esdl-sandbox
+      - name: sql2ecl
+        port: 8510
+        public: true
+        tls: false
+        type: sql2ecl
+      - name: sasha-dfuwu-archiver
+        port: 8877
+        type: sasha
+      - name: sasha-wu-archiver
+        port: 8877
+        type: sasha
+      tls: false
+      vaults:
+        esp: null
+        storage: null
+    global:
+      cost:
+        moneyLocale: en_US.UTF-8
+        perCpu: 0.126
+      esp:
+      - application: eclwatch
+        auth: none
+        name: eclwatch
+        port: 8888
+        public: true
+        replicas: 1
+        servicePort: 8010
+      - application: eclservices
+        auth: none
+        name: eclservices
+        public: false
+        replicas: 1
+        servicePort: 8010
+      - application: eclqueries
+        auth: none
+        name: eclqueries
+        public: true
+        replicas: 1
+        servicePort: 8002
+      - application: esdl-sandbox
+        auth: none
+        name: esdl-sandbox
+        public: true
+        replicas: 1
+        servicePort: 8899
+      - application: sql2ecl
+        auth: none
+        name: sql2ecl
+        public: true
+        replicas: 1
+        servicePort: 8510
+      imageVersion: 941147cf4-Debug-dirty-0cb63cc194ca4b442bf01bd33ac0e4a1
+      mtls: false
+      secretTimeout: 300
+      singleNode: false
+      storage:
+        daliPlane: dali
+        dataPlane: data
+        dllsPlane: dll
+        planes:
+        - labels:
+          - data
+          name: data
+          prefix: /var/lib/HPCCSystems/hpcc-data
+        - name: hpcc-spill-plane
+          prefix: /var/lib/HPCCSystems/hpcc-spill
+        spillPlane: hpcc-spill-plane
+    version: 1
+metadata:
+  name: eclqueries-configmap
+---
+# Source: hpcc/templates/esp.yaml
+kind: ConfigMap
+
+apiVersion: v1
+data:
+  esdl-sandbox.yaml: |-
+    esp:
+      application: esdl-sandbox
+      auth: none
+      dfuQueues:
+      - name: dfuserver
+      logging:
+        detail: 100
+      metrics:
+        sinks:
+        - name: logging
+          settings:
+            period: 60
+          type: log
+      name: esdl-sandbox
+      public: true
+      queues:
+      - name: hthor
+        prefix: hthor
+        type: hthor
+      - name: roxie-workunit
+        prefix: roxie_workunit
+        type: roxie
+      - name: roxie
+        prefix: roxie
+        queriesOnly: true
+        type: roxie
+      - name: thor
+        prefix: thor
+        type: thor
+        width: 2
+      replicas: 1
+      servicePort: 8899
+      services:
+      - name: roxie
+        port: 9876
+        public: true
+        target: roxie
+        type: roxie
+      - name: eclwatch
+        port: 8010
+        public: true
+        tls: false
+        type: eclwatch
+      - name: eclservices
+        port: 8010
+        public: false
+        tls: false
+        type: eclservices
+      - name: eclqueries
+        port: 8002
+        public: true
+        tls: false
+        type: eclqueries
+      - name: esdl-sandbox
+        port: 8899
+        public: true
+        tls: false
+        type: esdl-sandbox
+      - name: sql2ecl
+        port: 8510
+        public: true
+        tls: false
+        type: sql2ecl
+      - name: sasha-dfuwu-archiver
+        port: 8877
+        type: sasha
+      - name: sasha-wu-archiver
+        port: 8877
+        type: sasha
+      tls: false
+      vaults:
+        esp: null
+        storage: null
+    global:
+      cost:
+        moneyLocale: en_US.UTF-8
+        perCpu: 0.126
+      esp:
+      - application: eclwatch
+        auth: none
+        name: eclwatch
+        port: 8888
+        public: true
+        replicas: 1
+        servicePort: 8010
+      - application: eclservices
+        auth: none
+        name: eclservices
+        public: false
+        replicas: 1
+        servicePort: 8010
+      - application: eclqueries
+        auth: none
+        name: eclqueries
+        public: true
+        replicas: 1
+        servicePort: 8002
+      - application: esdl-sandbox
+        auth: none
+        name: esdl-sandbox
+        public: true
+        replicas: 1
+        servicePort: 8899
+      - application: sql2ecl
+        auth: none
+        name: sql2ecl
+        public: true
+        replicas: 1
+        servicePort: 8510
+      imageVersion: 941147cf4-Debug-dirty-0cb63cc194ca4b442bf01bd33ac0e4a1
+      mtls: false
+      secretTimeout: 300
+      singleNode: false
+      storage:
+        daliPlane: dali
+        dataPlane: data
+        dllsPlane: dll
+        planes:
+        - labels:
+          - data
+          name: data
+          prefix: /var/lib/HPCCSystems/hpcc-data
+        - name: hpcc-spill-plane
+          prefix: /var/lib/HPCCSystems/hpcc-spill
+        spillPlane: hpcc-spill-plane
+    version: 1
+metadata:
+  name: esdl-sandbox-configmap
+---
+# Source: hpcc/templates/esp.yaml
+kind: ConfigMap
+
+apiVersion: v1
+data:
+  sql2ecl.yaml: |-
+    esp:
+      application: sql2ecl
+      auth: none
+      dfuQueues:
+      - name: dfuserver
+      logging:
+        detail: 100
+      metrics:
+        sinks:
+        - name: logging
+          settings:
+            period: 60
+          type: log
+      name: sql2ecl
+      public: true
+      queues:
+      - name: hthor
+        prefix: hthor
+        type: hthor
+      - name: roxie-workunit
+        prefix: roxie_workunit
+        type: roxie
+      - name: roxie
+        prefix: roxie
+        queriesOnly: true
+        type: roxie
+      - name: thor
+        prefix: thor
+        type: thor
+        width: 2
+      replicas: 1
+      servicePort: 8510
+      services:
+      - name: roxie
+        port: 9876
+        public: true
+        target: roxie
+        type: roxie
+      - name: eclwatch
+        port: 8010
+        public: true
+        tls: false
+        type: eclwatch
+      - name: eclservices
+        port: 8010
+        public: false
+        tls: false
+        type: eclservices
+      - name: eclqueries
+        port: 8002
+        public: true
+        tls: false
+        type: eclqueries
+      - name: esdl-sandbox
+        port: 8899
+        public: true
+        tls: false
+        type: esdl-sandbox
+      - name: sql2ecl
+        port: 8510
+        public: true
+        tls: false
+        type: sql2ecl
+      - name: sasha-dfuwu-archiver
+        port: 8877
+        type: sasha
+      - name: sasha-wu-archiver
+        port: 8877
+        type: sasha
+      tls: false
+      vaults:
+        esp: null
+        storage: null
+    global:
+      cost:
+        moneyLocale: en_US.UTF-8
+        perCpu: 0.126
+      esp:
+      - application: eclwatch
+        auth: none
+        name: eclwatch
+        port: 8888
+        public: true
+        replicas: 1
+        servicePort: 8010
+      - application: eclservices
+        auth: none
+        name: eclservices
+        public: false
+        replicas: 1
+        servicePort: 8010
+      - application: eclqueries
+        auth: none
+        name: eclqueries
+        public: true
+        replicas: 1
+        servicePort: 8002
+      - application: esdl-sandbox
+        auth: none
+        name: esdl-sandbox
+        public: true
+        replicas: 1
+        servicePort: 8899
+      - application: sql2ecl
+        auth: none
+        name: sql2ecl
+        public: true
+        replicas: 1
+        servicePort: 8510
+      imageVersion: 941147cf4-Debug-dirty-0cb63cc194ca4b442bf01bd33ac0e4a1
+      mtls: false
+      secretTimeout: 300
+      singleNode: false
+      storage:
+        daliPlane: dali
+        dataPlane: data
+        dllsPlane: dll
+        planes:
+        - labels:
+          - data
+          name: data
+          prefix: /var/lib/HPCCSystems/hpcc-data
+        - name: hpcc-spill-plane
+          prefix: /var/lib/HPCCSystems/hpcc-spill
+        spillPlane: hpcc-spill-plane
+    version: 1
+metadata:
+  name: sql2ecl-configmap
+---
+# Source: hpcc/templates/roxie.yaml
+kind: ConfigMap 
+
+apiVersion: v1
+data:
+  roxie.yaml: |-
+    global:
+      cost:
+        moneyLocale: en_US.UTF-8
+        perCpu: 0.126
+      esp:
+      - application: eclwatch
+        auth: none
+        name: eclwatch
+        port: 8888
+        public: true
+        replicas: 1
+        servicePort: 8010
+      - application: eclservices
+        auth: none
+        name: eclservices
+        public: false
+        replicas: 1
+        servicePort: 8010
+      - application: eclqueries
+        auth: none
+        name: eclqueries
+        public: true
+        replicas: 1
+        servicePort: 8002
+      - application: esdl-sandbox
+        auth: none
+        name: esdl-sandbox
+        public: true
+        replicas: 1
+        servicePort: 8899
+      - application: sql2ecl
+        auth: none
+        name: sql2ecl
+        public: true
+        replicas: 1
+        servicePort: 8510
+      imageVersion: 941147cf4-Debug-dirty-0cb63cc194ca4b442bf01bd33ac0e4a1
+      mtls: false
+      secretTimeout: 300
+      singleNode: false
+      storage:
+        daliPlane: dali
+        dataPlane: data
+        dllsPlane: dll
+        planes:
+        - labels:
+          - data
+          name: data
+          prefix: /var/lib/HPCCSystems/hpcc-data
+        - name: hpcc-spill-plane
+          prefix: /var/lib/HPCCSystems/hpcc-spill
+        spillPlane: hpcc-spill-plane
+    roxie:
+      disabled: false
+      encryptInTransit: false
+      localAgent: false
+      logging:
+        detail: 100
+      name: roxie
+      numChannels: 2
+      prefix: roxie
+      replicas: 2
+      resolveLocally: false
+      serverReplicas: 0
+      services:
+      - external: true
+        listenQueue: 200
+        name: roxie
+        numThreads: 30
+        port: 9876
+      topologyServers: roxie-toposerver:9004
+      useAeron: false
+      vaults:
+        ecl: null
+        ecl-user: null
+        storage: null
+    version: 1
+metadata:
+  name: roxie-configmap
+---
+# Source: hpcc/templates/roxie.yaml
+kind: ConfigMap 
+
+apiVersion: v1
+data:
+  roxie-toposerver.yaml: |-
+    toposerver:
+      logging:
+        detail: 100
+      port: 9004
+      traceLevel: 1
+    version: 1
+metadata:
+  name: roxie-toposerver-configmap
+---
+# Source: hpcc/templates/sasha.yaml
+kind: ConfigMap 
+
+apiVersion: v1
+data:
+  sasha-dfurecovery-archiver.yaml: |-
+    global:
+      cost:
+        moneyLocale: en_US.UTF-8
+        perCpu: 0.126
+      esp:
+      - application: eclwatch
+        auth: none
+        name: eclwatch
+        port: 8888
+        public: true
+        replicas: 1
+        servicePort: 8010
+      - application: eclservices
+        auth: none
+        name: eclservices
+        public: false
+        replicas: 1
+        servicePort: 8010
+      - application: eclqueries
+        auth: none
+        name: eclqueries
+        public: true
+        replicas: 1
+        servicePort: 8002
+      - application: esdl-sandbox
+        auth: none
+        name: esdl-sandbox
+        public: true
+        replicas: 1
+        servicePort: 8899
+      - application: sql2ecl
+        auth: none
+        name: sql2ecl
+        public: true
+        replicas: 1
+        servicePort: 8510
+      imageVersion: 941147cf4-Debug-dirty-0cb63cc194ca4b442bf01bd33ac0e4a1
+      mtls: false
+      secretTimeout: 300
+      singleNode: false
+      storage:
+        daliPlane: dali
+        dataPlane: data
+        dllsPlane: dll
+        planes:
+        - labels:
+          - data
+          name: data
+          prefix: /var/lib/HPCCSystems/hpcc-data
+        - name: hpcc-spill-plane
+          prefix: /var/lib/HPCCSystems/hpcc-spill
+        spillPlane: hpcc-spill-plane
+    sasha:
+      access:
+      - dali
+      logging:
+        detail: 100
+      name: dfurecovery-archiver
+      vaults: null
+    version: 1
+metadata:
+  name: sasha-dfurecovery-archiver-configmap
+---
+# Source: hpcc/templates/sasha.yaml
+kind: ConfigMap 
+
+apiVersion: v1
+data:
+  sasha-dfuwu-archiver.yaml: |-
+    global:
+      cost:
+        moneyLocale: en_US.UTF-8
+        perCpu: 0.126
+      esp:
+      - application: eclwatch
+        auth: none
+        name: eclwatch
+        port: 8888
+        public: true
+        replicas: 1
+        servicePort: 8010
+      - application: eclservices
+        auth: none
+        name: eclservices
+        public: false
+        replicas: 1
+        servicePort: 8010
+      - application: eclqueries
+        auth: none
+        name: eclqueries
+        public: true
+        replicas: 1
+        servicePort: 8002
+      - application: esdl-sandbox
+        auth: none
+        name: esdl-sandbox
+        public: true
+        replicas: 1
+        servicePort: 8899
+      - application: sql2ecl
+        auth: none
+        name: sql2ecl
+        public: true
+        replicas: 1
+        servicePort: 8510
+      imageVersion: 941147cf4-Debug-dirty-0cb63cc194ca4b442bf01bd33ac0e4a1
+      mtls: false
+      secretTimeout: 300
+      singleNode: false
+      storage:
+        daliPlane: dali
+        dataPlane: data
+        dllsPlane: dll
+        planes:
+        - labels:
+          - data
+          name: data
+          prefix: /var/lib/HPCCSystems/hpcc-data
+        - name: hpcc-spill-plane
+          prefix: /var/lib/HPCCSystems/hpcc-spill
+        spillPlane: hpcc-spill-plane
+    sasha:
+      access:
+      - dali
+      logging:
+        detail: 100
+      name: dfuwu-archiver
+      servicePort: 8877
+      storage:
+        plane: sasha
+        storageClass: ""
+        storageSize: 1Gi
+      storagePath: /var/lib/HPCCSystems/sasha
+      vaults: null
+    version: 1
+metadata:
+  name: sasha-dfuwu-archiver-configmap
+---
+# Source: hpcc/templates/sasha.yaml
+kind: ConfigMap 
+
+apiVersion: v1
+data:
+  sasha-file-expiry.yaml: |-
+    global:
+      cost:
+        moneyLocale: en_US.UTF-8
+        perCpu: 0.126
+      esp:
+      - application: eclwatch
+        auth: none
+        name: eclwatch
+        port: 8888
+        public: true
+        replicas: 1
+        servicePort: 8010
+      - application: eclservices
+        auth: none
+        name: eclservices
+        public: false
+        replicas: 1
+        servicePort: 8010
+      - application: eclqueries
+        auth: none
+        name: eclqueries
+        public: true
+        replicas: 1
+        servicePort: 8002
+      - application: esdl-sandbox
+        auth: none
+        name: esdl-sandbox
+        public: true
+        replicas: 1
+        servicePort: 8899
+      - application: sql2ecl
+        auth: none
+        name: sql2ecl
+        public: true
+        replicas: 1
+        servicePort: 8510
+      imageVersion: 941147cf4-Debug-dirty-0cb63cc194ca4b442bf01bd33ac0e4a1
+      mtls: false
+      secretTimeout: 300
+      singleNode: false
+      storage:
+        daliPlane: dali
+        dataPlane: data
+        dllsPlane: dll
+        planes:
+        - labels:
+          - data
+          name: data
+          prefix: /var/lib/HPCCSystems/hpcc-data
+        - name: hpcc-spill-plane
+          prefix: /var/lib/HPCCSystems/hpcc-spill
+        spillPlane: hpcc-spill-plane
+    sasha:
+      access:
+      - dali
+      - data
+      logging:
+        detail: 100
+      name: file-expiry
+      vaults:
+        storage: null
+    version: 1
+metadata:
+  name: sasha-file-expiry-configmap
+---
+# Source: hpcc/templates/sasha.yaml
+kind: ConfigMap 
+
+apiVersion: v1
+data:
+  sasha-wu-archiver.yaml: |-
+    global:
+      cost:
+        moneyLocale: en_US.UTF-8
+        perCpu: 0.126
+      esp:
+      - application: eclwatch
+        auth: none
+        name: eclwatch
+        port: 8888
+        public: true
+        replicas: 1
+        servicePort: 8010
+      - application: eclservices
+        auth: none
+        name: eclservices
+        public: false
+        replicas: 1
+        servicePort: 8010
+      - application: eclqueries
+        auth: none
+        name: eclqueries
+        public: true
+        replicas: 1
+        servicePort: 8002
+      - application: esdl-sandbox
+        auth: none
+        name: esdl-sandbox
+        public: true
+        replicas: 1
+        servicePort: 8899
+      - application: sql2ecl
+        auth: none
+        name: sql2ecl
+        public: true
+        replicas: 1
+        servicePort: 8510
+      imageVersion: 941147cf4-Debug-dirty-0cb63cc194ca4b442bf01bd33ac0e4a1
+      mtls: false
+      secretTimeout: 300
+      singleNode: false
+      storage:
+        daliPlane: dali
+        dataPlane: data
+        dllsPlane: dll
+        planes:
+        - labels:
+          - data
+          name: data
+          prefix: /var/lib/HPCCSystems/hpcc-data
+        - name: hpcc-spill-plane
+          prefix: /var/lib/HPCCSystems/hpcc-spill
+        spillPlane: hpcc-spill-plane
+    sasha:
+      access:
+      - dali
+      - data
+      - dll
+      logging:
+        detail: 100
+      name: wu-archiver
+      servicePort: 8877
+      storage:
+        plane: sasha
+        storageClass: ""
+        storageSize: 1Gi
+      storagePath: /var/lib/HPCCSystems/sasha
+      vaults:
+        storage: null
+    version: 1
+metadata:
+  name: sasha-wu-archiver-configmap
+---
+# Source: hpcc/templates/thor.yaml
+kind: ConfigMap
+
+apiVersion: v1
+data:
+  thor-networkspec.yaml: |-
+    apiVersion: networking.k8s.io/v1
+    kind: NetworkPolicy
+    metadata:
+      name: thornetworkpolicy-_HPCC_JOBNAME_
+    spec:
+      egress:
+      - to:
+        - podSelector:
+            matchLabels:
+              app: thor
+              job: _HPCC_JOBNAME_
+      ingress:
+      - from:
+        - podSelector:
+            matchLabels:
+              app: thor
+              job: _HPCC_JOBNAME_
+      podSelector:
+        matchLabels:
+          app: thor
+          job: _HPCC_JOBNAME_
+  thor.yaml: |-
+    eclagent:
+      logging:
+        detail: 100
+      name: thor-eclagent
+      replicas: 1
+      type: hthor
+      useChildProcesses: true
+    global:
+      cost:
+        moneyLocale: en_US.UTF-8
+        perCpu: 0.126
+      esp:
+      - application: eclwatch
+        auth: none
+        name: eclwatch
+        port: 8888
+        public: true
+        replicas: 1
+        servicePort: 8010
+      - application: eclservices
+        auth: none
+        name: eclservices
+        public: false
+        replicas: 1
+        servicePort: 8010
+      - application: eclqueries
+        auth: none
+        name: eclqueries
+        public: true
+        replicas: 1
+        servicePort: 8002
+      - application: esdl-sandbox
+        auth: none
+        name: esdl-sandbox
+        public: true
+        replicas: 1
+        servicePort: 8899
+      - application: sql2ecl
+        auth: none
+        name: sql2ecl
+        public: true
+        replicas: 1
+        servicePort: 8510
+      imageVersion: 941147cf4-Debug-dirty-0cb63cc194ca4b442bf01bd33ac0e4a1
+      mtls: false
+      secretTimeout: 300
+      singleNode: false
+      storage:
+        daliPlane: dali
+        dataPlane: data
+        dllsPlane: dll
+        planes:
+        - labels:
+          - data
+          name: data
+          prefix: /var/lib/HPCCSystems/hpcc-data
+        - name: hpcc-spill-plane
+          prefix: /var/lib/HPCCSystems/hpcc-spill
+        spillPlane: hpcc-spill-plane
+    hthor:
+      logging:
+        detail: 100
+      name: thor-hthor
+      platform:
+        type: thor
+        width: 2
+      vaults:
+        ecl: null
+        ecl-user: null
+        storage: null
+    thor:
+      logging:
+        detail: 100
+      maxGraphs: 2
+      maxJobs: 4
+      name: thor
+      numWorkers: 2
+      prefix: thor
+      vaults:
+        ecl: null
+        ecl-user: null
+        storage: null
+    thoragent:
+      logging:
+        detail: 100
+      name: thor-thoragent
+      replicas: 1
+      type: thor
+    version: 1
+  thormanager-jobspec.yaml: |-
+    apiVersion: batch/v1
+    kind: Job
+    metadata:
+      name: thormanager-_HPCC_JOBNAME_
+    spec:
+      backoffLimit: 0
+      template:
+        metadata:
+          labels:
+            accessDali: "yes"
+            accessEsp: "yes"
+            app: thor
+            job: _HPCC_JOBNAME_
+        spec:
+          containers:
+          - args:
+            - -c
+            - thormaster_lcr "--config=/etc/config/thor.yaml" "--daliServers=mydali" _HPCC_ARGS_
+            command:
+            - /bin/bash
+            image: hpccsystems/platform-core:941147cf4-Debug-dirty-0cb63cc194ca4b442bf01bd33ac0e4a1
+            imagePullPolicy: IfNotPresent
+            name: thormanager-_HPCC_JOBNAME_
+            securityContext:
+              capabilities:
+                add:
+                - SYS_PTRACE
+              privileged: true
+              readOnlyRootFilesystem: false
+              runAsGroup: 10001
+              runAsNonRoot: true
+              runAsUser: 10000
+            volumeMounts:
+            - mountPath: /tmp
+              name: thor-temp-volume
+            - mountPath: /var/lib/HPCCSystems
+              name: thor-hpcctmp-volume
+            - mountPath: /etc/config
+              name: thor-configmap-volume
+            - mountPath: /var/lib/HPCCSystems/hpcc-data
+              name: data-pv
+            - mountPath: /var/lib/HPCCSystems/queries
+              name: dll
+            workingDir: /var/lib/HPCCSystems
+          initContainers: null
+          restartPolicy: Never
+          serviceAccountName: hpcc-agent
+          volumes:
+          - emptyDir: {}
+            name: thor-temp-volume
+          - emptyDir: {}
+            name: thor-hpcctmp-volume
+          - configMap:
+              name: thor-configmap
+            name: thor-configmap-volume
+          - name: data-pv
+            persistentVolumeClaim:
+              claimName: data-localfile-hpcc-localfile-pvc
+          - name: dll
+            persistentVolumeClaim:
+              claimName: dll-localfile-hpcc-localfile-pvc
+      ttlSecondsAfterFinished: 100
+  thorworker-jobspec.yaml: |-
+    apiVersion: batch/v1
+    kind: Job
+    metadata:
+      name: thorworker-_HPCC_JOBNAME_
+    spec:
+      backoffLimit: 0
+      parallelism: _HPCC_NUM_WORKERS_
+      template:
+        metadata:
+          labels:
+            accessEsp: "true"
+            app: thor
+            job: _HPCC_JOBNAME_
+        spec:
+          containers:
+          - args:
+            - -c
+            - thorslave_lcr "--config=/etc/config/thor.yaml" "--daliServers=mydali" _HPCC_ARGS_
+            command:
+            - /bin/bash
+            image: hpccsystems/platform-core:941147cf4-Debug-dirty-0cb63cc194ca4b442bf01bd33ac0e4a1
+            imagePullPolicy: IfNotPresent
+            name: thorworker-_HPCC_JOBNAME_
+            securityContext:
+              capabilities:
+                add:
+                - SYS_PTRACE
+              privileged: true
+              readOnlyRootFilesystem: false
+              runAsGroup: 10001
+              runAsNonRoot: true
+              runAsUser: 10000
+            volumeMounts:
+            - mountPath: /tmp
+              name: thor-temp-volume
+            - mountPath: /var/lib/HPCCSystems
+              name: thor-hpcctmp-volume
+            - mountPath: /etc/config
+              name: thor-configmap-volume
+            - mountPath: /var/lib/HPCCSystems/hpcc-data
+              name: data-pv
+            - mountPath: /var/lib/HPCCSystems/queries
+              name: dll
+            workingDir: /var/lib/HPCCSystems
+          restartPolicy: Never
+          serviceAccountName: hpcc-default
+          volumes:
+          - emptyDir: {}
+            name: thor-temp-volume
+          - emptyDir: {}
+            name: thor-hpcctmp-volume
+          - configMap:
+              name: thor-configmap
+            name: thor-configmap-volume
+          - name: data-pv
+            persistentVolumeClaim:
+              claimName: data-localfile-hpcc-localfile-pvc
+          - name: dll
+            persistentVolumeClaim:
+              claimName: dll-localfile-hpcc-localfile-pvc
+      ttlSecondsAfterFinished: 100
+metadata:
+  name: thor-configmap
+---
+# Source: hpcc/templates/service-account.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: hpcc-agent
+rules:
+  - apiGroups: [ "" ] # core API group
+    resources: [ "pods" ]
+    verbs: [ "get", "list" ]
+  - apiGroups: [ "batch" ]
+    resources: [ "jobs" ]
+    verbs: [ "get", "create", "list", "delete", "watch" ]
+---
+# Source: hpcc/templates/service-account.yaml
+# hpcc-thoragent needs to be able to manipulate jobs AND give the resulting pods the ability to see each other
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: hpcc-thoragent
+rules:
+  - apiGroups: [ "" ] # core API group
+    resources: [ "pods" ]
+    verbs: [ "get", "list", "create" ]
+  - apiGroups: [ "networking.k8s.io" ]
+    resources: [ "networkpolicies" ]
+    verbs: [ "get", "create", "delete" ]
+  - apiGroups: [ "batch" ]
+    resources: [ "jobs" ]
+    verbs: [ "get", "create", "list", "delete", "watch" ]
+---
+# Source: hpcc/templates/service-account.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: hpcc-agent
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: hpcc-agent
+subjects:
+  - kind: ServiceAccount
+    name: hpcc-agent
+    namespace: default
+---
+# Source: hpcc/templates/service-account.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: hpcc-thoragent
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: hpcc-thoragent
+subjects:
+  - kind: ServiceAccount
+    name: hpcc-thoragent
+    namespace: default
+---
+# Source: hpcc/templates/dali.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: "mydali"
+spec:
+  ports:
+  - port: 7070
+    protocol: TCP
+    targetPort: 7070
+  selector:
+    run: "mydali"
+  type: ClusterIP
+---
+# Source: hpcc/templates/esp.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: "eclwatch"
+spec:
+  ports:
+  - port: 8010
+    protocol: TCP
+    targetPort: 8888
+  selector:
+    run: "eclwatch"
+  type: LoadBalancer
+---
+# Source: hpcc/templates/esp.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: "eclservices"
+spec:
+  ports:
+  - port: 8010
+    protocol: TCP
+    targetPort: 8880
+  selector:
+    run: "eclservices"
+  type: ClusterIP
+---
+# Source: hpcc/templates/esp.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: "eclqueries"
+spec:
+  ports:
+  - port: 8002
+    protocol: TCP
+    targetPort: 8880
+  selector:
+    run: "eclqueries"
+  type: LoadBalancer
+---
+# Source: hpcc/templates/esp.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: "esdl-sandbox"
+spec:
+  ports:
+  - port: 8899
+    protocol: TCP
+    targetPort: 8880
+  selector:
+    run: "esdl-sandbox"
+  type: LoadBalancer
+---
+# Source: hpcc/templates/esp.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: "sql2ecl"
+spec:
+  ports:
+  - port: 8510
+    protocol: TCP
+    targetPort: 8880
+  selector:
+    run: "sql2ecl"
+  type: LoadBalancer
+---
+# Source: hpcc/templates/roxie.yaml
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: "roxie"
+  labels:
+    type: roxie-service
+spec:
+  ports:
+  - port: 9876
+    protocol: TCP
+    targetPort: 9876
+  selector:
+    roxie-server: "roxie-server"
+  type: LoadBalancer
+---
+# Source: hpcc/templates/roxie.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: "roxie-toposerver"
+spec:
+  ports:
+  - port: 9004
+    protocol: TCP
+    targetPort: 9004
+  selector:
+    run: "roxie-toposerver"
+  clusterIP: None # Headless service
+---
+# Source: hpcc/templates/sasha.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: "sasha-dfuwu-archiver"
+spec:
+  ports:
+  - port: 8877
+    protocol: TCP
+    targetPort: 8877
+  selector:
+    run: "sasha-dfuwu-archiver"
+  type: ClusterIP
+---
+# Source: hpcc/templates/sasha.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: "sasha-wu-archiver"
+spec:
+  ports:
+  - port: 8877
+    protocol: TCP
+    targetPort: 8877
+  selector:
+    run: "sasha-wu-archiver"
+  type: ClusterIP
+---
+# Source: hpcc/templates/dali.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: "mydali"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      run: "mydali"
+      app: dali
+  template:
+    metadata:
+      labels:
+        run: "mydali"
+        app: dali
+    spec:      
+      serviceAccountName: "hpcc-default"
+      initContainers:      
+      containers:
+      - name: "mydali"
+        workingDir: /var/lib/HPCCSystems
+        command: [ daserver ] 
+        args: [
+                "--config=/etc/config/mydali.yaml"
+              ]
+        env:
+        - name: "SENTINEL"
+          value: "/tmp/mydali.sentinel"
+        startupProbe:
+          exec:
+            command:
+            - cat
+            - "/tmp/mydali.sentinel"
+          failureThreshold: 30
+          periodSeconds: 10
+        readinessProbe:
+          exec:
+            command:
+            - cat
+            - "/tmp/mydali.sentinel"
+          periodSeconds: 10
+                
+        securityContext:
+          privileged: true
+          capabilities:
+            add:
+            - SYS_PTRACE
+          readOnlyRootFilesystem: false
+          runAsNonRoot: true
+          runAsUser: 10000
+          runAsGroup: 10001
+                
+        image: "hpccsystems/platform-core:941147cf4-Debug-dirty-0cb63cc194ca4b442bf01bd33ac0e4a1"
+        imagePullPolicy: IfNotPresent
+        volumeMounts:
+        - name: mydali-temp-volume
+          mountPath: /tmp
+        - name: mydali-hpcctmp-volume
+          mountPath: /var/lib/HPCCSystems
+        - name: mydali-configmap-volume
+          mountPath: /etc/config
+        - name: dali
+          mountPath: /var/lib/HPCCSystems/dalistorage
+        
+              
+      - name: "sasha-coalescer"
+        workingDir: /var/lib/HPCCSystems
+        command: [ saserver ] 
+        args: [
+                "--config=/etc/config/sasha-coalescer.yaml",
+                "--service=coalescer",
+                "--daliServers=mydali"
+              ]    
+        securityContext:
+          privileged: true
+          capabilities:
+            add:
+            - SYS_PTRACE
+          readOnlyRootFilesystem: false
+          runAsNonRoot: true
+          runAsUser: 10000
+          runAsGroup: 10001
+        
+        env:
+        - name: "SENTINEL"
+          value: "/tmp/sasha-coalescer.sentinel"
+        startupProbe:
+          exec:
+            command:
+            - cat
+            - "/tmp/sasha-coalescer.sentinel"
+          failureThreshold: 30
+          periodSeconds: 10
+        readinessProbe:
+          exec:
+            command:
+            - cat
+            - "/tmp/sasha-coalescer.sentinel"
+          periodSeconds: 10
+        
+        image: "hpccsystems/platform-core:941147cf4-Debug-dirty-0cb63cc194ca4b442bf01bd33ac0e4a1"
+        imagePullPolicy: IfNotPresent
+        volumeMounts:        
+        - name: sasha-coalescer-temp-volume
+          mountPath: /tmp
+        - name: sasha-coalescer-hpcctmp-volume
+          mountPath: /var/lib/HPCCSystems
+        - name: sasha-coalescer-configmap-volume
+          mountPath: /etc/config
+        - name: dali
+          mountPath: /var/lib/HPCCSystems/dalistorage
+        
+      volumes:
+      - name: mydali-temp-volume
+        emptyDir: {}
+      - name: mydali-hpcctmp-volume
+        emptyDir: {}
+      - name: mydali-configmap-volume
+        configMap:
+          name: mydali-configmap      
+      - name: sasha-coalescer-temp-volume
+        emptyDir: {}
+      - name: sasha-coalescer-hpcctmp-volume
+        emptyDir: {}
+      - name: sasha-coalescer-configmap-volume
+        configMap:
+          name: sasha-coalescer-configmap
+      - name: dali
+        persistentVolumeClaim:
+          claimName: dali-localfile-hpcc-localfile-pvc
+---
+# Source: hpcc/templates/dfuserver.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: "dfuserver"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      run: "dfuserver"
+  template:
+    metadata:
+      labels:
+        run: "dfuserver"
+        accessDali: "yes"
+      annotations:
+        checksum/config: b16030957a4e3b8eee9c729fe11d76175272a7a7fcfae591fdf24cc159a03ae0
+    spec:
+      serviceAccountName: "hpcc-default"
+      initContainers:      
+      containers:
+      - name: "dfuserver"
+        workingDir: /var/lib/HPCCSystems
+        command: [ dfuserver ]
+        args: [
+                "--config=/etc/config/dfuserver.yaml",
+                "--daliServers=mydali"
+          ]
+        env:
+        - name: "SENTINEL"
+          value: "/tmp/dfuserver.sentinel"
+        startupProbe:
+          exec:
+            command:
+            - cat
+            - "/tmp/dfuserver.sentinel"
+          failureThreshold: 30
+          periodSeconds: 10
+        readinessProbe:
+          exec:
+            command:
+            - cat
+            - "/tmp/dfuserver.sentinel"
+          periodSeconds: 10
+                
+        securityContext:
+          privileged: true
+          capabilities:
+            add:
+            - SYS_PTRACE
+          readOnlyRootFilesystem: false
+          runAsNonRoot: true
+          runAsUser: 10000
+          runAsGroup: 10001
+                
+        image: "hpccsystems/platform-core:941147cf4-Debug-dirty-0cb63cc194ca4b442bf01bd33ac0e4a1"
+        imagePullPolicy: IfNotPresent
+        volumeMounts:        
+        - name: data-pv
+          mountPath: "/var/lib/HPCCSystems/hpcc-data"
+        - name: dfuserver-temp-volume
+          mountPath: /tmp
+        - name: dfuserver-hpcctmp-volume
+          mountPath: /var/lib/HPCCSystems
+        - name: dfuserver-configmap-volume
+          mountPath: /etc/config
+      volumes:
+      - name: dfuserver-temp-volume
+        emptyDir: {}
+      - name: dfuserver-hpcctmp-volume
+        emptyDir: {}
+      - name: dfuserver-configmap-volume
+        configMap:
+          name: dfuserver-configmap      
+      - name: data-pv
+        persistentVolumeClaim:
+          claimName: data-localfile-hpcc-localfile-pvc
+---
+# Source: hpcc/templates/eclagent.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: "hthor"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      run: "hthor"
+  template:
+    metadata:
+      labels:
+        run: "hthor"
+        accessDali: "yes"
+        accessEsp: "no"
+      annotations:
+        checksum/config: dd71ca92141ba94dbe10d9e7b045f702f83ee149e3ec16552f20a5600a8f3d6b
+    spec:      
+      serviceAccountName: hpcc-agent
+      initContainers:      
+      containers:
+      - name: "hthor"
+        workingDir: /var/lib/HPCCSystems
+        command: [ agentexec ] 
+        args: [ 
+                "--config=/etc/config/hthor.yaml",
+                "--daliServers=mydali"
+              ]
+        env:
+        - name: "SENTINEL"
+          value: "/tmp/hthor.sentinel"
+        startupProbe:
+          exec:
+            command:
+            - cat
+            - "/tmp/hthor.sentinel"
+          failureThreshold: 30
+          periodSeconds: 10
+        readinessProbe:
+          exec:
+            command:
+            - cat
+            - "/tmp/hthor.sentinel"
+          periodSeconds: 10
+                
+        securityContext:
+          privileged: true
+          capabilities:
+            add:
+            - SYS_PTRACE
+          readOnlyRootFilesystem: false
+          runAsNonRoot: true
+          runAsUser: 10000
+          runAsGroup: 10001
+        
+        image: "hpccsystems/platform-core:941147cf4-Debug-dirty-0cb63cc194ca4b442bf01bd33ac0e4a1"
+        imagePullPolicy: IfNotPresent
+        volumeMounts:
+        - name: hthor-temp-volume
+          mountPath: /tmp
+        - name: hthor-hpcctmp-volume
+          mountPath: /var/lib/HPCCSystems
+        - name: hthor-configmap-volume
+          mountPath: /etc/config
+        
+        - name: data-pv
+          mountPath: "/var/lib/HPCCSystems/hpcc-data"
+        - name: dll
+          mountPath: /var/lib/HPCCSystems/queries
+        
+        
+      volumes:
+      - name: hthor-temp-volume
+        emptyDir: {}
+      - name: hthor-hpcctmp-volume
+        emptyDir: {}
+      - name: hthor-configmap-volume
+        configMap:
+          name: hthor-configmap
+      
+      - name: data-pv
+        persistentVolumeClaim:
+          claimName: data-localfile-hpcc-localfile-pvc
+      - name: dll
+        persistentVolumeClaim:
+          claimName: dll-localfile-hpcc-localfile-pvc
+---
+# Source: hpcc/templates/eclagent.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: "roxie-workunit"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      run: "roxie-workunit"
+  template:
+    metadata:
+      labels:
+        run: "roxie-workunit"
+        accessDali: "yes"
+        accessEsp: "yes"
+      annotations:
+        checksum/config: 5a4e23e9daeaa3190b07dbbae08c0b867dbb601eb0057584ab9de0a341d6cd04
+    spec:      
+      serviceAccountName: hpcc-default
+      initContainers:      
+      containers:
+      - name: "roxie-workunit"
+        workingDir: /var/lib/HPCCSystems
+        command: [ agentexec ] 
+        args: [ 
+                "--config=/etc/config/roxie-workunit.yaml",
+                "--daliServers=mydali"
+              ]
+        env:
+        - name: "SENTINEL"
+          value: "/tmp/roxie-workunit.sentinel"
+        startupProbe:
+          exec:
+            command:
+            - cat
+            - "/tmp/roxie-workunit.sentinel"
+          failureThreshold: 30
+          periodSeconds: 10
+        readinessProbe:
+          exec:
+            command:
+            - cat
+            - "/tmp/roxie-workunit.sentinel"
+          periodSeconds: 10
+                
+        securityContext:
+          privileged: true
+          capabilities:
+            add:
+            - SYS_PTRACE
+          readOnlyRootFilesystem: false
+          runAsNonRoot: true
+          runAsUser: 10000
+          runAsGroup: 10001
+                
+        image: "hpccsystems/platform-core:941147cf4-Debug-dirty-0cb63cc194ca4b442bf01bd33ac0e4a1"
+        imagePullPolicy: IfNotPresent
+        volumeMounts:
+        - name: roxie-workunit-temp-volume
+          mountPath: /tmp
+        - name: roxie-workunit-hpcctmp-volume
+          mountPath: /var/lib/HPCCSystems
+        - name: roxie-workunit-configmap-volume
+          mountPath: /etc/config
+        
+        - name: data-pv
+          mountPath: "/var/lib/HPCCSystems/hpcc-data"
+        - name: dll
+          mountPath: /var/lib/HPCCSystems/queries
+        
+        
+      volumes:
+      - name: roxie-workunit-temp-volume
+        emptyDir: {}
+      - name: roxie-workunit-hpcctmp-volume
+        emptyDir: {}
+      - name: roxie-workunit-configmap-volume
+        configMap:
+          name: roxie-workunit-configmap
+      
+      - name: data-pv
+        persistentVolumeClaim:
+          claimName: data-localfile-hpcc-localfile-pvc
+      - name: dll
+        persistentVolumeClaim:
+          claimName: dll-localfile-hpcc-localfile-pvc
+---
+# Source: hpcc/templates/eclccserver.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: "myeclccserver"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      run: "myeclccserver"
+  template:
+    metadata:
+      labels:
+        run: "myeclccserver"
+        accessDali: "yes"
+        accessEsp: "no"
+      annotations:
+        checksum/config: 950ff663bd16af80aaa09e4ef52cff627aef19c21cd661ab61d3b57d4f3e00c2
+    spec:      
+      serviceAccountName: hpcc-agent
+      terminationGracePeriodSeconds: 600
+      initContainers:            
+      containers:
+      - name: "myeclccserver"
+        workingDir: /tmp
+        command: [ eclccserver ] 
+        args: [
+                "--config=/etc/config/myeclccserver.yaml",
+                "--daliServers=mydali"
+              ]
+        env:
+        - name: "SENTINEL"
+          value: "/tmp/myeclccserver.sentinel"
+        startupProbe:
+          exec:
+            command:
+            - cat
+            - "/tmp/myeclccserver.sentinel"
+          failureThreshold: 30
+          periodSeconds: 10
+        readinessProbe:
+          exec:
+            command:
+            - cat
+            - "/tmp/myeclccserver.sentinel"
+          periodSeconds: 10
+                
+        securityContext:
+          privileged: true
+          capabilities:
+            add:
+            - SYS_PTRACE
+          readOnlyRootFilesystem: false
+          runAsNonRoot: true
+          runAsUser: 10000
+          runAsGroup: 10001
+        
+        image: "hpccsystems/platform-core:941147cf4-Debug-dirty-0cb63cc194ca4b442bf01bd33ac0e4a1"
+        imagePullPolicy: IfNotPresent
+        volumeMounts:
+        - name: myeclccserver-temp-volume
+          mountPath: /tmp
+        - name: myeclccserver-hpcctmp-volume
+          mountPath: /var/lib/HPCCSystems
+        - name: myeclccserver-configmap-volume
+          mountPath: /etc/config
+        
+        - name: data-pv
+          mountPath: "/var/lib/HPCCSystems/hpcc-data"
+        - name: dll
+          mountPath: /var/lib/HPCCSystems/queries
+        
+        
+        - name: "hpccbundles"
+          mountPath: "/home/hpcc/.HPCCSystems"
+      volumes:
+      - name: myeclccserver-temp-volume
+        emptyDir: {}
+      - name: myeclccserver-hpcctmp-volume
+        emptyDir: {}
+      - name: myeclccserver-configmap-volume
+        configMap:
+          name: myeclccserver-configmap
+      
+      - name: data-pv
+        persistentVolumeClaim:
+          claimName: data-localfile-hpcc-localfile-pvc
+      - name: dll
+        persistentVolumeClaim:
+          claimName: dll-localfile-hpcc-localfile-pvc
+      
+      
+      - name: hpccbundles
+        emptyDir: {}
+---
+# Source: hpcc/templates/eclscheduler.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: "eclscheduler"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      run: "eclscheduler"
+  template:
+    metadata:
+      labels:
+        run: "eclscheduler"
+        accessDali: "yes"
+        accessEsp: "no"
+      annotations:
+        checksum/config: 78168c29aa6ed600cf6e3e438c9ecf5caf150a917398cab48bf92dcb55b8351c
+    spec:      
+      serviceAccountName: "hpcc-default"
+      terminationGracePeriodSeconds: 600
+      initContainers:      
+      containers:
+      - name: "eclscheduler"
+        workingDir: /var/lib/HPCCSystems
+        command: [ eclscheduler ]
+        args: [
+                "--config=/etc/config/eclscheduler.yaml",
+                "--daliServers=mydali"
+              ]
+        env:
+        - name: "SENTINEL"
+          value: "/tmp/eclscheduler.sentinel"
+        startupProbe:
+          exec:
+            command:
+            - cat
+            - "/tmp/eclscheduler.sentinel"
+          failureThreshold: 30
+          periodSeconds: 10
+        readinessProbe:
+          exec:
+            command:
+            - cat
+            - "/tmp/eclscheduler.sentinel"
+          periodSeconds: 10
+                
+        securityContext:
+          privileged: true
+          capabilities:
+            add:
+            - SYS_PTRACE
+          readOnlyRootFilesystem: false
+          runAsNonRoot: true
+          runAsUser: 10000
+          runAsGroup: 10001
+        
+        image: "hpccsystems/platform-core:941147cf4-Debug-dirty-0cb63cc194ca4b442bf01bd33ac0e4a1"
+        imagePullPolicy: IfNotPresent
+        volumeMounts:
+        - name: eclscheduler-temp-volume
+          mountPath: /tmp
+        - name: eclscheduler-hpcctmp-volume
+          mountPath: /var/lib/HPCCSystems
+        - name: eclscheduler-configmap-volume
+          mountPath: /etc/config
+        
+        - name: data-pv
+          mountPath: "/var/lib/HPCCSystems/hpcc-data"
+        - name: dll
+          mountPath: /var/lib/HPCCSystems/queries
+        
+        
+      volumes:
+      - name: eclscheduler-temp-volume
+        emptyDir: {}
+      - name: eclscheduler-hpcctmp-volume
+        emptyDir: {}
+      - name: eclscheduler-configmap-volume
+        configMap:
+          name: eclscheduler-configmap
+      
+      - name: data-pv
+        persistentVolumeClaim:
+          claimName: data-localfile-hpcc-localfile-pvc
+      - name: dll
+        persistentVolumeClaim:
+          claimName: dll-localfile-hpcc-localfile-pvc
+---
+# Source: hpcc/templates/esp.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: "eclwatch"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      run: "eclwatch"
+  template:
+    metadata:
+      labels:
+        run: "eclwatch"
+        accessDali: "yes"
+        app: eclwatch
+      annotations:
+        checksum/config: 00f5ac918c4c650dce2f84e252ee2a60115551422ca19bb6f33b6b07fb95d3c3
+    spec:      
+      serviceAccountName: "hpcc-default"
+      containers:
+      - name: "eclwatch"
+        workingDir: /var/lib/HPCCSystems
+        command: [ esp ] 
+        args: [
+                "--application=eclwatch",
+                "--config=/etc/config/eclwatch.yaml",
+                "--daliServers=mydali"
+              ]
+        env:
+        - name: "SENTINEL"
+          value: "/tmp/eclwatch.sentinel"
+        startupProbe:
+          exec:
+            command:
+            - cat
+            - "/tmp/eclwatch.sentinel"
+          failureThreshold: 30
+          periodSeconds: 10
+        readinessProbe:
+          exec:
+            command:
+            - cat
+            - "/tmp/eclwatch.sentinel"
+          periodSeconds: 10
+                
+        securityContext:
+          privileged: true
+          capabilities:
+            add:
+            - SYS_PTRACE
+          readOnlyRootFilesystem: false
+          runAsNonRoot: true
+          runAsUser: 10000
+          runAsGroup: 10001
+                
+        image: "hpccsystems/platform-core:941147cf4-Debug-dirty-0cb63cc194ca4b442bf01bd33ac0e4a1"
+        imagePullPolicy: IfNotPresent
+        volumeMounts:
+        - name: eclwatch-temp-volume
+          mountPath: /tmp
+        - name: eclwatch-hpcctmp-volume
+          mountPath: /var/lib/HPCCSystems
+        - name: eclwatch-configmap-volume
+          mountPath: /etc/config
+        
+        - name: data-pv
+          mountPath: "/var/lib/HPCCSystems/hpcc-data"
+        - name: dll
+          mountPath: /var/lib/HPCCSystems/queries
+        
+        
+      volumes:
+      - name: eclwatch-temp-volume
+        emptyDir: {}
+      - name: eclwatch-hpcctmp-volume
+        emptyDir: {}
+      - name: eclwatch-configmap-volume
+        configMap:
+          name: eclwatch-configmap
+      
+      - name: data-pv
+        persistentVolumeClaim:
+          claimName: data-localfile-hpcc-localfile-pvc
+      - name: dll
+        persistentVolumeClaim:
+          claimName: dll-localfile-hpcc-localfile-pvc
+---
+# Source: hpcc/templates/esp.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: "eclservices"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      run: "eclservices"
+  template:
+    metadata:
+      labels:
+        run: "eclservices"
+        accessDali: "yes"
+        app: eclservices
+      annotations:
+        checksum/config: 03064122d83628b5ca26b67ec05abd639e971fca99c959f71f5f7d2ae761a68d
+    spec:      
+      serviceAccountName: "hpcc-default"
+      containers:
+      - name: "eclservices"
+        workingDir: /var/lib/HPCCSystems
+        command: [ esp ] 
+        args: [
+                "--application=eclservices",
+                "--config=/etc/config/eclservices.yaml",
+                "--daliServers=mydali"
+              ]
+        env:
+        - name: "SENTINEL"
+          value: "/tmp/eclservices.sentinel"
+        startupProbe:
+          exec:
+            command:
+            - cat
+            - "/tmp/eclservices.sentinel"
+          failureThreshold: 30
+          periodSeconds: 10
+        readinessProbe:
+          exec:
+            command:
+            - cat
+            - "/tmp/eclservices.sentinel"
+          periodSeconds: 10
+                
+        securityContext:
+          privileged: true
+          capabilities:
+            add:
+            - SYS_PTRACE
+          readOnlyRootFilesystem: false
+          runAsNonRoot: true
+          runAsUser: 10000
+          runAsGroup: 10001
+                
+        image: "hpccsystems/platform-core:941147cf4-Debug-dirty-0cb63cc194ca4b442bf01bd33ac0e4a1"
+        imagePullPolicy: IfNotPresent
+        volumeMounts:
+        - name: eclservices-temp-volume
+          mountPath: /tmp
+        - name: eclservices-hpcctmp-volume
+          mountPath: /var/lib/HPCCSystems
+        - name: eclservices-configmap-volume
+          mountPath: /etc/config
+        
+        - name: data-pv
+          mountPath: "/var/lib/HPCCSystems/hpcc-data"
+        - name: dll
+          mountPath: /var/lib/HPCCSystems/queries
+        
+        
+      volumes:
+      - name: eclservices-temp-volume
+        emptyDir: {}
+      - name: eclservices-hpcctmp-volume
+        emptyDir: {}
+      - name: eclservices-configmap-volume
+        configMap:
+          name: eclservices-configmap
+      
+      - name: data-pv
+        persistentVolumeClaim:
+          claimName: data-localfile-hpcc-localfile-pvc
+      - name: dll
+        persistentVolumeClaim:
+          claimName: dll-localfile-hpcc-localfile-pvc
+---
+# Source: hpcc/templates/esp.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: "eclqueries"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      run: "eclqueries"
+  template:
+    metadata:
+      labels:
+        run: "eclqueries"
+        accessDali: "yes"
+        app: eclqueries
+      annotations:
+        checksum/config: 3b00e911d135414b02a8d995b8dd22649236127824d16e73e7a5dda4dae9c875
+    spec:      
+      serviceAccountName: "hpcc-default"
+      containers:
+      - name: "eclqueries"
+        workingDir: /var/lib/HPCCSystems
+        command: [ esp ] 
+        args: [
+                "--application=eclqueries",
+                "--config=/etc/config/eclqueries.yaml",
+                "--daliServers=mydali"
+              ]
+        env:
+        - name: "SENTINEL"
+          value: "/tmp/eclqueries.sentinel"
+        startupProbe:
+          exec:
+            command:
+            - cat
+            - "/tmp/eclqueries.sentinel"
+          failureThreshold: 30
+          periodSeconds: 10
+        readinessProbe:
+          exec:
+            command:
+            - cat
+            - "/tmp/eclqueries.sentinel"
+          periodSeconds: 10
+                
+        securityContext:
+          privileged: true
+          capabilities:
+            add:
+            - SYS_PTRACE
+          readOnlyRootFilesystem: false
+          runAsNonRoot: true
+          runAsUser: 10000
+          runAsGroup: 10001
+                
+        image: "hpccsystems/platform-core:941147cf4-Debug-dirty-0cb63cc194ca4b442bf01bd33ac0e4a1"
+        imagePullPolicy: IfNotPresent
+        volumeMounts:
+        - name: eclqueries-temp-volume
+          mountPath: /tmp
+        - name: eclqueries-hpcctmp-volume
+          mountPath: /var/lib/HPCCSystems
+        - name: eclqueries-configmap-volume
+          mountPath: /etc/config
+        
+        - name: data-pv
+          mountPath: "/var/lib/HPCCSystems/hpcc-data"
+        - name: dll
+          mountPath: /var/lib/HPCCSystems/queries
+        
+        
+      volumes:
+      - name: eclqueries-temp-volume
+        emptyDir: {}
+      - name: eclqueries-hpcctmp-volume
+        emptyDir: {}
+      - name: eclqueries-configmap-volume
+        configMap:
+          name: eclqueries-configmap
+      
+      - name: data-pv
+        persistentVolumeClaim:
+          claimName: data-localfile-hpcc-localfile-pvc
+      - name: dll
+        persistentVolumeClaim:
+          claimName: dll-localfile-hpcc-localfile-pvc
+---
+# Source: hpcc/templates/esp.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: "esdl-sandbox"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      run: "esdl-sandbox"
+  template:
+    metadata:
+      labels:
+        run: "esdl-sandbox"
+        accessDali: "yes"
+        app: esdl-sandbox
+      annotations:
+        checksum/config: 1d280cbd41764aa0e344f6404f7588d6f1179574dbdb16780221e43af8efc24d
+    spec:      
+      serviceAccountName: "hpcc-default"
+      containers:
+      - name: "esdl-sandbox"
+        workingDir: /var/lib/HPCCSystems
+        command: [ esp ] 
+        args: [
+                "--application=esdl-sandbox",
+                "--config=/etc/config/esdl-sandbox.yaml",
+                "--daliServers=mydali"
+              ]
+        env:
+        - name: "SENTINEL"
+          value: "/tmp/esdl-sandbox.sentinel"
+        startupProbe:
+          exec:
+            command:
+            - cat
+            - "/tmp/esdl-sandbox.sentinel"
+          failureThreshold: 30
+          periodSeconds: 10
+        readinessProbe:
+          exec:
+            command:
+            - cat
+            - "/tmp/esdl-sandbox.sentinel"
+          periodSeconds: 10
+                
+        securityContext:
+          privileged: true
+          capabilities:
+            add:
+            - SYS_PTRACE
+          readOnlyRootFilesystem: false
+          runAsNonRoot: true
+          runAsUser: 10000
+          runAsGroup: 10001
+                
+        image: "hpccsystems/platform-core:941147cf4-Debug-dirty-0cb63cc194ca4b442bf01bd33ac0e4a1"
+        imagePullPolicy: IfNotPresent
+        volumeMounts:
+        - name: esdl-sandbox-temp-volume
+          mountPath: /tmp
+        - name: esdl-sandbox-hpcctmp-volume
+          mountPath: /var/lib/HPCCSystems
+        - name: esdl-sandbox-configmap-volume
+          mountPath: /etc/config
+        
+        - name: data-pv
+          mountPath: "/var/lib/HPCCSystems/hpcc-data"
+        - name: dll
+          mountPath: /var/lib/HPCCSystems/queries
+        
+        
+      volumes:
+      - name: esdl-sandbox-temp-volume
+        emptyDir: {}
+      - name: esdl-sandbox-hpcctmp-volume
+        emptyDir: {}
+      - name: esdl-sandbox-configmap-volume
+        configMap:
+          name: esdl-sandbox-configmap
+      
+      - name: data-pv
+        persistentVolumeClaim:
+          claimName: data-localfile-hpcc-localfile-pvc
+      - name: dll
+        persistentVolumeClaim:
+          claimName: dll-localfile-hpcc-localfile-pvc
+---
+# Source: hpcc/templates/esp.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: "sql2ecl"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      run: "sql2ecl"
+  template:
+    metadata:
+      labels:
+        run: "sql2ecl"
+        accessDali: "yes"
+        app: sql2ecl
+      annotations:
+        checksum/config: 20f9f59254a3cf1d9d0f6af6a77d1c10b6c87e0f56b9892ca423812ac712d699
+    spec:      
+      serviceAccountName: "hpcc-default"
+      containers:
+      - name: "sql2ecl"
+        workingDir: /var/lib/HPCCSystems
+        command: [ esp ] 
+        args: [
+                "--application=sql2ecl",
+                "--config=/etc/config/sql2ecl.yaml",
+                "--daliServers=mydali"
+              ]
+        env:
+        - name: "SENTINEL"
+          value: "/tmp/sql2ecl.sentinel"
+        startupProbe:
+          exec:
+            command:
+            - cat
+            - "/tmp/sql2ecl.sentinel"
+          failureThreshold: 30
+          periodSeconds: 10
+        readinessProbe:
+          exec:
+            command:
+            - cat
+            - "/tmp/sql2ecl.sentinel"
+          periodSeconds: 10
+                
+        securityContext:
+          privileged: true
+          capabilities:
+            add:
+            - SYS_PTRACE
+          readOnlyRootFilesystem: false
+          runAsNonRoot: true
+          runAsUser: 10000
+          runAsGroup: 10001
+                
+        image: "hpccsystems/platform-core:941147cf4-Debug-dirty-0cb63cc194ca4b442bf01bd33ac0e4a1"
+        imagePullPolicy: IfNotPresent
+        volumeMounts:
+        - name: sql2ecl-temp-volume
+          mountPath: /tmp
+        - name: sql2ecl-hpcctmp-volume
+          mountPath: /var/lib/HPCCSystems
+        - name: sql2ecl-configmap-volume
+          mountPath: /etc/config
+        
+        - name: data-pv
+          mountPath: "/var/lib/HPCCSystems/hpcc-data"
+        - name: dll
+          mountPath: /var/lib/HPCCSystems/queries
+        
+        
+      volumes:
+      - name: sql2ecl-temp-volume
+        emptyDir: {}
+      - name: sql2ecl-hpcctmp-volume
+        emptyDir: {}
+      - name: sql2ecl-configmap-volume
+        configMap:
+          name: sql2ecl-configmap
+      
+      - name: data-pv
+        persistentVolumeClaim:
+          claimName: data-localfile-hpcc-localfile-pvc
+      - name: dll
+        persistentVolumeClaim:
+          claimName: dll-localfile-hpcc-localfile-pvc
+---
+# Source: hpcc/templates/roxie.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: "roxie-toposerver"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      run: "roxie-toposerver"
+  template:
+    metadata:
+      labels:
+        run: "roxie-toposerver"
+        roxie-cluster: "roxie"
+      annotations:
+        checksum/config: 5e602deb9167b36e36c3436e26ff9da62717831e809eda4f9ee2db108eb240a4
+    spec:      
+      serviceAccountName: "hpcc-default"
+      containers:
+      - name: "roxie-toposerver"
+        env:
+        - name: "SENTINEL"
+          value: "/tmp/roxie-toposerver.sentinel"
+        startupProbe:
+          exec:
+            command:
+            - cat
+            - "/tmp/roxie-toposerver.sentinel"
+          failureThreshold: 30
+          periodSeconds: 10
+        readinessProbe:
+          exec:
+            command:
+            - cat
+            - "/tmp/roxie-toposerver.sentinel"
+          periodSeconds: 10
+                
+        securityContext:
+          privileged: true
+          capabilities:
+            add:
+            - SYS_PTRACE
+          readOnlyRootFilesystem: false
+          runAsNonRoot: true
+          runAsUser: 10000
+          runAsGroup: 10001
+        
+        image: "hpccsystems/platform-core:941147cf4-Debug-dirty-0cb63cc194ca4b442bf01bd33ac0e4a1"
+        imagePullPolicy: IfNotPresent
+        workingDir: /var/lib/HPCCSystems
+        command: [ toposerver ] 
+        args: [ 
+                "--config=/etc/config/roxie-toposerver.yaml"
+              ]
+        volumeMounts:
+        - name: roxie-toposerver-temp-volume
+          mountPath: /tmp
+        - name: roxie-toposerver-hpcctmp-volume
+          mountPath: /var/lib/HPCCSystems
+        - name: roxie-toposerver-configmap-volume
+          mountPath: /etc/config
+        
+      volumes:
+      - name: roxie-toposerver-temp-volume
+        emptyDir: {}
+      - name: roxie-toposerver-hpcctmp-volume
+        emptyDir: {}
+      - name: roxie-toposerver-configmap-volume
+        configMap:
+          name: roxie-toposerver-configmap
+---
+# Source: hpcc/templates/roxie.yaml
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: "roxie-agent-1"
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      run: "roxie-agent-1"
+  template:
+    metadata:
+      labels:
+        run: "roxie-agent-1"        
+        roxie-server: "roxie-server"
+        roxie-cluster: "roxie"
+        accessDali: "yes"
+        accessEsp: "yes"
+      annotations:
+        checksum/config: 72e58743792ac59a42c4e5941b391e45a57fde3e46b8517fc700ccc14daa2c58
+    spec:      
+      serviceAccountName: "hpcc-default"
+      initContainers:      
+      containers:
+      - name: "roxie-agent-1"
+        workingDir: /var/lib/HPCCSystems
+        command: [ roxie ]
+        args: [ 
+                "--config=/etc/config/roxie.yaml",
+                "--daliServers=mydali",
+                "--channels=1", 
+                "--server=true",
+              ]
+        ports:
+        - name: roxie
+          containerPort: 9876
+        env:
+        - name: "SENTINEL"
+          value: "/tmp/roxie.sentinel"
+        startupProbe:
+          exec:
+            command:
+            - cat
+            - "/tmp/roxie.sentinel"
+          failureThreshold: 30
+          periodSeconds: 10
+        readinessProbe:
+          exec:
+            command:
+            - cat
+            - "/tmp/roxie.sentinel"
+          periodSeconds: 10
+        
+        
+        securityContext:
+          privileged: true
+          capabilities:
+            add:
+            - SYS_PTRACE
+          readOnlyRootFilesystem: false
+          runAsNonRoot: true
+          runAsUser: 10000
+          runAsGroup: 10001
+                
+        image: "hpccsystems/platform-core:941147cf4-Debug-dirty-0cb63cc194ca4b442bf01bd33ac0e4a1"
+        imagePullPolicy: IfNotPresent
+        volumeMounts:
+        - name: roxie-temp-volume
+          mountPath: /tmp
+        - name: roxie-hpcctmp-volume
+          mountPath: /var/lib/HPCCSystems
+        - name: roxie-configmap-volume
+          mountPath: /etc/config
+        
+        - name: data-pv
+          mountPath: "/var/lib/HPCCSystems/hpcc-data"
+        - name: dll
+          mountPath: /var/lib/HPCCSystems/queries
+        
+        
+        
+        
+
+      volumes:
+      - name: roxie-temp-volume
+        emptyDir: {}
+      - name: roxie-hpcctmp-volume
+        emptyDir: {}
+      - name: roxie-configmap-volume
+        configMap:
+          name: roxie-configmap
+      
+      - name: data-pv
+        persistentVolumeClaim:
+          claimName: data-localfile-hpcc-localfile-pvc
+      - name: dll
+        persistentVolumeClaim:
+          claimName: dll-localfile-hpcc-localfile-pvc
+---
+# Source: hpcc/templates/roxie.yaml
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: "roxie-agent-2"
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      run: "roxie-agent-2"
+  template:
+    metadata:
+      labels:
+        run: "roxie-agent-2"        
+        roxie-server: "roxie-server"
+        roxie-cluster: "roxie"
+        accessDali: "yes"
+        accessEsp: "yes"
+      annotations:
+        checksum/config: 72e58743792ac59a42c4e5941b391e45a57fde3e46b8517fc700ccc14daa2c58
+    spec:      
+      serviceAccountName: "hpcc-default"
+      initContainers:      
+      containers:
+      - name: "roxie-agent-2"
+        workingDir: /var/lib/HPCCSystems
+        command: [ roxie ]
+        args: [ 
+                "--config=/etc/config/roxie.yaml",
+                "--daliServers=mydali",
+                "--channels=2", 
+                "--server=true",
+              ]
+        ports:
+        - name: roxie
+          containerPort: 9876
+        env:
+        - name: "SENTINEL"
+          value: "/tmp/roxie.sentinel"
+        startupProbe:
+          exec:
+            command:
+            - cat
+            - "/tmp/roxie.sentinel"
+          failureThreshold: 30
+          periodSeconds: 10
+        readinessProbe:
+          exec:
+            command:
+            - cat
+            - "/tmp/roxie.sentinel"
+          periodSeconds: 10
+        
+        
+        securityContext:
+          privileged: true
+          capabilities:
+            add:
+            - SYS_PTRACE
+          readOnlyRootFilesystem: false
+          runAsNonRoot: true
+          runAsUser: 10000
+          runAsGroup: 10001
+                
+        image: "hpccsystems/platform-core:941147cf4-Debug-dirty-0cb63cc194ca4b442bf01bd33ac0e4a1"
+        imagePullPolicy: IfNotPresent
+        volumeMounts:
+        - name: roxie-temp-volume
+          mountPath: /tmp
+        - name: roxie-hpcctmp-volume
+          mountPath: /var/lib/HPCCSystems
+        - name: roxie-configmap-volume
+          mountPath: /etc/config
+        
+        - name: data-pv
+          mountPath: "/var/lib/HPCCSystems/hpcc-data"
+        - name: dll
+          mountPath: /var/lib/HPCCSystems/queries
+        
+        
+        
+        
+
+      volumes:
+      - name: roxie-temp-volume
+        emptyDir: {}
+      - name: roxie-hpcctmp-volume
+        emptyDir: {}
+      - name: roxie-configmap-volume
+        configMap:
+          name: roxie-configmap
+      
+      - name: data-pv
+        persistentVolumeClaim:
+          claimName: data-localfile-hpcc-localfile-pvc
+      - name: dll
+        persistentVolumeClaim:
+          claimName: dll-localfile-hpcc-localfile-pvc
+---
+# Source: hpcc/templates/sasha.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: "sasha-dfurecovery-archiver"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      run: "sasha-dfurecovery-archiver"
+  template:
+    metadata:
+      labels:
+        run: "sasha-dfurecovery-archiver"
+        accessDali: "yes"
+      annotations:
+        checksum/config: 0af0b3ea19167d22f6cc2e48f0c1836dc9b13f3bd401587366308a174cee435c
+    spec:      
+      serviceAccountName: "hpcc-default"
+      containers:      
+      - name: "sasha-dfurecovery-archiver"
+        workingDir: /var/lib/HPCCSystems
+        command: [ saserver ] 
+        args: [
+                "--config=/etc/config/sasha-dfurecovery-archiver.yaml",
+                "--service=dfurecovery-archiver",
+                "--daliServers=mydali"
+              ]    
+        securityContext:
+          privileged: true
+          capabilities:
+            add:
+            - SYS_PTRACE
+          readOnlyRootFilesystem: false
+          runAsNonRoot: true
+          runAsUser: 10000
+          runAsGroup: 10001
+        
+        env:
+        - name: "SENTINEL"
+          value: "/tmp/sasha-dfurecovery-archiver.sentinel"
+        startupProbe:
+          exec:
+            command:
+            - cat
+            - "/tmp/sasha-dfurecovery-archiver.sentinel"
+          failureThreshold: 30
+          periodSeconds: 10
+        readinessProbe:
+          exec:
+            command:
+            - cat
+            - "/tmp/sasha-dfurecovery-archiver.sentinel"
+          periodSeconds: 10
+        
+        image: "hpccsystems/platform-core:941147cf4-Debug-dirty-0cb63cc194ca4b442bf01bd33ac0e4a1"
+        imagePullPolicy: IfNotPresent
+        volumeMounts:        
+        - name: sasha-dfurecovery-archiver-temp-volume
+          mountPath: /tmp
+        - name: sasha-dfurecovery-archiver-hpcctmp-volume
+          mountPath: /var/lib/HPCCSystems
+        - name: sasha-dfurecovery-archiver-configmap-volume
+          mountPath: /etc/config
+        
+      volumes:      
+      - name: sasha-dfurecovery-archiver-temp-volume
+        emptyDir: {}
+      - name: sasha-dfurecovery-archiver-hpcctmp-volume
+        emptyDir: {}
+      - name: sasha-dfurecovery-archiver-configmap-volume
+        configMap:
+          name: sasha-dfurecovery-archiver-configmap
+---
+# Source: hpcc/templates/sasha.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: "sasha-dfuwu-archiver"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      run: "sasha-dfuwu-archiver"
+  template:
+    metadata:
+      labels:
+        run: "sasha-dfuwu-archiver"
+        accessDali: "yes"
+      annotations:
+        checksum/config: 8b07aef9a5929eff5368f34c5ce601bad32a366ac02e4c89f59aa2d166405b71
+    spec:      
+      serviceAccountName: "hpcc-default"
+      initContainers:      
+      containers:      
+      - name: "sasha-dfuwu-archiver"
+        workingDir: /var/lib/HPCCSystems
+        command: [ saserver ] 
+        args: [
+                "--config=/etc/config/sasha-dfuwu-archiver.yaml",
+                "--service=dfuwu-archiver",
+                "--daliServers=mydali"
+              ]    
+        securityContext:
+          privileged: true
+          capabilities:
+            add:
+            - SYS_PTRACE
+          readOnlyRootFilesystem: false
+          runAsNonRoot: true
+          runAsUser: 10000
+          runAsGroup: 10001
+        
+        env:
+        - name: "SENTINEL"
+          value: "/tmp/sasha-dfuwu-archiver.sentinel"
+        startupProbe:
+          exec:
+            command:
+            - cat
+            - "/tmp/sasha-dfuwu-archiver.sentinel"
+          failureThreshold: 30
+          periodSeconds: 10
+        readinessProbe:
+          exec:
+            command:
+            - cat
+            - "/tmp/sasha-dfuwu-archiver.sentinel"
+          periodSeconds: 10
+        
+        image: "hpccsystems/platform-core:941147cf4-Debug-dirty-0cb63cc194ca4b442bf01bd33ac0e4a1"
+        imagePullPolicy: IfNotPresent
+        volumeMounts:        
+        - name: sasha
+          mountPath: /var/lib/HPCCSystems/sasha
+        - name: sasha-dfuwu-archiver-temp-volume
+          mountPath: /tmp
+        - name: sasha-dfuwu-archiver-hpcctmp-volume
+          mountPath: /var/lib/HPCCSystems
+        - name: sasha-dfuwu-archiver-configmap-volume
+          mountPath: /etc/config
+        
+      volumes:      
+      - name: sasha
+        persistentVolumeClaim:
+          claimName: sasha-localfile-hpcc-localfile-pvc
+      - name: sasha-dfuwu-archiver-temp-volume
+        emptyDir: {}
+      - name: sasha-dfuwu-archiver-hpcctmp-volume
+        emptyDir: {}
+      - name: sasha-dfuwu-archiver-configmap-volume
+        configMap:
+          name: sasha-dfuwu-archiver-configmap
+---
+# Source: hpcc/templates/sasha.yaml
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: "sasha-file-expiry"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      run: "sasha-file-expiry"
+  template:
+    metadata:
+      labels:
+        run: "sasha-file-expiry"
+        accessDali: "yes"
+      annotations:
+        checksum/config: 2657d5de43f4daa04669a0ab05a03b1765fb239b01194224078670452e24644f
+    spec:      
+      serviceAccountName: "hpcc-default"
+      containers:      
+      - name: "sasha-file-expiry"
+        workingDir: /var/lib/HPCCSystems
+        command: [ saserver ] 
+        args: [
+                "--config=/etc/config/sasha-file-expiry.yaml",
+                "--service=file-expiry",
+                "--daliServers=mydali"
+              ]    
+        securityContext:
+          privileged: true
+          capabilities:
+            add:
+            - SYS_PTRACE
+          readOnlyRootFilesystem: false
+          runAsNonRoot: true
+          runAsUser: 10000
+          runAsGroup: 10001
+        
+        env:
+        - name: "SENTINEL"
+          value: "/tmp/sasha-file-expiry.sentinel"
+        startupProbe:
+          exec:
+            command:
+            - cat
+            - "/tmp/sasha-file-expiry.sentinel"
+          failureThreshold: 30
+          periodSeconds: 10
+        readinessProbe:
+          exec:
+            command:
+            - cat
+            - "/tmp/sasha-file-expiry.sentinel"
+          periodSeconds: 10
+        
+        image: "hpccsystems/platform-core:941147cf4-Debug-dirty-0cb63cc194ca4b442bf01bd33ac0e4a1"
+        imagePullPolicy: IfNotPresent
+        volumeMounts:        
+        - name: sasha-file-expiry-temp-volume
+          mountPath: /tmp
+        - name: sasha-file-expiry-hpcctmp-volume
+          mountPath: /var/lib/HPCCSystems
+        - name: sasha-file-expiry-configmap-volume
+          mountPath: /etc/config
+        
+        - name: data-pv
+          mountPath: "/var/lib/HPCCSystems/hpcc-data"
+        
+      volumes:      
+      - name: sasha-file-expiry-temp-volume
+        emptyDir: {}
+      - name: sasha-file-expiry-hpcctmp-volume
+        emptyDir: {}
+      - name: sasha-file-expiry-configmap-volume
+        configMap:
+          name: sasha-file-expiry-configmap
+      
+      - name: data-pv
+        persistentVolumeClaim:
+          claimName: data-localfile-hpcc-localfile-pvc
+---
+# Source: hpcc/templates/sasha.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: "sasha-wu-archiver"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      run: "sasha-wu-archiver"
+  template:
+    metadata:
+      labels:
+        run: "sasha-wu-archiver"
+        accessDali: "yes"
+      annotations:
+        checksum/config: c708050438c968298ad476a5f8379005dc8bd632e762824427434523d83220de
+    spec:      
+      serviceAccountName: "hpcc-default"
+      initContainers:      
+      containers:      
+      - name: "sasha-wu-archiver"
+        workingDir: /var/lib/HPCCSystems
+        command: [ saserver ] 
+        args: [
+                "--config=/etc/config/sasha-wu-archiver.yaml",
+                "--service=wu-archiver",
+                "--daliServers=mydali"
+              ]    
+        securityContext:
+          privileged: true
+          capabilities:
+            add:
+            - SYS_PTRACE
+          readOnlyRootFilesystem: false
+          runAsNonRoot: true
+          runAsUser: 10000
+          runAsGroup: 10001
+        
+        env:
+        - name: "SENTINEL"
+          value: "/tmp/sasha-wu-archiver.sentinel"
+        startupProbe:
+          exec:
+            command:
+            - cat
+            - "/tmp/sasha-wu-archiver.sentinel"
+          failureThreshold: 30
+          periodSeconds: 10
+        readinessProbe:
+          exec:
+            command:
+            - cat
+            - "/tmp/sasha-wu-archiver.sentinel"
+          periodSeconds: 10
+        
+        image: "hpccsystems/platform-core:941147cf4-Debug-dirty-0cb63cc194ca4b442bf01bd33ac0e4a1"
+        imagePullPolicy: IfNotPresent
+        volumeMounts:        
+        - name: sasha
+          mountPath: /var/lib/HPCCSystems/sasha
+        - name: sasha-wu-archiver-temp-volume
+          mountPath: /tmp
+        - name: sasha-wu-archiver-hpcctmp-volume
+          mountPath: /var/lib/HPCCSystems
+        - name: sasha-wu-archiver-configmap-volume
+          mountPath: /etc/config
+        
+        - name: data-pv
+          mountPath: "/var/lib/HPCCSystems/hpcc-data"
+        - name: dll
+          mountPath: /var/lib/HPCCSystems/queries
+        
+      volumes:      
+      - name: sasha
+        persistentVolumeClaim:
+          claimName: sasha-localfile-hpcc-localfile-pvc
+      - name: sasha-wu-archiver-temp-volume
+        emptyDir: {}
+      - name: sasha-wu-archiver-hpcctmp-volume
+        emptyDir: {}
+      - name: sasha-wu-archiver-configmap-volume
+        configMap:
+          name: sasha-wu-archiver-configmap
+      
+      - name: data-pv
+        persistentVolumeClaim:
+          claimName: data-localfile-hpcc-localfile-pvc
+      - name: dll
+        persistentVolumeClaim:
+          claimName: dll-localfile-hpcc-localfile-pvc
+---
+# Source: hpcc/templates/thor.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: "thor-eclagent"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      run: "thor-eclagent"
+  template:
+    metadata:
+      labels:
+        run: "thor-eclagent"
+        accessDali: "yes"
+        accessEsp: "yes"
+      annotations:
+        checksum/config: e9836bc35810ae387710d987f889b990a16f502b7a619cf16dbe1cb3eb81392b
+    spec:      
+      serviceAccountName: hpcc-default
+      containers:
+      - name: "thor-eclagent"
+        workingDir: /var/lib/HPCCSystems
+        command: [ agentexec ]
+        args: [
+                "--config=/etc/config/thor.yaml",
+                "--daliServers=mydali",
+                "--name=thor"
+              ]        
+        securityContext:
+          privileged: true
+          capabilities:
+            add:
+            - SYS_PTRACE
+          readOnlyRootFilesystem: false
+          runAsNonRoot: true
+          runAsUser: 10000
+          runAsGroup: 10001
+                
+        image: "hpccsystems/platform-core:941147cf4-Debug-dirty-0cb63cc194ca4b442bf01bd33ac0e4a1"
+        imagePullPolicy: IfNotPresent
+        volumeMounts:
+        - name: thor-temp-volume
+          mountPath: /tmp
+        - name: thor-hpcctmp-volume
+          mountPath: /var/lib/HPCCSystems
+        - name: thor-configmap-volume
+          mountPath: /etc/config
+        
+        - name: data-pv
+          mountPath: "/var/lib/HPCCSystems/hpcc-data"
+        - name: dll
+          mountPath: /var/lib/HPCCSystems/queries
+        
+        
+      volumes:
+      - name: thor-temp-volume
+        emptyDir: {}
+      - name: thor-hpcctmp-volume
+        emptyDir: {}
+      - name: thor-configmap-volume
+        configMap:
+          name: thor-configmap
+      
+      - name: data-pv
+        persistentVolumeClaim:
+          claimName: data-localfile-hpcc-localfile-pvc
+      - name: dll
+        persistentVolumeClaim:
+          claimName: dll-localfile-hpcc-localfile-pvc
+---
+# Source: hpcc/templates/thor.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: "thor-thoragent"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      run: "thor-thoragent"
+  template:
+    metadata:
+      labels:
+        run: "thor-thoragent"
+        accessDali: "yes"
+        accessEsp: "no"
+      annotations:
+        checksum/config: e9836bc35810ae387710d987f889b990a16f502b7a619cf16dbe1cb3eb81392b
+    spec:      
+      serviceAccountName: "hpcc-thoragent"
+      containers:
+      - name: "thor-thoragent"
+        workingDir: /var/lib/HPCCSystems
+        command: [ agentexec ]
+        args: [
+                "--config=/etc/config/thor.yaml",
+                "--componentTag=thoragent",
+                "--daliServers=mydali",
+                "--name=thor"
+              ]        
+        securityContext:
+          privileged: true
+          capabilities:
+            add:
+            - SYS_PTRACE
+          readOnlyRootFilesystem: false
+          runAsNonRoot: true
+          runAsUser: 10000
+          runAsGroup: 10001
+        
+        image: "hpccsystems/platform-core:941147cf4-Debug-dirty-0cb63cc194ca4b442bf01bd33ac0e4a1"
+        imagePullPolicy: IfNotPresent
+        volumeMounts:
+        - name: thor-temp-volume
+          mountPath: /tmp
+        - name: thor-hpcctmp-volume
+          mountPath: /var/lib/HPCCSystems
+        - name: thor-configmap-volume
+          mountPath: /etc/config
+        
+        - name: data-pv
+          mountPath: "/var/lib/HPCCSystems/hpcc-data"
+        - name: dll
+          mountPath: /var/lib/HPCCSystems/queries
+        
+        
+      volumes:
+      - name: thor-temp-volume
+        emptyDir: {}
+      - name: thor-hpcctmp-volume
+        emptyDir: {}
+      - name: thor-configmap-volume
+        configMap:
+          name: thor-configmap
+      
+      - name: data-pv
+        persistentVolumeClaim:
+          claimName: data-localfile-hpcc-localfile-pvc
+      - name: dll
+        persistentVolumeClaim:
+          claimName: dll-localfile-hpcc-localfile-pvc
+---
+# Source: hpcc/templates/sasha.yaml
+---
+---
+# Source: hpcc/templates/thor.yaml
+## thorworker and thormanager pods have unique names by workunit not by cluster. So we have to use a global certificate.
+## create these only once
+
+NOTES:
+Thank you for installing the HPCC chart.
+
+This chart has defined the following HPCC components:
+  dali.mydali
+  dfuserver.dfuserver
+  eclagent.hthor
+  eclagent.roxie-workunit
+  eclccserver.myeclccserver
+  eclscheduler.eclscheduler
+  esp.eclwatch
+  esp.eclservices
+  esp.eclqueries
+  esp.esdl-sandbox
+  esp.sql2ecl
+  roxie.roxie
+  thor.thor
+  sasha.dfurecovery-archiver
+  sasha.dfuwu-archiver
+  sasha.file-expiry
+  sasha.wu-archiver
