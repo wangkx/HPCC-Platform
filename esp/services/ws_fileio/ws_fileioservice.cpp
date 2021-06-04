@@ -30,15 +30,61 @@
 
 void CWsFileIOEx::init(IPropertyTree *cfg, const char *process, const char *service)
 {
+    CTpWrapper tpWrapper;
+    tpWrapper.getTpDropZones(9999, nullptr, false, allTpDropZones); //version 9999: get the latest information about dropzone
 }
 
-bool CWsFileIOEx::CheckServerAccess(const char* targetDZNameOrAddress, const char* relPath, StringBuffer& netAddr, StringBuffer& absPath)
+//Already in the PR for ws_fsServices? Move this to a lib?
+StringBuffer& readNetAddress(const char* addressIn, StringBuffer& addressOut)
+{
+    if (isEmptyString(addressIn))
+        return addressOut;
+
+    IpAddress ipAddr;
+    ipAddr.ipset(addressIn);
+    if (ipAddr.isNull())
+        throw makeStringExceptionV(ECLWATCH_INVALID_INPUT, "Invalid network address %s specified.", addressIn);
+
+    return ipAddr.getIpText(addressOut);
+}
+
+bool CWsFileIOEx::CheckServerAccess(const char* targetDZNameOrAddress, const char* netAddrReq, const char* relPath, StringBuffer& netAddr, StringBuffer& absPath)
 {
     if (!targetDZNameOrAddress || (targetDZNameOrAddress[0] == 0) || !relPath || (relPath[0] == 0))
         return false;
 
 #ifdef _CONTAINERIZED
-    UNIMPLEMENTED_X("CONTAINERIZED(CWsFileIOEx::CheckServerAccess)");
+    StringBuffer serverBuffer;
+    const char* serverReq = readNetAddress(netAddrReq, serverBuffer); 
+    ForEachItemIn(i, allTpDropZones)
+    {
+        IConstTpDropZone& dropZone = allTpDropZones.item(i);
+        if (!dropZone.getECLWatchVisible())
+            continue;
+
+        const char* name = dropZone.getName();
+        if (isEmptyString(name) || !streq(targetDZNameOrAddress, name))
+            continue;
+
+        const char* prefix = dropZone.getPath();
+        if (isEmptyString(prefix))
+            continue;
+
+        IArrayOf<IConstTpMachine>& tpMachines = dropZone.getTpMachines();
+        ForEachItemIn(ii, tpMachines)
+        {
+            IConstTpMachine& tpMachine = tpMachines.item(ii);
+            const char* netAddress = tpMachines.item(ii).getNetaddress();
+            if (!isEmptyString(serverReq) && !streq(serverReq, netAddress))
+                continue;
+
+            netAddr.set(netAddress);
+            absPath.set(prefix);
+            addPathSepChar(absPath);
+            absPath.append(relPath);
+            return true;
+        }
+    }
 #else
     netAddr.clear();
     Owned<IEnvironmentFactory> factory = getEnvironmentFactory(true);
@@ -120,9 +166,8 @@ bool CWsFileIOEx::CheckServerAccess(const char* targetDZNameOrAddress, const cha
         }
 
     }
-
-    return false;
 #endif
+    return false;
 }
 
 bool CWsFileIOEx::onCreateFile(IEspContext &context, IEspCreateFileRequest &req, IEspCreateFileResponse &resp)
@@ -144,12 +189,14 @@ bool CWsFileIOEx::onCreateFile(IEspContext &context, IEspCreateFileRequest &req,
         return true;
     }
 
-    resp.setDestDropZone(server);
-    resp.setDestRelativePath(destRelativePath);
+    if (isEmptyString(server))
+        resp.setDestDropZone(server);
+    if (isEmptyString(destRelativePath))
+        resp.setDestRelativePath(destRelativePath);
 
     StringBuffer destAbsPath;
     StringBuffer destNetAddr;
-    if (!CheckServerAccess(server, destRelativePath, destNetAddr, destAbsPath))
+    if (!CheckServerAccess(server, req.getDestNetAddress(), destRelativePath, destNetAddr, destAbsPath))
     {
         result.appendf("Failed to access the destination: %s %s.", server, destRelativePath);
         resp.setResult(result.str());
@@ -207,7 +254,7 @@ bool CWsFileIOEx::onReadFileData(IEspContext &context, IEspReadFileDataRequest &
 
     StringBuffer destAbsPath;
     StringBuffer destNetAddr;
-    if (!CheckServerAccess(server, destRelativePath, destNetAddr, destAbsPath))
+    if (!CheckServerAccess(server, req.getDestNetAddress(), destRelativePath, destNetAddr, destAbsPath))
     {
         result.appendf("Failed to access the destination: %s %s.", server, destRelativePath);
         resp.setResult(result.str());
@@ -318,7 +365,7 @@ bool CWsFileIOEx::onWriteFileData(IEspContext &context, IEspWriteFileDataRequest
 
     StringBuffer destAbsPath;
     StringBuffer destNetAddr;
-    if (!CheckServerAccess(server, destRelativePath, destNetAddr, destAbsPath))
+    if (!CheckServerAccess(server, req.getDestNetAddress(), destRelativePath, destNetAddr, destAbsPath))
     {
         result.appendf("Failed to access the destination: %s %s.", server, destRelativePath);
         resp.setResult(result.str());
